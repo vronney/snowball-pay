@@ -1,0 +1,197 @@
+import { useState } from 'react';
+import { Plus } from 'lucide-react';
+
+interface DebtFormProps {
+  onSubmit: (data: any) => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}
+
+export default function DebtForm({ onSubmit, onCancel, isLoading }: DebtFormProps) {
+  const [formData, setFormData] = useState({
+    name: '',
+    category: '',
+    balance: '',
+    interestRate: '',
+    minimumPayment: '',
+    creditLimit: '',
+    dueDate: '',
+  });
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!formData.name || !formData.category || !formData.balance || !formData.interestRate || !formData.minimumPayment) {
+      setError('Please fill in all required fields.');
+      return;
+    }
+
+    onSubmit({
+      name: formData.name,
+      category: formData.category,
+      balance: parseFloat(formData.balance),
+      interestRate: parseFloat(formData.interestRate),
+      minimumPayment: parseFloat(formData.minimumPayment),
+      creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
+      dueDate: formData.dueDate ? parseInt(formData.dueDate) : undefined,
+    });
+
+    setFormData({
+      name: '',
+      category: '',
+      balance: '',
+      interestRate: '',
+      minimumPayment: '',
+      creditLimit: '',
+      dueDate: '',
+    });
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label htmlFor="debt-name" className="text-xs opacity-60 mb-1 block">
+          Debt Name
+        </label>
+        <input
+          id="debt-name"
+          type="text"
+          placeholder="e.g. Chase Visa"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          className="input-field"
+          required
+        />
+      </div>
+
+      <div>
+        <label htmlFor="debt-category" className="text-xs opacity-60 mb-1 block">
+          Category
+        </label>
+        <select
+          id="debt-category"
+          value={formData.category}
+          onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+          className="input-field"
+          required
+        >
+          <option value="">Select type…</option>
+          <option value="Credit Card">Credit Card</option>
+          <option value="Student Loan">Student Loan</option>
+          <option value="Auto Loan">Auto Loan</option>
+          <option value="Mortgage">Mortgage</option>
+          <option value="Personal Loan">Personal Loan</option>
+          <option value="Medical Debt">Medical Debt</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div>
+        <label htmlFor="debt-balance" className="text-xs opacity-60 mb-1 block">
+          Current Balance ($)
+        </label>
+        <input
+          id="debt-balance"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="5000"
+          value={formData.balance}
+          onChange={(e) => setFormData({ ...formData, balance: e.target.value })}
+          className="input-field"
+          required
+        />
+      </div>
+
+      <div>
+        <label htmlFor="debt-rate" className="text-xs opacity-60 mb-1 block">
+          Interest Rate (%)
+        </label>
+        <input
+          id="debt-rate"
+          type="number"
+          step="0.01"
+          min="0"
+          max="100"
+          placeholder="19.99"
+          value={formData.interestRate}
+          onChange={(e) => setFormData({ ...formData, interestRate: e.target.value })}
+          className="input-field"
+          required
+        />
+      </div>
+
+      <div>
+        <label htmlFor="debt-min" className="text-xs opacity-60 mb-1 block">
+          Minimum Payment ($)
+        </label>
+        <input
+          id="debt-min"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="150"
+          value={formData.minimumPayment}
+          onChange={(e) => setFormData({ ...formData, minimumPayment: e.target.value })}
+          className="input-field"
+          required
+        />
+      </div>
+
+      <div>
+        <label htmlFor="debt-limit" className="text-xs opacity-60 mb-1 block">
+          Credit Limit (if applicable)
+        </label>
+        <input
+          id="debt-limit"
+          type="number"
+          step="0.01"
+          min="0"
+          placeholder="10000"
+          value={formData.creditLimit}
+          onChange={(e) => setFormData({ ...formData, creditLimit: e.target.value })}
+          className="input-field"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="debt-due" className="text-xs opacity-60 mb-1 block">
+          Due Date (day of month)
+        </label>
+        <input
+          id="debt-due"
+          type="number"
+          min="1"
+          max="31"
+          placeholder="15"
+          value={formData.dueDate}
+          onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+          className="input-field"
+        />
+      </div>
+
+      <div className="flex items-end gap-2">
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="btn-primary flex-1"
+          style={{ background: isLoading ? '#64748b' : '#3b82f6' }}
+        >
+          <Plus size={16} />
+          {isLoading ? 'Adding...' : 'Add Debt'}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 rounded-lg py-2.5 text-sm font-semibold cursor-pointer border border-white/10 bg-white/5 text-txt hover:bg-white/10 transition"
+        >
+          Cancel
+        </button>
+      </div>
+
+      {error && <div className="col-span-full text-red-400 text-xs mt-2">{error}</div>}
+    </form>
+  );
+}

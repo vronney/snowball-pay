@@ -1,0 +1,137 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String?
+  auth0Id   String     @unique
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  debts     Debt[]
+  income    Income?
+  expenses  Expense[]
+  payoffPlan PayoffPlan?
+
+  @@map("users")
+}
+
+model Debt {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name              String
+  category          String   // Credit Card, Student Loan, Auto Loan, Mortgage, Personal Loan, Medical Debt, Other
+  balance           Float    @default(0)
+  originalBalance   Float    @default(0)
+  interestRate      Float    @default(0) // APR in percentage
+  minimumPayment    Float    @default(0)
+  creditLimit       Float    @default(0) // for credit cards
+  dueDate           Int?     // day of month (1-31)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  payoffSchedule    PayoffStep[]
+
+  @@index([userId])
+  @@map("debts")
+}
+
+model Income {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  monthlyTakeHome   Float    @default(0)
+  essentialExpenses Float    @default(0) // rent, utilities, groceries, insurance (excluding debt)
+  extraPayment      Float    @default(0) // extra amount available for debt payoff
+
+  source            String?  // W2, 1099, etc.
+  frequency         String   @default("monthly") // monthly, bi-weekly, etc.
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("income")
+}
+
+model Expense {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name              String
+  amount            Float
+  frequency         String   @default("monthly") // monthly, bi-weekly, one-time
+  category          String   // utilities, subscriptions, food, etc.
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId])
+  @@map("expenses")
+}
+
+model PayoffPlan {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  debtFreeDate      DateTime
+  totalInterestPaid Float    @default(0)
+  totalAmountPaid   Float    @default(0)
+  monthlyPayment    Float    @default(0)
+
+  payoffSteps       PayoffStep[]
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("payoff_plans")
+}
+
+model PayoffStep {
+  id                String   @id @default(cuid())
+  debtId            String
+  debt              Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
+
+  payoffPlanId      String
+  payoffPlan        PayoffPlan @relation(fields: [payoffPlanId], references: [id], onDelete: Cascade)
+
+  stepNumber        Int      // order in payoff sequence
+  startBalance      Float
+  payoffMonth       Int      // month when this debt is paid off
+  interestPaid      Float    @default(0)
+
+  @@index([debtId])
+  @@index([payoffPlanId])
+  @@map("payoff_steps")
+}
+
+model UploadedDocument {
+  id                String   @id @default(cuid())
+  userId            String
+  fileName          String
+  fileType          String   // "income_statement", "debt_list", etc.
+  fileUrl           String
+  extractedData     Json?    // store extracted data as JSON
+  status            String   @default("uploaded") // uploaded, processing, completed
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([userId])
+  @@map("uploaded_documents")
+}
