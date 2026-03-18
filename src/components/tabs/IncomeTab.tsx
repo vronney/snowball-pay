@@ -27,7 +27,7 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
 
   const saveIncome = useSaveIncome();
   const createExpense = useCreateExpense();
-  const deleteExpense = useDeleteExpense('');
+  const deleteExpense = useDeleteExpense();
 
   const totalMinPayments = debts.reduce((sum, d) => sum + d.minimumPayment, 0);
   const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
@@ -57,7 +57,7 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
   };
 
   const handleDeleteRecurring = (id: string) => {
-    // deleteExpense.mutate(id);
+    deleteExpense.mutate(id);
   };
 
   if (isLoading) {
@@ -159,7 +159,7 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
             </div>
           )}
 
-          <button type="submit" disabled={saveIncome.isPending} className="btn-primary w-full sm:w-auto" style={{ background: '#3b82f6' }}>
+          <button type="submit" disabled={saveIncome.isPending} className="btn-primary w-full sm:w-auto px-3" style={{ background: '#3b82f6' }}>
             Save Budget
           </button>
           {saveIncome.isSuccess && <p className="text-emerald-400 text-xs">Budget saved!</p>}

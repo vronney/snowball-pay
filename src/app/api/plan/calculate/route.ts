@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
-import { calculateDebtSnowball, calculateDebtAvalanche } from '@/lib/snowball';
+import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
+import {
+  calculateDebtSnowball,
+  calculateDebtAvalanche,
+  calculateDebtCustom,
+  type PayoffMethod,
+  type DebtPayoffSchedule,
+} from '@/lib/snowball';
 import type { Debt } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -9,7 +15,13 @@ export async function POST(request: NextRequest) {
   if (!auth.valid || !auth.user) return unauthorized();
 
   try {
-    const { method = 'snowball' } = await request.json();
+    const body = await request.json().catch(() => ({}));
+    const method = body?.method as PayoffMethod | undefined;
+    const payoffMethod: PayoffMethod = method ?? 'snowball';
+
+    if (!['snowball', 'avalanche', 'custom'].includes(payoffMethod)) {
+      return badRequest('Invalid payoff method');
+    }
 
     // Fetch user's debts and income
     const [debts, income, expenses] = await Promise.all([
@@ -41,8 +53,16 @@ export async function POST(request: NextRequest) {
     }));
 
     // Calculate payoff plan
-    const payoffResult = method === 'avalanche'
+    const payoffResult = payoffMethod === 'avalanche'
       ? calculateDebtAvalanche(
+          normalizedDebts,
+          income.monthlyTakeHome,
+          income.essentialExpenses,
+          recurringTotal,
+          income.extraPayment
+        )
+      : payoffMethod === 'custom'
+      ? calculateDebtCustom(
           normalizedDebts,
           income.monthlyTakeHome,
           income.essentialExpenses,
@@ -94,11 +114,10 @@ export async function POST(request: NextRequest) {
 
     // Create new payoff steps
     await Promise.all(
-      payoffResult.payoffSchedule.map((step) => {
-        const debt = debts.find((d: { name: string; id: string }) => d.name === step.debtName);
+      payoffResult.payoffSchedule.map((step: DebtPayoffSchedule) => {
         return prisma.payoffStep.create({
           data: {
-            debtId: debt?.id || '',
+            debtId: step.debtId,
             payoffPlanId: plan.id,
             stepNumber: step.orderInPayoff,
             startBalance: step.originalBalance,

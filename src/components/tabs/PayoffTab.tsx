@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useCalculatePayoffPlan } from '@/lib/hooks';
+import { useState, useEffect, useMemo } from 'react';
 import { Debt, Income, Expense } from '@/types';
-import { calculateDebtSnowball } from '@/lib/snowball';
-import { Wallet, Zap, ListOrdered, Info, BarChart3, Inbox } from 'lucide-react';
-import { formatCurrency, getCategoryColor, formatDate } from '@/lib/utils';
+import { calculateDebtSnowball, calculateDebtAvalanche, calculateDebtCustom, type PayoffMethod, type PayoffResult } from '@/lib/snowball';
+import { useUpdateDebt, useAllSnapshots } from '@/lib/hooks';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell } from 'recharts';
+import { Wallet, Zap, ListOrdered, Info, Inbox, RefreshCcw } from 'lucide-react';
+import { formatCurrency, getCategoryColor } from '@/lib/utils';
 
 interface PayoffTabProps {
   debts: Debt[];
@@ -15,20 +16,50 @@ interface PayoffTabProps {
 }
 
 export default function PayoffTab({ debts, income, expenses, isLoading }: PayoffTabProps) {
-  const [payoffMethod, setPayoffMethod] = useState<'snowball' | 'avalanche'>('snowball');
-  const calculatePlan = useCalculatePayoffPlan();
-  const [planResult, setPlanResult] = useState<any>(null);
+  const [payoffMethod, setPayoffMethod] = useState<PayoffMethod>('snowball');
+  const [planResult, setPlanResult] = useState<PayoffResult | null>(null);
+  const updateDebt = useUpdateDebt();
+  const { data: snapshotsData } = useAllSnapshots();
+
+  // Build a map of "Mon YYYY" → summed actual balance across all debts for that month.
+  // Used to overlay the Actual line on the Balance Over Time chart.
+  const actualBalanceMap = useMemo(() => {
+    const map = new Map<string, number>();
+    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    for (const s of snapshotsData?.snapshots ?? []) {
+      const d = new Date(s.recordedAt);
+      const label = `${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+      map.set(label, (map.get(label) ?? 0) + s.balance);
+    }
+    return map;
+  }, [snapshotsData?.snapshots]);
 
   useEffect(() => {
     if (debts.length > 0 && income) {
       const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
-      const result = calculateDebtSnowball(
-        debts,
-        income.monthlyTakeHome,
-        income.essentialExpenses,
-        recurringTotal,
-        income.extraPayment
-      );
+      const result = payoffMethod === 'avalanche'
+        ? calculateDebtAvalanche(
+            debts,
+            income.monthlyTakeHome,
+            income.essentialExpenses,
+            recurringTotal,
+            income.extraPayment
+          )
+        : payoffMethod === 'custom'
+        ? calculateDebtCustom(
+            debts,
+            income.monthlyTakeHome,
+            income.essentialExpenses,
+            recurringTotal,
+            income.extraPayment
+          )
+        : calculateDebtSnowball(
+            debts,
+            income.monthlyTakeHome,
+            income.essentialExpenses,
+            recurringTotal,
+            income.extraPayment
+          );
       setPlanResult(result);
     }
   }, [debts, income, expenses, payoffMethod]);
@@ -65,9 +96,133 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
   const years = Math.floor(planResult.months / 12);
   const months = planResult.months % 12;
   const timeStr = years > 0 ? `${years}y ${months}m` : `${months}m`;
+  const minimumsOnlyResult = calculateDebtSnowball(debts, totalMinPayments, 0, 0, 0);
+  const interestSavedVsMinimums = Math.max(0, minimumsOnlyResult.totalInterestPaid - planResult.totalInterestPaid);
+  const priorityEditorDebts = [...debts].sort((a, b) => {
+    const aPriority = a.priorityOrder ?? Number.MAX_SAFE_INTEGER;
+    const bPriority = b.priorityOrder ?? Number.MAX_SAFE_INTEGER;
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
+
+    return a.balance - b.balance;
+  });
+  const hasAnyCustomPriority = debts.some((debt) => debt.priorityOrder != null);
+  const balanceChartData = planResult.monthlyBalances.map((mb) => ({
+    ...mb,
+    actualBalance: actualBalanceMap.get(mb.date),
+  }));
+  const hasAnyActual = actualBalanceMap.size > 0;
+
+  const timelineData = planResult.payoffSchedule.map((item) => ({
+    debtName: item.debtName,
+    monthPaidOff: item.monthPaidOff,
+    category: item.category,
+  }));
+  const strategyName = payoffMethod === 'snowball' ? 'Snowball' : payoffMethod === 'avalanche' ? 'Avalanche' : 'Custom';
+  const payoffOrderLabel = payoffMethod === 'snowball'
+    ? 'Payoff Order (Smallest Balance First)'
+    : payoffMethod === 'avalanche'
+    ? 'Payoff Order (Highest APR First)'
+    : 'Payoff Order (Custom Priority)';
+
+  const handlePriorityChange = async (debtId: string, nextValue: string) => {
+    const parsedPriority = nextValue === '' ? null : parseInt(nextValue, 10);
+    await updateDebt.mutateAsync({
+      id: debtId,
+      updates: { priorityOrder: parsedPriority },
+    });
+  };
+
+  const handleResetPriorities = async () => {
+    const debtsWithPriority = debts.filter((debt) => debt.priorityOrder != null);
+    await Promise.all(
+      debtsWithPriority.map((debt) =>
+        updateDebt.mutateAsync({
+          id: debt.id,
+          updates: { priorityOrder: null },
+        })
+      )
+    );
+  };
 
   return (
     <section id="section-plan" className="space-y-6">
+      <div className="rounded-2xl p-3" style={{ background: 'rgba(26,35,50,1)' }}>
+        <div className="text-xs opacity-60 mb-2">Payoff Strategy</div>
+        <div className="grid grid-cols-3 gap-2">
+          {(['snowball', 'avalanche', 'custom'] as const).map((method) => {
+            const selected = payoffMethod === method;
+            return (
+              <button
+                key={method}
+                type="button"
+                onClick={() => setPayoffMethod(method)}
+                className="rounded-lg px-3 py-2 text-xs font-semibold transition"
+                style={{
+                  background: selected ? 'rgba(59,130,246,0.16)' : 'rgba(255,255,255,0.03)',
+                  border: selected ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.08)',
+                  color: selected ? '#93c5fd' : 'rgba(255,255,255,0.8)',
+                }}
+              >
+                {method === 'snowball' ? 'Snowball' : method === 'avalanche' ? 'Avalanche' : 'Custom'}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {payoffMethod === 'custom' && (
+        <div className="rounded-2xl p-5" style={{ background: 'rgba(26,35,50,1)' }}>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <h2 className="font-semibold text-base">Custom Priority Order</h2>
+            <button
+              type="button"
+              onClick={handleResetPriorities}
+              disabled={!hasAnyCustomPriority || updateDebt.isPending}
+              className="rounded-lg px-3 py-2 text-xs font-semibold transition disabled:opacity-40"
+              style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <RefreshCcw size={13} />
+                Reset Priorities
+              </span>
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {priorityEditorDebts.map((debt) => (
+              <div
+                key={debt.id}
+                className="flex items-center justify-between gap-3 p-3 rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.02)' }}
+              >
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">{debt.name}</div>
+                  <div className="text-xs opacity-55">{formatCurrency(debt.balance)} balance</div>
+                </div>
+                <select
+                  value={debt.priorityOrder ?? ''}
+                  onChange={(e) => void handlePriorityChange(debt.id, e.target.value)}
+                  disabled={updateDebt.isPending}
+                  className="input-field max-w-[140px]"
+                >
+                  <option value="" className='bg-slate-400/80 text-black/80'>No priority</option>
+                  {debts.map((_, idx) => (
+                    <option key={`${debt.id}-priority-${idx + 1}`} value={idx + 1} className='bg-slate-400/80 text-black/80'>
+                      Priority {idx + 1}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Cash Flow Overview */}
       <div className="rounded-2xl p-5" style={{ background: 'rgba(26,35,50,1)' }}>
         <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
@@ -106,9 +261,9 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
       <div className="rounded-2xl p-5 snowball-glow" style={{ background: 'rgba(26,35,50,1)' }}>
         <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
           <Zap size={18} style={{ color: '#3b82f6' }} />
-          Snowball Payoff Plan
+          {strategyName} Payoff Plan
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
           <div>
             <div className="text-xs opacity-50 mb-1">Debt-Free In</div>
             <div className="mono font-bold text-lg" style={{ color: '#3b82f6' }}>
@@ -129,6 +284,12 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
             <div className="text-xs opacity-50 mb-1">Monthly Snowball</div>
             <div className="mono font-bold text-lg">{formatCurrency(monthlyPayment)}</div>
           </div>
+          <div>
+            <div className="text-xs opacity-50 mb-1">Interest Saved vs Minimums</div>
+            <div className="mono font-bold text-lg" style={{ color: '#22c55e' }}>
+              {formatCurrency(interestSavedVsMinimums)}
+            </div>
+          </div>
         </div>
         {availableCashFlow === 0 && (
           <div className="mt-4 p-3 rounded-lg text-xs" style={{ background: '#78350f33', color: '#fbbf24' }}>
@@ -137,15 +298,146 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
         )}
       </div>
 
+      {/* Balance Over Time */}
+      <div className="rounded-2xl p-5" style={{ background: 'rgba(26,35,50,1)' }}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-semibold text-base">Balance Over Time</h2>
+          {!hasAnyActual && (
+            <span className="text-xs opacity-40">Log a balance on a debt card to see actual progress</span>
+          )}
+        </div>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={balanceChartData} margin={{ top: 10, right: 18, left: 10, bottom: 10 }}>
+              <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: 'rgba(255,255,255,0.15)' }}
+                minTickGap={24}
+              />
+              <YAxis
+                tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: 'rgba(255,255,255,0.15)' }}
+                tickFormatter={(value: number) => formatCurrency(value)}
+              />
+              <Tooltip
+                formatter={(value: number, name: string) => [
+                  formatCurrency(value),
+                  name === 'totalBalance' ? 'Projected' : 'Actual',
+                ]}
+                labelFormatter={(label) => `Month: ${String(label)}`}
+                contentStyle={{
+                  background: '#1a2332',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 10,
+                  color: 'rgba(255,255,255,0.9)',
+                }}
+              />
+              {hasAnyActual && (
+                <Legend
+                  formatter={(value) => (
+                    <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>
+                      {value === 'totalBalance' ? 'Projected' : 'Actual'}
+                    </span>
+                  )}
+                />
+              )}
+              <ReferenceLine y={0} stroke="rgba(34,197,94,0.6)" strokeDasharray="6 4" />
+              <Line
+                type="monotone"
+                dataKey="totalBalance"
+                stroke="#3b82f6"
+                strokeWidth={2.5}
+                dot={false}
+                activeDot={{ r: 5, fill: '#93c5fd' }}
+              />
+              {hasAnyActual && (
+                <Line
+                  type="monotone"
+                  dataKey="actualBalance"
+                  stroke="#22c55e"
+                  strokeWidth={2.5}
+                  strokeDasharray="6 3"
+                  dot={{ r: 4, fill: '#22c55e', strokeWidth: 0 }}
+                  activeDot={{ r: 6, fill: '#4ade80' }}
+                  connectNulls={false}
+                />
+              )}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Payoff Timeline */}
+      <div className="rounded-2xl p-5" style={{ background: 'rgba(26,35,50,1)' }}>
+        <h2 className="font-semibold text-base mb-4">Payoff Timeline</h2>
+        <div className="h-72">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={timelineData} layout="vertical" margin={{ top: 8, right: 16, left: 16, bottom: 8 }}>
+              <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
+              <XAxis
+                type="number"
+                tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }}
+                tickLine={false}
+                axisLine={{ stroke: 'rgba(255,255,255,0.15)' }}
+                tickFormatter={(value: number) => `${value}m`}
+              />
+              <YAxis
+                type="category"
+                dataKey="debtName"
+                width={110}
+                tick={{ fill: 'rgba(255,255,255,0.7)', fontSize: 11 }}
+                tickLine={false}
+                axisLine={false}
+              />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const d = payload[0];
+                  const months = d.value as number;
+                  const years = Math.floor(months / 12);
+                  const rem = months % 12;
+                  const timeLabel = years > 0 ? `${years}y ${rem}m` : `${months}m`;
+                  const color = (d.payload as { fill?: string }).fill ?? '#f59e0b';
+                  return (
+                    <div style={{
+                      background: '#1a2332',
+                      border: '1px solid rgba(255,255,255,0.12)',
+                      borderRadius: 10,
+                      padding: '10px 14px',
+                    }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.9)', marginBottom: 4 }}>
+                        {(d.payload as { debtName?: string }).debtName}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>
+                        Paid off in{' '}
+                        <span style={{ color, fontWeight: 700 }}>{timeLabel}</span>
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <Bar dataKey="monthPaidOff" radius={[0, 6, 6, 0]}>
+                {timelineData.map((entry) => (
+                  <Cell key={entry.debtName} fill={getCategoryColor(entry.category)} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       {/* Payoff Order */}
       <div className="rounded-2xl p-5" style={{ background: 'rgba(26,35,50,1)' }}>
         <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
           <ListOrdered size={18} style={{ color: '#3b82f6' }} />
-          Payoff Order (Smallest Balance First)
+          {payoffOrderLabel}
         </h2>
         <div className="space-y-3">
-          {planResult.payoffSchedule.map((item: any, i: number) => {
-            const debt = debts.find((d) => d.name === item.debtName);
+          {planResult.payoffSchedule.map((item, i: number) => {
             const categoryColor = getCategoryColor(item.category);
             const yPO = Math.floor(item.monthPaidOff / 12);
             const mPO = item.monthPaidOff % 12;
@@ -183,14 +475,32 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
       <div className="rounded-2xl p-5" style={{ background: 'rgba(26,35,50,1)' }}>
         <h2 className="font-semibold text-base mb-3 flex items-center gap-2">
           <Info size={18} style={{ color: '#3b82f6' }} />
-          How the Debt Snowball Works
+          How This Strategy Works
         </h2>
-        <ol className="text-sm opacity-70 space-y-2 pl-5 list-decimal">
-          <li>Pay minimums on all debts except the <strong>smallest balance</strong>.</li>
-          <li>Attack the smallest debt with all available cash flow above minimums.</li>
-          <li>Once it&apos;s paid off, roll its minimum payment into the next smallest debt.</li>
-          <li>Repeat — your monthly &quot;snowball&quot; grows bigger with each debt eliminated!</li>
-        </ol>
+        {payoffMethod === 'snowball' && (
+          <ol className="text-sm opacity-70 space-y-2 pl-5 list-decimal">
+            <li>Pay minimums on all debts except the <strong>smallest balance</strong>.</li>
+            <li>Attack the smallest debt with all available cash flow above minimums.</li>
+            <li>Once it&apos;s paid off, roll its minimum payment into the next smallest debt.</li>
+            <li>Repeat and your monthly snowball grows with each debt eliminated.</li>
+          </ol>
+        )}
+        {payoffMethod === 'avalanche' && (
+          <ol className="text-sm opacity-70 space-y-2 pl-5 list-decimal">
+            <li>Pay minimums on all debts except the <strong>highest APR debt</strong>.</li>
+            <li>Apply all extra cash to the highest-interest debt first.</li>
+            <li>Once paid, roll that payment into the next highest APR debt.</li>
+            <li>Repeat to minimize total interest paid over time.</li>
+          </ol>
+        )}
+        {payoffMethod === 'custom' && (
+          <ol className="text-sm opacity-70 space-y-2 pl-5 list-decimal">
+            <li>Debts are prioritized by your <strong>custom priority order</strong>.</li>
+            <li>Minimums are paid on all debts each month.</li>
+            <li>All extra cash is directed at the highest-priority open debt.</li>
+            <li>When a debt is closed, its minimum payment rolls into the next debt.</li>
+          </ol>
+        )}
       </div>
     </section>
   );

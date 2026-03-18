@@ -1,10 +1,11 @@
+import Image from 'next/image';
+
 export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
   return (
     <nav className="nav-blur fixed top-0 left-0 right-0 z-50">
       <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '0 24px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '22px' }}>❄️</span>
-          <span style={{ fontWeight: 800, fontSize: '18px', letterSpacing: '-0.02em', color: '#e2e8f0' }}>SnowballPay</span>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Image src="/logo.svg" alt="SnowballPay" width={188} height={36} priority />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           {isLoggedIn ? (

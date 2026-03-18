@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
+import { z } from 'zod';
+
+const UpdateDebtSchema = z.object({
+  name: z.string().min(1).optional(),
+  category: z.enum(['Credit Card', 'Student Loan', 'Auto Loan', 'Mortgage', 'Personal Loan', 'Medical Debt', 'Other']).optional(),
+  balance: z.number().min(0).optional(),
+  originalBalance: z.number().min(0).optional(),
+  interestRate: z.number().min(0).max(100).optional(),
+  minimumPayment: z.number().min(0).optional(),
+  creditLimit: z.number().min(0).optional(),
+  dueDate: z.number().min(1).max(31).nullable().optional(),
+  priorityOrder: z.number().int().min(1).nullable().optional(),
+}).strict();
 
 export async function GET(
   request: NextRequest,
@@ -43,13 +56,17 @@ export async function PATCH(
     }
 
     const body = await request.json();
+    const updates = UpdateDebtSchema.parse(body);
     const updatedDebt = await prisma.debt.update({
       where: { id: params.id },
-      data: body,
+      data: updates,
     });
 
     return NextResponse.json({ debt: updatedDebt });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return badRequest(error.issues[0]?.message || 'Invalid request payload');
+    }
     console.error('Error updating debt:', error);
     return serverError('Failed to update debt');
   }

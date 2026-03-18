@@ -1,6 +1,7 @@
 'use client';
 
-import { Snowflake, LogOut } from 'lucide-react';
+import Image from 'next/image';
+import { LogOut } from 'lucide-react';
 
 type UserInfo = {
   name?: string | null;
@@ -17,17 +18,8 @@ export default function Header({ user }: { user?: UserInfo | null }) {
     <header className="px-6 pt-6 pb-4 max-w-4xl mx-auto border-b border-white/10">
       <div className="flex items-center justify-between">
         {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{ background: '#3b82f6' }}
-          >
-            <Snowflake size={22} color="#fff" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold leading-tight">Debt Snowball Planner</h1>
-            <p className="text-xs opacity-50">Take control of your finances</p>
-          </div>
+        <div className="flex items-center">
+          <Image src="/logo.svg" alt="SnowballPay" width={177} height={34} priority />
         </div>
 
         {/* User info + logout */}
@@ -35,11 +27,13 @@ export default function Header({ user }: { user?: UserInfo | null }) {
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               {user.picture ? (
-                <img
+                <Image
                   src={user.picture}
                   alt={user.name ?? 'User'}
+                  width={32}
+                  height={32}
                   referrerPolicy="no-referrer"
-                  className="w-8 h-8 rounded-full object-cover border border-white/10"
+                  className="rounded-full object-cover border border-white/10"
                 />
               ) : (
                 <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white text-sm font-bold">

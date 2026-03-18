@@ -77,14 +77,14 @@ export default function DebtForm({ onSubmit, onCancel, isLoading }: DebtFormProp
           className="input-field"
           required
         >
-          <option value="">Select type…</option>
-          <option value="Credit Card">Credit Card</option>
-          <option value="Student Loan">Student Loan</option>
-          <option value="Auto Loan">Auto Loan</option>
-          <option value="Mortgage">Mortgage</option>
-          <option value="Personal Loan">Personal Loan</option>
-          <option value="Medical Debt">Medical Debt</option>
-          <option value="Other">Other</option>
+          <option value="" className='bg-slate-400/10 text-black/80'>Select type…</option>
+          <option value="Credit Card" className=' bg-slate-400/10 text-black/80'>Credit Card</option>
+          <option value="Student Loan" className=' bg-slate-400/10 text-black/80'>Student Loan</option>
+          <option value="Auto Loan" className=' bg-slate-400/10 text-black/80'>Auto Loan</option>
+          <option value="Mortgage" className=' bg-slate-400/10 text-black/80'>Mortgage</option>
+          <option value="Personal Loan" className=' bg-slate-400/10 text-black/80'>Personal Loan</option>
+          <option value="Medical Debt" className=' bg-slate-400/10 text-black/80'>Medical Debt</option>
+          <option value="Other" className=' bg-slate-400/10 text-black/80'>Other</option>
         </select>
       </div>
 

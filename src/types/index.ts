@@ -8,6 +8,7 @@ export interface Debt {
   interestRate: number;
   minimumPayment: number;
   creditLimit: number;
+  priorityOrder?: number | null;
   dueDate?: number;
   createdAt: Date;
   updatedAt: Date;
@@ -56,6 +57,18 @@ export interface PayoffStep {
   startBalance: number;
   payoffMonth: number;
   interestPaid: number;
+}
+
+// One balance snapshot per debt per month — recorded from the user's statement.
+// Plotted against the projected line in the Balance Over Time chart to show
+// how actual payoff progress compares to the plan.
+export interface BalanceSnapshot {
+  id: string;
+  debtId: string;
+  userId: string;
+  balance: number;
+  recordedAt: string; // ISO string, normalized to 1st of month
+  createdAt: string;
 }
 
 export interface DebtSummary {

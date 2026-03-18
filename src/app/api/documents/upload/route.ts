@@ -124,6 +124,55 @@ function parseClaudeJson(raw: string): any {
   return JSON.parse(clean);
 }
 
+// ── Security helpers ──────────────────────────────────────────────────────────
+
+const ALLOWED_FILE_TYPES = new Set(['debt', 'income', 'statement']);
+const MAX_FILES            = 20;
+const MAX_FILE_SIZE_BYTES  = 10 * 1024 * 1024;  // 10 MB per file
+const MAX_TOTAL_SIZE_BYTES = 90 * 1024 * 1024;  // 90 MB total
+
+/** Strip path-traversal sequences and unsafe characters from user-supplied names. */
+function sanitizeFileName(name: string): string {
+  return name
+    .replace(/\.\./g, '')                 // no path traversal
+    .replace(/[^a-zA-Z0-9.\-_ ]/g, '_')  // allow only safe chars
+    .slice(0, 255);
+}
+
+/**
+ * Verify the first bytes of a file match the expected magic signature for its
+ * declared extension.  Rejects polyglot / renamed files before they reach the
+ * AI model or the database.
+ */
+async function validateFileMagicBytes(file: File): Promise<boolean> {
+  const buf = await file.slice(0, 12).arrayBuffer();
+  const b   = new Uint8Array(buf);
+  const ext = file.name.toLowerCase().split('.').pop();
+
+  switch (ext) {
+    case 'pdf':
+      // %PDF
+      return b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46;
+    case 'jpg':
+    case 'jpeg':
+      // SOI marker
+      return b[0] === 0xFF && b[1] === 0xD8 && b[2] === 0xFF;
+    case 'png':
+      // PNG signature
+      return b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4E && b[3] === 0x47;
+    case 'gif':
+      // GIF87a or GIF89a
+      return b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38 &&
+             (b[4] === 0x37 || b[4] === 0x39) && b[5] === 0x61;
+    case 'webp':
+      // RIFF....WEBP
+      return b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+             b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50;
+    default:
+      return false;
+  }
+}
+
 // ── Two-pass statement analysis ───────────────────────────────────────────────
 
 async function extractTransactionsFromFile(file: File): Promise<{ period: string; transactions: any[] }> {
@@ -188,6 +237,41 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'At least one file and fileType are required' }, { status: 400 });
     }
 
+    // ── Security validation ───────────────────────────────────────────────────
+    if (!ALLOWED_FILE_TYPES.has(fileType)) {
+      return NextResponse.json({ error: 'Invalid fileType' }, { status: 400 });
+    }
+
+    if (files.length > MAX_FILES) {
+      return NextResponse.json(
+        { error: `Too many files. Maximum is ${MAX_FILES} per request.` },
+        { status: 400 },
+      );
+    }
+
+    const totalBytes = files.reduce((sum, f) => sum + f.size, 0);
+    if (totalBytes > MAX_TOTAL_SIZE_BYTES) {
+      return NextResponse.json({ error: 'Total file size exceeds 90 MB.' }, { status: 400 });
+    }
+
+    for (const file of files) {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
+        return NextResponse.json(
+          { error: `File "${sanitizeFileName(file.name)}" exceeds the 10 MB per-file limit.` },
+          { status: 400 },
+        );
+      }
+
+      const validMagic = await validateFileMagicBytes(file);
+      if (!validMagic) {
+        return NextResponse.json(
+          { error: `File "${sanitizeFileName(file.name)}" is not a valid PDF or image.` },
+          { status: 400 },
+        );
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     let extractedData: any;
 
     if (fileType === 'statement') {
@@ -226,7 +310,7 @@ export async function POST(request: NextRequest) {
         prisma.uploadedDocument.create({
           data: {
             userId:        auth.user!.id,
-            fileName:      file.name,
+            fileName:      sanitizeFileName(file.name),
             fileType,
             fileUrl:       '',
             extractedData,

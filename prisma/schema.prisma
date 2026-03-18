@@ -38,12 +38,14 @@ model Debt {
   interestRate      Float    @default(0) // APR in percentage
   minimumPayment    Float    @default(0)
   creditLimit       Float    @default(0) // for credit cards
+  priorityOrder     Int?
   dueDate           Int?     // day of month (1-31)
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   payoffSchedule    PayoffStep[]
+  snapshots         BalanceSnapshot[]
 
   @@index([userId])
   @@map("debts")
@@ -82,6 +84,31 @@ model Expense {
 
   @@index([userId])
   @@map("expenses")
+}
+
+// ---------------------------------------------------------------------------
+// Balance Snapshot — one entry per debt per month recording the statement
+// balance. Plotting these against the projected line shows actual vs plan.
+//
+// TODO: If per-payment granularity is needed in the future (e.g. "I paid $X
+//       extra this month"), replace or extend this with a DebtPayment model
+//       that logs (amount, paidAt, note) per transaction instead of a monthly
+//       balance summary.
+// ---------------------------------------------------------------------------
+model BalanceSnapshot {
+  id         String   @id @default(cuid())
+  debtId     String
+  debt       Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
+  userId     String
+
+  balance    Float    // statement balance for this month
+  recordedAt DateTime // normalized to the 1st of the month
+
+  createdAt  DateTime @default(now())
+
+  @@unique([debtId, recordedAt])
+  @@index([userId])
+  @@map("balance_snapshots")
 }
 
 model PayoffPlan {

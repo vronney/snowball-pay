@@ -3,8 +3,8 @@ import { Providers } from '@/app/providers';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Debt Snowball Planner',
-  description: 'Take control of your finances with our comprehensive debt snowball calculator',
+  title: 'SnowballPay — Debt Elimination Planner',
+  description: 'Eliminate debt faster with the snowball method. Track progress, build momentum, and become debt-free.',
 };
 
 export default function RootLayout({

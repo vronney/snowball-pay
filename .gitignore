@@ -46,3 +46,6 @@ nul
 # Build
 .turbo
 dist
+
+# Agents
+/Agent
