@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
 
+export const maxDuration = 30;
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const SYSTEM_PROMPT = `You are a personal debt payoff advisor. Analyze the user's financial situation and provide 4 specific, actionable recommendations to help them pay off debt faster.

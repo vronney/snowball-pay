@@ -89,6 +89,61 @@ Need Google social sign-in with Auth0? Follow the full setup steps in `AUTH0_GOO
 5. **Open browser:**
    Navigate to http://localhost:3000
 
+## Neon Database Workflow
+
+This repository is configured to use Neon with Prisma.
+
+- Neon org: `org-patient-tree-71143752`
+- Neon project: `flat-hill-73561129`
+- Branches:
+  - `development` for local development, schema testing, and validation
+  - `production` for live traffic
+
+### Environment variable mapping
+
+- `DATABASE_URL`: pooled Neon URL (runtime and app queries)
+- `DIRECT_URL`: direct Neon URL (Prisma schema operations)
+
+Both should include `sslmode=require`.
+
+### Branch-based schema workflow (recommended)
+
+1. Work against Neon `development` branch locally.
+2. Apply schema changes and validate behavior.
+3. Promote the same schema changes to Neon `production` branch.
+
+Use the following command pattern to pull branch-specific URLs:
+
+```bash
+# Pooled URL for runtime
+npx neonctl connection-string development --project-id flat-hill-73561129 --pooled
+
+# Direct URL for Prisma schema operations
+npx neonctl connection-string development --project-id flat-hill-73561129
+```
+
+Then run:
+
+```bash
+npm run db:push
+npm run dev
+```
+
+### Production promotion flow
+
+When a schema change is validated on `development`:
+
+1. Switch env vars to `production` branch connection strings.
+2. Apply schema to production deliberately:
+
+```bash
+npm run db:push
+```
+
+3. Run a quick smoke test on key flows (auth, debts CRUD, income, payoff plan).
+
+For stricter release control, prefer migration files with `prisma migrate` over repeated direct pushes.
+
 ## Usage
 
 ### Adding Debts

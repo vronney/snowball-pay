@@ -19,7 +19,8 @@ npm install
 ### 3. Environment Setup
 Create `.env.local` with:
 ```env
-DATABASE_URL="postgresql://postgres:password@localhost:5432/debt_snowball"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DIRECT_URL="postgresql://USER:PASSWORD@HOST.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 AUTH0_DOMAIN="https://your-auth0-domain.auth0.com"
 AUTH0_CLIENT_ID="your-id"
 AUTH0_CLIENT_SECRET="your-secret"
@@ -28,10 +29,25 @@ AUTH0_CLIENT_ID="your-id"
 NEXT_PUBLIC_API_URL="http://localhost:3000"
 ```
 
+For this repo, use Neon project `flat-hill-73561129` and the `development` branch for day-to-day schema work.
+
+Fetch branch-specific URLs with:
+
+```bash
+npx neonctl connection-string development --project-id flat-hill-73561129 --pooled
+npx neonctl connection-string development --project-id flat-hill-73561129
+```
+
 ### 4. Database
 ```bash
 npx prisma db push
 ```
+
+Production release rule:
+
+1. Validate schema changes on Neon `development`.
+2. Switch URLs to Neon `production`.
+3. Run `npx prisma db push` only when promoting validated changes.
 
 ### 5. Run
 ```bash

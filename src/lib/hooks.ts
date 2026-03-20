@@ -2,7 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Debt, Income, Expense, DebtSummary, BudgetSummary, PayoffPlan, BalanceSnapshot } from '@/types';
 import axios from 'axios';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+// Use relative paths so this works on both localhost and Vercel without config.
+const API_URL = '';
 
 // ===== DEBTS =====
 export function useDebts() {
