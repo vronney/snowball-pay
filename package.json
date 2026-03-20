@@ -9,7 +9,9 @@
     "lint": "next lint",
     "db:push": "npx prisma db push",
     "db:migrate": "npx prisma migrate dev",
-    "db:studio": "npx prisma studio"
+    "db:studio": "npx prisma studio",
+    "db:use:dev": "node scripts/neon-switch.mjs development",
+    "db:use:prod": "node scripts/neon-switch.mjs production"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.79.0",
