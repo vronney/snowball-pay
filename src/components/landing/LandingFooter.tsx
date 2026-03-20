@@ -9,8 +9,8 @@ export default function LandingFooter() {
           <span style={{ fontSize: '13px', color: '#475569' }}>© {new Date().getFullYear()} All rights reserved.</span>
         </div>
         <div style={{ display: 'flex', gap: '24px' }}>
-          <a href="#" style={{ fontSize: '13px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}>Privacy</a>
-          <a href="#" style={{ fontSize: '13px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}>Terms</a>
+          <a href="/privacy" style={{ fontSize: '13px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}>Privacy</a>
+          <a href="/terms" style={{ fontSize: '13px', color: '#64748b', textDecoration: 'none', transition: 'color 0.2s' }}>Terms</a>
         </div>
       </div>
     </footer>
