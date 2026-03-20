@@ -7,6 +7,7 @@ import { useUpdateDebt, useAllSnapshots } from '@/lib/hooks';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell } from 'recharts';
 import { Wallet, Zap, ListOrdered, Info, Inbox, RefreshCcw } from 'lucide-react';
 import { formatCurrency, getCategoryColor } from '@/lib/utils';
+import AiRecommendations from '@/components/AiRecommendations';
 
 interface PayoffTabProps {
   debts: Debt[];
@@ -65,7 +66,13 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
   }, [debts, income, expenses, payoffMethod]);
 
   if (isLoading) {
-    return <div className="text-center py-12">Loading...</div>;
+    return (
+      <div className="space-y-4">
+        {[180, 120, 260].map((h, i) => (
+          <div key={i} style={{ height: h, borderRadius: '16px', background: 'rgba(19,29,46,1)', animation: 'pulse 1.8s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+        ))}
+      </div>
+    );
   }
 
   if (!income || debts.length === 0) {
@@ -148,7 +155,7 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
 
   return (
     <section id="section-plan" className="space-y-6">
-      <div className="rounded-2xl p-3" style={{ background: 'rgba(26,35,50,1)' }}>
+      <div className="rounded-2xl p-3" style={{ background: 'rgba(19,29,46,1)' }}>
         <div className="text-xs opacity-60 mb-2">Payoff Strategy</div>
         <div className="grid grid-cols-3 gap-2">
           {(['snowball', 'avalanche', 'custom'] as const).map((method) => {
@@ -173,7 +180,7 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
       </div>
 
       {payoffMethod === 'custom' && (
-        <div className="rounded-2xl p-5" style={{ background: 'rgba(26,35,50,1)' }}>
+        <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)' }}>
           <div className="flex items-center justify-between gap-3 mb-4">
             <h2 className="font-semibold text-base">Custom Priority Order</h2>
             <button
@@ -224,7 +231,7 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
       )}
 
       {/* Cash Flow Overview */}
-      <div className="rounded-2xl p-5" style={{ background: 'rgba(26,35,50,1)' }}>
+      <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)' }}>
         <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
           <Wallet size={18} style={{ color: '#3b82f6' }} />
           Your Monthly Cash Flow
@@ -258,7 +265,7 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
       </div>
 
       {/* Payoff Overview */}
-      <div className="rounded-2xl p-5 snowball-glow" style={{ background: 'rgba(26,35,50,1)' }}>
+      <div className="rounded-2xl p-5 snowball-glow" style={{ background: 'rgba(19,29,46,1)' }}>
         <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
           <Zap size={18} style={{ color: '#3b82f6' }} />
           {strategyName} Payoff Plan
@@ -299,7 +306,7 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
       </div>
 
       {/* Balance Over Time */}
-      <div className="rounded-2xl p-5" style={{ background: 'rgba(26,35,50,1)' }}>
+      <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)' }}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-base">Balance Over Time</h2>
           {!hasAnyActual && (
@@ -330,7 +337,7 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
                 ]}
                 labelFormatter={(label) => `Month: ${String(label)}`}
                 contentStyle={{
-                  background: '#1a2332',
+                  background: '#131d2e',
                   border: '1px solid rgba(255,255,255,0.12)',
                   borderRadius: 10,
                   color: 'rgba(255,255,255,0.9)',
@@ -372,7 +379,7 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
       </div>
 
       {/* Payoff Timeline */}
-      <div className="rounded-2xl p-5" style={{ background: 'rgba(26,35,50,1)' }}>
+      <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)' }}>
         <h2 className="font-semibold text-base mb-4">Payoff Timeline</h2>
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
@@ -404,7 +411,7 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
                   const color = (d.payload as { fill?: string }).fill ?? '#f59e0b';
                   return (
                     <div style={{
-                      background: '#1a2332',
+                      background: '#131d2e',
                       border: '1px solid rgba(255,255,255,0.12)',
                       borderRadius: 10,
                       padding: '10px 14px',
@@ -431,7 +438,7 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
       </div>
 
       {/* Payoff Order */}
-      <div className="rounded-2xl p-5" style={{ background: 'rgba(26,35,50,1)' }}>
+      <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)' }}>
         <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
           <ListOrdered size={18} style={{ color: '#3b82f6' }} />
           {payoffOrderLabel}
@@ -471,8 +478,18 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
         </div>
       </div>
 
+      {/* AI Recommendations */}
+      <AiRecommendations
+        debts={debts}
+        income={income}
+        expenses={expenses}
+        availableCashFlow={availableCashFlow}
+        planMonths={planResult.months}
+        totalInterestPaid={planResult.totalInterestPaid}
+      />
+
       {/* Strategy Explanation */}
-      <div className="rounded-2xl p-5" style={{ background: 'rgba(26,35,50,1)' }}>
+      <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)' }}>
         <h2 className="font-semibold text-base mb-3 flex items-center gap-2">
           <Info size={18} style={{ color: '#3b82f6' }} />
           How This Strategy Works

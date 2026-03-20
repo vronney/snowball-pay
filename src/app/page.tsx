@@ -16,7 +16,7 @@ export default async function Home() {
   return (
     <>
       <LandingStyles />
-      <div style={{ backgroundColor: '#0f1729', color: '#e2e8f0', fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      <div style={{ backgroundColor: '#0d1424', color: '#e1e8f0' }}>
         <LandingNav isLoggedIn={isLoggedIn} />
         <LandingHero isLoggedIn={isLoggedIn} />
         <SocialProofStrip />

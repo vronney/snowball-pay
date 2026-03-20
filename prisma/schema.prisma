@@ -18,10 +18,11 @@ model User {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
-  debts     Debt[]
-  income    Income?
-  expenses  Expense[]
-  payoffPlan PayoffPlan?
+  debts                   Debt[]
+  income                  Income?
+  expenses                Expense[]
+  payoffPlan              PayoffPlan?
+  aiRecommendationCache   AiRecommendationCache?
 
   @@map("users")
 }
@@ -145,6 +146,24 @@ model PayoffStep {
   @@index([debtId])
   @@index([payoffPlanId])
   @@map("payoff_steps")
+}
+
+// ---------------------------------------------------------------------------
+// AI Recommendation Cache — one row per user, upserted each time new
+// recommendations are generated. dataHash is a fingerprint of the financial
+// data used so the UI can detect when advice is stale.
+// ---------------------------------------------------------------------------
+model AiRecommendationCache {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  recommendations Json     // AiRecommendation[]
+  dataHash        String   // fingerprint — changes when debts/income change
+
+  generatedAt     DateTime @default(now())
+
+  @@map("ai_recommendation_cache")
 }
 
 model UploadedDocument {

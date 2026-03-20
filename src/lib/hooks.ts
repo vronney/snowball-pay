@@ -175,6 +175,73 @@ export function useAddSnapshot(debtId: string) {
   });
 }
 
+// ===== AI RECOMMENDATIONS =====
+
+export interface AiRecommendation {
+  type: 'strategy' | 'cashflow' | 'priority' | 'savings';
+  impact: 'high' | 'medium' | 'low';
+  title: string;
+  body: string;
+  action: string;
+}
+
+export interface RecommendationCache {
+  recommendations: AiRecommendation[] | null;
+  dataHash: string | null;
+  generatedAt: string | null;
+}
+
+export type RecommendationPayload = {
+  debts: { name: string; balance: number; interestRate: number; minimumPayment: number; category: string }[];
+  monthlyTakeHome: number;
+  essentialExpenses: number;
+  recurringExpenses: number;
+  extraPayment: number;
+  planMonths: number;
+  totalInterestPaid: number;
+  availableCashFlow: number;
+};
+
+/** Builds the same fingerprint as the server — used client-side for staleness detection. */
+export function buildRecommendationHash(payload: RecommendationPayload): string {
+  const totalDebt = payload.debts.reduce((s, d) => s + d.balance, 0);
+  const totalMin  = payload.debts.reduce((s, d) => s + d.minimumPayment, 0);
+  return [
+    totalDebt.toFixed(0),
+    totalMin.toFixed(0),
+    payload.monthlyTakeHome.toFixed(0),
+    payload.essentialExpenses.toFixed(0),
+    payload.recurringExpenses.toFixed(0),
+    payload.extraPayment.toFixed(0),
+    payload.planMonths,
+  ].join('|');
+}
+
+/** Loads the cached recommendations from the database. */
+export function useCachedRecommendations() {
+  return useQuery<RecommendationCache>({
+    queryKey: ['recommendations'],
+    queryFn: async () => {
+      const { data } = await axios.get(`${API_URL}/api/recommendations`);
+      return data;
+    },
+  });
+}
+
+/** Generates new recommendations via Claude and saves them to the database. */
+export function useGenerateRecommendations() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: RecommendationPayload): Promise<RecommendationCache> => {
+      const { data } = await axios.post(`${API_URL}/api/recommendations`, payload);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['recommendations'], data);
+    },
+  });
+}
+
 export function useDeleteSnapshot() {
   const queryClient = useQueryClient();
   return useMutation({

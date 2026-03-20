@@ -61,13 +61,19 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
   };
 
   if (isLoading) {
-    return <div className="text-center py-12">Loading...</div>;
+    return (
+      <div className="space-y-4">
+        {[280, 220].map((h, i) => (
+          <div key={i} style={{ height: h, borderRadius: '16px', background: 'rgba(19,29,46,1)', animation: 'pulse 1.8s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+        ))}
+      </div>
+    );
   }
 
   return (
     <section id="section-income">
       {/* Income Section */}
-      <div className="rounded-2xl p-5 snowball-glow mb-6" style={{ background: 'rgba(26,35,50,1)' }}>
+      <div className="rounded-2xl p-5 snowball-glow mb-6" style={{ background: 'rgba(19,29,46,1)' }}>
         <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
           <Calculator size={18} style={{ color: '#3b82f6' }} />
           Monthly Budget
@@ -168,7 +174,7 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
       </div>
 
       {/* Recurring Expenses Section */}
-      <div className="rounded-2xl p-5 snowball-glow" style={{ background: 'rgba(26,35,50,1)' }}>
+      <div className="rounded-2xl p-5 snowball-glow" style={{ background: 'rgba(19,29,46,1)' }}>
         <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
           <Repeat size={18} style={{ color: '#3b82f6' }} />
           Recurring Expenses

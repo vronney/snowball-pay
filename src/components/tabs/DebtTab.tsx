@@ -7,6 +7,7 @@ import { PlusCircle, Trash2, Inbox } from 'lucide-react';
 import { formatCurrency, formatPercent, getCategoryColor, getOrdinalDay } from '@/lib/utils';
 import DebtCard from '@/components/DebtCard';
 import DebtForm from '@/components/DebtForm';
+import PaymentCalendar from '@/components/PaymentCalendar';
 
 interface DebtTabProps {
   debts: Debt[];
@@ -64,7 +65,13 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
   ];
 
   if (isLoading) {
-    return <div className="text-center py-12">Loading debts...</div>;
+    return (
+      <div className="space-y-3">
+        {[1, 2, 3].map((i) => (
+          <div key={i} style={{ height: 76, borderRadius: '12px', background: 'rgba(19,29,46,1)', animation: 'pulse 1.8s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+        ))}
+      </div>
+    );
   }
 
   return (
@@ -91,9 +98,16 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
         </div>
       )}
 
+      {/* Payment Calendar */}
+      {debts.length > 0 && (
+        <div className="mb-6">
+          <PaymentCalendar debts={debts} />
+        </div>
+      )}
+
       {/* Add Debt Form */}
       {showForm ? (
-        <div className="rounded-2xl p-5 mb-6 snowball-glow" style={{ background: 'rgba(26,35,50,1)' }}>
+        <div className="rounded-2xl p-5 mb-6 snowball-glow" style={{ background: 'rgba(19,29,46,1)' }}>
           <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
             <PlusCircle size={18} style={{ color: '#3b82f6' }} />
             <span>Add New Debt</span>
@@ -109,7 +123,7 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
           onClick={() => setShowForm(true)}
           className="w-full rounded-2xl p-5 mb-6 snowball-glow font-semibold flex items-center justify-center gap-2 hover:opacity-80 transition"
           style={{
-            background: 'rgba(26,35,50,1)',
+            background: 'rgba(19,29,46,1)',
             color: '#3b82f6',
             border: '1px solid rgba(59,130,246,0.2)',
           }}

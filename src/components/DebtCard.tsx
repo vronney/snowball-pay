@@ -35,7 +35,7 @@ export default function DebtCard({ debt, onDelete }: DebtCardProps) {
   return (
     <div
       className="rounded-xl p-4 card-enter flex flex-col gap-3"
-      style={{ background: 'rgba(26,35,50,1)' }}
+      style={{ background: 'rgba(19,29,46,1)', borderLeft: `2px solid ${categoryColor}55`, transition: 'border-color 0.2s ease' }}
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
