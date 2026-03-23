@@ -14,10 +14,10 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 const DAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const today = new Date();
 
 export default function PaymentCalendar({ debts }: Props) {
-  const today = new Date();
-  const [open,      setOpen]      = useState(true);
+  const [open,      setOpen]      = useState(false);
   const [viewYear,  setViewYear]  = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth());
 

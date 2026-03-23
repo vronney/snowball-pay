@@ -1,21 +1,24 @@
 import { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Check } from 'lucide-react';
+import { Debt } from '@/types';
 
 interface DebtFormProps {
   onSubmit: (data: any) => void;
   onCancel: () => void;
   isLoading: boolean;
+  initialData?: Partial<Debt>;
+  submitLabel?: string;
 }
 
-export default function DebtForm({ onSubmit, onCancel, isLoading }: DebtFormProps) {
+export default function DebtForm({ onSubmit, onCancel, isLoading, initialData, submitLabel }: DebtFormProps) {
   const [formData, setFormData] = useState({
-    name: '',
-    category: '',
-    balance: '',
-    interestRate: '',
-    minimumPayment: '',
-    creditLimit: '',
-    dueDate: '',
+    name: initialData?.name ?? '',
+    category: initialData?.category ?? '',
+    balance: initialData?.balance != null ? String(initialData.balance) : '',
+    interestRate: initialData?.interestRate != null ? String(initialData.interestRate) : '',
+    minimumPayment: initialData?.minimumPayment != null ? String(initialData.minimumPayment) : '',
+    creditLimit: initialData?.creditLimit ? String(initialData.creditLimit) : '',
+    dueDate: initialData?.dueDate != null ? String(initialData.dueDate) : '',
   });
   const [error, setError] = useState('');
 
@@ -38,15 +41,9 @@ export default function DebtForm({ onSubmit, onCancel, isLoading }: DebtFormProp
       dueDate: formData.dueDate ? parseInt(formData.dueDate) : undefined,
     });
 
-    setFormData({
-      name: '',
-      category: '',
-      balance: '',
-      interestRate: '',
-      minimumPayment: '',
-      creditLimit: '',
-      dueDate: '',
-    });
+    if (!initialData) {
+      setFormData({ name: '', category: '', balance: '', interestRate: '', minimumPayment: '', creditLimit: '', dueDate: '' });
+    }
   };
 
   return (
@@ -179,8 +176,8 @@ export default function DebtForm({ onSubmit, onCancel, isLoading }: DebtFormProp
           className="btn-primary flex-1"
           style={{ background: isLoading ? '#64748b' : '#3b82f6' }}
         >
-          <Plus size={16} />
-          {isLoading ? 'Adding...' : 'Add Debt'}
+          {submitLabel ? <Check size={16} /> : <Plus size={16} />}
+          {isLoading ? 'Saving…' : (submitLabel ?? 'Add Debt')}
         </button>
         <button
           type="button"

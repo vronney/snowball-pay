@@ -15,9 +15,8 @@ interface IncomeTabProps {
 
 export default function IncomeTab({ income, expenses, debts, isLoading }: IncomeTabProps) {
   const [formData, setFormData] = useState({
-    monthlyTakeHome: income?.monthlyTakeHome || 0,
-    essentialExpenses: income?.essentialExpenses || 0,
-    extraPayment: income?.extraPayment || 0,
+    monthlyTakeHome: income?.monthlyTakeHome != null ? String(income.monthlyTakeHome) : '',
+    essentialExpenses: income?.essentialExpenses != null ? String(income.essentialExpenses) : '',
   });
 
   const [recurringForm, setRecurringForm] = useState({
@@ -29,17 +28,17 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
   const createExpense = useCreateExpense();
   const deleteExpense = useDeleteExpense();
 
+  const takeHome = parseFloat(formData.monthlyTakeHome) || 0;
+  const essential = parseFloat(formData.essentialExpenses) || 0;
+
   const totalMinPayments = debts.reduce((sum, d) => sum + d.minimumPayment, 0);
   const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const totalEssential = formData.essentialExpenses + recurringTotal;
-  const availableCashFlow = Math.max(
-    0,
-    formData.monthlyTakeHome - totalEssential - totalMinPayments + formData.extraPayment
-  );
+  const totalEssential = essential + recurringTotal;
+  const availableCashFlow = Math.max(0, takeHome - totalEssential - totalMinPayments);
 
   const handleIncomeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await saveIncome.mutateAsync(formData);
+    await saveIncome.mutateAsync({ monthlyTakeHome: takeHome, essentialExpenses: essential, extraPayment: 0 });
   };
 
   const handleAddRecurring = async (e: React.FormEvent) => {
@@ -87,7 +86,7 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
               min="0"
               placeholder="4500"
               value={formData.monthlyTakeHome}
-              onChange={(e) => setFormData({ ...formData, monthlyTakeHome: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => setFormData({ ...formData, monthlyTakeHome: e.target.value })}
               className="input-field"
             />
           </div>
@@ -100,42 +99,26 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
               min="0"
               placeholder="2800"
               value={formData.essentialExpenses}
-              onChange={(e) => setFormData({ ...formData, essentialExpenses: parseFloat(e.target.value) || 0 })}
+              onChange={(e) => setFormData({ ...formData, essentialExpenses: e.target.value })}
               className="input-field"
             />
             <p className="text-xs opacity-40 mt-1">Rent, utilities, groceries, insurance — excluding debt payments</p>
           </div>
 
-          <div>
-            <label className="text-xs opacity-60 mb-1 block">Extra Monthly Amount for Debt ($)</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="200"
-              value={formData.extraPayment}
-              onChange={(e) => setFormData({ ...formData, extraPayment: parseFloat(e.target.value) || 0 })}
-              className="input-field"
-            />
-            <p className="text-xs opacity-40 mt-1">Any amount above minimums you can throw at debt each month</p>
-          </div>
-
           {/* Budget Visualization */}
-          {formData.monthlyTakeHome > 0 && (
+          {takeHome > 0 && (
             <div className="rounded-xl p-4 mt-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
               <div className="text-xs opacity-60 mb-2">Monthly Budget Breakdown</div>
               <div className="h-4 rounded-full overflow-hidden flex" style={{ background: 'rgba(255,255,255,0.05)' }}>
                 {(() => {
-                  const pctExp = Math.min(100, (totalEssential / formData.monthlyTakeHome) * 100);
-                  const pctMin = Math.min(100 - pctExp, (totalMinPayments / formData.monthlyTakeHome) * 100);
-                  const pctExtra = Math.min(100 - pctExp - pctMin, (formData.extraPayment / formData.monthlyTakeHome) * 100);
-                  const pctLeft = Math.max(0, 100 - pctExp - pctMin - pctExtra);
+                  const pctExp = Math.min(100, (totalEssential / takeHome) * 100);
+                  const pctMin = Math.min(100 - pctExp, (totalMinPayments / takeHome) * 100);
+                  const pctLeft = Math.max(0, 100 - pctExp - pctMin);
 
                   return (
                     <>
                       {pctExp > 0 && <div style={{ width: `${pctExp}%`, background: '#64748b' }} />}
                       {pctMin > 0 && <div style={{ width: `${pctMin}%`, background: '#f59e0b' }} />}
-                      {pctExtra > 0 && <div style={{ width: `${pctExtra}%`, background: '#3b82f6' }} />}
                       {pctLeft > 0 && <div style={{ width: `${pctLeft}%`, background: '#10b981' }} />}
                     </>
                   );
@@ -149,10 +132,6 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
                 <span>
                   <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: '#f59e0b' }} />
                   Minimums {formatCurrency(totalMinPayments)}
-                </span>
-                <span>
-                  <span className="inline-block w-2 h-2 rounded-full mr-1" style={{ background: '#3b82f6' }} />
-                  Extra {formatCurrency(formData.extraPayment)}
                 </span>
                 <span style={{ color: availableCashFlow >= 0 ? '#10b981' : '#ef4444' }}>
                   <span

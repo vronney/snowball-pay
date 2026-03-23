@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { useCreateDebt, useDeleteDebt } from '@/lib/hooks';
-import { Debt } from '@/types';
-import { PlusCircle, Trash2, Inbox } from 'lucide-react';
-import { formatCurrency, formatPercent, getCategoryColor, getOrdinalDay } from '@/lib/utils';
+import { useState, useMemo } from 'react';
+import { useCreateDebt, useDeleteDebt, useIncome, useExpenses, useAllSnapshots } from '@/lib/hooks';
+import { Debt, BalanceSnapshot } from '@/types';
+import { PlusCircle, Inbox, Bell } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils';
+import { calculateDebtSnowball } from '@/lib/snowball';
 import DebtCard from '@/components/DebtCard';
 import DebtForm from '@/components/DebtForm';
 import PaymentCalendar from '@/components/PaymentCalendar';
@@ -14,19 +15,122 @@ interface DebtTabProps {
   isLoading: boolean;
 }
 
+interface UpcomingPayment {
+  debt: Debt;
+  daysUntilDue: number;
+  label: string;
+  color: string;
+  bg: string;
+  border: string;
+}
+
+function getUpcomingPayments(debts: Debt[]): UpcomingPayment[] {
+  const today = new Date();
+  const todayDay = today.getDate();
+  const results: UpcomingPayment[] = [];
+
+  for (const debt of debts) {
+    if (!debt.dueDate) continue;
+    const dueDay = debt.dueDate;
+
+    // Days until next occurrence of dueDay
+    let daysUntil: number;
+    if (dueDay >= todayDay) {
+      daysUntil = dueDay - todayDay;
+    } else {
+      // Due date already passed this month — next month
+      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+      daysUntil = daysInMonth - todayDay + dueDay;
+    }
+
+    if (daysUntil > 7) continue;
+
+    let label: string;
+    let color: string;
+    let bg: string;
+    let border: string;
+
+    if (daysUntil < 0) {
+      label = `Overdue by ${Math.abs(daysUntil)}d`;
+      color = '#f87171'; bg = 'rgba(239,68,68,0.08)'; border = 'rgba(239,68,68,0.25)';
+    } else if (daysUntil === 0) {
+      label = 'Due today';
+      color = '#fbbf24'; bg = 'rgba(245,158,11,0.08)'; border = 'rgba(245,158,11,0.25)';
+    } else if (daysUntil === 1) {
+      label = 'Due tomorrow';
+      color = '#60a5fa'; bg = 'rgba(59,130,246,0.08)'; border = 'rgba(59,130,246,0.25)';
+    } else {
+      label = `Due in ${daysUntil}d`;
+      color = '#818cf8'; bg = 'rgba(99,102,241,0.07)'; border = 'rgba(99,102,241,0.2)';
+    }
+
+    results.push({ debt, daysUntilDue: daysUntil, label, color, bg, border });
+  }
+
+  // Sort: overdue first, then by days ascending
+  return results.sort((a, b) => a.daysUntilDue - b.daysUntilDue);
+}
+
+function computeStreak(snapshots: BalanceSnapshot[]): number {
+  if (!snapshots.length) return 0;
+  const months = new Set(snapshots.map((s) => s.recordedAt.slice(0, 7)));
+  const today = new Date();
+  let streak = 0;
+  let y = today.getFullYear();
+  let m = today.getMonth() + 1;
+  while (true) {
+    const key = `${y}-${String(m).padStart(2, '0')}`;
+    if (!months.has(key)) break;
+    streak++;
+    m--;
+    if (m === 0) { m = 12; y--; }
+    if (streak > 120) break;
+  }
+  return streak;
+}
+
 export default function DebtTab({ debts, isLoading }: DebtTabProps) {
   const [showForm, setShowForm] = useState(false);
   const createDebt = useCreateDebt();
   const deleteDebt = useDeleteDebt();
 
-  const totalDebt = debts.reduce((sum, d) => sum + d.balance, 0);
-  const totalMin = debts.reduce((sum, d) => sum + d.minimumPayment, 0);
-  const avgRate = debts.length > 0 ? debts.reduce((sum, d) => sum + d.interestRate, 0) / debts.length : 0;
+  const { data: incomeData } = useIncome();
+  const { data: expensesData } = useExpenses();
+  const { data: snapshotData } = useAllSnapshots();
 
-  const creditCardDebts = debts.filter((d) => d.creditLimit > 0);
-  const totalCCBalance = creditCardDebts.reduce((sum, d) => sum + d.balance, 0);
-  const totalCCLimit = creditCardDebts.reduce((sum, d) => sum + d.creditLimit, 0);
-  const ccUtilization = totalCCLimit > 0 ? (totalCCBalance / totalCCLimit) * 100 : 0;
+  const income = incomeData?.income;
+  const expenses = expensesData?.expenses ?? [];
+  const snapshots = snapshotData?.snapshots ?? [];
+
+  // Earliest snapshot balance per debt (for % paid off)
+  const earliestBalanceByDebt = useMemo(() => {
+    const map = new Map<string, number>();
+    const sorted = [...snapshots].sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
+    for (const s of sorted) {
+      if (!map.has(s.debtId)) map.set(s.debtId, s.balance);
+    }
+    return map;
+  }, [snapshots]);
+
+  // Payment streak
+  const streak = useMemo(() => computeStreak(snapshots), [snapshots]);
+
+  // Payoff estimate
+  const payoffResult = useMemo(() => {
+    if (!income || debts.length === 0) return null;
+    const essential = income.essentialExpenses ?? 0;
+    const recurring = expenses.reduce((s, e) => s + e.amount, 0);
+    try {
+      return calculateDebtSnowball(debts, income.monthlyTakeHome, essential, recurring, income.extraPayment ?? 0);
+    } catch {
+      return null;
+    }
+  }, [debts, income, expenses]);
+
+  const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
+  const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);
+
+  const upcomingPayments = useMemo(() => getUpcomingPayments(debts), [debts]);
 
   const handleSubmit = async (formData: any) => {
     try {
@@ -36,33 +140,6 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
       console.error('Error creating debt:', error);
     }
   };
-
-  const summaryCards = [
-    {
-      label: 'Total Debt',
-      value: formatCurrency(totalDebt),
-      icon: 'dollar-sign',
-      color: '#ef4444',
-    },
-    {
-      label: 'Monthly Minimums',
-      value: formatCurrency(totalMin),
-      icon: 'calendar',
-      color: '#f59e0b',
-    },
-    {
-      label: 'Avg Interest Rate',
-      value: formatPercent(avgRate),
-      icon: 'percent',
-      color: '#8b5cf6',
-    },
-    {
-      label: 'CC Utilization',
-      value: formatPercent(ccUtilization),
-      icon: 'credit-card',
-      color: ccUtilization > 30 ? '#ef4444' : '#10b981',
-    },
-  ];
 
   if (isLoading) {
     return (
@@ -76,25 +153,69 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
 
   return (
     <section id="section-debts">
-      {/* Summary Cards */}
-      {debts.length > 0 && (
-        <div id="debt-summary" className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-          {summaryCards.map((card, idx) => (
+      {/* Upcoming Payment Notifications */}
+      {upcomingPayments.length > 0 && (
+        <div className="space-y-2 mb-5">
+          {upcomingPayments.map(({ debt, label, color, bg, border }) => (
             <div
-              key={idx}
-              className="rounded-xl p-3 animate-slideUp"
-              style={{ background: 'rgba(255,255,255,0.02)' }}
+              key={debt.id}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '10px',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                background: bg,
+                border: `1px solid ${border}`,
+              }}
             >
-              <div className="flex items-center gap-2 mb-1">
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ background: card.color }}
-                />
-                <span className="text-xs opacity-50">{card.label}</span>
-              </div>
-              <span className="mono font-bold text-base">{card.value}</span>
+              <Bell size={14} style={{ color, flexShrink: 0 }} />
+              <span style={{ fontSize: '13px', color, fontWeight: 600 }}>{label}:</span>
+              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)', flex: 1 }}>
+                {debt.name} — {formatCurrency(debt.minimumPayment)} min. payment
+              </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Debt Overview Banner */}
+      {debts.length > 0 && (
+        <div
+          className="rounded-xl p-4 mb-5"
+          style={{
+            background: 'rgba(255,255,255,0.02)',
+            border: '1px solid rgba(255,255,255,0.06)',
+          }}
+        >
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '16px' }}>
+            <div>
+              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '4px' }}>Total Remaining</span>
+              <span className="mono font-bold" style={{ fontSize: '18px', color: '#f87171' }}>{formatCurrency(totalDebt)}</span>
+            </div>
+            {payoffResult && (
+              <div>
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '4px' }}>Est. Debt-Free</span>
+                <span className="mono font-bold" style={{ fontSize: '18px', color: '#34d399' }}>
+                  {payoffResult.debtFreeDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                </span>
+              </div>
+            )}
+            {payoffResult && (
+              <div>
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '4px' }}>Interest (plan)</span>
+                <span className="mono font-bold" style={{ fontSize: '18px', color: '#60a5fa' }}>{formatCurrency(payoffResult.totalInterestPaid)}</span>
+              </div>
+            )}
+            <div>
+              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '4px' }}>Monthly Minimums</span>
+              <span className="mono font-bold" style={{ fontSize: '18px', color: '#e1e8f0' }}>{formatCurrency(totalMin)}</span>
+            </div>
+            {streak > 0 && (
+              <div>
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '4px' }}>Payment Streak</span>
+                <span className="mono font-bold" style={{ fontSize: '18px', color: '#a78bfa' }}>{streak} mo 🔥</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -140,15 +261,22 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
             key={debt.id}
             debt={debt}
             onDelete={() => deleteDebt.mutate(debt.id)}
+            firstSnapshotBalance={earliestBalanceByDebt.get(debt.id) ?? null}
           />
         ))}
       </div>
 
       {/* Empty State */}
       {debts.length === 0 && !showForm && (
-        <div id="empty-debts" className="text-center py-12 opacity-40">
-          <Inbox size={48} className="mx-auto mb-3" />
-          <p className="text-sm">No debts added yet. Add your first debt above to get started.</p>
+        <div id="empty-debts" className="text-center py-14 px-6">
+          <div
+            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mx-auto mb-4"
+            style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.18)' }}
+          >
+            <Inbox size={28} style={{ color: '#3b82f6', opacity: 0.7 }} />
+          </div>
+          <p className="font-semibold text-sm mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>No debts yet</p>
+          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Add your first debt above to start building your payoff plan.</p>
         </div>
       )}
     </section>

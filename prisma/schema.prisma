@@ -58,9 +58,12 @@ model Income {
   userId            String   @unique
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  monthlyTakeHome   Float    @default(0)
-  essentialExpenses Float    @default(0) // rent, utilities, groceries, insurance (excluding debt)
-  extraPayment      Float    @default(0) // extra amount available for debt payoff
+  monthlyTakeHome    Float    @default(0)
+  essentialExpenses  Float    @default(0) // rent, utilities, groceries, insurance (excluding debt)
+  extraPayment       Float    @default(0) // extra amount available for debt payoff
+
+  payoffMethod       String   @default("snowball") // snowball, avalanche, custom
+  accelerationAmount Float?   // null = use full available cash flow
 
   source            String?  // W2, 1099, etc.
   frequency         String   @default("monthly") // monthly, bi-weekly, etc.

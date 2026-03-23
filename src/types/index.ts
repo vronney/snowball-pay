@@ -20,6 +20,8 @@ export interface Income {
   monthlyTakeHome: number;
   essentialExpenses: number;
   extraPayment: number;
+  payoffMethod?: string;
+  accelerationAmount?: number | null;
   source?: string;
   frequency: string;
   createdAt: Date;

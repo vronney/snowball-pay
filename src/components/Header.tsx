@@ -15,7 +15,7 @@ export default function Header({ user }: { user?: UserInfo | null }) {
     : null;
 
   return (
-    <header className="px-6 pt-6 pb-4 max-w-4xl mx-auto border-b border-white/10">
+    <header className="px-6 pt-6 pb-4 max-w-4xl mx-auto" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
       <div className="flex items-center justify-between">
         {/* Brand */}
         <div className="flex items-center">

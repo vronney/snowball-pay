@@ -32,31 +32,33 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
       <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
       <main className="max-w-4xl mx-auto px-6 pb-12">
-        {activeTab === 'debts' && (
-          <DebtTab debts={debts} isLoading={debtsLoading} />
-        )}
+        <div key={activeTab} className="tab-fade-in">
+          {activeTab === 'debts' && (
+            <DebtTab debts={debts} isLoading={debtsLoading} />
+          )}
 
-        {activeTab === 'income' && (
-          <IncomeTab
-            income={income}
-            expenses={expenses}
-            debts={debts}
-            isLoading={incomeLoading || expensesLoading}
-          />
-        )}
+          {activeTab === 'income' && (
+            <IncomeTab
+              income={income}
+              expenses={expenses}
+              debts={debts}
+              isLoading={incomeLoading || expensesLoading}
+            />
+          )}
 
-        {activeTab === 'plan' && (
-          <PayoffTab
-            debts={debts}
-            income={income}
-            expenses={expenses}
-            isLoading={debtsLoading || incomeLoading}
-          />
-        )}
+          {activeTab === 'plan' && (
+            <PayoffTab
+              debts={debts}
+              income={income}
+              expenses={expenses}
+              isLoading={debtsLoading || incomeLoading}
+            />
+          )}
 
-        {activeTab === 'documents' && (
-          <DocumentImport />
-        )}
+          {activeTab === 'documents' && (
+            <DocumentImport />
+          )}
+        </div>
       </main>
     </div>
   );

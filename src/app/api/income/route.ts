@@ -7,6 +7,8 @@ const IncomeSchema = z.object({
   monthlyTakeHome: z.number().min(0),
   essentialExpenses: z.number().min(0),
   extraPayment: z.number().min(0),
+  payoffMethod: z.enum(['snowball', 'avalanche', 'custom']).default('snowball'),
+  accelerationAmount: z.number().min(0).nullable().optional(),
   source: z.string().optional(),
   frequency: z.string().default('monthly'),
 });

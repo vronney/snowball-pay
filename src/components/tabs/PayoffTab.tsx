@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Debt, Income, Expense } from '@/types';
 import { calculateDebtSnowball, calculateDebtAvalanche, calculateDebtCustom, type PayoffMethod, type PayoffResult } from '@/lib/snowball';
-import { useUpdateDebt, useAllSnapshots } from '@/lib/hooks';
+import { useUpdateDebt, useAllSnapshots, useSaveIncome } from '@/lib/hooks';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, BarChart, Bar, Cell } from 'recharts';
-import { Wallet, Zap, ListOrdered, Info, Inbox, RefreshCcw } from 'lucide-react';
+import { Wallet, Zap, ListOrdered, Info, Inbox, RefreshCcw, ChevronDown } from 'lucide-react';
 import { formatCurrency, getCategoryColor } from '@/lib/utils';
 import AiRecommendations from '@/components/AiRecommendations';
 
@@ -17,10 +17,60 @@ interface PayoffTabProps {
 }
 
 export default function PayoffTab({ debts, income, expenses, isLoading }: PayoffTabProps) {
-  const [payoffMethod, setPayoffMethod] = useState<PayoffMethod>('snowball');
+  // Lazy initializers read from income when it's already cached (e.g. returning
+  // to this tab). This prevents the auto-save effect from firing with stale
+  // initial-state values on remount and overwriting what was just loaded.
+  const [priorityOpen, setPriorityOpen] = useState(false);
+  const [payoffMethod, setPayoffMethod] = useState<PayoffMethod>(
+    () => (income?.payoffMethod as PayoffMethod) || 'snowball'
+  );
   const [planResult, setPlanResult] = useState<PayoffResult | null>(null);
+  const [accelerationAmount, setAccelerationAmount] = useState<number | null>(
+    () => income?.accelerationAmount ?? null
+  );
   const updateDebt = useUpdateDebt();
+  const saveIncome = useSaveIncome();
+  // Tracks what was last loaded from DB — prevents the initial sync from
+  // triggering an unnecessary save.  Seeded on mount with the same values as
+  // the lazy state initializers so the guard is pre-populated when income is
+  // already in the React Query cache (e.g. returning to this tab).
+  const lastLoadedRef = useRef<{ method: PayoffMethod; accel: number | null }>({
+    method: (income?.payoffMethod as PayoffMethod) || 'snowball',
+    accel: income?.accelerationAmount ?? null,
+  });
   const { data: snapshotsData } = useAllSnapshots();
+
+  // Sync payoff preferences from DB when income record first loads.
+  useEffect(() => {
+    if (!income) return;
+    const method = (income.payoffMethod as PayoffMethod) || 'snowball';
+    const accel = income.accelerationAmount ?? null;
+    lastLoadedRef.current = { method, accel };
+    setPayoffMethod(method);
+    setAccelerationAmount(accel);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [income?.id]);
+
+  // Auto-save whenever the user changes method or slider amount — debounced 600 ms.
+  // Uses income from the effect closure so values are always current; the guard
+  // against lastLoadedRef ensures we never save back values we just loaded.
+  useEffect(() => {
+    if (!income) return;
+    const last = lastLoadedRef.current;
+    if (last.method === payoffMethod && last.accel === accelerationAmount) return;
+    const tid = setTimeout(() => {
+      lastLoadedRef.current = { method: payoffMethod, accel: accelerationAmount };
+      saveIncome.mutate({
+        monthlyTakeHome: income.monthlyTakeHome,
+        essentialExpenses: income.essentialExpenses,
+        extraPayment: income.extraPayment,
+        payoffMethod,
+        accelerationAmount,
+      });
+    }, 600);
+    return () => clearTimeout(tid);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payoffMethod, accelerationAmount, income]);
 
   // Build a map of "Mon YYYY" → summed actual balance across all debts for that month.
   // Used to overlay the Actual line on the Balance Over Time chart.
@@ -38,32 +88,21 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
   useEffect(() => {
     if (debts.length > 0 && income) {
       const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
+      const totalMin = debts.reduce((sum, d) => sum + d.minimumPayment, 0);
+      const totalEss = income.essentialExpenses + recurringTotal;
+      const maxAcceleration = Math.max(0, income.monthlyTakeHome - totalEss - totalMin);
+      const targetAcceleration = accelerationAmount !== null
+        ? Math.min(accelerationAmount, maxAcceleration)
+        : maxAcceleration;
+      const adjustedExtra = targetAcceleration - (income.monthlyTakeHome - totalEss - totalMin);
       const result = payoffMethod === 'avalanche'
-        ? calculateDebtAvalanche(
-            debts,
-            income.monthlyTakeHome,
-            income.essentialExpenses,
-            recurringTotal,
-            income.extraPayment
-          )
+        ? calculateDebtAvalanche(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
         : payoffMethod === 'custom'
-        ? calculateDebtCustom(
-            debts,
-            income.monthlyTakeHome,
-            income.essentialExpenses,
-            recurringTotal,
-            income.extraPayment
-          )
-        : calculateDebtSnowball(
-            debts,
-            income.monthlyTakeHome,
-            income.essentialExpenses,
-            recurringTotal,
-            income.extraPayment
-          );
+        ? calculateDebtCustom(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
+        : calculateDebtSnowball(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra);
       setPlanResult(result);
     }
-  }, [debts, income, expenses, payoffMethod]);
+  }, [debts, income, expenses, payoffMethod, accelerationAmount]);
 
   if (isLoading) {
     return (
@@ -90,7 +129,10 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
   const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
   const totalEssential = income.essentialExpenses + recurringTotal;
   const availableCashFlow = Math.max(0, income.monthlyTakeHome - totalEssential - totalMinPayments + income.extraPayment);
-  const monthlyPayment = totalMinPayments + availableCashFlow;
+  const effectiveAcceleration = accelerationAmount !== null
+    ? Math.min(accelerationAmount, availableCashFlow)
+    : availableCashFlow;
+  const monthlyPayment = totalMinPayments + effectiveAcceleration;
 
   if (!planResult) {
     return (
@@ -105,6 +147,12 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
   const timeStr = years > 0 ? `${years}y ${months}m` : `${months}m`;
   const minimumsOnlyResult = calculateDebtSnowball(debts, totalMinPayments, 0, 0, 0);
   const interestSavedVsMinimums = Math.max(0, minimumsOnlyResult.totalInterestPaid - planResult.totalInterestPaid);
+  const showMinimumsLine = effectiveAcceleration > 0;
+  const projectedBalanceMap = new Map(planResult.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]));
+  const minimumsBalanceMap = new Map(minimumsOnlyResult.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]));
+  const baseBalances = minimumsOnlyResult.months >= planResult.months
+    ? minimumsOnlyResult.monthlyBalances
+    : planResult.monthlyBalances;
   const priorityEditorDebts = [...debts].sort((a, b) => {
     const aPriority = a.priorityOrder ?? Number.MAX_SAFE_INTEGER;
     const bPriority = b.priorityOrder ?? Number.MAX_SAFE_INTEGER;
@@ -115,8 +163,10 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
     return a.balance - b.balance;
   });
   const hasAnyCustomPriority = debts.some((debt) => debt.priorityOrder != null);
-  const balanceChartData = planResult.monthlyBalances.map((mb) => ({
-    ...mb,
+  const balanceChartData = baseBalances.map((mb) => ({
+    date: mb.date,
+    totalBalance: projectedBalanceMap.get(mb.date),
+    minimumsBalance: minimumsBalanceMap.get(mb.date),
     actualBalance: actualBalanceMap.get(mb.date),
   }));
   const hasAnyActual = actualBalanceMap.size > 0;
@@ -181,52 +231,76 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
 
       {payoffMethod === 'custom' && (
         <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)' }}>
-          <div className="flex items-center justify-between gap-3 mb-4">
+          <div
+            className="flex items-center justify-between gap-3 cursor-pointer"
+            style={{ marginBottom: priorityOpen ? '16px' : '0' }}
+            onClick={() => setPriorityOpen((v) => !v)}
+          >
             <h2 className="font-semibold text-base">Custom Priority Order</h2>
-            <button
-              type="button"
-              onClick={handleResetPriorities}
-              disabled={!hasAnyCustomPriority || updateDebt.isPending}
-              className="rounded-lg px-3 py-2 text-xs font-semibold transition disabled:opacity-40"
+            <ChevronDown
+              size={15}
               style={{
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                color: '#60a5fa',
+                flexShrink: 0,
+                transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1)',
+                transform: priorityOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
+                background: 'rgba(59,130,246,0.12)',
+                borderRadius: '5px',
+                padding: '2px',
+                boxSizing: 'content-box',
               }}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                <RefreshCcw size={13} />
-                Reset Priorities
-              </span>
-            </button>
+            />
           </div>
 
-          <div className="space-y-3">
-            {priorityEditorDebts.map((debt) => (
-              <div
-                key={debt.id}
-                className="flex items-center justify-between gap-3 p-3 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.02)' }}
-              >
-                <div className="min-w-0">
-                  <div className="text-sm font-medium truncate">{debt.name}</div>
-                  <div className="text-xs opacity-55">{formatCurrency(debt.balance)} balance</div>
-                </div>
-                <select
-                  value={debt.priorityOrder ?? ''}
-                  onChange={(e) => void handlePriorityChange(debt.id, e.target.value)}
-                  disabled={updateDebt.isPending}
-                  className="input-field max-w-[140px]"
+          {priorityOpen && (
+            <>
+              <div className="flex justify-end mb-3">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); void handleResetPriorities(); }}
+                  disabled={!hasAnyCustomPriority || updateDebt.isPending}
+                  className="rounded-lg px-3 py-2 text-xs font-semibold transition disabled:opacity-40"
+                  style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                  }}
                 >
-                  <option value="" className='bg-slate-400/80 text-black/80'>No priority</option>
-                  {debts.map((_, idx) => (
-                    <option key={`${debt.id}-priority-${idx + 1}`} value={idx + 1} className='bg-slate-400/80 text-black/80'>
-                      Priority {idx + 1}
-                    </option>
-                  ))}
-                </select>
+                  <span className="inline-flex items-center gap-1.5">
+                    <RefreshCcw size={13} />
+                    Reset Priorities
+                  </span>
+                </button>
               </div>
-            ))}
-          </div>
+
+              <div className="space-y-3">
+                {priorityEditorDebts.map((debt) => (
+                  <div
+                    key={debt.id}
+                    className="flex items-center justify-between gap-3 p-3 rounded-xl"
+                    style={{ background: 'rgba(255,255,255,0.02)' }}
+                  >
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium truncate">{debt.name}</div>
+                      <div className="text-xs opacity-55">{formatCurrency(debt.balance)} balance</div>
+                    </div>
+                    <select
+                      value={debt.priorityOrder ?? ''}
+                      onChange={(e) => void handlePriorityChange(debt.id, e.target.value)}
+                      disabled={updateDebt.isPending}
+                      className="input-field max-w-[140px]"
+                    >
+                      <option value="" className='bg-slate-400/80 text-black/80'>No priority</option>
+                      {debts.map((_, idx) => (
+                        <option key={`${debt.id}-priority-${idx + 1}`} value={idx + 1} className='bg-slate-400/80 text-black/80'>
+                          Priority {idx + 1}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -261,6 +335,37 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
               {formatCurrency(availableCashFlow)}
             </span>
           </div>
+          {availableCashFlow > 0 && (
+            <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs opacity-60">Apply to Acceleration</span>
+                <div className="flex items-center gap-2">
+                  {saveIncome.isPending && (
+                    <span style={{ fontSize: '10px', color: '#64748b' }}>saving…</span>
+                  )}
+                  {saveIncome.isSuccess && !saveIncome.isPending && (
+                    <span style={{ fontSize: '10px', color: '#22c55e' }}>saved</span>
+                  )}
+                  <span className="mono text-sm font-bold" style={{ color: effectiveAcceleration > 0 ? '#3b82f6' : 'rgba(255,255,255,0.4)' }}>
+                    {formatCurrency(effectiveAcceleration)}
+                  </span>
+                </div>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={availableCashFlow}
+                step={50}
+                value={effectiveAcceleration}
+                onChange={(e) => setAccelerationAmount(parseFloat(e.target.value))}
+                style={{ width: '100%', accentColor: '#3b82f6', cursor: 'pointer' }}
+              />
+              <div className="flex justify-between mt-1" style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
+                <span>$0</span>
+                <span>{formatCurrency(availableCashFlow)} max</span>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -333,7 +438,9 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
               <Tooltip
                 formatter={(value: number, name: string) => [
                   formatCurrency(value),
-                  name === 'totalBalance' ? 'Projected' : 'Actual',
+                  name === 'totalBalance' ? `With Extra (+${formatCurrency(effectiveAcceleration)}/mo)`
+                    : name === 'minimumsBalance' ? 'Minimums Only'
+                    : 'Actual',
                 ]}
                 labelFormatter={(label) => `Month: ${String(label)}`}
                 contentStyle={{
@@ -343,11 +450,15 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
                   color: 'rgba(255,255,255,0.9)',
                 }}
               />
-              {hasAnyActual && (
+              {(hasAnyActual || showMinimumsLine) && (
                 <Legend
                   formatter={(value) => (
                     <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>
-                      {value === 'totalBalance' ? 'Projected' : 'Actual'}
+                      {value === 'totalBalance'
+                        ? `With Extra (+${formatCurrency(effectiveAcceleration)}/mo)`
+                        : value === 'minimumsBalance'
+                        ? 'Minimums Only'
+                        : 'Actual'}
                     </span>
                   )}
                 />
@@ -360,7 +471,20 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
                 strokeWidth={2.5}
                 dot={false}
                 activeDot={{ r: 5, fill: '#93c5fd' }}
+                connectNulls={false}
               />
+              {showMinimumsLine && (
+                <Line
+                  type="monotone"
+                  dataKey="minimumsBalance"
+                  stroke="#f59e0b"
+                  strokeWidth={1.5}
+                  strokeDasharray="5 4"
+                  dot={false}
+                  activeDot={{ r: 4, fill: '#fbbf24' }}
+                  connectNulls={false}
+                />
+              )}
               {hasAnyActual && (
                 <Line
                   type="monotone"

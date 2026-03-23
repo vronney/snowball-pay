@@ -1,85 +1,149 @@
 const debtRows = [
-  { label: 'Credit Card',  remaining: '$3,200', paid: '$6,800', pct: 68, color: '#3b82f6' },
-  { label: 'Car Loan',     remaining: '$8,100', paid: '$5,900', pct: 42, color: '#6ec1e4' },
-  { label: 'Student Loan', remaining: '$7,120', paid: '$2,080', pct: 22, color: '#8b5cf6' },
+  { label: 'Credit Card',  remaining: '$3,200', paid: '$6,800', pct: 68, color: '#4f9eff' },
+  { label: 'Car Loan',     remaining: '$8,100', paid: '$5,900', pct: 42, color: '#8b5cf6' },
+  { label: 'Student Loan', remaining: '$7,120', paid: '$2,080', pct: 22, color: '#06b6d4' },
 ];
 
 export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
   return (
-    <section className="hero-bg" style={{ position: 'relative', overflow: 'hidden', paddingTop: '120px', paddingBottom: '80px', paddingLeft: '24px', paddingRight: '24px' }}>
-      <div className="orb" style={{ width: '700px', height: '700px', background: 'rgba(59,130,246,0.13)', top: '-300px', right: '-200px', animationDelay: '0s' }} />
-      <div className="orb" style={{ width: '450px', height: '450px', background: 'rgba(110,193,228,0.09)', bottom: '-150px', left: '-150px', animationDelay: '2.5s' }} />
+    <section
+      className="lp-hero-bg"
+      style={{ position: 'relative', overflow: 'hidden', paddingTop: '148px', paddingBottom: '112px', paddingLeft: '24px', paddingRight: '24px' }}
+    >
+      {/* Background orbs */}
+      <div className="lp-orb" style={{ width: '860px', height: '860px', background: 'rgba(79,158,255,0.09)', top: '-420px', right: '-180px', animationDelay: '0s' }} />
+      <div className="lp-orb" style={{ width: '560px', height: '560px', background: 'rgba(139,92,246,0.08)', bottom: '-240px', left: '-180px', animationDelay: '3.5s' }} />
+      <div className="lp-orb" style={{ width: '340px', height: '340px', background: 'rgba(6,182,212,0.07)', top: '55%', left: '35%', animationDelay: '1.8s' }} />
 
-      <div style={{ maxWidth: '860px', margin: '0 auto', textAlign: 'center', position: 'relative', zIndex: 1 }}>
+      {/* Subtle grid overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 0, pointerEvents: 'none', opacity: 0.03,
+        backgroundImage: 'linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)',
+        backgroundSize: '72px 72px',
+      }} />
 
-        {/* Badge */}
-        <div className="fade-1 glass-blue" style={{ display: 'inline-flex', alignItems: 'center', gap: '7px', padding: '6px 16px', borderRadius: '999px', fontSize: '13px', fontWeight: 600, color: '#93c5fd', marginBottom: '28px' }}>
-          <span>✨</span> The proven path to debt freedom
-        </div>
+      <div style={{ maxWidth: '1160px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
+        <div className="lp-hero-cols" style={{ display: 'flex', alignItems: 'center', gap: '56px' }}>
 
-        {/* Headline */}
-        <h1 className="fade-2" style={{ fontSize: 'clamp(2.6rem, 7vw, 4.5rem)', fontWeight: 900, lineHeight: 1.1, letterSpacing: '-0.04em', margin: '0 0 22px' }}>
-          <span className="text-gradient">Crush Your Debt.</span>
-          <br />
-          <span style={{ color: '#e2e8f0' }}>One Payment at a Time.</span>
-        </h1>
+          {/* ── Left: Copy ───────────────────────────── */}
+          <div style={{ flex: '1 1 500px', maxWidth: '560px' }}>
 
-        {/* Sub */}
-        <p className="fade-3" style={{ fontSize: '18px', lineHeight: 1.7, color: '#94a3b8', maxWidth: '580px', margin: '0 auto 36px' }}>
-          Use the proven Debt Snowball method to pay off every balance faster — and actually see your progress.
-        </p>
-
-        {/* CTA buttons */}
-        <div className="fade-4" style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center', marginBottom: '60px' }}>
-          {isLoggedIn ? (
-            <a href="/dashboard" className="btn-glow" style={{ padding: '15px 32px', borderRadius: '12px', fontWeight: 800, fontSize: '16px', color: '#fff', background: 'linear-gradient(135deg,#3b82f6,#2563eb)', textDecoration: 'none', display: 'inline-block' }}>
-              Open Dashboard →
-            </a>
-          ) : (
-            <>
-              <a href="/auth/login?returnTo=/dashboard" className="btn-glow" style={{ padding: '15px 32px', borderRadius: '12px', fontWeight: 800, fontSize: '16px', color: '#fff', background: 'linear-gradient(135deg,#3b82f6,#2563eb)', textDecoration: 'none', display: 'inline-block' }}>
-                Start Free — Get Out of Debt
-              </a>
-              <a href="#how-it-works" className="btn-ghost glass" style={{ padding: '15px 28px', borderRadius: '12px', fontWeight: 600, fontSize: '15px', color: '#cbd5e1', textDecoration: 'none', display: 'inline-block' }}>
-                See How It Works ↓
-              </a>
-            </>
-          )}
-        </div>
-
-        {/* Mock Dashboard Card */}
-        <div className="fade-5 glass" style={{ maxWidth: '480px', margin: '0 auto', borderRadius: '20px', padding: '28px', boxShadow: '0 32px 70px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.05)', textAlign: 'left' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '24px' }}>
-            <div>
-              <p style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>Total Remaining</p>
-              <p style={{ fontSize: '32px', fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.03em' }}>$18,420</p>
+            {/* Eyebrow pill */}
+            <div className="lp-f1 lp-glass-blue" style={{ display: 'inline-flex', alignItems: 'center', gap: '9px', padding: '7px 16px', borderRadius: '999px', fontSize: '12px', fontWeight: 700, color: '#6bb8ff', marginBottom: '30px' }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#4f9eff', boxShadow: '0 0 10px #4f9eff', flexShrink: 0, display: 'inline-block' }} />
+              The proven path to debt freedom
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: '11px', fontWeight: 600, letterSpacing: '0.1em', color: '#475569', textTransform: 'uppercase', marginBottom: '4px' }}>Est. Payoff</p>
-              <p style={{ fontSize: '17px', fontWeight: 700, color: '#6ec1e4' }}>Mar 2027</p>
+
+            {/* Headline */}
+            <h1 className="lp-f2" style={{ fontSize: 'clamp(2.9rem, 7.5vw, 5rem)', fontWeight: 900, lineHeight: 1.04, letterSpacing: '-0.048em', marginBottom: '26px', color: '#eef4ff' }}>
+              <span className="lp-text-blue">Eliminate Debt.</span>
+              <br />
+              <span>Build Lasting</span>
+              <br />
+              <span>Financial Freedom.</span>
+            </h1>
+
+            {/* Subheading */}
+            <p className="lp-f3" style={{ fontSize: '18px', lineHeight: 1.72, color: '#7a9bbf', maxWidth: '500px', marginBottom: '42px' }}>
+              Use the proven Debt Snowball method — track every balance, build unstoppable momentum, and reach debt-free faster than you think.
+            </p>
+
+            {/* CTA row */}
+            <div className="lp-f4 lp-cta-btns" style={{ display: 'flex', flexWrap: 'wrap', gap: '14px', marginBottom: '52px' }}>
+              {isLoggedIn ? (
+                <a href="/dashboard" className="lp-btn lp-btn-primary" style={{ fontSize: '16px', padding: '16px 36px' }}>
+                  Open Dashboard →
+                </a>
+              ) : (
+                <>
+                  <a href="/auth/login?returnTo=/dashboard" className="lp-btn lp-btn-primary" style={{ fontSize: '16px', padding: '16px 36px' }}>
+                    Start Free — No Card Needed
+                  </a>
+                  <a href="#how-it-works" className="lp-btn lp-btn-ghost" style={{ fontSize: '15px' }}>
+                    See How It Works ↓
+                  </a>
+                </>
+              )}
+            </div>
+
+            {/* Micro stats */}
+            <div className="lp-f5" style={{ display: 'flex', alignItems: 'center', gap: '0', flexWrap: 'wrap' }}>
+              {[
+                { val: '10k+',  label: 'Active Users' },
+                { val: '$14k',  label: 'Avg. Interest Saved' },
+                { val: '3.2yr', label: 'Avg. Payoff Time' },
+              ].map((s, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center' }}>
+                  {i > 0 && <div style={{ width: '1px', height: '36px', background: 'rgba(255,255,255,0.08)', margin: '0 24px' }} />}
+                  <div>
+                    <div style={{ fontSize: '19px', fontWeight: 900, color: '#eef4ff', letterSpacing: '-0.03em' }}>{s.val}</div>
+                    <div style={{ fontSize: '11px', color: '#3d5570', fontWeight: 500, marginTop: '2px' }}>{s.label}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {debtRows.map((d, i) => (
-            <div key={i} style={{ marginBottom: i < debtRows.length - 1 ? '18px' : '0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '7px' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#cbd5e1' }}>{d.label}</span>
-                <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
-                  <span style={{ fontSize: '11px', color: '#475569' }}>Paid {d.paid}</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#e2e8f0' }}>{d.remaining}</span>
+          {/* ── Right: Visual composition ─────────────── */}
+          <div className="lp-hero-right lp-f6" style={{ flex: '1 1 440px', maxWidth: '480px', position: 'relative', paddingBottom: '32px', paddingRight: '28px' }}>
+
+            {/* Main dashboard card */}
+            <div className="lp-glass lp-shimmer" style={{ borderRadius: '24px', padding: '28px 28px 24px', boxShadow: '0 48px 96px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.07)' }}>
+
+              {/* Card header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '26px' }}>
+                <div>
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', color: '#3d5570', textTransform: 'uppercase', marginBottom: '6px' }}>Total Remaining</p>
+                  <p style={{ fontSize: '36px', fontWeight: 900, color: '#eef4ff', letterSpacing: '-0.04em', lineHeight: 1 }}>$18,420</p>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', color: '#3d5570', textTransform: 'uppercase', marginBottom: '6px' }}>Est. Payoff</p>
+                  <p style={{ fontSize: '18px', fontWeight: 800, color: '#06b6d4', letterSpacing: '-0.02em' }}>Mar 2027</p>
                 </div>
               </div>
-              <div style={{ height: '7px', borderRadius: '999px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${d.pct}%`, borderRadius: '999px', background: `linear-gradient(90deg, ${d.color}, ${d.color}88)` }} />
-              </div>
-              <p style={{ fontSize: '11px', color: '#475569', marginTop: '4px' }}>{d.pct}% paid off</p>
-            </div>
-          ))}
 
-          <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '12px', color: '#475569' }}>Next payment due</span>
-            <span style={{ fontSize: '12px', fontWeight: 700, padding: '4px 12px', borderRadius: '999px', background: 'rgba(59,130,246,0.15)', color: '#93c5fd' }}>$340 on Apr 1</span>
+              {/* Debt progress rows */}
+              {debtRows.map((d, i) => (
+                <div key={i} style={{ marginBottom: i < debtRows.length - 1 ? '20px' : '0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#c0d4e8' }}>{d.label}</span>
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', color: '#3d5570' }}>Paid {d.paid}</span>
+                      <span style={{ fontSize: '13px', fontWeight: 800, color: '#eef4ff' }}>{d.remaining}</span>
+                    </div>
+                  </div>
+                  <div className="lp-track">
+                    <div
+                      className="lp-bar"
+                      style={{ width: `${d.pct}%`, background: `linear-gradient(90deg, ${d.color}, ${d.color}88)`, ['--bar-w' as string]: `${d.pct}%` }}
+                    />
+                  </div>
+                  <p style={{ fontSize: '11px', color: '#3d5570', marginTop: '4px' }}>{d.pct}% paid off</p>
+                </div>
+              ))}
+
+              {/* Footer strip */}
+              <div style={{ marginTop: '22px', paddingTop: '18px', borderTop: '1px solid rgba(255,255,255,0.055)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '12px', color: '#3d5570' }}>Next payment due</span>
+                <span className="lp-glass-blue" style={{ fontSize: '12px', fontWeight: 800, padding: '5px 14px', borderRadius: '999px', color: '#6bb8ff' }}>$340 on Apr 1</span>
+              </div>
+            </div>
+
+            {/* Floating badge — savings (top-right) */}
+            <div className="lp-glass-green lp-float" style={{ position: 'absolute', top: '-22px', right: '-20px', borderRadius: '18px', padding: '14px 18px', boxShadow: '0 18px 44px rgba(0,0,0,0.55)', animationDelay: '0.8s' }}>
+              <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', color: '#34d399', textTransform: 'uppercase', marginBottom: '4px' }}>Interest Saved</p>
+              <p style={{ fontSize: '22px', fontWeight: 900, color: '#6ee7b7', letterSpacing: '-0.03em' }}>+$4,280</p>
+              <p style={{ fontSize: '11px', color: '#1c5e42' }}>so far this year</p>
+            </div>
+
+            {/* Floating badge — streak (bottom-left) */}
+            <div className="lp-glass-purple lp-float2" style={{ position: 'absolute', bottom: '-4px', left: '-26px', borderRadius: '18px', padding: '14px 18px', boxShadow: '0 18px 44px rgba(0,0,0,0.55)', animationDelay: '2.2s' }}>
+              <p style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', color: '#a78bfa', textTransform: 'uppercase', marginBottom: '4px' }}>Payment Streak</p>
+              <p style={{ fontSize: '22px', fontWeight: 900, color: '#c4b5fd', letterSpacing: '-0.03em' }}>8 months</p>
+              <p style={{ fontSize: '11px', color: '#4a3070' }}>on-time payments</p>
+            </div>
           </div>
+
         </div>
       </div>
     </section>
