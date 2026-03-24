@@ -141,7 +141,7 @@ export default function BalanceOverTimeChart({
         const diff = lastProjected != null && lastActual?.actualBalance != null
           ? lastProjected - lastActual.actualBalance
           : null;
-        if (diff == null) return null;
+        if (diff == null || !lastActual) return null;
         const ahead = diff > 0;
         const onTrack = Math.abs(diff) < 50;
         return (
