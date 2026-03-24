@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useCreateDebt, useDeleteDebt, useIncome, useExpenses, useAllSnapshots } from '@/lib/hooks';
+import { useCreateDebt, useDeleteDebt, useIncome, useExpenses, useAllSnapshots, useBonusIncomes } from '@/lib/hooks';
+import { bonusIncomeMonthly } from '@/types';
 import { Debt, BalanceSnapshot } from '@/types';
 import { PlusCircle, Inbox, Bell } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
@@ -96,10 +97,12 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
 
   const { data: incomeData } = useIncome();
   const { data: expensesData } = useExpenses();
+  const { data: bonusIncomesData } = useBonusIncomes();
   const { data: snapshotData } = useAllSnapshots();
 
   const income = incomeData?.income;
   const expenses = expensesData?.expenses ?? [];
+  const bonusIncomes = bonusIncomesData?.bonusIncomes;
   const snapshots = snapshotData?.snapshots ?? [];
 
   // Earliest snapshot balance per debt (for % paid off)
@@ -120,8 +123,10 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
     if (!income || debts.length === 0) return null;
     const essential = income.essentialExpenses ?? 0;
     const recurring = expenses.reduce((s, e) => s + e.amount, 0);
+    const bonusMonthly = (bonusIncomes ?? []).reduce((s, b) => s + bonusIncomeMonthly(b), 0);
+    const effectiveTakeHome = income.monthlyTakeHome + bonusMonthly;
     const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);
-    const naturalSurplus = Math.max(0, income.monthlyTakeHome - essential - recurring - totalMin);
+    const naturalSurplus = Math.max(0, effectiveTakeHome - essential - recurring - totalMin);
     const maxAccel = naturalSurplus + (income.extraPayment ?? 0);
     const targetAccel = income.accelerationAmount !== null && income.accelerationAmount !== undefined
       ? Math.min(income.accelerationAmount, maxAccel)
@@ -130,11 +135,11 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
     try {
       const method = income.payoffMethod ?? 'snowball';
       const calc = method === 'avalanche' ? calculateDebtAvalanche : method === 'custom' ? calculateDebtCustom : calculateDebtSnowball;
-      return calc(debts, income.monthlyTakeHome, essential, recurring, adjustedExtra);
+      return calc(debts, effectiveTakeHome, essential, recurring, adjustedExtra);
     } catch {
       return null;
     }
-  }, [debts, income, expenses]);
+  }, [debts, income, expenses, bonusIncomes]);
 
   const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
   const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);

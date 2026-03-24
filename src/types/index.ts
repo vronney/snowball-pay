@@ -73,6 +73,23 @@ export interface BalanceSnapshot {
   createdAt: string;
 }
 
+export interface BonusIncome {
+  id: string;
+  userId: string;
+  name: string;
+  amount: number;
+  frequency: 'monthly' | 'annual' | 'one-time';
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/** Returns the monthly equivalent of a bonus income entry.
+ *  One-time amounts are excluded from recurring monthly calculations. */
+export function bonusIncomeMonthly(entry: BonusIncome): number {
+  if (entry.frequency === 'one-time') return 0;
+  return entry.frequency === 'annual' ? entry.amount / 12 : entry.amount;
+}
+
 export interface DebtSummary {
   totalDebt: number;
   totalMonthlyMinimums: number;

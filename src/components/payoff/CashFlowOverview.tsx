@@ -10,6 +10,7 @@ interface CashFlowOverviewProps {
   totalMinPayments: number;
   availableCashFlow: number;
   effectiveAcceleration: number;
+  bonusMonthlyTotal?: number;
   saveIsPending: boolean;
   saveIsSuccess: boolean;
   onAccelerationChange: (amount: number) => void;
@@ -21,6 +22,7 @@ export default function CashFlowOverview({
   totalMinPayments,
   availableCashFlow,
   effectiveAcceleration,
+  bonusMonthlyTotal = 0,
   saveIsPending,
   saveIsSuccess,
   onAccelerationChange,
@@ -36,6 +38,12 @@ export default function CashFlowOverview({
           <span className="opacity-60">Monthly Take-Home</span>
           <span className="mono font-semibold">{formatCurrency(income.monthlyTakeHome)}</span>
         </div>
+        {bonusMonthlyTotal > 0 && (
+          <div className="flex items-center justify-between" style={{ color: '#a78bfa' }}>
+            <span className="opacity-80 ml-2">+ Extra Income</span>
+            <span className="mono">{formatCurrency(bonusMonthlyTotal)}</span>
+          </div>
+        )}
         <div className="flex items-center justify-between opacity-60">
           <span className="opacity-60 ml-2">− Essential Expenses</span>
           <span className="mono">{formatCurrency(income.essentialExpenses)}</span>

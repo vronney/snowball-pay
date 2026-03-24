@@ -1,40 +1,43 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useSaveIncome, useCreateExpense, useDeleteExpense } from '@/lib/hooks';
-import { Income, Expense, Debt } from '@/types';
-import { Calculator, Repeat, Plus, X } from 'lucide-react';
+import { useState } from 'react';
+import { useSaveIncome, useCreateExpense, useDeleteExpense, useCreateBonusIncome, useDeleteBonusIncome } from '@/lib/hooks';
+import { Income, Expense, BonusIncome, bonusIncomeMonthly, Debt } from '@/types';
+import { Calculator, Repeat, Plus, X, TrendingUp } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 interface IncomeTabProps {
   income: Income | null | undefined;
   expenses: Expense[];
+  bonusIncomes: BonusIncome[];
   debts: Debt[];
   isLoading: boolean;
 }
 
-export default function IncomeTab({ income, expenses, debts, isLoading }: IncomeTabProps) {
+export default function IncomeTab({ income, expenses, bonusIncomes, debts, isLoading }: IncomeTabProps) {
   const [formData, setFormData] = useState({
     monthlyTakeHome: income?.monthlyTakeHome != null ? String(income.monthlyTakeHome) : '',
     essentialExpenses: income?.essentialExpenses != null ? String(income.essentialExpenses) : '',
   });
 
-  const [recurringForm, setRecurringForm] = useState({
-    name: '',
-    amount: '',
-  });
+  const [recurringForm, setRecurringForm] = useState({ name: '', amount: '' });
+  const [bonusForm, setBonusForm] = useState({ name: '', amount: '', frequency: 'monthly' as 'monthly' | 'annual' | 'one-time' });
 
   const saveIncome = useSaveIncome();
   const createExpense = useCreateExpense();
   const deleteExpense = useDeleteExpense();
+  const createBonusIncome = useCreateBonusIncome();
+  const deleteBonusIncome = useDeleteBonusIncome();
 
   const takeHome = parseFloat(formData.monthlyTakeHome) || 0;
   const essential = parseFloat(formData.essentialExpenses) || 0;
 
   const totalMinPayments = debts.reduce((sum, d) => sum + d.minimumPayment, 0);
   const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const bonusMonthlyTotal = bonusIncomes.reduce((sum, b) => sum + bonusIncomeMonthly(b), 0);
   const totalEssential = essential + recurringTotal;
-  const availableCashFlow = Math.max(0, takeHome - totalEssential - totalMinPayments);
+  const effectiveTakeHome = takeHome + bonusMonthlyTotal;
+  const availableCashFlow = Math.max(0, effectiveTakeHome - totalEssential - totalMinPayments);
 
   const handleIncomeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,6 +60,17 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
 
   const handleDeleteRecurring = (id: string) => {
     deleteExpense.mutate(id);
+  };
+
+  const handleAddBonus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bonusForm.name || !bonusForm.amount) return;
+    await createBonusIncome.mutateAsync({
+      name: bonusForm.name,
+      amount: parseFloat(bonusForm.amount),
+      frequency: bonusForm.frequency,
+    });
+    setBonusForm({ name: '', amount: '', frequency: 'monthly' });
   };
 
   if (isLoading) {
@@ -108,11 +122,19 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
           {/* Budget Visualization */}
           {takeHome > 0 && (
             <div className="rounded-xl p-4 mt-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
-              <div className="text-xs opacity-60 mb-2">Monthly Budget Breakdown</div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs opacity-60">Monthly Budget Breakdown</div>
+                {bonusMonthlyTotal > 0 && (
+                  <div className="text-xs" style={{ color: '#a78bfa' }}>
+                    +{formatCurrency(bonusMonthlyTotal)}/mo extra income included
+                  </div>
+                )}
+              </div>
               <div className="h-4 rounded-full overflow-hidden flex" style={{ background: 'rgba(255,255,255,0.05)' }}>
                 {(() => {
-                  const pctExp = Math.min(100, (totalEssential / takeHome) * 100);
-                  const pctMin = Math.min(100 - pctExp, (totalMinPayments / takeHome) * 100);
+                  const base = effectiveTakeHome || 1;
+                  const pctExp = Math.min(100, (totalEssential / base) * 100);
+                  const pctMin = Math.min(100 - pctExp, (totalMinPayments / base) * 100);
                   const pctLeft = Math.max(0, 100 - pctExp - pctMin);
 
                   return (
@@ -150,6 +172,97 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
           {saveIncome.isSuccess && <p className="text-emerald-400 text-xs">Budget saved!</p>}
           {saveIncome.isError && <p className="text-red-400 text-xs">Error saving budget</p>}
         </form>
+      </div>
+
+      {/* Extra / Bonus Income Section */}
+      <div className="rounded-2xl p-5 snowball-glow mb-6" style={{ background: 'rgba(19,29,46,1)' }}>
+        <h2 className="font-semibold text-base mb-1 flex items-center gap-2">
+          <TrendingUp size={18} style={{ color: '#a78bfa' }} />
+          Extra Income
+        </h2>
+        <p className="text-xs opacity-60 mb-4">Commissions, bonuses, freelance, or any income beyond your regular paycheck</p>
+
+        {/* Add Form */}
+        <form onSubmit={handleAddBonus} className="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-4 pb-4 border-b border-white/10">
+          <div className="sm:col-span-2">
+            <label className="text-xs opacity-60 mb-1 block">Source Name</label>
+            <input
+              type="text"
+              placeholder="e.g. Sales Commission"
+              value={bonusForm.name}
+              onChange={(e) => setBonusForm({ ...bonusForm, name: e.target.value })}
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="text-xs opacity-60 mb-1 block">Amount ($)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              placeholder="500"
+              value={bonusForm.amount}
+              onChange={(e) => setBonusForm({ ...bonusForm, amount: e.target.value })}
+              className="input-field"
+            />
+          </div>
+          <div>
+            <label className="text-xs opacity-60 mb-1 block ">Frequency</label>
+            <select
+              value={bonusForm.frequency}
+              onChange={(e) => setBonusForm({ ...bonusForm, frequency: e.target.value as 'monthly' | 'annual' | 'one-time' })}
+              className="input-field"
+            >
+              <option value="monthly" className='bg-slate-400/10 text-black/80'>Monthly</option>
+              <option value="annual" className='bg-slate-400/10 text-black/80'>Annual</option>
+              <option value="one-time" className='bg-slate-400/10 text-black/80'>One-Time</option>
+            </select>
+          </div>
+          <div className="flex items-end sm:col-span-4">
+            <button type="submit" disabled={createBonusIncome.isPending} className="btn-primary px-4" style={{ background: '#7c3aed' }}>
+              <Plus size={16} />
+              Add
+            </button>
+          </div>
+        </form>
+
+        {/* List */}
+        <div className="space-y-2 mb-4">
+          {bonusIncomes.map((entry) => (
+            <div key={entry.id} className="flex items-center justify-between p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
+              <div>
+                <div className="text-sm font-medium">{entry.name}</div>
+                <div className="text-xs opacity-50">
+                  {formatCurrency(entry.amount)}/{entry.frequency === 'annual' ? 'yr' : 'mo'}
+                  {entry.frequency === 'annual' && (
+                    <span className="ml-2 opacity-70">≈ {formatCurrency(entry.amount / 12)}/mo</span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => deleteBonusIncome.mutate(entry.id)}
+                className="p-1 rounded hover:bg-white/5 cursor-pointer bg-transparent border-0 text-txt opacity-40 hover:opacity-100 transition"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {bonusIncomes.length === 0 && (
+          <div className="text-center py-6 opacity-40 text-sm">No extra income sources added yet.</div>
+        )}
+
+        {bonusIncomes.length > 0 && (
+          <div className="p-3 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="flex items-center justify-between">
+              <span className="opacity-60">Monthly equivalent total:</span>
+              <span className="mono font-semibold" style={{ color: '#a78bfa' }}>
+                +{formatCurrency(bonusMonthlyTotal)}/mo
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Recurring Expenses Section */}
