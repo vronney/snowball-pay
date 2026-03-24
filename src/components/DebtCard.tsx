@@ -4,18 +4,19 @@ import { useState } from 'react';
 import { Debt } from '@/types';
 import { Trash2, Pencil, X, Check, DollarSign, RefreshCw } from 'lucide-react';
 import { formatCurrency, formatPercent, getCategoryColor, getOrdinalDay, calculateUtilization } from '@/lib/utils';
-import { useAddSnapshot, useUpdateDebt } from '@/lib/hooks';
+import { useAddBulkSnapshots, useUpdateDebt } from '@/lib/hooks';
 import DebtForm from '@/components/DebtForm';
 
 interface DebtCardProps {
   debt: Debt;
+  allDebts: Debt[];
   onDelete: () => void;
   firstSnapshotBalance?: number | null;
 }
 
 type Panel = 'payment' | 'balance' | 'edit' | null;
 
-export default function DebtCard({ debt, onDelete, firstSnapshotBalance }: DebtCardProps) {
+export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalance }: DebtCardProps) {
   const util = debt.creditLimit > 0 ? calculateUtilization(debt.balance, debt.creditLimit) : null;
   const categoryColor = getCategoryColor(debt.category);
   const isHighInterest = debt.interestRate >= 20;
@@ -26,10 +27,21 @@ export default function DebtCard({ debt, onDelete, firstSnapshotBalance }: DebtC
   const [paymentAmount, setPaymentAmount] = useState('');
   const [newBalance, setNewBalance] = useState(String(debt.balance));
 
-  const addSnapshot = useAddSnapshot(debt.id);
+  const addBulkSnapshots = useAddBulkSnapshots();
   const updateDebt = useUpdateDebt();
 
   const togglePanel = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
+
+  const snapshotAllDebts = (updatedDebtBalance: number) => {
+    const now = new Date();
+    const recordedAt = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const entries = allDebts.map((d) => ({
+      debtId: d.id,
+      balance: d.id === debt.id ? updatedDebtBalance : d.balance,
+      recordedAt,
+    }));
+    return addBulkSnapshots.mutateAsync(entries);
+  };
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,10 +49,7 @@ export default function DebtCard({ debt, onDelete, firstSnapshotBalance }: DebtC
     if (!amount || amount <= 0) return;
     const newBalance = Math.max(0, debt.balance - amount);
     await updateDebt.mutateAsync({ id: debt.id, updates: { balance: newBalance } });
-    // Auto-log a snapshot for the current month
-    const now = new Date();
-    const recordedAt = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    await addSnapshot.mutateAsync({ balance: newBalance, recordedAt });
+    await snapshotAllDebts(newBalance);
     setPaymentAmount('');
     setPanel(null);
   };
@@ -50,9 +59,7 @@ export default function DebtCard({ debt, onDelete, firstSnapshotBalance }: DebtC
     const val = parseFloat(newBalance);
     if (isNaN(val) || val < 0) return;
     await updateDebt.mutateAsync({ id: debt.id, updates: { balance: val } });
-    const now = new Date();
-    const recordedAt = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    await addSnapshot.mutateAsync({ balance: val, recordedAt });
+    await snapshotAllDebts(val);
     setPanel(null);
   };
 
@@ -103,7 +110,7 @@ export default function DebtCard({ debt, onDelete, firstSnapshotBalance }: DebtC
 
           {/* Paid-off progress bar — uses earliest snapshot or original balance at entry */}
           {(() => {
-            const startBalance = firstSnapshotBalance ?? debt.originalBalance;
+            const startBalance = debt.originalBalance || firstSnapshotBalance;
             if (!startBalance || startBalance <= 0) return null;
             const pct = Math.min(100, Math.max(0, ((startBalance - debt.balance) / startBalance) * 100));
             return (
@@ -210,7 +217,7 @@ export default function DebtCard({ debt, onDelete, firstSnapshotBalance }: DebtC
           <div className="flex gap-2 items-end pb-0.5">
             <button
               type="submit"
-              disabled={updateDebt.isPending || addSnapshot.isPending}
+              disabled={updateDebt.isPending || addBulkSnapshots.isPending}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40"
               style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.35)', color: '#34d399' }}
             >
@@ -251,7 +258,7 @@ export default function DebtCard({ debt, onDelete, firstSnapshotBalance }: DebtC
           <div className="flex gap-2 items-end pb-0.5">
             <button
               type="submit"
-              disabled={updateDebt.isPending || addSnapshot.isPending}
+              disabled={updateDebt.isPending || addBulkSnapshots.isPending}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40"
               style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#fbbf24' }}
             >

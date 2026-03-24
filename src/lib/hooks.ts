@@ -176,6 +176,23 @@ export function useAddSnapshot(debtId: string) {
   });
 }
 
+/** Snapshots multiple debts at once for the same month. Upserts by month per debt. */
+export function useAddBulkSnapshots() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (entries: { debtId: string; balance: number; recordedAt: string }[]) => {
+      await Promise.all(
+        entries.map(({ debtId, balance, recordedAt }) =>
+          axios.post(`${API_URL}/api/debts/${debtId}/snapshots`, { balance, recordedAt })
+        )
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+    },
+  });
+}
+
 // ===== AI RECOMMENDATIONS =====
 
 export interface AiRecommendation {

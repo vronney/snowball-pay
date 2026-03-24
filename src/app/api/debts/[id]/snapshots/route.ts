@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
+import { verifyAuth, unauthorized, badRequest, serverError, isValidId } from '@/lib/auth-server';
 import { z } from 'zod';
 
 const CreateSnapshotSchema = z.object({
@@ -17,6 +17,7 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (!isValidId(params.id)) return badRequest('Invalid id');
   const auth = await verifyAuth(request);
   if (!auth.valid || !auth.user) return unauthorized();
 
@@ -40,6 +41,7 @@ export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  if (!isValidId(params.id)) return badRequest('Invalid id');
   const auth = await verifyAuth(request);
   if (!auth.valid || !auth.user) return unauthorized();
 

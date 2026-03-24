@@ -5,7 +5,7 @@ import { useCreateDebt, useDeleteDebt, useIncome, useExpenses, useAllSnapshots }
 import { Debt, BalanceSnapshot } from '@/types';
 import { PlusCircle, Inbox, Bell } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
-import { calculateDebtSnowball } from '@/lib/snowball';
+import { calculateDebtSnowball, calculateDebtAvalanche, calculateDebtCustom } from '@/lib/snowball';
 import DebtCard from '@/components/DebtCard';
 import DebtForm from '@/components/DebtForm';
 import PaymentCalendar from '@/components/PaymentCalendar';
@@ -115,13 +115,22 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
   // Payment streak
   const streak = useMemo(() => computeStreak(snapshots), [snapshots]);
 
-  // Payoff estimate
+  // Payoff estimate — mirrors the PayoffTab acceleration logic so both tabs show the same date
   const payoffResult = useMemo(() => {
     if (!income || debts.length === 0) return null;
     const essential = income.essentialExpenses ?? 0;
     const recurring = expenses.reduce((s, e) => s + e.amount, 0);
+    const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);
+    const naturalSurplus = Math.max(0, income.monthlyTakeHome - essential - recurring - totalMin);
+    const maxAccel = naturalSurplus + (income.extraPayment ?? 0);
+    const targetAccel = income.accelerationAmount !== null && income.accelerationAmount !== undefined
+      ? Math.min(income.accelerationAmount, maxAccel)
+      : maxAccel;
+    const adjustedExtra = targetAccel - naturalSurplus;
     try {
-      return calculateDebtSnowball(debts, income.monthlyTakeHome, essential, recurring, income.extraPayment ?? 0);
+      const method = income.payoffMethod ?? 'snowball';
+      const calc = method === 'avalanche' ? calculateDebtAvalanche : method === 'custom' ? calculateDebtCustom : calculateDebtSnowball;
+      return calc(debts, income.monthlyTakeHome, essential, recurring, adjustedExtra);
     } catch {
       return null;
     }
@@ -260,6 +269,7 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
           <DebtCard
             key={debt.id}
             debt={debt}
+            allDebts={debts}
             onDelete={() => deleteDebt.mutate(debt.id)}
             firstSnapshotBalance={earliestBalanceByDebt.get(debt.id) ?? null}
           />

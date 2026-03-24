@@ -70,3 +70,14 @@ export function serverError(message: string) {
     { status: 500 }
   );
 }
+
+/** CUID format: starts with 'c', 25 alphanumeric chars total. */
+const CUID_RE = /^c[a-z0-9]{24}$/;
+
+/**
+ * Returns true when the value looks like a valid Prisma CUID.
+ * Use this to reject obviously malformed IDs before hitting the database.
+ */
+export function isValidId(id: unknown): id is string {
+  return typeof id === 'string' && CUID_RE.test(id);
+}

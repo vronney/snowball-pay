@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
+import { z } from 'zod';
+import { limits } from '@/lib/rateLimit';
 
 export const maxDuration = 30;
 
@@ -52,16 +54,26 @@ function buildDataHash(body: RecommendationPayload): string {
   ].join('|');
 }
 
-interface RecommendationPayload {
-  debts: { name: string; balance: number; interestRate: number; minimumPayment: number; category: string }[];
-  monthlyTakeHome: number;
-  essentialExpenses: number;
-  recurringExpenses: number;
-  extraPayment: number;
-  planMonths: number;
-  totalInterestPaid: number;
-  availableCashFlow: number;
-}
+const DebtItemSchema = z.object({
+  name: z.string(),
+  balance: z.number(),
+  interestRate: z.number(),
+  minimumPayment: z.number(),
+  category: z.string(),
+});
+
+const RecommendationPayloadSchema = z.object({
+  debts: z.array(DebtItemSchema).min(1, 'At least one debt is required'),
+  monthlyTakeHome: z.number(),
+  essentialExpenses: z.number(),
+  recurringExpenses: z.number(),
+  extraPayment: z.number(),
+  planMonths: z.number(),
+  totalInterestPaid: z.number(),
+  availableCashFlow: z.number(),
+});
+
+type RecommendationPayload = z.infer<typeof RecommendationPayloadSchema>;
 
 // ── GET — return cached recommendations ──────────────────────────────────────
 
@@ -95,12 +107,20 @@ export async function POST(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!auth.valid || !auth.user) return unauthorized();
 
-  try {
-    const body = await request.json() as RecommendationPayload;
+  if (!limits.recommendations(auth.user.id)) {
+    return NextResponse.json(
+      { error: 'Too many requests. Please wait before generating new recommendations.' },
+      { status: 429 }
+    );
+  }
 
-    if (!body.debts || !Array.isArray(body.debts) || body.debts.length === 0) {
-      return badRequest('At least one debt is required');
+  try {
+    const requestBody = await request.json();
+    const parseResult = RecommendationPayloadSchema.safeParse(requestBody);
+    if (!parseResult.success) {
+      return badRequest(parseResult.error.issues[0]?.message ?? 'Invalid request payload');
     }
+    const body: RecommendationPayload = parseResult.data;
 
     const totalDebt = body.debts.reduce((s, d) => s + d.balance, 0);
     const totalMin  = body.debts.reduce((s, d) => s + d.minimumPayment, 0);
@@ -138,8 +158,13 @@ Current plan:
       messages: [{ role: 'user', content: userContext }],
     });
 
-    const raw    = msg.content[0].type === 'text' ? msg.content[0].text : '';
-    const parsed = parseClaudeJson(raw) as { recommendations: unknown[] };
+    const rawText = msg.content[0].type === 'text' ? msg.content[0].text : '';
+    const claudeResponse = z.object({ recommendations: z.array(z.unknown()) })
+      .safeParse(parseClaudeJson(rawText));
+    if (!claudeResponse.success) {
+      return serverError('Failed to parse AI response');
+    }
+    const parsed = claudeResponse.data;
     const dataHash = buildDataHash(body);
 
     // Upsert — one cache row per user

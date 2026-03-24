@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
+import { limits } from '@/lib/rateLimit';
 
 // Allow up to 5 minutes — two-pass analysis across many files takes time
 export const maxDuration = 300;
@@ -225,13 +226,21 @@ export async function POST(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!auth.valid || !auth.user) return unauthorized();
 
+  if (!limits.documentUpload(auth.user.id)) {
+    return NextResponse.json(
+      { error: 'Too many uploads. Please wait before uploading more documents.' },
+      { status: 429 }
+    );
+  }
+
   try {
     const formData = await request.formData();
-    const fileType  = formData.get('fileType') as string;
+    const fileTypeRaw = formData.get('fileType');
+    const fileType = typeof fileTypeRaw === 'string' ? fileTypeRaw : null;
 
-    const rawFiles   = formData.getAll('files') as File[];
-    const singleFile = formData.get('file') as File | null;
-    const files      = rawFiles.length > 0 ? rawFiles : singleFile ? [singleFile] : [];
+    const rawFiles   = formData.getAll('files').filter((f): f is File => f instanceof File);
+    const singleFile = formData.get('file');
+    const files      = rawFiles.length > 0 ? rawFiles : singleFile instanceof File ? [singleFile] : [];
 
     if (files.length === 0 || !fileType) {
       return NextResponse.json({ error: 'At least one file and fileType are required' }, { status: 400 });
