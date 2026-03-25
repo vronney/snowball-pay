@@ -14,7 +14,7 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
         <div className="lp-hide-sm" style={{ display: 'flex', alignItems: 'center', gap: '36px' }}>
           <a href="#features" className="lp-nav-link">Features</a>
           <a href="#how-it-works" className="lp-nav-link">How It Works</a>
-          <a href="#testimonials" className="lp-nav-link">Stories</a>
+          <a href="/calculator" className="lp-nav-link">Calculator</a>
           <a href="#faq" className="lp-nav-link">FAQ</a>
         </div>
 

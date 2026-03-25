@@ -13,7 +13,7 @@ import {
 } from 'recharts';
 import { formatCurrency } from '@/lib/utils';
 
-type ChartEntry = {
+export type ChartEntry = {
   date: string;
   totalBalance: number | undefined;
   minimumsBalance: number | undefined;

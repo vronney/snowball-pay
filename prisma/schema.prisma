@@ -22,7 +22,6 @@ model User {
   debts                   Debt[]
   income                  Income?
   expenses                Expense[]
-  bonusIncomes            BonusIncome[]
   payoffPlan              PayoffPlan?
   aiRecommendationCache   AiRecommendationCache?
 
@@ -92,27 +91,6 @@ model Expense {
   @@map("expenses")
 }
 
-// ---------------------------------------------------------------------------
-// Bonus Income — itemized irregular/variable income sources (commissions,
-// bonuses, freelance, side income, etc.) that supplement the regular
-// monthly take-home. Each entry is normalised to a monthly equivalent
-// for payoff calculations.
-// ---------------------------------------------------------------------------
-model BonusIncome {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  name      String            // e.g. "Sales Commission", "Annual Bonus"
-  amount    Float             // per-occurrence amount
-  frequency String            // monthly | annual
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-  @@map("bonus_income")
-}
 
 // ---------------------------------------------------------------------------
 // Balance Snapshot — one entry per debt per month recording the statement

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Debt, Income, Expense, BonusIncome, DebtSummary, BudgetSummary, PayoffPlan, BalanceSnapshot } from '@/types';
+import { Debt, Income, Expense, DebtSummary, BudgetSummary, PayoffPlan, BalanceSnapshot } from '@/types';
 import axios from 'axios';
 
 // Use relative paths so this works on both localhost and Vercel without config.
@@ -125,41 +125,6 @@ export function useDeleteExpense() {
   });
 }
 
-// ===== BONUS INCOME =====
-export function useBonusIncomes() {
-  return useQuery<{ bonusIncomes: BonusIncome[] }>({
-    queryKey: ['bonusIncomes'],
-    queryFn: async () => {
-      const { data } = await axios.get(`${API_URL}/api/bonus-income`);
-      return data;
-    },
-  });
-}
-
-export function useCreateBonusIncome() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (entry: { name: string; amount: number; frequency: 'monthly' | 'annual' | 'one-time' }) => {
-      const { data } = await axios.post(`${API_URL}/api/bonus-income`, entry);
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bonusIncomes'] });
-    },
-  });
-}
-
-export function useDeleteBonusIncome() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      await axios.delete(`${API_URL}/api/bonus-income/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['bonusIncomes'] });
-    },
-  });
-}
 
 // ===== PAYOFF PLAN =====
 export function useCalculatePayoffPlan() {

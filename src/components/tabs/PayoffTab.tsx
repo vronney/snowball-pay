@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Debt, Income, Expense, BonusIncome, bonusIncomeMonthly } from '@/types';
+import { Debt, Income, Expense } from '@/types';
 import { calculateDebtSnowball, calculateDebtAvalanche, calculateDebtCustom, type PayoffMethod, type PayoffResult } from '@/lib/snowball';
 import { useUpdateDebt, useAllSnapshots, useSaveIncome } from '@/lib/hooks';
 import { Inbox } from 'lucide-react';
@@ -19,11 +19,10 @@ interface PayoffTabProps {
   debts: Debt[];
   income: Income | null | undefined;
   expenses: Expense[];
-  bonusIncomes: BonusIncome[];
   isLoading: boolean;
 }
 
-export default function PayoffTab({ debts, income, expenses, bonusIncomes, isLoading }: PayoffTabProps) {
+export default function PayoffTab({ debts, income, expenses, isLoading }: PayoffTabProps) {
   // Lazy initializers read from income when it's already cached (e.g. returning
   // to this tab). This prevents the auto-save effect from firing with stale
   // initial-state values on remount and overwriting what was just loaded.
@@ -124,23 +123,21 @@ export default function PayoffTab({ debts, income, expenses, bonusIncomes, isLoa
   useEffect(() => {
     if (debts.length > 0 && income) {
       const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
-      const bonusMonthly = bonusIncomes.reduce((sum, b) => sum + bonusIncomeMonthly(b), 0);
-      const effectiveTakeHome = income.monthlyTakeHome + bonusMonthly;
       const totalMin = debts.reduce((sum, d) => sum + d.minimumPayment, 0);
       const totalEss = income.essentialExpenses + recurringTotal;
-      const maxAcceleration = Math.max(0, effectiveTakeHome - totalEss - totalMin + (income.extraPayment ?? 0));
+      const maxAcceleration = Math.max(0, income.monthlyTakeHome - totalEss - totalMin + (income.extraPayment ?? 0));
       const targetAcceleration = accelerationAmount !== null
         ? Math.min(accelerationAmount, maxAcceleration)
         : maxAcceleration;
-      const adjustedExtra = targetAcceleration - (effectiveTakeHome - totalEss - totalMin);
+      const adjustedExtra = targetAcceleration - (income.monthlyTakeHome - totalEss - totalMin);
       const result = payoffMethod === 'avalanche'
-        ? calculateDebtAvalanche(debts, effectiveTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
+        ? calculateDebtAvalanche(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
         : payoffMethod === 'custom'
-        ? calculateDebtCustom(debts, effectiveTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
-        : calculateDebtSnowball(debts, effectiveTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra);
+        ? calculateDebtCustom(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
+        : calculateDebtSnowball(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra);
       setPlanResult(result);
     }
-  }, [debts, income, expenses, bonusIncomes, payoffMethod, accelerationAmount]);
+  }, [debts, income, expenses, payoffMethod, accelerationAmount]);
 
   if (isLoading) {
     return (
@@ -165,10 +162,8 @@ export default function PayoffTab({ debts, income, expenses, bonusIncomes, isLoa
 
   const totalMinPayments = debts.reduce((sum, d) => sum + d.minimumPayment, 0);
   const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const bonusMonthlyTotal = bonusIncomes.reduce((sum, b) => sum + bonusIncomeMonthly(b), 0);
-  const effectiveTakeHome = income.monthlyTakeHome + bonusMonthlyTotal;
   const totalEssential = income.essentialExpenses + recurringTotal;
-  const availableCashFlow = Math.max(0, effectiveTakeHome - totalEssential - totalMinPayments + income.extraPayment);
+  const availableCashFlow = Math.max(0, income.monthlyTakeHome - totalEssential - totalMinPayments + income.extraPayment);
   const effectiveAcceleration = accelerationAmount !== null
     ? Math.min(accelerationAmount, availableCashFlow)
     : availableCashFlow;
@@ -270,7 +265,7 @@ export default function PayoffTab({ debts, income, expenses, bonusIncomes, isLoa
         totalMinPayments={totalMinPayments}
         availableCashFlow={availableCashFlow}
         effectiveAcceleration={effectiveAcceleration}
-        bonusMonthlyTotal={bonusMonthlyTotal}
+
         saveIsPending={saveIncome.isPending}
         saveIsSuccess={saveIncome.isSuccess}
         onAccelerationChange={setAccelerationAmount}
