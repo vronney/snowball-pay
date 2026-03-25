@@ -18,6 +18,7 @@ const nextConfig = {
   eslint: {
     dirs: ['src'],
   },
+  serverExternalPackages: ['@auth0/nextjs-auth0'],
   experimental: {
     typedRoutes: true,
     serverActions: {
