@@ -25,6 +25,7 @@ model User {
   payoffPlan              PayoffPlan?
   aiRecommendationCache   AiRecommendationCache?
   preferences             UserPreferences?
+  paymentRecords          PaymentRecord[]
 
   @@map("users")
 }
@@ -68,6 +69,7 @@ model Debt {
 
   payoffSchedule    PayoffStep[]
   snapshots         BalanceSnapshot[]
+  paymentRecords    PaymentRecord[]
 
   @@index([userId])
   @@map("debts")
@@ -189,6 +191,28 @@ model AiRecommendationCache {
   generatedAt     DateTime @default(now())
 
   @@map("ai_recommendation_cache")
+}
+
+// ---------------------------------------------------------------------------
+// Payment Record — one entry per debt per month when the user marks it paid.
+// Used to show paid status on the calendar and suppress bell notifications.
+// ---------------------------------------------------------------------------
+model PaymentRecord {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  debtId    String
+  debt      Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
+
+  amount    Float    // payment amount recorded
+  dueYear   Int
+  dueMonth  Int      // 0-11
+
+  paidAt    DateTime @default(now())
+
+  @@unique([debtId, dueYear, dueMonth])
+  @@index([userId])
+  @@map("payment_records")
 }
 
 model UploadedDocument {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Debt } from '@/types';
 import { Trash2, Pencil, X, Check, DollarSign, RefreshCw } from 'lucide-react';
 import { formatCurrency, formatPercent, getCategoryColor, getOrdinalDay, calculateUtilization } from '@/lib/utils';
@@ -12,11 +12,13 @@ interface DebtCardProps {
   allDebts: Debt[];
   onDelete: () => void;
   firstSnapshotBalance?: number | null;
+  openPaymentPanel?: boolean;
+  onPaymentPanelOpened?: () => void;
 }
 
 type Panel = 'payment' | 'balance' | 'edit' | null;
 
-export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalance }: DebtCardProps) {
+export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalance, openPaymentPanel, onPaymentPanelOpened }: DebtCardProps) {
   const util = debt.creditLimit > 0 ? calculateUtilization(debt.balance, debt.creditLimit) : null;
   const categoryColor = getCategoryColor(debt.category);
   const isHighInterest = debt.interestRate >= 20;
@@ -24,6 +26,15 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
   const [panel, setPanel] = useState<Panel>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [newBalance, setNewBalance] = useState(String(debt.balance));
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (openPaymentPanel) {
+      setPanel('payment');
+      onPaymentPanelOpened?.();
+      setTimeout(() => cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+    }
+  }, [openPaymentPanel]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const addBulkSnapshots = useAddBulkSnapshots();
   const updateDebt = useUpdateDebt();
@@ -68,6 +79,7 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
 
   return (
     <div
+      ref={cardRef}
       className="rounded-xl p-4 card-enter flex flex-col gap-3"
       style={{
         background: '#ffffff',

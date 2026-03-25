@@ -13,6 +13,8 @@ import PaymentCalendar from '@/components/PaymentCalendar';
 interface DebtTabProps {
   debts: Debt[];
   isLoading: boolean;
+  openPaymentDebtId?: string | null;
+  onPaymentPanelOpened?: () => void;
 }
 
 interface UpcomingPayment {
@@ -89,7 +91,7 @@ function computeStreak(snapshots: BalanceSnapshot[]): number {
   return streak;
 }
 
-export default function DebtTab({ debts, isLoading }: DebtTabProps) {
+export default function DebtTab({ debts, isLoading, openPaymentDebtId, onPaymentPanelOpened }: DebtTabProps) {
   const [showForm, setShowForm] = useState(false);
   const [debtsOpen, setDebtsOpen] = useState(true);
   const createDebt = useCreateDebt();
@@ -233,6 +235,8 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
                     allDebts={debts}
                     onDelete={() => deleteDebt.mutate(debt.id)}
                     firstSnapshotBalance={earliestBalanceByDebt.get(debt.id) ?? null}
+                    openPaymentPanel={openPaymentDebtId === debt.id}
+                    onPaymentPanelOpened={onPaymentPanelOpened}
                   />
                 ))}
               </div>

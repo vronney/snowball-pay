@@ -296,6 +296,58 @@ export function useUpdatePreferences() {
   });
 }
 
+// ===== PAYMENT RECORDS =====
+
+export interface PaymentRecord {
+  id: string;
+  debtId: string;
+  amount: number;
+  dueYear: number;
+  dueMonth: number;
+  paidAt: string;
+}
+
+/** Fetches all payment records for a specific month (0-11). */
+export function usePaymentRecords(year: number, month: number) {
+  return useQuery<{ records: PaymentRecord[] }>({
+    queryKey: ['payments', year, month],
+    queryFn: async () => {
+      const { data } = await axios.get(`${API_URL}/api/payments?year=${year}&month=${month}`);
+      return data;
+    },
+  });
+}
+
+/** Marks a debt payment as paid for a given month. */
+export function useMarkPaid() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ debtId, amount, dueYear, dueMonth }: { debtId: string; amount: number; dueYear: number; dueMonth: number }) => {
+      const { data } = await axios.post(`${API_URL}/api/payments`, { debtId, amount, dueYear, dueMonth });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['payments', variables.dueYear, variables.dueMonth] });
+      queryClient.invalidateQueries({ queryKey: ['debts'] });
+      queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+    },
+  });
+}
+
+/** Unmarks a payment record (deletes by record id). */
+export function useUnmarkPaid() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ recordId, dueYear, dueMonth }: { recordId: string; dueYear: number; dueMonth: number }) => {
+      await axios.delete(`${API_URL}/api/payments/${recordId}`);
+      return { dueYear, dueMonth };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['payments', result.dueYear, result.dueMonth] });
+    },
+  });
+}
+
 export function useDeleteSnapshot() {
   const queryClient = useQueryClient();
   return useMutation({

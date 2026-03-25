@@ -10,6 +10,7 @@ export async function DELETE(request: NextRequest) {
     const userId = auth.user.id;
 
     // Delete in dependency order
+    await prisma.paymentRecord.deleteMany({ where: { userId } });
     await prisma.balanceSnapshot.deleteMany({ where: { userId } });
     await prisma.payoffStep.deleteMany({
       where: { payoffPlan: { userId } },

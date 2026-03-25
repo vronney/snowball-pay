@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useDebts, useIncome, useExpenses, useUserSettings } from '@/lib/hooks';
+import { useDebts, useIncome, useExpenses, useUserSettings, usePaymentRecords, useMarkPaid } from '@/lib/hooks';
 import DebtTab from '@/components/tabs/DebtTab';
 import IncomeTab from '@/components/tabs/IncomeTab';
 import PayoffTab from '@/components/tabs/PayoffTab';
 import DocumentImport from '@/components/DocumentImport';
 import IntelligenceTab from '@/components/tabs/IntelligenceTab';
 import SettingsTab from '@/components/tabs/SettingsTab';
+import ToastNotifications from '@/components/ToastNotifications';
 import Image from 'next/image';
 import {
   CreditCard,
@@ -41,6 +42,8 @@ interface Notification {
   title: string;
   body: string;
   tab?: Tab;
+  debtId?: string;
+  debtAmount?: number;
 }
 
 const navItems = [
@@ -51,16 +54,21 @@ const navItems = [
   { id: 'documents',    label: 'Import',      icon: Upload },
 ];
 
+const today = new Date();
+
 export default function DashboardClient({ user }: { user: UserInfo | null }) {
   const [activeTab, setActiveTab] = useState<Tab>('debts');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [openPaymentDebtId, setOpenPaymentDebtId] = useState<string | null>(null);
   const notifRef = useRef<HTMLDivElement>(null);
 
   const { data: debtsData, isLoading: debtsLoading } = useDebts();
   const { data: incomeData, isLoading: incomeLoading } = useIncome();
   const { data: expensesData, isLoading: expensesLoading } = useExpenses();
   const { data: settingsData } = useUserSettings();
+  const { data: paymentsData } = usePaymentRecords(today.getFullYear(), today.getMonth());
+  const markPaid = useMarkPaid();
 
   const debts = useMemo(() => debtsData?.debts ?? [], [debtsData?.debts]);
   const income = incomeData?.income;
@@ -77,15 +85,21 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [notifOpen]);
 
+  // Map debtId → paid record for this month (to suppress bell notifications)
+  const paidThisMonth = useMemo(() => {
+    const map = new Map<string, string>(); // debtId → recordId
+    for (const r of paymentsData?.records ?? []) map.set(r.debtId, r.id);
+    return map;
+  }, [paymentsData]);
+
   // Build notifications from live data
   const notifications = useMemo((): Notification[] => {
     const items: Notification[] = [];
-    const today = new Date();
     const notifyDueDates = settingsData?.preferences?.notifyDueDates ?? true;
     const notifyLowBuffer = settingsData?.preferences?.notifyLowBuffer ?? true;
 
-    // 1. Upcoming due dates from debts that have dueDate set
-    const debtsWithDue = notifyDueDates ? debts.filter((d) => d.dueDate != null) : [];
+    // 1. Upcoming due dates from debts that have dueDate set (skip already paid)
+    const debtsWithDue = notifyDueDates ? debts.filter((d) => d.dueDate != null && !paidThisMonth.has(d.id)) : [];
     for (const debt of debtsWithDue) {
       const day = debt.dueDate as number;
       const thisMonth = new Date(today.getFullYear(), today.getMonth(), day);
@@ -102,6 +116,8 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
           title: `${debt.name} due in ${daysUntil === 0 ? 'today' : `${daysUntil}d`}`,
           body: `Minimum payment of $${debt.minimumPayment.toFixed(2)} due on the ${day}${day === 1 ? 'st' : day === 2 ? 'nd' : day === 3 ? 'rd' : 'th'}.`,
           tab: 'debts',
+          debtId: debt.id,
+          debtAmount: debt.minimumPayment,
         });
       } else if (daysUntil <= 7) {
         items.push({
@@ -111,6 +127,8 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
           title: `${debt.name} due in ${daysUntil}d`,
           body: `Minimum payment of $${debt.minimumPayment.toFixed(2)} coming up.`,
           tab: 'debts',
+          debtId: debt.id,
+          debtAmount: debt.minimumPayment,
         });
       }
     }
@@ -160,7 +178,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
     }
 
     return items;
-  }, [debts, income, expenses, debtsLoading, incomeLoading, settingsData?.preferences?.notifyDueDates, settingsData?.preferences?.notifyLowBuffer]);
+  }, [debts, income, expenses, debtsLoading, incomeLoading, paidThisMonth, settingsData?.preferences?.notifyDueDates, settingsData?.preferences?.notifyLowBuffer]);
 
   const urgentCount = notifications.filter((n) => n.type === 'urgent').length;
   const badgeCount = notifications.filter((n) => n.type !== 'info').length;
@@ -384,6 +402,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
             {/* Bell with notification panel */}
             <div ref={notifRef} style={{ position: 'relative' }}>
               <button
+                type="button"
                 onClick={() => setNotifOpen(o => !o)}
                 style={{
                   background: notifOpen ? '#eff6ff' : '#f8fafc',
@@ -471,45 +490,85 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
                       <div style={{ padding: '8px' }}>
                         {notifications.map((notif) => {
                           const Icon = notif.icon;
-                          const style = notifTypeStyle[notif.type];
+                          const s = notifTypeStyle[notif.type];
                           return (
-                            <button
+                            <div
                               key={notif.id}
-                              onClick={() => {
-                                if (notif.tab) setActiveTab(notif.tab);
-                                setNotifOpen(false);
-                              }}
                               style={{
                                 display: 'flex',
-                                alignItems: 'flex-start',
-                                gap: '10px',
-                                width: '100%',
+                                flexDirection: 'column',
+                                gap: '8px',
                                 padding: '10px 12px',
                                 borderRadius: '10px',
-                                border: `1px solid ${style.border}`,
-                                background: style.bg,
-                                cursor: notif.tab ? 'pointer' : 'default',
-                                textAlign: 'left',
+                                border: `1px solid ${s.border}`,
+                                background: s.bg,
                                 marginBottom: '6px',
-                                transition: 'opacity 0.15s',
-                                fontFamily: 'inherit',
                               }}
                             >
-                              <Icon size={15} style={{ color: style.iconColor, flexShrink: 0, marginTop: '1px' }} />
-                              <div>
-                                <p style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a', margin: '0 0 2px', lineHeight: 1.3 }}>
-                                  {notif.title}
-                                </p>
-                                <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
-                                  {notif.body}
-                                </p>
-                                {notif.tab && (
-                                  <p style={{ fontSize: '11px', color: style.iconColor, margin: '4px 0 0', fontWeight: 600 }}>
-                                    Go to {tabLabels[notif.tab]} →
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (notif.tab) setActiveTab(notif.tab);
+                                  if (notif.debtId) setOpenPaymentDebtId(notif.debtId);
+                                  setNotifOpen(false);
+                                }}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'flex-start',
+                                  gap: '10px',
+                                  width: '100%',
+                                  background: 'none',
+                                  border: 'none',
+                                  padding: 0,
+                                  cursor: notif.tab ? 'pointer' : 'default',
+                                  textAlign: 'left',
+                                  fontFamily: 'inherit',
+                                }}
+                              >
+                                <Icon size={15} style={{ color: s.iconColor, flexShrink: 0, marginTop: '1px' }} />
+                                <div>
+                                  <p style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a', margin: '0 0 2px', lineHeight: 1.3 }}>
+                                    {notif.title}
                                   </p>
-                                )}
-                              </div>
-                            </button>
+                                  <p style={{ fontSize: '12px', color: '#64748b', margin: 0, lineHeight: 1.5 }}>
+                                    {notif.body}
+                                  </p>
+                                  {notif.tab && (
+                                    <p style={{ fontSize: '11px', color: s.iconColor, margin: '4px 0 0', fontWeight: 600 }}>
+                                      Go to {tabLabels[notif.tab]} →
+                                    </p>
+                                  )}
+                                </div>
+                              </button>
+                              {notif.debtId && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    markPaid.mutate({ debtId: notif.debtId!, amount: notif.debtAmount ?? 0, dueYear: today.getFullYear(), dueMonth: today.getMonth() });
+                                  }}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    alignSelf: 'flex-start',
+                                    padding: '4px 10px',
+                                    borderRadius: '6px',
+                                    border: '1px solid rgba(34,197,94,0.3)',
+                                    background: 'rgba(34,197,94,0.08)',
+                                    color: '#059669',
+                                    fontSize: '11px',
+                                    fontWeight: 600,
+                                    cursor: 'pointer',
+                                    fontFamily: 'inherit',
+                                  }}
+                                >
+                                  <CheckCircle2 size={11} />
+                                  Mark paid
+                                </button>
+                              )}
+                            </div>
                           );
                         })}
                       </div>
@@ -548,7 +607,12 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
         <main style={{ flex: 1, padding: '28px', width: '100%' }} className="db-content">
           <div key={activeTab} className="tab-fade-in">
             {activeTab === 'debts' && (
-              <DebtTab debts={debts} isLoading={debtsLoading} />
+              <DebtTab
+                debts={debts}
+                isLoading={debtsLoading}
+                openPaymentDebtId={openPaymentDebtId}
+                onPaymentPanelOpened={() => setOpenPaymentDebtId(null)}
+              />
             )}
             {activeTab === 'income' && (
               <IncomeTab
@@ -583,6 +647,8 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
           </div>
         </main>
       </div>
+
+      <ToastNotifications debts={debts} />
 
       <style>{`
         .db-main { margin-left: 240px; }
