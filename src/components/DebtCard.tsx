@@ -21,8 +21,6 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
   const categoryColor = getCategoryColor(debt.category);
   const isHighInterest = debt.interestRate >= 20;
   const isMedInterest = debt.interestRate >= 15 && debt.interestRate < 20;
-  const borderOpacity = isHighInterest ? 'cc' : isMedInterest ? '88' : '44';
-
   const [panel, setPanel] = useState<Panel>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [newBalance, setNewBalance] = useState(String(debt.balance));
@@ -72,14 +70,15 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
     <div
       className="rounded-xl p-4 card-enter flex flex-col gap-3"
       style={{
-        background: 'rgba(19,29,46,1)',
-        borderLeft: `3px solid ${categoryColor}${borderOpacity}`,
+        background: '#ffffff',
+        border: '1px solid rgba(15,23,42,0.08)',
+        borderLeft: `3px solid ${categoryColor}`,
         transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
-        boxShadow: isHighInterest ? `0 0 0 1px ${categoryColor}18, 0 2px 12px rgba(0,0,0,0.2)` : '0 2px 8px rgba(0,0,0,0.15)',
+        boxShadow: isHighInterest ? `0 0 0 1px ${categoryColor}18, 0 2px 12px rgba(15,23,42,0.08)` : '0 1px 4px rgba(15,23,42,0.06)',
       }}
     >
       {/* Header row */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1.5">
             <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: categoryColor }} />
@@ -91,74 +90,33 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
               {debt.category}
             </span>
           </div>
-          <div className="flex items-baseline gap-3 flex-wrap">
-            <span className="mono font-bold text-lg leading-none" style={{ color: '#e1e8f0' }}>
+          <div className="flex items-baseline gap-x-3 gap-y-1.5 flex-wrap">
+            <span className="mono font-bold text-lg leading-none whitespace-nowrap" style={{ color: '#0f172a' }}>
               {formatCurrency(debt.balance)}
             </span>
             <span
-              className="text-xs font-semibold px-1.5 py-0.5 rounded"
+              className="text-xs font-semibold px-1.5 py-0.5 rounded whitespace-nowrap"
               style={{
-                background: isHighInterest ? 'rgba(239,68,68,0.12)' : isMedInterest ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.05)',
-                color: isHighInterest ? '#f87171' : isMedInterest ? '#fbbf24' : 'rgba(255,255,255,0.4)',
+                background: isHighInterest ? 'rgba(239,68,68,0.1)' : isMedInterest ? 'rgba(245,158,11,0.1)' : 'rgba(15,23,42,0.05)',
+                color: isHighInterest ? '#dc2626' : isMedInterest ? '#d97706' : '#64748b',
               }}
             >
               {formatPercent(debt.interestRate)} APR
             </span>
-            <span className="text-xs opacity-40">Min {formatCurrency(debt.minimumPayment)}</span>
-            {debt.dueDate ? <span className="text-xs opacity-40">Due {getOrdinalDay(debt.dueDate)}</span> : null}
+            <span className="text-xs whitespace-nowrap" style={{ color: '#64748b' }}>Min {formatCurrency(debt.minimumPayment)}</span>
+            {debt.dueDate ? <span className="text-xs whitespace-nowrap" style={{ color: '#64748b' }}>Due {getOrdinalDay(debt.dueDate)}</span> : null}
           </div>
-
-          {/* Paid-off progress bar — uses earliest snapshot or original balance at entry */}
-          {(() => {
-            const startBalance = debt.originalBalance || firstSnapshotBalance;
-            if (!startBalance || startBalance <= 0) return null;
-            const pct = Math.min(100, Math.max(0, ((startBalance - debt.balance) / startBalance) * 100));
-            return (
-              <div className="mt-2">
-                <div className="flex justify-between items-center mb-1">
-                  <span className="text-xs opacity-35">Paid off</span>
-                  <span className="text-xs font-semibold" style={{ color: '#34d399' }}>
-                    {Math.round(pct)}%
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                  <div
-                    className="h-full rounded-full progress-bar"
-                    style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #10b981, #34d399)' }}
-                  />
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Credit utilization bar */}
-          {debt.creditLimit > 0 && (
-            <div className="mt-2">
-              <div className="flex justify-between items-center mb-1">
-                <span className="text-xs opacity-35">Credit utilization</span>
-                <span className="text-xs font-semibold" style={{ color: (util ?? 0) > 30 ? '#f87171' : '#34d399' }}>
-                  {util?.toFixed(0)}%
-                </span>
-              </div>
-              <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                <div
-                  className="h-full rounded-full progress-bar"
-                  style={{
-                    width: `${Math.min(100, util || 0)}%`,
-                    background: (util ?? 0) > 30 ? '#ef4444' : categoryColor,
-                  }}
-                />
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div
+          className="flex items-center gap-1 flex-shrink-0 rounded-lg p-1"
+          style={{ background: 'rgba(15,23,42,0.03)', border: '1px solid rgba(15,23,42,0.06)' }}
+        >
           <button
             onClick={() => togglePanel('payment')}
             title="Log payment"
-            className="p-2 rounded-lg hover:bg-white/8 cursor-pointer bg-transparent border-0 transition"
+            className="p-2 rounded-lg hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
             aria-label="Log payment"
             style={{ color: panel === 'payment' ? '#34d399' : undefined, opacity: panel === 'payment' ? 1 : 0.4 }}
           >
@@ -167,7 +125,7 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
           <button
             onClick={() => togglePanel('balance')}
             title="Update balance"
-            className="p-2 rounded-lg hover:bg-white/8 cursor-pointer bg-transparent border-0 transition"
+            className="p-2 rounded-lg hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
             aria-label="Update balance"
             style={{ color: panel === 'balance' ? '#fbbf24' : undefined, opacity: panel === 'balance' ? 1 : 0.4 }}
           >
@@ -176,7 +134,7 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
           <button
             onClick={() => togglePanel('edit')}
             title="Edit debt"
-            className="p-2 rounded-lg hover:bg-white/8 cursor-pointer bg-transparent border-0 transition"
+            className="p-2 rounded-lg hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
             aria-label="Edit debt"
             style={{ color: panel === 'edit' ? '#93c5fd' : undefined, opacity: panel === 'edit' ? 1 : 0.4 }}
           >
@@ -193,15 +151,59 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
         </div>
       </div>
 
+      {/* Paid-off progress bar — uses earliest snapshot or original balance at entry */}
+      {(() => {
+        const startBalance = debt.originalBalance || firstSnapshotBalance;
+        if (!startBalance || startBalance <= 0) return null;
+        const pct = Math.min(100, Math.max(0, ((startBalance - debt.balance) / startBalance) * 100));
+        return (
+          <div>
+            <div className="flex justify-between items-center mb-1">
+              <span className="text-xs" style={{ color: '#64748b' }}>Paid off</span>
+              <span className="text-xs font-semibold" style={{ color: '#34d399' }}>
+                {Math.round(pct)}%
+              </span>
+            </div>
+            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(15,23,42,0.07)' }}>
+              <div
+                className="h-full rounded-full progress-bar"
+                style={{ width: `${pct}%`, background: 'linear-gradient(90deg, #10b981, #34d399)' }}
+              />
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Credit utilization bar */}
+      {debt.creditLimit > 0 && (
+        <div>
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-xs" style={{ color: '#64748b' }}>Credit utilization</span>
+            <span className="text-xs font-semibold" style={{ color: (util ?? 0) > 30 ? '#f87171' : '#34d399' }}>
+              {util?.toFixed(0)}%
+            </span>
+          </div>
+          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(15,23,42,0.07)' }}>
+            <div
+              className="h-full rounded-full progress-bar"
+              style={{
+                width: `${Math.min(100, util || 0)}%`,
+                background: (util ?? 0) > 30 ? '#ef4444' : categoryColor,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Log Payment panel */}
       {panel === 'payment' && (
         <form
           onSubmit={(e) => void handlePaymentSubmit(e)}
           className="rounded-lg p-3 flex flex-wrap items-end gap-2"
-          style={{ background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.15)' }}
+          style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.18)' }}
         >
           <div className="flex flex-col gap-1 flex-1" style={{ minWidth: '140px' }}>
-            <label className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>Payment amount ($)</label>
+            <label className="text-xs" style={{ color: '#64748b' }}>Payment amount ($)</label>
             <input
               type="number"
               min="0.01"
@@ -219,7 +221,7 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
               type="submit"
               disabled={updateDebt.isPending || addBulkSnapshots.isPending}
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40"
-              style={{ background: 'rgba(52,211,153,0.15)', border: '1px solid rgba(52,211,153,0.35)', color: '#34d399' }}
+              style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: '#059669' }}
             >
               <Check size={13} />
               {updateDebt.isPending ? 'Saving…' : 'Record'}
@@ -227,7 +229,7 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
             <button
               type="button"
               onClick={() => setPanel(null)}
-              className="p-2 rounded-lg hover:bg-white/5 bg-transparent border-0 opacity-40 hover:opacity-100 transition"
+              className="p-2 rounded-lg hover:bg-slate-100 bg-transparent border-0 opacity-40 hover:opacity-100 transition"
             >
               <X size={14} />
             </button>
@@ -243,7 +245,7 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
           style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.18)' }}
         >
           <div className="flex flex-col gap-1 flex-1" style={{ minWidth: '140px' }}>
-            <label className="text-xs" style={{ color: 'rgba(255,255,255,0.45)' }}>Current balance ($)</label>
+            <label className="text-xs" style={{ color: '#64748b' }}>Current balance ($)</label>
             <input
               type="number"
               min="0"
@@ -268,7 +270,7 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
             <button
               type="button"
               onClick={() => setPanel(null)}
-              className="p-2 rounded-lg hover:bg-white/5 bg-transparent border-0 opacity-40 hover:opacity-100 transition"
+              className="p-2 rounded-lg hover:bg-slate-100 bg-transparent border-0 opacity-40 hover:opacity-100 transition"
             >
               <X size={14} />
             </button>
@@ -280,7 +282,7 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
       {panel === 'edit' && (
         <div
           className="rounded-lg p-4"
-          style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.08)' }}
+          style={{ background: '#f8fafc', border: '1px solid rgba(15,23,42,0.08)' }}
         >
           <DebtForm
             initialData={debt}

@@ -34,15 +34,15 @@ const IMPACT_COLOR: Record<AiRecommendation['impact'], string> = {
 
 function SkeletonCard() {
   return (
-    <div style={{ borderRadius: '14px', padding: '20px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', animation: 'pulse 1.8s ease-in-out infinite' }}>
+    <div style={{ borderRadius: '14px', padding: '20px', background: '#f8fafc', border: '1px solid rgba(15,23,42,0.08)', animation: 'pulse 1.8s ease-in-out infinite' }}>
       <div style={{ display: 'flex', gap: '10px', marginBottom: '12px' }}>
-        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(255,255,255,0.06)' }} />
-        <div style={{ width: '80px', height: '14px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', alignSelf: 'center' }} />
-        <div style={{ width: '44px', height: '14px', borderRadius: '4px', background: 'rgba(255,255,255,0.04)', alignSelf: 'center', marginLeft: 'auto' }} />
+        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(15,23,42,0.08)' }} />
+        <div style={{ width: '80px', height: '14px', borderRadius: '4px', background: 'rgba(15,23,42,0.08)', alignSelf: 'center' }} />
+        <div style={{ width: '44px', height: '14px', borderRadius: '4px', background: 'rgba(15,23,42,0.05)', alignSelf: 'center', marginLeft: 'auto' }} />
       </div>
-      <div style={{ height: '16px', borderRadius: '4px', background: 'rgba(255,255,255,0.07)', marginBottom: '8px', width: '70%' }} />
-      <div style={{ height: '12px', borderRadius: '4px', background: 'rgba(255,255,255,0.04)', marginBottom: '5px' }} />
-      <div style={{ height: '12px', borderRadius: '4px', background: 'rgba(255,255,255,0.04)', width: '85%' }} />
+      <div style={{ height: '16px', borderRadius: '4px', background: 'rgba(15,23,42,0.10)', marginBottom: '8px', width: '70%' }} />
+      <div style={{ height: '12px', borderRadius: '4px', background: 'rgba(15,23,42,0.06)', marginBottom: '5px' }} />
+      <div style={{ height: '12px', borderRadius: '4px', background: 'rgba(15,23,42,0.06)', width: '85%' }} />
     </div>
   );
 }
@@ -93,7 +93,7 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
   };
 
   return (
-    <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)', border: '1px solid rgba(139,92,246,0.15)' }}>
+    <div className="rounded-2xl p-5" style={{ background: 'rgb(255, 255, 255)', border: '1px solid rgba(15, 23, 42, 0.08)', boxShadow: 'rgba(15, 23, 42, 0.06) 0px 1px 4px' }}>
 
       {/* Header row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: (hasResults || isGenerating) ? '16px' : '0' }}>
@@ -101,7 +101,7 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
           <Lightbulb size={16} style={{ color: '#8b5cf6' }} />
           <span style={{ fontSize: '15px', fontWeight: 600 }}>AI Recommendations</span>
           {generatedAt && !isGenerating && (
-            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', marginLeft: '2px' }}>
+            <span style={{ fontSize: '11px', color: 'rgba(15,23,42,0.5)', marginLeft: '2px' }}>
               · {timeAgo(generatedAt)}
             </span>
           )}
@@ -112,7 +112,7 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
             <button
               onClick={handleGenerate}
               title="Regenerate"
-              style={{ padding: '5px 8px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.35)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', transition: 'all 0.2s' }}
+              style={{ padding: '5px 8px', borderRadius: '8px', background: '#ffffff', border: '1px solid rgba(15,23,42,0.12)', color: '#475569', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', fontSize: '12px', transition: 'all 0.2s' }}
             >
               <RefreshCcw size={12} />
             </button>
@@ -121,7 +121,7 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
           {!hasResults && !isGenerating && !cacheLoading && (
             <button
               onClick={handleGenerate}
-              style={{ padding: '7px 14px', borderRadius: '9px', background: 'linear-gradient(135deg, rgba(139,92,246,0.22), rgba(99,102,241,0.18))', border: '1px solid rgba(139,92,246,0.28)', color: '#c4b5fd', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)' }}
+              style={{ padding: '7px 14px', borderRadius: '9px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', border: '1px solid rgba(29,78,216,0.4)', color: '#ffffff', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)' }}
             >
               <Sparkles size={13} />
               Get tips personalised to your plan
@@ -133,15 +133,15 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
       {/* Stale banner */}
       {isStale && hasResults && !isGenerating && (
         <div
-          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '10px 14px', borderRadius: '10px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', marginBottom: '16px' }}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '10px 14px', borderRadius: '10px', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.28)', marginBottom: '16px' }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#fcd34d' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#92400e' }}>
             <AlertTriangle size={14} />
             Your financial data has changed since these were generated.
           </div>
           <button
             onClick={handleGenerate}
-            style={{ flexShrink: 0, padding: '5px 12px', borderRadius: '7px', background: 'rgba(245,158,11,0.15)', border: '1px solid rgba(245,158,11,0.3)', color: '#fcd34d', cursor: 'pointer', fontSize: '12px', fontWeight: 600, transition: 'all 0.2s', whiteSpace: 'nowrap' }}
+            style={{ flexShrink: 0, padding: '5px 12px', borderRadius: '7px', background: 'rgba(245,158,11,0.18)', border: '1px solid rgba(245,158,11,0.34)', color: '#92400e', cursor: 'pointer', fontSize: '12px', fontWeight: 600, transition: 'all 0.2s', whiteSpace: 'nowrap' }}
           >
             Refresh tips
           </button>
@@ -181,8 +181,8 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
                 style={{
                   borderRadius: '14px',
                   padding: '18px 20px',
-                  background: 'rgba(255,255,255,0.025)',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  background: '#f8fafc',
+                  border: '1px solid rgba(15,23,42,0.08)',
                   borderLeft: `2px solid ${meta.color}55`,
                   animation: `fadeInUp 0.5s cubic-bezier(0.22,1,0.36,1) ${i * 0.08}s both`,
                 }}
@@ -197,8 +197,8 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
                   </span>
                 </div>
 
-                <p style={{ fontSize: '14px', fontWeight: 600, color: '#e1e8f0', margin: '0 0 8px', lineHeight: 1.35 }}>{rec.title}</p>
-                <p style={{ fontSize: '13px', lineHeight: 1.65, color: '#64748b', margin: '0 0 14px' }}>{rec.body}</p>
+                <p style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', margin: '0 0 8px', lineHeight: 1.35 }}>{rec.title}</p>
+                <p style={{ fontSize: '13px', lineHeight: 1.65, color: '#475569', margin: '0 0 14px' }}>{rec.body}</p>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: meta.color }}>
                   <ArrowRight size={11} />

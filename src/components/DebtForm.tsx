@@ -169,11 +169,11 @@ export default function DebtForm({ onSubmit, onCancel, isLoading, initialData, s
         />
       </div>
 
-      <div className="flex items-end gap-2">
+      <div className="sm:col-span-2 flex items-end gap-2">
         <button
           type="submit"
           disabled={isLoading}
-          className="btn-primary flex-1"
+          className="btn-primary flex-1 whitespace-nowrap"
           style={{ background: isLoading ? '#64748b' : '#3b82f6' }}
         >
           {submitLabel ? <Check size={16} /> : <Plus size={16} />}
@@ -182,7 +182,8 @@ export default function DebtForm({ onSubmit, onCancel, isLoading, initialData, s
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 rounded-lg py-2.5 text-sm font-semibold cursor-pointer border border-white/10 bg-white/5 text-txt hover:bg-white/10 transition"
+          className="flex-1 rounded-lg py-2.5 text-sm font-semibold cursor-pointer transition whitespace-nowrap"
+          style={{ border: '1px solid rgba(15,23,42,0.1)', background: '#f8fafc', color: '#64748b' }}
         >
           Cancel
         </button>

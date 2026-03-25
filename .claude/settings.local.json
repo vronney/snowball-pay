@@ -9,7 +9,8 @@
       "Bash(npx next:*)",
       "Bash(taskkill /F /IM node.exe)",
       "Bash(cmd /c \"taskkill /F /IM node.exe\")",
-      "Bash(set FORCE_COLOR=0)"
+      "Bash(set FORCE_COLOR=0)",
+      "WebFetch(domain:www.uupm.cc)"
     ]
   }
 }

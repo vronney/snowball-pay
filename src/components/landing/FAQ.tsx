@@ -37,20 +37,20 @@ export default function FAQ() {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <section id="faq" style={{ padding: '112px 24px', position: 'relative', overflow: 'hidden' }}>
-      <div className="lp-orb" style={{ width: '480px', height: '480px', background: 'rgba(139,92,246,0.07)', top: '20%', right: '-180px', animationDelay: '2s' }} />
+    <section id="faq" style={{ padding: '112px 24px', position: 'relative', overflow: 'hidden', background: '#ffffff' }}>
 
       <div style={{ maxWidth: '760px', margin: '0 auto', position: 'relative', zIndex: 1 }}>
 
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: '68px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.16em', textTransform: 'uppercase', color: '#8b5cf6', marginBottom: '14px', display: 'block' }}>
+          <div className="lp-section-tag" style={{ color: '#7c3aed', background: 'rgba(124,58,237,0.06)', borderColor: 'rgba(124,58,237,0.14)' }}>
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor"><circle cx="5" cy="5" r="5"/></svg>
             FAQ
-          </span>
-          <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 900, letterSpacing: '-0.04em', color: '#eef4ff', margin: '0 0 18px', lineHeight: 1.1 }}>
+          </div>
+          <h2 style={{ fontSize: 'clamp(2rem, 5vw, 3rem)', fontWeight: 900, letterSpacing: '-0.04em', color: '#0f172a', margin: '0 0 18px', lineHeight: 1.1 }}>
             Questions &amp; answers
           </h2>
-          <p style={{ fontSize: '17px', color: '#7a9bbf', maxWidth: '420px', margin: '0 auto', lineHeight: 1.7 }}>
+          <p style={{ fontSize: '17px', color: '#64748b', maxWidth: '420px', margin: '0 auto', lineHeight: 1.7 }}>
             Everything you need to know before you start your debt-free journey.
           </p>
         </div>
@@ -67,10 +67,10 @@ export default function FAQ() {
                 <span>{f.q}</span>
                 <span style={{
                   width: '28px', height: '28px', borderRadius: '8px', flexShrink: 0,
-                  background: open === i ? 'rgba(79,158,255,0.12)' : 'rgba(255,255,255,0.04)',
-                  border: `1px solid ${open === i ? 'rgba(79,158,255,0.25)' : 'rgba(255,255,255,0.08)'}`,
+                  background: open === i ? 'rgba(37,99,235,0.08)' : 'rgba(15,23,42,0.04)',
+                  border: `1px solid ${open === i ? 'rgba(37,99,235,0.25)' : 'rgba(15,23,42,0.1)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '16px', color: open === i ? '#4f9eff' : '#3d5570',
+                  fontSize: '16px', color: open === i ? '#2563eb' : '#94a3b8',
                   transition: 'background 0.2s, border-color 0.2s, color 0.2s, transform 0.25s',
                   transform: open === i ? 'rotate(45deg)' : 'rotate(0deg)',
                 }}>
@@ -78,7 +78,7 @@ export default function FAQ() {
                 </span>
               </button>
               {open === i && (
-                <p style={{ fontSize: '15px', lineHeight: 1.78, color: '#7a9bbf', paddingBottom: '26px', margin: 0 }}>
+                <p style={{ fontSize: '15px', lineHeight: 1.78, color: '#64748b', paddingBottom: '26px', margin: 0 }}>
                   {f.a}
                 </p>
               )}
@@ -87,9 +87,9 @@ export default function FAQ() {
         </div>
 
         {/* Bottom support note */}
-        <p style={{ textAlign: 'center', fontSize: '14px', color: '#3d5570', marginTop: '48px' }}>
+        <p style={{ textAlign: 'center', fontSize: '14px', color: '#94a3b8', marginTop: '48px' }}>
           Still have questions?{' '}
-          <a href="mailto:hello@snowballpay.app" style={{ color: '#4f9eff', textDecoration: 'none', fontWeight: 600 }}>
+          <a href="mailto:hello@snowballpay.app" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 600 }}>
             Email our team →
           </a>
         </p>

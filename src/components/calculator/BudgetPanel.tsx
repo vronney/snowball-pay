@@ -1,5 +1,3 @@
-'use client';
-
 import { formatCurrency } from '@/lib/utils';
 
 interface BudgetPanelProps {
@@ -30,11 +28,11 @@ export default function BudgetPanel({
   onExtraChange,
 }: BudgetPanelProps) {
   return (
-    <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)' }}>
+    <div className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
       <h2 className="font-semibold text-base mb-4">Monthly Budget</h2>
       <div className="space-y-3">
         <div>
-          <label className="text-xs mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          <label className="text-xs mb-1 block" style={{ color: '#64748b' }}>
             Monthly Take-Home Pay ($)
           </label>
           <input
@@ -46,7 +44,7 @@ export default function BudgetPanel({
           />
         </div>
         <div>
-          <label className="text-xs mb-1 block" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          <label className="text-xs mb-1 block" style={{ color: '#64748b' }}>
             Essential Expenses — rent, groceries, utilities ($)
           </label>
           <input
@@ -58,30 +56,30 @@ export default function BudgetPanel({
           />
         </div>
         <div>
-          <label className="text-xs mb-2 block" style={{ color: 'rgba(255,255,255,0.5)' }}>
+          <label className="text-xs mb-2 block" style={{ color: '#64748b' }}>
             Extra Monthly Payment Toward Debt
           </label>
 
           {takeHomeNum > 0 && (
             <div
               className="rounded-xl p-3 mb-3 text-xs space-y-1"
-              style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+              style={{ background: '#f8fafc', border: '1px solid rgba(15,23,42,0.08)' }}
             >
-              <div className="flex justify-between" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              <div className="flex justify-between" style={{ color: '#64748b' }}>
                 <span>Take-home pay</span>
                 <span>{formatCurrency(takeHomeNum)}</span>
               </div>
-              <div className="flex justify-between" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              <div className="flex justify-between" style={{ color: '#64748b' }}>
                 <span>− Essentials</span>
                 <span style={{ color: '#f87171' }}>−{formatCurrency(essentialNum)}</span>
               </div>
-              <div className="flex justify-between" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              <div className="flex justify-between" style={{ color: '#64748b' }}>
                 <span>− Minimum payments</span>
                 <span style={{ color: '#f87171' }}>−{formatCurrency(totalMinPayments)}</span>
               </div>
               <div
                 className="flex justify-between font-semibold pt-1"
-                style={{ borderTop: '1px solid rgba(255,255,255,0.07)', color: availableForDebt > 0 ? '#34d399' : '#f87171' }}
+                style={{ borderTop: '1px solid rgba(15,23,42,0.08)', color: availableForDebt > 0 ? '#34d399' : '#f87171' }}
               >
                 <span>Available for extra</span>
                 <span>{formatCurrency(availableForDebt)}</span>
@@ -100,11 +98,11 @@ export default function BudgetPanel({
             className="w-full"
             style={{ accentColor: '#3b82f6', cursor: availableForDebt > 0 ? 'pointer' : 'not-allowed' }}
           />
-          <div className="flex justify-between text-xs mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+          <div className="flex justify-between text-xs mt-1" style={{ color: '#94a3b8' }}>
             <span>$0</span>
             <span
               className="font-semibold"
-              style={{ color: extraNum > 0 ? '#3b82f6' : 'rgba(255,255,255,0.35)' }}
+              style={{ color: extraNum > 0 ? '#3b82f6' : '#94a3b8' }}
             >
               {formatCurrency(extraNum)} / mo extra
             </span>

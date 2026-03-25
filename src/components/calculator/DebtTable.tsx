@@ -12,12 +12,14 @@ interface DebtTableProps {
 
 export default function DebtTable({ rows, onRowChange, onRowRemove, onRowAdd }: DebtTableProps) {
   return (
-    <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)' }}>
+    <div className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
       <h2 className="font-semibold text-base mb-4">Your Debts</h2>
 
+      <div style={{ overflowX: 'auto', marginLeft: '-4px', paddingLeft: '4px' }}>
+      <div style={{ minWidth: '340px' }}>
       <div
         className="mb-2 text-xs"
-        style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 20px', gap: '8px', color: 'rgba(255,255,255,0.35)' }}
+        style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 20px', gap: '8px', color: '#64748b' }}
       >
         <span>Name</span>
         <span>Balance ($)</span>
@@ -67,7 +69,7 @@ export default function DebtTable({ rows, onRowChange, onRowRemove, onRowAdd }: 
             <button
               onClick={() => onRowRemove(row.id)}
               className="cursor-pointer bg-transparent border-0 p-0"
-              style={{ color: 'rgba(255,255,255,0.3)', lineHeight: 1 }}
+              style={{ color: '#94a3b8', lineHeight: 1 }}
             >
               <X size={14} />
             </button>
@@ -78,11 +80,13 @@ export default function DebtTable({ rows, onRowChange, onRowRemove, onRowAdd }: 
       <button
         onClick={onRowAdd}
         className="mt-3 flex items-center gap-1.5 text-sm cursor-pointer bg-transparent border-0 p-0 transition"
-        style={{ color: 'rgba(255,255,255,0.45)' }}
+        style={{ color: '#64748b' }}
       >
         <Plus size={14} />
         Add another debt
       </button>
+      </div>
+      </div>
     </div>
   );
 }

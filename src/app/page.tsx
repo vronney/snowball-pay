@@ -6,6 +6,7 @@ import ProblemSolution from '@/components/landing/ProblemSolution';
 import FeaturesGrid from '@/components/landing/FeaturesGrid';
 import CaseStudies from '@/components/landing/CaseStudies';
 import HowItWorks from '@/components/landing/HowItWorks';
+import Pricing from '@/components/landing/Pricing';
 import Testimonials from '@/components/landing/Testimonials';
 import FAQ from '@/components/landing/FAQ';
 import FinalCTA from '@/components/landing/FinalCTA';
@@ -17,7 +18,7 @@ export default async function Home() {
 
   return (
     <>
-      <div className="lp" style={{ backgroundColor: '#05091a', color: '#eef4ff' }}>
+      <div className="lp" style={{ backgroundColor: '#f8fafc', color: '#0f172a' }}>
         <LandingNav isLoggedIn={isLoggedIn} />
         <LandingHero isLoggedIn={isLoggedIn} />
         <SocialProofStrip />
@@ -25,6 +26,7 @@ export default async function Home() {
         <FeaturesGrid />
         <CaseStudies />
         <HowItWorks />
+        <Pricing />
         <Testimonials />
         <FAQ />
         <FinalCTA isLoggedIn={isLoggedIn} />

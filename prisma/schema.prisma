@@ -24,8 +24,28 @@ model User {
   expenses                Expense[]
   payoffPlan              PayoffPlan?
   aiRecommendationCache   AiRecommendationCache?
+  preferences             UserPreferences?
 
   @@map("users")
+}
+
+model UserPreferences {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  actionChecks      Json     @default("{}")  // { [action: string]: boolean }
+  sandboxMethod     String   @default("snowball")
+  sandboxExtra      Float?
+  splitDebtPercent  Int      @default(70)
+  shockMode         String   @default("none")
+  notifyDueDates    Boolean  @default(true)
+  notifyLowBuffer   Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("user_preferences")
 }
 
 model Debt {

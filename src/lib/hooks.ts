@@ -261,6 +261,41 @@ export function useGenerateRecommendations() {
   });
 }
 
+// ===== USER PREFERENCES =====
+
+export interface UserPreferences {
+  actionChecks: Record<string, boolean>;
+  sandboxMethod: string;
+  sandboxExtra: number | null;
+  splitDebtPercent: number;
+  shockMode: string;
+  notifyDueDates: boolean;
+  notifyLowBuffer: boolean;
+}
+
+export function useUserSettings() {
+  return useQuery<{ preferences: UserPreferences }>({
+    queryKey: ['preferences'],
+    queryFn: async () => {
+      const { data } = await axios.get(`${API_URL}/api/preferences`);
+      return data;
+    },
+  });
+}
+
+export function useUpdatePreferences() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (preferences: Partial<UserPreferences>) => {
+      const { data } = await axios.patch(`${API_URL}/api/preferences`, preferences);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['preferences'], data);
+    },
+  });
+}
+
 export function useDeleteSnapshot() {
   const queryClient = useQueryClient();
   return useMutation({

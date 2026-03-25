@@ -279,7 +279,7 @@ export default function DocumentImport() {
       : 0;
 
     return (
-      <div className="rounded-2xl p-6" style={{ background: 'rgba(26,35,50,1)' }}>
+      <div className="rounded-2xl p-6" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)' }}>
         <SectionHeader />
         <div className="rounded-xl p-6 text-center" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)' }}>
           <CheckCircle size={40} className="mx-auto mb-3" style={{ color: '#10b981' }} />
@@ -295,7 +295,7 @@ export default function DocumentImport() {
             Switch to the Income tab to review your updated budget.
           </p>
           <button onClick={handleReset} className="px-5 py-2 rounded-lg text-sm font-medium hover:opacity-80 transition"
-            style={{ background: 'rgba(255,255,255,0.07)', color: '#e2e8f0' }}>
+            style={{ background: 'rgba(15,23,42,0.06)', color: '#0f172a' }}>
             Upload More Documents
           </button>
         </div>
@@ -317,7 +317,7 @@ export default function DocumentImport() {
           { label: 'Saving to your account',                                          done: false, active: phase === 'saving' },
         ];
     return (
-      <div className="rounded-2xl p-6" style={{ background: 'rgba(26,35,50,1)' }}>
+      <div className="rounded-2xl p-6" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)' }}>
         <SectionHeader />
         <div className="rounded-xl p-8 text-center" style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.18)' }}>
           <Spinner />
@@ -330,9 +330,9 @@ export default function DocumentImport() {
               <div key={i} className="flex items-center gap-2 text-xs">
                 {s.done
                   ? <CheckCircle size={13} style={{ color: '#10b981', flexShrink: 0 }} />
-                  : <div style={{ width: 13, height: 13, borderRadius: '50%', border: `2px solid ${s.active ? '#3b82f6' : 'rgba(255,255,255,0.15)'}`, flexShrink: 0, animation: (phase === 'analyzing' && i === 1) || s.active ? 'spin 1s linear infinite' : undefined }} />
+                  : <div style={{ width: 13, height: 13, borderRadius: '50%', border: `2px solid ${s.active ? '#3b82f6' : 'rgba(15,23,42,0.15)'}`, flexShrink: 0, animation: (phase === 'analyzing' && i === 1) || s.active ? 'spin 1s linear infinite' : undefined }} />
                 }
-                <span style={{ color: s.done ? '#10b981' : s.active ? '#93c5fd' : 'rgba(255,255,255,0.35)' }}>{s.label}</span>
+                <span style={{ color: s.done ? '#10b981' : s.active ? '#2563eb' : '#94a3b8' }}>{s.label}</span>
               </div>
             ))}
           </div>
@@ -352,7 +352,7 @@ export default function DocumentImport() {
       .reduce((s, c) => s + c.monthlyAmount, 0);
 
     return (
-      <div className="rounded-2xl p-6" style={{ background: 'rgba(26,35,50,1)' }}>
+      <div className="rounded-2xl p-6" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)' }}>
         <div className="flex items-center justify-between mb-2">
           <SectionHeader />
           <button onClick={handleReset} className="text-xs opacity-40 hover:opacity-70 transition flex items-center gap-1">
@@ -365,9 +365,9 @@ export default function DocumentImport() {
           {[
             { label: 'Found', value: `${recurringCharges.length} charges`, color: '#93c5fd' },
             { label: 'Essential / mo', value: `$${totalMonthlyEssential.toFixed(0)}`, color: '#10b981' },
-            { label: 'Total / mo', value: `$${totalMonthlyAll.toFixed(0)}`, color: '#e2e8f0' },
+            { label: 'Total / mo', value: `$${totalMonthlyAll.toFixed(0)}`, color: '#0f172a' },
           ].map((s, i) => (
-            <div key={i} className="rounded-xl p-3 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div key={i} className="rounded-xl p-3 text-center" style={{ background: 'rgba(15,23,42,0.04)', border: '1px solid rgba(15,23,42,0.08)' }}>
               <p className="text-xs opacity-50 mb-1">{s.label}</p>
               <p className="font-bold text-sm" style={{ color: s.color }}>{s.value}</p>
             </div>
@@ -388,7 +388,7 @@ export default function DocumentImport() {
           <button onClick={() => setSelectedItems(recurringCharges.map(c => c.isEssential))} className="text-xs px-3 py-1.5 rounded-lg hover:opacity-80 transition" style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>
             Essential only
           </button>
-          <button onClick={() => setSelectedItems(recurringCharges.map(() => false))} className="text-xs px-3 py-1.5 rounded-lg hover:opacity-80 transition" style={{ background: 'rgba(255,255,255,0.05)', color: '#64748b' }}>
+          <button onClick={() => setSelectedItems(recurringCharges.map(() => false))} className="text-xs px-3 py-1.5 rounded-lg hover:opacity-80 transition" style={{ background: 'rgba(15,23,42,0.04)', color: '#64748b' }}>
             Deselect all
           </button>
         </div>
@@ -421,7 +421,7 @@ export default function DocumentImport() {
         </div>
 
         {/* Import footer */}
-        <div className="rounded-xl p-3 mb-4" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="rounded-xl p-3 mb-4" style={{ background: 'rgba(15,23,42,0.04)', border: '1px solid rgba(15,23,42,0.08)' }}>
           <div className="flex justify-between text-xs">
             <span style={{ color: '#64748b' }}>Selected essential / mo</span>
             <span className="font-bold" style={{ color: '#10b981' }}>${selectedEssentialTotal.toFixed(2)}</span>
@@ -429,7 +429,7 @@ export default function DocumentImport() {
         </div>
 
         {/* What will be imported note */}
-        <div className="rounded-lg p-3 mb-4 text-xs space-y-1" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="rounded-lg p-3 mb-4 text-xs space-y-1" style={{ background: 'rgba(15,23,42,0.04)', border: '1px solid rgba(15,23,42,0.08)' }}>
           <p style={{ color: '#6ec1e4' }}>
             <strong>🔵 All selected items</strong> → added to <strong>Recurring Expenses</strong> list (Income tab)
           </p>
@@ -448,7 +448,7 @@ export default function DocumentImport() {
             Import {checkedCount} recurring expense{checkedCount !== 1 ? 's' : ''}
           </button>
           <button onClick={handleReset} className="px-4 py-2.5 rounded-lg text-sm font-medium hover:opacity-80 transition"
-            style={{ background: 'rgba(255,255,255,0.05)', color: '#94a3b8' }}>
+            style={{ background: 'rgba(15,23,42,0.04)', color: '#64748b' }}>
             Cancel
           </button>
         </div>
@@ -462,7 +462,7 @@ export default function DocumentImport() {
     const items  = extractedData.items;
 
     return (
-      <div className="rounded-2xl p-6" style={{ background: 'rgba(26,35,50,1)' }}>
+      <div className="rounded-2xl p-6" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)' }}>
         <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
           <CheckCircle size={18} style={{ color: '#10b981' }} /> Review Extracted Data
         </h2>
@@ -472,13 +472,13 @@ export default function DocumentImport() {
                 <ReviewRow key={i} selected={selectedItems[i]} onToggle={() => toggleItem(i)}>
                   <div className="flex flex-wrap gap-x-4 gap-y-1 mb-1">
                     <span className="font-semibold text-sm">{d.name}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.07)', color: '#94a3b8' }}>{d.category}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(15,23,42,0.06)', color: '#64748b' }}>{d.category}</span>
                   </div>
                   <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs" style={{ color: '#64748b' }}>
-                    <span>Balance <strong style={{ color: '#e2e8f0' }}>${d.balance.toLocaleString()}</strong></span>
-                    <span>APR <strong style={{ color: '#e2e8f0' }}>{d.interestRate}%</strong></span>
-                    <span>Min <strong style={{ color: '#e2e8f0' }}>${d.minimumPayment}/mo</strong></span>
-                    {d.creditLimit > 0 && <span>Limit <strong style={{ color: '#e2e8f0' }}>${d.creditLimit.toLocaleString()}</strong></span>}
+                    <span>Balance <strong style={{ color: '#0f172a' }}>${d.balance.toLocaleString()}</strong></span>
+                    <span>APR <strong style={{ color: '#0f172a' }}>{d.interestRate}%</strong></span>
+                    <span>Min <strong style={{ color: '#0f172a' }}>${d.minimumPayment}/mo</strong></span>
+                    {d.creditLimit > 0 && <span>Limit <strong style={{ color: '#0f172a' }}>${d.creditLimit.toLocaleString()}</strong></span>}
                   </div>
                 </ReviewRow>
               ))
@@ -486,8 +486,8 @@ export default function DocumentImport() {
                 <ReviewRow key={i} selected={selectedItems[i]} onToggle={() => toggleItem(i)}>
                   <p className="font-semibold text-sm mb-1">Take-home <span style={{ color: '#10b981' }}>${inc.monthlyTakeHome.toLocaleString()}/mo</span></p>
                   <div className="flex gap-4 text-xs" style={{ color: '#64748b' }}>
-                    <span>Source <strong style={{ color: '#e2e8f0' }}>{inc.source || '—'}</strong></span>
-                    <span>Frequency <strong style={{ color: '#e2e8f0' }}>{inc.frequency}</strong></span>
+                    <span>Source <strong style={{ color: '#0f172a' }}>{inc.source || '—'}</strong></span>
+                    <span>Frequency <strong style={{ color: '#0f172a' }}>{inc.frequency}</strong></span>
                   </div>
                 </ReviewRow>
               ))
@@ -501,7 +501,7 @@ export default function DocumentImport() {
             Import {checkedCount} {isDebt ? `debt${checkedCount !== 1 ? 's' : ''}` : 'income record'}
           </button>
           <button onClick={handleReset} className="px-4 py-2.5 rounded-lg text-sm font-medium hover:opacity-80 transition"
-            style={{ background: 'rgba(255,255,255,0.05)', color: '#94a3b8' }}>
+            style={{ background: 'rgba(15,23,42,0.04)', color: '#64748b' }}>
             Cancel
           </button>
         </div>
@@ -511,7 +511,7 @@ export default function DocumentImport() {
 
   // ── Idle / Error (main upload form) ──────────────────────────────────────
   return (
-    <div className="rounded-2xl p-6" style={{ background: 'rgba(26,35,50,1)' }}>
+    <div className="rounded-2xl p-6" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)' }}>
       <SectionHeader />
       <p className="text-sm opacity-60 mb-5">
         Upload one or more documents. Claude AI extracts debts, income, or recurring expenses automatically.
@@ -529,8 +529,8 @@ export default function DocumentImport() {
             <button key={t.value} onClick={() => setDocType(t.value)}
               className="p-3 rounded-xl text-left transition"
               style={{
-                background: docType === t.value ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.03)',
-                border: `1px solid ${docType === t.value ? 'rgba(59,130,246,0.4)' : 'rgba(255,255,255,0.08)'}`,
+                background: docType === t.value ? 'rgba(59,130,246,0.08)' : 'rgba(15,23,42,0.03)',
+                border: `1px solid ${docType === t.value ? 'rgba(59,130,246,0.4)' : 'rgba(15,23,42,0.08)'}`,
               }}>
               <p className="text-sm font-medium mb-0.5">{t.label}</p>
               <p className="text-xs" style={{ color: '#64748b' }}>{t.sub}</p>
@@ -545,7 +545,7 @@ export default function DocumentImport() {
         onClick={() => fileInputRef.current?.click()}
         className="border-2 border-dashed rounded-xl p-6 text-center transition cursor-pointer mb-4"
         style={{
-          borderColor: dragActive ? '#3b82f6' : files.length ? 'rgba(59,130,246,0.35)' : 'rgba(255,255,255,0.1)',
+          borderColor: dragActive ? '#3b82f6' : files.length ? 'rgba(59,130,246,0.35)' : 'rgba(15,23,42,0.15)',
           background: dragActive ? 'rgba(59,130,246,0.08)' : 'transparent',
         }}
       >
@@ -572,7 +572,7 @@ export default function DocumentImport() {
           ))}
           <button onClick={() => fileInputRef.current?.click()}
             className="w-full py-1.5 rounded-lg text-xs font-medium hover:opacity-80 transition"
-            style={{ background: 'rgba(255,255,255,0.04)', color: '#64748b', border: '1px solid rgba(255,255,255,0.07)' }}>
+            style={{ background: 'rgba(15,23,42,0.04)', color: '#64748b', border: '1px solid rgba(15,23,42,0.08)' }}>
             + Add more files
           </button>
         </div>
@@ -595,7 +595,7 @@ export default function DocumentImport() {
       </button>
 
       {/* How it works */}
-      <div className="mt-4 p-3 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.02)' }}>
+      <div className="mt-4 p-3 rounded-lg text-xs" style={{ background: 'rgba(15,23,42,0.04)' }}>
         <p className="font-medium mb-1.5 opacity-70">💡 How it works</p>
         <ul className="space-y-1 opacity-50 list-disc list-inside">
           <li>Upload bank statements to find recurring & essential expenses</li>
@@ -635,11 +635,11 @@ function ReviewRow({ selected, onToggle, children }: { selected: boolean; onTogg
   return (
     <div className="rounded-xl p-4 flex gap-3 items-start"
       style={{
-        background: selected ? 'rgba(59,130,246,0.07)' : 'rgba(255,255,255,0.02)',
-        border: `1px solid ${selected ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.06)'}`,
+        background: selected ? 'rgba(59,130,246,0.07)' : 'rgba(15,23,42,0.03)',
+        border: `1px solid ${selected ? 'rgba(59,130,246,0.25)' : 'rgba(15,23,42,0.08)'}`,
       }}>
       <button onClick={onToggle} className="mt-0.5 flex-shrink-0 w-5 h-5 rounded flex items-center justify-center transition"
-        style={{ background: selected ? '#3b82f6' : 'rgba(255,255,255,0.08)', border: `1px solid ${selected ? '#3b82f6' : 'rgba(255,255,255,0.15)'}` }}>
+        style={{ background: selected ? '#3b82f6' : 'rgba(15,23,42,0.06)', border: `1px solid ${selected ? '#3b82f6' : 'rgba(15,23,42,0.15)'}` }}>
         {selected && <CheckCircle size={12} style={{ color: '#fff' }} />}
       </button>
       <div className="flex-1 min-w-0">{children}</div>
@@ -652,18 +652,18 @@ function ChargeRow({ charge, selected, onToggle }: { charge: RecurringCharge; se
   return (
     <div className="rounded-xl p-3 flex gap-3 items-start transition"
       style={{
-        background: selected ? 'rgba(59,130,246,0.07)' : 'rgba(255,255,255,0.02)',
-        border: `1px solid ${selected ? 'rgba(59,130,246,0.22)' : 'rgba(255,255,255,0.06)'}`,
+        background: selected ? 'rgba(59,130,246,0.07)' : 'rgba(15,23,42,0.03)',
+        border: `1px solid ${selected ? 'rgba(59,130,246,0.22)' : 'rgba(15,23,42,0.08)'}`,
       }}>
       <button onClick={onToggle} className="mt-0.5 flex-shrink-0 w-5 h-5 rounded flex items-center justify-center transition"
-        style={{ background: selected ? '#3b82f6' : 'rgba(255,255,255,0.08)', border: `1px solid ${selected ? '#3b82f6' : 'rgba(255,255,255,0.15)'}` }}>
+        style={{ background: selected ? '#3b82f6' : 'rgba(15,23,42,0.06)', border: `1px solid ${selected ? '#3b82f6' : 'rgba(15,23,42,0.15)'}` }}>
         {selected && <CheckCircle size={12} style={{ color: '#fff' }} />}
       </button>
       <div className="flex-1 min-w-0">
         <div className="flex flex-wrap items-center gap-2 mb-1">
           <span className="text-sm font-semibold truncate">{charge.name}</span>
           <span className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
-            style={{ background: 'rgba(255,255,255,0.07)', color: '#94a3b8' }}>
+            style={{ background: 'rgba(15,23,42,0.06)', color: '#64748b' }}>
             {CATEGORY_LABELS[charge.category] ?? charge.category}
           </span>
           <span className="text-xs px-1.5 py-0.5 rounded-full flex-shrink-0"
@@ -673,10 +673,10 @@ function ChargeRow({ charge, selected, onToggle }: { charge: RecurringCharge; se
         </div>
         <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs" style={{ color: '#64748b' }}>
           <span>
-            <strong style={{ color: '#e2e8f0' }}>${charge.monthlyAmount.toFixed(2)}/mo</strong>
+            <strong style={{ color: '#0f172a' }}>${charge.monthlyAmount.toFixed(2)}/mo</strong>
             {charge.frequency !== 'monthly' && <span className="ml-1">(${charge.amount} {charge.frequency})</span>}
           </span>
-          <span>Seen <strong style={{ color: '#e2e8f0' }}>{charge.occurrences}×</strong></span>
+          <span>Seen <strong style={{ color: '#0f172a' }}>{charge.occurrences}×</strong></span>
         </div>
       </div>
     </div>

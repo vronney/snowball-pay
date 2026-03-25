@@ -143,7 +143,7 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
     return (
       <div className="space-y-4">
         {[180, 120, 260].map((h, i) => (
-          <div key={i} style={{ height: h, borderRadius: '16px', background: 'rgba(19,29,46,1)', animation: 'pulse 1.8s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+          <div key={i} style={{ height: h, borderRadius: '16px', background: '#f1f5f9', animation: 'pulse 1.8s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
         ))}
       </div>
     );

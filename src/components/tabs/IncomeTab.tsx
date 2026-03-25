@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useSaveIncome, useCreateExpense, useDeleteExpense } from '@/lib/hooks';
 import { Income, Expense, Debt } from '@/types';
-import { Calculator, Repeat, Plus, X } from 'lucide-react';
+import { Calculator, Repeat, Plus, X, ChevronDown } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
 interface IncomeTabProps {
@@ -19,6 +19,7 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
     essentialExpenses: income?.essentialExpenses != null ? String(income.essentialExpenses) : '',
   });
 
+  const [recurringOpen, setRecurringOpen] = useState(true);
   const [recurringForm, setRecurringForm] = useState({ name: '', amount: '' });
 
   const saveIncome = useSaveIncome();
@@ -56,7 +57,7 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
     return (
       <div className="space-y-4">
         {[280, 220].map((h, i) => (
-          <div key={i} style={{ height: h, borderRadius: '16px', background: 'rgba(19,29,46,1)', animation: 'pulse 1.8s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+          <div key={i} style={{ height: h, borderRadius: '16px', background: '#f1f5f9', animation: 'pulse 1.8s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
         ))}
       </div>
     );
@@ -65,7 +66,7 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
   return (
     <section id="section-income">
       {/* Income Section */}
-      <div className="rounded-2xl p-5 snowball-glow mb-6" style={{ background: 'rgba(19,29,46,1)' }}>
+      <div className="rounded-2xl p-5 snowball-glow mb-6" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)' }}>
         <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
           <Calculator size={18} style={{ color: '#3b82f6' }} />
           Monthly Budget
@@ -100,9 +101,9 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
 
           {/* Budget Visualization */}
           {takeHome > 0 && (
-            <div className="rounded-xl p-4 mt-2" style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <div className="rounded-xl p-4 mt-2" style={{ background: 'rgba(15,23,42,0.04)' }}>
               <div className="text-xs opacity-60 mb-2">Monthly Budget Breakdown</div>
-              <div className="h-4 rounded-full overflow-hidden flex" style={{ background: 'rgba(255,255,255,0.05)' }}>
+              <div className="h-4 rounded-full overflow-hidden flex" style={{ background: 'rgba(15,23,42,0.06)' }}>
                 {(() => {
                   const pctExp = Math.min(100, (totalEssential / takeHome) * 100);
                   const pctMin = Math.min(100 - pctExp, (totalMinPayments / takeHome) * 100);
@@ -146,15 +147,25 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
       </div>
 
       {/* Recurring Expenses Section */}
-      <div className="rounded-2xl p-5 snowball-glow" style={{ background: 'rgba(19,29,46,1)' }}>
-        <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
-          <Repeat size={18} style={{ color: '#3b82f6' }} />
-          Recurring Expenses
-        </h2>
+      <div className="rounded-2xl snowball-glow" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)' }}>
+        <button
+          type="button"
+          onClick={() => setRecurringOpen(o => !o)}
+          className="w-full flex items-center justify-between p-5"
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          <span className="font-semibold text-base flex items-center gap-2" style={{ color: '#0f172a' }}>
+            <Repeat size={18} style={{ color: '#3b82f6' }} />
+            Recurring Expenses
+          </span>
+          <ChevronDown size={16} style={{ color: '#94a3b8', transition: 'transform 0.2s', transform: recurringOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+        </button>
+
+        {recurringOpen && <div className="px-5 pb-5">
         <p className="text-xs opacity-60 mb-4">Track subscriptions, utilities, and other monthly recurring costs</p>
 
         {/* Add Form */}
-        <form onSubmit={handleAddRecurring} className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 pb-4 border-b border-white/10">
+        <form onSubmit={handleAddRecurring} className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4 pb-4" style={{ borderBottom: '1px solid rgba(15,23,42,0.1)' }}>
           <div>
             <label className="text-xs opacity-60 mb-1 block">Expense Name</label>
             <input
@@ -188,14 +199,14 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
         {/* List */}
         <div className="space-y-2 mb-4">
           {expenses.map((expense) => (
-            <div key={expense.id} className="flex items-center justify-between p-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
+            <div key={expense.id} className="flex items-center justify-between p-2 rounded-lg" style={{ background: 'rgba(15,23,42,0.04)' }}>
               <div>
                 <div className="text-sm font-medium">{expense.name}</div>
                 <div className="text-xs opacity-50">{formatCurrency(expense.amount)}/mo</div>
               </div>
               <button
                 onClick={() => deleteExpense.mutate(expense.id)}
-                className="p-1 rounded hover:bg-white/5 cursor-pointer bg-transparent border-0 text-txt opacity-40 hover:opacity-100 transition"
+                className="p-1 rounded hover:bg-slate-100 cursor-pointer bg-transparent border-0 text-txt opacity-40 hover:opacity-100 transition"
               >
                 <X size={14} />
               </button>
@@ -206,7 +217,7 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
         {expenses.length === 0 && <div className="text-center py-6 opacity-40 text-sm">No recurring expenses added yet.</div>}
 
         {expenses.length > 0 && (
-          <div className="p-3 rounded-lg text-xs" style={{ background: 'rgba(255,255,255,0.03)' }}>
+          <div className="p-3 rounded-lg text-xs" style={{ background: 'rgba(15,23,42,0.04)' }}>
             <div className="flex items-center justify-between">
               <span className="opacity-60">Recurring Expenses Total:</span>
               <span className="mono font-semibold" style={{ color: '#3b82f6' }}>
@@ -215,6 +226,7 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
             </div>
           </div>
         )}
+        </div>}
       </div>
     </section>
   );

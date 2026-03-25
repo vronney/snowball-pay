@@ -124,19 +124,19 @@ export default function PublicCalculator() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="min-h-screen text-txt" style={{ backgroundColor: '#05091a', color: '#eef4ff' }}>
+    <div className="min-h-screen text-txt" style={{ backgroundColor: '#f5f7fa', color: '#0f172a' }}>
 
       {/* Nav */}
-      <nav style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+      <nav style={{ borderBottom: '1px solid rgba(15,23,42,0.07)', background: '#ffffff' }}>
         <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
           <Link href="/">
-            <Image src="/logo.svg" alt="SnowballPay" width={148} height={28} priority />
+            <Image src="/logo-dark.svg" alt="SnowballPay" width={148} height={28} priority />
           </Link>
           <div className="flex items-center gap-3">
             <a
               href={LOGIN_URL}
-              className="text-sm px-4 py-2 rounded-lg transition"
-              style={{ color: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.08)' }}
+              className="hidden sm:block text-sm px-4 py-2 rounded-lg transition"
+              style={{ color: '#64748b', border: '1px solid rgba(15,23,42,0.12)' }}
             >
               Sign In
             </a>
@@ -158,7 +158,7 @@ export default function PublicCalculator() {
           <h1 className="text-3xl sm:text-4xl font-bold mb-3">
             When will you be debt-free?
           </h1>
-          <p className="text-base max-w-xl mx-auto" style={{ color: 'rgba(255,255,255,0.55)' }}>
+          <p className="text-base max-w-xl mx-auto" style={{ color: '#64748b' }}>
             Enter your debts and income below. See your exact payoff date, total interest,
             and how much faster snowball beats paying minimums — free, no account needed.
           </p>
@@ -189,7 +189,7 @@ export default function PublicCalculator() {
             />
 
             {/* Strategy */}
-            <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)' }}>
+            <div className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
               <h2 className="font-semibold text-base mb-3">Payoff Strategy</h2>
               <div className="grid grid-cols-2 gap-2">
                 {(['snowball', 'avalanche'] as const).map((m) => (
@@ -198,19 +198,19 @@ export default function PublicCalculator() {
                     onClick={() => setMethod(m)}
                     className="p-3 rounded-xl text-sm font-medium transition cursor-pointer"
                     style={{
-                      border: `1px solid ${method === m ? '#3b82f6' : 'rgba(255,255,255,0.08)'}`,
-                      background: method === m ? 'rgba(59,130,246,0.12)' : 'transparent',
-                      color: method === m ? '#93c5fd' : 'rgba(255,255,255,0.5)',
+                      border: `1px solid ${method === m ? '#3b82f6' : 'rgba(15,23,42,0.08)'}`,
+                      background: method === m ? 'rgba(59,130,246,0.12)' : '#f8fafc',
+                      color: method === m ? '#1d4ed8' : '#334155',
                     }}
                   >
                     {m === 'snowball' ? 'Snowball' : 'Avalanche'}
-                    <div className="text-xs font-normal mt-0.5" style={{ opacity: 0.7 }}>
+                    <div className="text-xs font-normal mt-0.5" style={{ color: '#64748b' }}>
                       {m === 'snowball' ? 'Smallest balance first' : 'Highest interest first'}
                     </div>
                   </button>
                 ))}
               </div>
-              <p className="text-xs mt-3" style={{ color: 'rgba(255,255,255,0.3)' }}>
+              <p className="text-xs mt-3" style={{ color: '#64748b' }}>
                 {method === 'snowball'
                   ? 'Snowball builds momentum — pay off the smallest debt first to stay motivated.'
                   : 'Avalanche minimizes total interest — attack the highest-rate debt first.'}
@@ -231,7 +231,7 @@ export default function PublicCalculator() {
       </main>
 
       {/* Footer */}
-      <footer className="mt-16 pb-10 text-center text-xs" style={{ color: 'rgba(255,255,255,0.25)' }}>
+      <footer className="mt-16 pb-10 text-center text-xs" style={{ color: '#94a3b8' }}>
         <Link href="/" className="hover:opacity-60 transition mr-4" style={{ color: 'inherit' }}>Home</Link>
         <Link href="/privacy" className="hover:opacity-60 transition mr-4" style={{ color: 'inherit' }}>Privacy</Link>
         <Link href="/terms" className="hover:opacity-60 transition" style={{ color: 'inherit' }}>Terms</Link>

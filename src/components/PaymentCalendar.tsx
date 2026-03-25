@@ -76,43 +76,43 @@ export default function PaymentCalendar({ debts }: Props) {
   const sortedEntries = [...paymentsByDay.entries()].sort(([a], [b]) => a - b);
 
   return (
-    <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)' }}>
+    <div className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)' }}>
 
       {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: open ? '20px' : '0' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: open ? '20px' : '0', gap: '10px' }}>
         <button
           onClick={() => setOpen((v) => !v)}
-          style={{ display: 'flex', alignItems: 'center', gap: '7px', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left' }}
+          style={{ display: 'flex', alignItems: 'center', gap: '7px', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', minWidth: 0 }}
         >
           <CalendarDays size={16} style={{ color: '#3b82f6', flexShrink: 0 }} />
-          <div>
-            <span style={{ fontSize: '15px', fontWeight: 600, color: '#e1e8f0', display: 'block', lineHeight: 1.3 }}>Payment Calendar</span>
-            {totalDue > 0 && (
+          <div style={{ minWidth: 0 }}>
+            <span style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', display: 'block', lineHeight: 1.3, whiteSpace: 'nowrap' }}>Payment Calendar</span>
+            {totalDue > 0 && !open && (
               <span style={{ fontSize: '12px', color: '#475569' }}>
-                {formatCurrency(totalDue)} minimum due per month
+                {formatCurrency(totalDue)} minimum due monthly
               </span>
             )}
           </div>
           <ChevronDown
             size={15}
-            style={{ color: '#60a5fa', marginLeft: '4px', flexShrink: 0, transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1)', transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', background: 'rgba(59,130,246,0.12)', borderRadius: '5px', padding: '2px', boxSizing: 'content-box' }}
+            style={{ color: '#2563eb', marginLeft: '4px', flexShrink: 0, transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1)', transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', background: 'rgba(37,99,235,0.1)', borderRadius: '5px', padding: '2px', boxSizing: 'content-box' }}
           />
         </button>
 
         {/* Month nav — only shown when open */}
-        {open && <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+        {open && <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
           <button
             onClick={prevMonth}
-            style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
+            style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(15,23,42,0.04)', border: '1px solid rgba(15,23,42,0.1)', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
           >
             <ChevronLeft size={14} />
           </button>
-          <span style={{ fontSize: '13px', fontWeight: 600, minWidth: '122px', textAlign: 'center', color: '#e1e8f0' }}>
+          <span style={{ fontSize: '13px', fontWeight: 600, minWidth: '112px', textAlign: 'center', color: '#0f172a', whiteSpace: 'nowrap' }}>
             {MONTH_NAMES[viewMonth]} {viewYear}
           </span>
           <button
             onClick={nextMonth}
-            style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.5)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
+            style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(15,23,42,0.04)', border: '1px solid rgba(15,23,42,0.1)', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}
           >
             <ChevronRight size={14} />
           </button>
@@ -123,9 +123,9 @@ export default function PaymentCalendar({ debts }: Props) {
 
       {/* ── Next payment highlight ── */}
       {nextPayment && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '10px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', marginBottom: '18px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', padding: '10px 14px', borderRadius: '10px', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)', marginBottom: '18px' }}>
           <span style={{ fontSize: '12px', color: '#64748b' }}>Next payment due</span>
-          <span style={{ fontSize: '13px', fontWeight: 700, color: '#60a5fa', fontVariantNumeric: 'tabular-nums' }}>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#2563eb', fontVariantNumeric: 'tabular-nums', textAlign: 'right', whiteSpace: 'nowrap' }}>
             {formatCurrency(nextPayment.debts.reduce((s, d) => s + d.minimumPayment, 0))}
             {' '}on {MONTH_NAMES[viewMonth].slice(0, 3)} {nextPayment.day}
           </span>
@@ -165,12 +165,12 @@ export default function PaymentCalendar({ debts }: Props) {
                 background: isNext
                   ? 'rgba(59,130,246,0.18)'
                   : todayCell
-                  ? 'rgba(255,255,255,0.05)'
+                  ? 'rgba(15,23,42,0.06)'
                   : 'transparent',
                 border: isNext
                   ? '1px solid rgba(59,130,246,0.4)'
                   : todayCell
-                  ? '1px solid rgba(255,255,255,0.1)'
+                  ? '1px solid rgba(15,23,42,0.15)'
                   : '1px solid transparent',
                 opacity: past && !isNext ? 0.3 : 1,
                 transition: 'background 0.15s ease, opacity 0.15s ease',
@@ -179,7 +179,7 @@ export default function PaymentCalendar({ debts }: Props) {
               <span style={{
                 fontSize: '12px',
                 fontWeight: isNext || todayCell ? 700 : 400,
-                color: isNext ? '#60a5fa' : todayCell ? '#e1e8f0' : 'rgba(255,255,255,0.65)',
+                color: isNext ? '#2563eb' : todayCell ? '#0f172a' : '#64748b',
                 lineHeight: 1,
                 fontVariantNumeric: 'tabular-nums',
               }}>
@@ -202,7 +202,7 @@ export default function PaymentCalendar({ debts }: Props) {
                     />
                   ))}
                   {dayDebts.length > 3 && (
-                    <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(255,255,255,0.25)' }} />
+                    <div style={{ width: '4px', height: '4px', borderRadius: '50%', background: 'rgba(15,23,42,0.25)' }} />
                   )}
                 </div>
               )}
@@ -213,7 +213,7 @@ export default function PaymentCalendar({ debts }: Props) {
 
       {/* ── Payment list for this month ── */}
       {sortedEntries.length > 0 && (
-        <div style={{ marginTop: '20px', paddingTop: '18px', borderTop: '1px solid rgba(255,255,255,0.055)' }}>
+        <div style={{ marginTop: '20px', paddingTop: '18px', borderTop: '1px solid rgba(15,23,42,0.08)' }}>
           <p style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#334155', margin: '0 0 10px' }}>
             {MONTH_NAMES[viewMonth]} payments
           </p>
@@ -232,15 +232,15 @@ export default function PaymentCalendar({ debts }: Props) {
                     gap: '10px',
                     padding: '9px 12px',
                     borderRadius: '10px',
-                    background: isNext ? 'rgba(59,130,246,0.07)' : 'rgba(255,255,255,0.02)',
+                    background: isNext ? 'rgba(59,130,246,0.07)' : 'rgba(15,23,42,0.03)',
                     border: isNext ? '1px solid rgba(59,130,246,0.16)' : '1px solid transparent',
                     opacity: past ? 0.4 : 1,
                     transition: 'opacity 0.15s ease',
                   }}
                 >
                   {/* Day badge */}
-                  <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: isNext ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${isNext ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.06)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: isNext ? '#60a5fa' : 'rgba(255,255,255,0.5)', fontVariantNumeric: 'tabular-nums' }}>{day}</span>
+                  <div style={{ width: '30px', height: '30px', borderRadius: '8px', background: isNext ? 'rgba(59,130,246,0.15)' : 'rgba(15,23,42,0.04)', border: `1px solid ${isNext ? 'rgba(59,130,246,0.25)' : 'rgba(15,23,42,0.08)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: isNext ? '#2563eb' : '#64748b', fontVariantNumeric: 'tabular-nums' }}>{day}</span>
                   </div>
 
                   {/* Debt rows */}
@@ -249,11 +249,11 @@ export default function PaymentCalendar({ debts }: Props) {
                       <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
                           <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: getCategoryColor(d.category), flexShrink: 0 }} />
-                          <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <span style={{ fontSize: '13px', color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {d.name}
                           </span>
                         </div>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.8)', fontVariantNumeric: 'tabular-nums', flexShrink: 0, marginLeft: '8px' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#334155', fontVariantNumeric: 'tabular-nums', flexShrink: 0, marginLeft: '8px' }}>
                           {formatCurrency(d.minimumPayment)}
                         </span>
                       </div>
@@ -263,12 +263,12 @@ export default function PaymentCalendar({ debts }: Props) {
                   {/* Total + NEXT badge */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px', flexShrink: 0 }}>
                     {dayDebts.length > 1 && (
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', fontVariantNumeric: 'tabular-nums' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
                         = {formatCurrency(total)}
                       </span>
                     )}
                     {isNext && (
-                      <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#60a5fa', background: 'rgba(59,130,246,0.15)', padding: '2px 7px', borderRadius: '4px' }}>
+                      <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em', color: '#2563eb', background: 'rgba(37,99,235,0.1)', padding: '2px 7px', borderRadius: '4px' }}>
                         NEXT
                       </span>
                     )}

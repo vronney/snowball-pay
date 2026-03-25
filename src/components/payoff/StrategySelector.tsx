@@ -9,8 +9,8 @@ interface StrategySelectorProps {
 
 export default function StrategySelector({ payoffMethod, onMethodChange }: StrategySelectorProps) {
   return (
-    <div className="rounded-2xl p-3" style={{ background: 'rgba(19,29,46,1)' }}>
-      <div className="text-xs opacity-60 mb-2">Payoff Strategy</div>
+    <div className="rounded-2xl p-3" style={{ background: 'rgb(255, 255, 255)', border: '1px solid rgba(15, 23, 42, 0.08)', boxShadow: 'rgba(15, 23, 42, 0.06) 0px 1px 4px' }}>
+      <h2 className="font-semibold text-base mb-2" style={{ color: '#334155' }}>Payoff Strategy</h2>
       <div className="grid grid-cols-3 gap-2">
         {(['snowball', 'avalanche', 'custom'] as const).map((method) => {
           const selected = payoffMethod === method;
@@ -21,9 +21,9 @@ export default function StrategySelector({ payoffMethod, onMethodChange }: Strat
               onClick={() => onMethodChange(method)}
               className="rounded-lg px-3 py-2 text-xs font-semibold transition"
               style={{
-                background: selected ? 'rgba(59,130,246,0.16)' : 'rgba(255,255,255,0.03)',
-                border: selected ? '1px solid #3b82f6' : '1px solid rgba(255,255,255,0.08)',
-                color: selected ? '#93c5fd' : 'rgba(255,255,255,0.8)',
+                background: selected ? 'rgba(59,130,246,0.14)' : '#f8fafc',
+                border: selected ? '1px solid #3b82f6' : '1px solid rgba(15,23,42,0.08)',
+                color: selected ? '#1d4ed8' : '#334155',
               }}
             >
               {method === 'snowball' ? 'Snowball' : method === 'avalanche' ? 'Avalanche' : 'Custom'}

@@ -36,10 +36,10 @@ export default function BalanceOverTimeChart({
   const hasAnyActual = true; // always render — starts at current debt, extends as payments are logged
 
   return (
-    <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)' }}>
+    <div className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
       <div className="mb-4">
         <h2 className="font-semibold text-base mb-1">Balance Over Time</h2>
-        <p className="text-xs opacity-50">
+        <p className="text-xs" style={{ color: '#64748b' }}>
           Shows your total debt balance across all debts over time.{' '}
           {hasRealSnapshots
             ? "Green dashed = what you actually owe each month (recorded when you log a payment). Blue = your plan. Below the blue line means you're ahead of schedule."
@@ -49,18 +49,18 @@ export default function BalanceOverTimeChart({
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} margin={{ top: 10, right: 18, left: 10, bottom: 10 }}>
-            <CartesianGrid stroke="rgba(255,255,255,0.08)" strokeDasharray="4 4" />
+            <CartesianGrid stroke="rgba(15,23,42,0.08)" strokeDasharray="4 4" />
             <XAxis
               dataKey="date"
-              tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }}
+              tick={{ fill: '#64748b', fontSize: 11 }}
               tickLine={false}
-              axisLine={{ stroke: 'rgba(255,255,255,0.15)' }}
+              axisLine={{ stroke: 'rgba(15,23,42,0.12)' }}
               minTickGap={24}
             />
             <YAxis
-              tick={{ fill: 'rgba(255,255,255,0.45)', fontSize: 11 }}
+              tick={{ fill: '#64748b', fontSize: 11 }}
               tickLine={false}
-              axisLine={{ stroke: 'rgba(255,255,255,0.15)' }}
+              axisLine={{ stroke: 'rgba(15,23,42,0.12)' }}
               tickFormatter={(value: number) => formatCurrency(value)}
             />
             <Tooltip
@@ -79,16 +79,16 @@ export default function BalanceOverTimeChart({
               }}
               labelFormatter={(label) => `Month: ${String(label)}`}
               contentStyle={{
-                background: '#131d2e',
-                border: '1px solid rgba(255,255,255,0.12)',
+                background: '#ffffff',
+                border: '1px solid rgba(15,23,42,0.12)',
                 borderRadius: 10,
-                color: 'rgba(255,255,255,0.9)',
+                color: '#0f172a',
               }}
             />
             {(hasAnyActual || showMinimumsLine) && (
               <Legend
                 formatter={(value) => (
-                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>
+                  <span style={{ color: '#64748b', fontSize: 11 }}>
                     {value === 'totalBalance'
                       ? `With Extra (+${formatCurrency(effectiveAcceleration)}/mo)`
                       : value === 'minimumsBalance'
@@ -102,10 +102,10 @@ export default function BalanceOverTimeChart({
             <Line
               type="monotone"
               dataKey="totalBalance"
-              stroke="#3b82f6"
+              stroke="#2563eb"
               strokeWidth={2.5}
               dot={false}
-              activeDot={{ r: 5, fill: '#93c5fd' }}
+              activeDot={{ r: 5, fill: '#2563eb' }}
               connectNulls={false}
             />
             {showMinimumsLine && (
@@ -145,12 +145,12 @@ export default function BalanceOverTimeChart({
         const ahead = diff > 0;
         const onTrack = Math.abs(diff) < 50;
         return (
-          <div className="mt-3 pt-3 flex items-center gap-2 text-xs" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-            <span className="opacity-40">Latest recorded vs plan:</span>
-            <span className="font-semibold" style={{ color: onTrack ? '#a3e635' : ahead ? '#34d399' : '#f87171' }}>
+          <div className="mt-3 pt-3 flex items-center gap-2 text-xs" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
+            <span style={{ color: '#64748b' }}>Latest recorded vs plan:</span>
+            <span className="font-semibold" style={{ color: onTrack ? '#65a30d' : ahead ? '#059669' : '#f87171' }}>
               {onTrack ? 'On track' : ahead ? `${formatCurrency(diff)} ahead of plan` : `${formatCurrency(Math.abs(diff))} behind plan`}
             </span>
-            <span className="opacity-30">({lastActual.date})</span>
+            <span style={{ color: '#94a3b8' }}>({lastActual.date})</span>
           </div>
         );
       })()}

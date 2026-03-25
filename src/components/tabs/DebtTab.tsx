@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useCreateDebt, useDeleteDebt, useIncome, useExpenses, useAllSnapshots } from '@/lib/hooks';
 import { Debt, BalanceSnapshot } from '@/types';
-import { PlusCircle, Inbox, Bell } from 'lucide-react';
+import { PlusCircle, Inbox, Bell, ChevronDown } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { calculateDebtSnowball, calculateDebtAvalanche, calculateDebtCustom } from '@/lib/snowball';
 import DebtCard from '@/components/DebtCard';
@@ -91,6 +91,7 @@ function computeStreak(snapshots: BalanceSnapshot[]): number {
 
 export default function DebtTab({ debts, isLoading }: DebtTabProps) {
   const [showForm, setShowForm] = useState(false);
+  const [debtsOpen, setDebtsOpen] = useState(true);
   const createDebt = useCreateDebt();
   const deleteDebt = useDeleteDebt();
 
@@ -99,8 +100,7 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
   const { data: snapshotData } = useAllSnapshots();
 
   const income = incomeData?.income;
-  const expenses = expensesData?.expenses ?? [];
-  const snapshots = snapshotData?.snapshots ?? [];
+  const snapshots = useMemo(() => snapshotData?.snapshots ?? [], [snapshotData?.snapshots]);
 
   // Earliest snapshot balance per debt (for % paid off)
   const earliestBalanceByDebt = useMemo(() => {
@@ -118,6 +118,7 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
   // Payoff estimate — mirrors the PayoffTab acceleration logic so both tabs show the same date
   const payoffResult = useMemo(() => {
     if (!income || debts.length === 0) return null;
+    const expenses = expensesData?.expenses ?? [];
     const essential = income.essentialExpenses ?? 0;
     const recurring = expenses.reduce((s, e) => s + e.amount, 0);
     const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);
@@ -134,7 +135,7 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
     } catch {
       return null;
     }
-  }, [debts, income, expenses]);
+  }, [debts, income, expensesData?.expenses]);
 
   const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
   const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);
@@ -154,7 +155,7 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
     return (
       <div className="space-y-3">
         {[1, 2, 3].map((i) => (
-          <div key={i} style={{ height: 76, borderRadius: '12px', background: 'rgba(19,29,46,1)', animation: 'pulse 1.8s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
+          <div key={i} style={{ height: 76, borderRadius: '12px', background: '#f1f5f9', animation: 'pulse 1.8s ease-in-out infinite', animationDelay: `${i * 0.1}s` }} />
         ))}
       </div>
     );
@@ -162,133 +163,165 @@ export default function DebtTab({ debts, isLoading }: DebtTabProps) {
 
   return (
     <section id="section-debts">
-      {/* Upcoming Payment Notifications */}
-      {upcomingPayments.length > 0 && (
-        <div className="space-y-2 mb-5">
-          {upcomingPayments.map(({ debt, label, color, bg, border }) => (
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+        <div className="xl:col-span-8 2xl:col-span-8 order-2 xl:order-1 space-y-4">
+          {/* Debt Overview Banner */}
+          {debts.length > 0 && (
             <div
-              key={debt.id}
+              className="rounded-xl p-4"
               style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                padding: '10px 14px',
-                borderRadius: '10px',
-                background: bg,
-                border: `1px solid ${border}`,
+                background: '#f8fafc',
+                border: '1px solid rgba(15,23,42,0.08)',
               }}
             >
-              <Bell size={14} style={{ color, flexShrink: 0 }} />
-              <span style={{ fontSize: '13px', color, fontWeight: 600 }}>{label}:</span>
-              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.75)', flex: 1 }}>
-                {debt.name} — {formatCurrency(debt.minimumPayment)} min. payment
-              </span>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '16px' }}>
+                <div>
+                  <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Total Remaining</span>
+                  <span className="mono font-bold" style={{ fontSize: '18px', color: '#f87171' }}>{formatCurrency(totalDebt)}</span>
+                </div>
+                {payoffResult && (
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Est. Debt-Free</span>
+                    <span className="mono font-bold" style={{ fontSize: '18px', color: '#059669' }}>
+                      {payoffResult.debtFreeDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                    </span>
+                  </div>
+                )}
+                {payoffResult && (
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Interest (plan)</span>
+                    <span className="mono font-bold" style={{ fontSize: '18px', color: '#2563eb' }}>{formatCurrency(payoffResult.totalInterestPaid)}</span>
+                  </div>
+                )}
+                <div>
+                  <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Monthly Minimums</span>
+                  <span className="mono font-bold" style={{ fontSize: '18px', color: '#0f172a' }}>{formatCurrency(totalMin)}</span>
+                </div>
+                {streak > 0 && (
+                  <div>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>Payment Streak</span>
+                    <span className="mono font-bold" style={{ fontSize: '18px', color: '#7c3aed' }}>{streak} mo</span>
+                  </div>
+                )}
+              </div>
             </div>
-          ))}
-        </div>
-      )}
+          )}
 
-      {/* Debt Overview Banner */}
-      {debts.length > 0 && (
-        <div
-          className="rounded-xl p-4 mb-5"
-          style={{
-            background: 'rgba(255,255,255,0.02)',
-            border: '1px solid rgba(255,255,255,0.06)',
-          }}
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '16px' }}>
-            <div>
-              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '4px' }}>Total Remaining</span>
-              <span className="mono font-bold" style={{ fontSize: '18px', color: '#f87171' }}>{formatCurrency(totalDebt)}</span>
-            </div>
-            {payoffResult && (
-              <div>
-                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '4px' }}>Est. Debt-Free</span>
-                <span className="mono font-bold" style={{ fontSize: '18px', color: '#34d399' }}>
-                  {payoffResult.debtFreeDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+          <div className="rounded-xl" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)' }}>
+            <button
+              type="button"
+              onClick={() => setDebtsOpen(o => !o)}
+              className="w-full flex items-center justify-between p-4"
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              <span className="font-semibold text-sm flex items-center gap-2" style={{ color: '#0f172a' }}>
+                Your debt accounts
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ color: '#475569', background: 'rgba(15,23,42,0.05)' }}>
+                  {debts.length}
                 </span>
+              </span>
+              <ChevronDown size={16} style={{ color: '#94a3b8', transition: 'transform 0.2s', transform: debtsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }} />
+            </button>
+
+            {debtsOpen && <div className="px-4 pb-4">
+              {/* Debt List */}
+              <div id="debt-list" className="space-y-3">
+                {debts.map((debt) => (
+                  <DebtCard
+                    key={debt.id}
+                    debt={debt}
+                    allDebts={debts}
+                    onDelete={() => deleteDebt.mutate(debt.id)}
+                    firstSnapshotBalance={earliestBalanceByDebt.get(debt.id) ?? null}
+                  />
+                ))}
               </div>
-            )}
-            {payoffResult && (
-              <div>
-                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '4px' }}>Interest (plan)</span>
-                <span className="mono font-bold" style={{ fontSize: '18px', color: '#60a5fa' }}>{formatCurrency(payoffResult.totalInterestPaid)}</span>
-              </div>
-            )}
-            <div>
-              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '4px' }}>Monthly Minimums</span>
-              <span className="mono font-bold" style={{ fontSize: '18px', color: '#e1e8f0' }}>{formatCurrency(totalMin)}</span>
+
+              {/* Empty State */}
+              {debts.length === 0 && !showForm && (
+                <div id="empty-debts" className="text-center py-14 px-6">
+                  <div
+                    className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mx-auto mb-4"
+                    style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.18)' }}
+                  >
+                    <Inbox size={28} style={{ color: '#3b82f6', opacity: 0.7 }} />
+                  </div>
+                  <p className="font-semibold text-sm mb-1" style={{ color: '#475569' }}>No debts yet</p>
+                  <p className="text-xs" style={{ color: '#94a3b8' }}>Add your first debt in the panel to start building your payoff plan.</p>
+                </div>
+              )}
+            </div>}
+          </div>
+        </div>
+
+        <aside className="xl:col-span-4 2xl:col-span-4 order-1 xl:order-2 xl:sticky xl:top-24 self-start space-y-4">
+          {/* Add Debt Form */}
+          {showForm ? (
+            <div className="rounded-2xl p-5 snowball-glow" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)' }}>
+              <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
+                <PlusCircle size={18} style={{ color: '#3b82f6' }} />
+                <span>Add New Debt</span>
+              </h2>
+              <DebtForm
+                onSubmit={handleSubmit}
+                onCancel={() => setShowForm(false)}
+                isLoading={createDebt.isPending}
+              />
             </div>
-            {streak > 0 && (
-              <div>
-                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', display: 'block', marginBottom: '4px' }}>Payment Streak</span>
-                <span className="mono font-bold" style={{ fontSize: '18px', color: '#a78bfa' }}>{streak} mo 🔥</span>
+          ) : (
+            <button
+              onClick={() => setShowForm(true)}
+              className="w-full rounded-2xl p-5 snowball-glow font-semibold flex items-center justify-center gap-2 hover:opacity-80 transition"
+              style={{
+                background: '#ffffff',
+                color: '#2563eb',
+                border: '1px solid rgba(37,99,235,0.25)',
+              }}
+            >
+              <PlusCircle size={18} />
+              Add New Debt
+            </button>
+          )}
+
+          {/* Upcoming Payment Notifications */}
+          {upcomingPayments.length > 0 && (
+            <div className="rounded-xl p-4" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <Bell size={14} style={{ color: '#ef4444' }} />
+                <span className="font-semibold text-xs tracking-wide uppercase" style={{ color: '#475569' }}>Upcoming payments</span>
               </div>
-            )}
-          </div>
-        </div>
-      )}
+              <div className="space-y-2">
+                {upcomingPayments.map(({ debt, label, color, bg, border }) => (
+                  <div
+                    key={debt.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 10px',
+                      borderRadius: '10px',
+                      background: bg,
+                      border: `1px solid ${border}`,
+                    }}
+                  >
+                    <span style={{ fontSize: '12px', color, fontWeight: 600, whiteSpace: 'nowrap' }}>{label}</span>
+                    <span style={{ fontSize: '12px', color: '#334155', flex: 1, minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {debt.name} · {formatCurrency(debt.minimumPayment)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-      {/* Payment Calendar */}
-      {debts.length > 0 && (
-        <div className="mb-6">
-          <PaymentCalendar debts={debts} />
-        </div>
-      )}
-
-      {/* Add Debt Form */}
-      {showForm ? (
-        <div className="rounded-2xl p-5 mb-6 snowball-glow" style={{ background: 'rgba(19,29,46,1)' }}>
-          <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
-            <PlusCircle size={18} style={{ color: '#3b82f6' }} />
-            <span>Add New Debt</span>
-          </h2>
-          <DebtForm
-            onSubmit={handleSubmit}
-            onCancel={() => setShowForm(false)}
-            isLoading={createDebt.isPending}
-          />
-        </div>
-      ) : (
-        <button
-          onClick={() => setShowForm(true)}
-          className="w-full rounded-2xl p-5 mb-6 snowball-glow font-semibold flex items-center justify-center gap-2 hover:opacity-80 transition"
-          style={{
-            background: 'rgba(19,29,46,1)',
-            color: '#3b82f6',
-            border: '1px solid rgba(59,130,246,0.2)',
-          }}
-        >
-          <PlusCircle size={18} />
-          Add New Debt
-        </button>
-      )}
-
-      {/* Debt List */}
-      <div id="debt-list" className="space-y-3">
-        {debts.map((debt) => (
-          <DebtCard
-            key={debt.id}
-            debt={debt}
-            allDebts={debts}
-            onDelete={() => deleteDebt.mutate(debt.id)}
-            firstSnapshotBalance={earliestBalanceByDebt.get(debt.id) ?? null}
-          />
-        ))}
+          {/* Payment Calendar */}
+          {debts.length > 0 && (
+            <div>
+              <PaymentCalendar debts={debts} />
+            </div>
+          )}
+        </aside>
       </div>
-
-      {/* Empty State */}
-      {debts.length === 0 && !showForm && (
-        <div id="empty-debts" className="text-center py-14 px-6">
-          <div
-            className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mx-auto mb-4"
-            style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.18)' }}
-          >
-            <Inbox size={28} style={{ color: '#3b82f6', opacity: 0.7 }} />
-          </div>
-          <p className="font-semibold text-sm mb-1" style={{ color: 'rgba(255,255,255,0.7)' }}>No debts yet</p>
-          <p className="text-xs" style={{ color: 'rgba(255,255,255,0.3)' }}>Add your first debt above to start building your payoff plan.</p>
-        </div>
-      )}
     </section>
   );
 }

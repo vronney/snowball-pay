@@ -26,7 +26,7 @@ export default function CustomPriorityEditor({
   onResetPriorities,
 }: CustomPriorityEditorProps) {
   return (
-    <div className="rounded-2xl p-5" style={{ background: 'rgba(19,29,46,1)' }}>
+    <div className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
       <div
         className="flex items-center justify-between gap-3 cursor-pointer"
         style={{ marginBottom: priorityOpen ? '16px' : '0' }}
@@ -36,7 +36,7 @@ export default function CustomPriorityEditor({
         <ChevronDown
           size={15}
           style={{
-            color: '#60a5fa',
+            color: '#2563eb',
             flexShrink: 0,
             transition: 'transform 0.25s cubic-bezier(0.34,1.56,0.64,1)',
             transform: priorityOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
@@ -57,8 +57,8 @@ export default function CustomPriorityEditor({
               disabled={!hasAnyCustomPriority || isPending}
               className="rounded-lg px-3 py-2 text-xs font-semibold transition disabled:opacity-40"
               style={{
-                background: 'rgba(255,255,255,0.04)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                background: 'rgba(15,23,42,0.04)',
+                border: '1px solid rgba(15,23,42,0.1)',
               }}
             >
               <span className="inline-flex items-center gap-1.5">
@@ -73,11 +73,11 @@ export default function CustomPriorityEditor({
               <div
                 key={debt.id}
                 className="flex items-center justify-between gap-3 p-3 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.02)' }}
+                style={{ background: '#f8fafc' }}
               >
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">{debt.name}</div>
-                  <div className="text-xs opacity-55">{formatCurrency(debt.balance)} balance</div>
+                  <div className="text-xs" style={{ color: '#64748b' }}>{formatCurrency(debt.balance)} balance</div>
                 </div>
                 <select
                   value={debt.priorityOrder ?? ''}
@@ -85,9 +85,9 @@ export default function CustomPriorityEditor({
                   disabled={isPending}
                   className="input-field max-w-[140px]"
                 >
-                  <option value="" className='bg-slate-400/80 text-black/80'>No priority</option>
+                  <option value="">No priority</option>
                   {debts.map((_, idx) => (
-                    <option key={`${debt.id}-priority-${idx + 1}`} value={idx + 1} className='bg-slate-400/80 text-black/80'>
+                    <option key={`${debt.id}-priority-${idx + 1}`} value={idx + 1}>
                       Priority {idx + 1}
                     </option>
                   ))}
