@@ -2,18 +2,25 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service — SnowballPay',
+  title: 'Terms of Service',
   description: 'Terms governing your use of SnowballPay, the personal debt payoff planner.',
+  alternates: {
+    canonical: 'https://getsnowballpay.com/terms',
+  },
+  robots: {
+    index: true,
+    follow: false,
+  },
 };
 
 export default function TermsOfServicePage() {
   return (
-    <div style={{ backgroundColor: '#0d1424', color: '#e1e8f0', minHeight: '100vh' }}>
+    <div style={{ backgroundColor: '#f8fafc', color: '#0f172a', minHeight: '100vh' }}>
       {/* Nav */}
-      <header style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '16px 24px' }}>
+      <header style={{ borderBottom: '1px solid rgba(15,23,42,0.08)', padding: '16px 24px', backgroundColor: 'rgba(255,255,255,0.95)' }}>
         <div style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <a href="/">
-            <Image src="/logo.svg" alt="SnowballPay" width={130} height={25} />
+            <Image src="/logo-dark.svg" alt="SnowballPay" width={130} height={25} />
           </a>
           <a href="/privacy" style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none' }}>
             ← Privacy Policy
@@ -23,7 +30,7 @@ export default function TermsOfServicePage() {
 
       {/* Content */}
       <main style={{ maxWidth: '860px', margin: '0 auto', padding: '56px 24px 80px' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: 700, marginBottom: '8px', color: '#f1f5f9' }}>
+        <h1 style={{ fontSize: '32px', fontWeight: 700, marginBottom: '8px', color: '#0f172a' }}>
           Terms of Service
         </h1>
         <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '40px' }}>
@@ -43,7 +50,7 @@ export default function TermsOfServicePage() {
           </p>
           <p>
             Please also read our{' '}
-            <a href="/privacy" style={{ color: '#60a5fa' }}>Privacy Policy</a>, which is
+            <a href="/privacy" style={{ color: '#2563eb' }}>Privacy Policy</a>, which is
             incorporated into these Terms by reference.
           </p>
         </LegalSection>
@@ -142,7 +149,7 @@ export default function TermsOfServicePage() {
             <li>Keep your login credentials (Google account and any session tokens) secure and
               confidential</li>
             <li>Notify us immediately at{' '}
-              <a href="mailto:support@getsnowballpay.com" style={{ color: '#60a5fa' }}>
+              <a href="mailto:support@getsnowballpay.com" style={{ color: '#2563eb' }}>
                 support@getsnowballpay.com
               </a> if you believe your account has been compromised</li>
             <li>Accept responsibility for all activity that occurs under your account</li>
@@ -315,7 +322,7 @@ export default function TermsOfServicePage() {
           <p>
             You may stop using the Service at any time. To permanently delete your account and all
             associated data, contact us at{' '}
-            <a href="mailto:support@getsnowballpay.com" style={{ color: '#60a5fa' }}>
+            <a href="mailto:support@getsnowballpay.com" style={{ color: '#2563eb' }}>
               support@getsnowballpay.com
             </a>. We will process account deletion requests within 30 days.
           </p>
@@ -436,7 +443,7 @@ export default function TermsOfServicePage() {
           <p>
             Before initiating formal legal proceedings, we both agree to attempt to resolve disputes
             informally. Contact us at{' '}
-            <a href="mailto:support@getsnowballpay.com" style={{ color: '#60a5fa' }}>
+            <a href="mailto:support@getsnowballpay.com" style={{ color: '#2563eb' }}>
               support@getsnowballpay.com
             </a>{' '}
             with a description of your dispute. We will work in good faith to resolve the issue within
@@ -454,7 +461,7 @@ export default function TermsOfServicePage() {
             you may also submit a dispute through the European Commission&apos;s Online Dispute Resolution
             platform at{' '}
             <a href="https://ec.europa.eu/consumers/odr/" target="_blank" rel="noopener noreferrer"
-               style={{ color: '#60a5fa' }}>
+               style={{ color: '#2563eb' }}>
               ec.europa.eu/consumers/odr
             </a>.
           </p>
@@ -531,19 +538,19 @@ export default function TermsOfServicePage() {
           <p>
             For questions about these Terms, contact us:
           </p>
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '20px', marginTop: '12px' }}>
+          <div style={{ backgroundColor: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '8px', padding: '20px', marginTop: '12px' }}>
             <p style={{ margin: 0, lineHeight: '2' }}>
               <strong>SnowballPay</strong><br />
               General:{' '}
-              <a href="mailto:support@getsnowballpay.com" style={{ color: '#60a5fa' }}>
+              <a href="mailto:support@getsnowballpay.com" style={{ color: '#2563eb' }}>
                 support@getsnowballpay.com
               </a><br />
               Privacy:{' '}
-              <a href="mailto:privacy@getsnowballpay.com" style={{ color: '#60a5fa' }}>
+              <a href="mailto:privacy@getsnowballpay.com" style={{ color: '#2563eb' }}>
                 privacy@getsnowballpay.com
               </a><br />
               Website:{' '}
-              <a href="https://getsnowballpay.com" style={{ color: '#60a5fa' }}>
+              <a href="https://getsnowballpay.com" style={{ color: '#2563eb' }}>
                 getsnowballpay.com
               </a>
             </p>
@@ -551,7 +558,7 @@ export default function TermsOfServicePage() {
         </LegalSection>
 
         {/* Footer nav */}
-        <div style={{ marginTop: '64px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ marginTop: '64px', paddingTop: '24px', borderTop: '1px solid rgba(15,23,42,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <a href="/" style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none' }}>
             ← Back to SnowballPay
           </a>
@@ -571,11 +578,11 @@ function SectionHeading({ number, title }: { number: string; title: string }) {
     <h2 style={{
       fontSize: '20px',
       fontWeight: 600,
-      color: '#f1f5f9',
+      color: '#0f172a',
       marginTop: '40px',
       marginBottom: '12px',
       paddingBottom: '8px',
-      borderBottom: '1px solid rgba(255,255,255,0.06)',
+      borderBottom: '1px solid rgba(15,23,42,0.08)',
     }}>
       {number}. {title}
     </h2>
@@ -584,7 +591,7 @@ function SectionHeading({ number, title }: { number: string; title: string }) {
 
 function SubHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#cbd5e1', marginTop: '20px', marginBottom: '8px' }}>
+    <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#334155', marginTop: '20px', marginBottom: '8px' }}>
       {children}
     </h3>
   );
@@ -595,7 +602,7 @@ function LegalSection({ children }: { children: React.ReactNode }) {
     <div style={{
       fontSize: '15px',
       lineHeight: '1.75',
-      color: '#94a3b8',
+      color: '#475569',
     }}>
       <style>{`
         .legal-section p { margin-bottom: 12px; }
@@ -612,14 +619,14 @@ function LegalSection({ children }: { children: React.ReactNode }) {
 function Callout({ children, warning }: { children: React.ReactNode; warning?: boolean }) {
   return (
     <div style={{
-      backgroundColor: warning ? 'rgba(239, 68, 68, 0.08)' : 'rgba(96, 165, 250, 0.08)',
-      border: `1px solid ${warning ? 'rgba(239, 68, 68, 0.25)' : 'rgba(96, 165, 250, 0.25)'}`,
+      backgroundColor: warning ? 'rgba(239,68,68,0.06)' : 'rgba(37,99,235,0.06)',
+      border: `1px solid ${warning ? 'rgba(239,68,68,0.2)' : 'rgba(37,99,235,0.14)'}`,
       borderRadius: '8px',
       padding: '20px 24px',
       marginBottom: '16px',
       fontSize: '14px',
       lineHeight: '1.7',
-      color: warning ? '#fca5a5' : '#93c5fd',
+      color: warning ? '#991b1b' : '#1e40af',
     }}>
       {children}
     </div>

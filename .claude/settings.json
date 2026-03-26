@@ -2,16 +2,12 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:github.com)",
-      "Bash(curl:*)",
       "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npm run lint)",
+      "Bash(npm run build)",
       "Bash(npx prisma:*)",
       "Bash(npx tsc:*)",
-      "Bash(npx next:*)",
-      "Bash(taskkill /F /IM node.exe)",
-      "Bash(cmd /c \"taskkill /F /IM node.exe\")",
-      "Bash(set FORCE_COLOR=0)",
-      "WebFetch(domain:www.uupm.cc)",
-      "Bash(find \"c:\\\\Users\\\\ronne\\\\Documents\\\\backup_101121\\\\Projects\\\\Budget\\\\src\\\\components\" -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\) -exec wc -l {} +)"
+      "Bash(npx next:*)"
     ],
     "deny": [
       "Bash(rm:*)",

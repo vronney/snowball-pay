@@ -1,6 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth0 } from './lib/auth0';
 
+// Paths probed by automated WordPress/CMS scanners — return 404 immediately.
+const SCANNER_PATH_PREFIXES = [
+  '/wp-admin',
+  '/wp-content',
+  '/wp-includes',
+  '/wordpress',
+  '/xmlrpc.php',
+];
+
+function isScannerPath(pathname: string): boolean {
+  return SCANNER_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+// Simple in-memory rate limiter: max 60 requests per IP per 60-second window.
+// Edge runtime resets this map per isolate restart, which is acceptable for
+// basic abuse prevention (not a substitute for a CDN-level WAF).
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const RATE_LIMIT_MAX = 60;
+const rateLimitMap = new Map<string, { count: number; windowStart: number }>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
+    rateLimitMap.set(ip, { count: 1, windowStart: now });
+    return false;
+  }
+  entry.count += 1;
+  if (entry.count > RATE_LIMIT_MAX) return true;
+  return false;
+}
+
 // Only the app's own origin is allowed to call the API.
 // APP_BASE_URL should be set in your environment (e.g. https://yourdomain.com).
 // Falls back to the request's own origin so local dev always works.
@@ -19,6 +51,20 @@ function addCorsHeaders(response: NextResponse, request: NextRequest): NextRespo
 
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  // Block scanner probes before doing any other work.
+  if (isScannerPath(pathname)) {
+    return new NextResponse(null, { status: 404 });
+  }
+
+  // Rate-limit by IP — applies to all routes.
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
+    request.headers.get('x-real-ip') ??
+    'unknown';
+  if (isRateLimited(ip)) {
+    return new NextResponse(null, { status: 429 });
+  }
 
   const requiresDashboardAuth = pathname.startsWith('/dashboard');
   const requiresApiAuth = pathname.startsWith('/api');

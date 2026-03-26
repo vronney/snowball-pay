@@ -45,7 +45,7 @@ A comprehensive web application for managing and paying off debt using the snowb
 
 ## Getting Started
 
-Need Google social sign-in with Auth0? Follow the full setup steps in `AUTH0_GOOGLE_CONNECTION_CHECKLIST.md`.
+Need Google social sign-in with Auth0? Follow the full setup steps in `docs/security/AUTH0_GOOGLE_CONNECTION_CHECKLIST.md`.
 
 ### Prerequisites
 

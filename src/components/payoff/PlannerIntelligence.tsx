@@ -72,13 +72,16 @@ export default function PlannerIntelligence({
 
   const runScenario = (method: PayoffMethod, monthlyTakeHome: number, essentials: number, extraAccel: number) => {
     const adjustedExtra = extraAccel - (monthlyTakeHome - essentials - totalMinPayments);
+    // Derive the essential-only portion from the passed `essentials` value so that
+    // shocked scenarios (e.g. expense +$500) are correctly reflected in the calculation.
+    const essentialsOnly = essentials - recurringTotal;
     if (method === 'avalanche') {
-      return calculateDebtAvalanche(debts, monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra);
+      return calculateDebtAvalanche(debts, monthlyTakeHome, essentialsOnly, recurringTotal, adjustedExtra);
     }
     if (method === 'custom') {
-      return calculateDebtCustom(debts, monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra);
+      return calculateDebtCustom(debts, monthlyTakeHome, essentialsOnly, recurringTotal, adjustedExtra);
     }
-    return calculateDebtSnowball(debts, monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra);
+    return calculateDebtSnowball(debts, monthlyTakeHome, essentialsOnly, recurringTotal, adjustedExtra);
   };
 
   const strategyResults = useMemo(() => {
@@ -190,15 +193,22 @@ export default function PlannerIntelligence({
   const shockInputs = useMemo(() => {
     const shockedIncome = shockMode === 'income-10' ? income.monthlyTakeHome * 0.9 : income.monthlyTakeHome;
     const shockedEssential = shockMode === 'expense-500' ? totalEssential + 500 : totalEssential;
-    const shockMax = Math.max(0, shockedIncome - shockedEssential - totalMinPayments + income.extraPayment);
-    return { shockedIncome, shockedEssential, shockMax };
-  }, [shockMode, income.monthlyTakeHome, income.extraPayment, totalEssential, totalMinPayments]);
+    return { shockedIncome, shockedEssential };
+  }, [shockMode, income.monthlyTakeHome, totalEssential]);
 
   const shockResult = useMemo(() => {
-    const shockExtra = Math.min(sandboxExtra, shockInputs.shockMax);
-    return runScenario(sandboxMethod, shockInputs.shockedIncome, shockInputs.shockedEssential, shockExtra);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sandboxMethod, sandboxExtra, shockInputs, debts, recurringTotal]);
+    // Call calc functions directly with shocked income/essentials so the available
+    // cash flow genuinely changes. runScenario's adjustedExtra algebra cancels out
+    // the shock values, leaving availableCashFlow = extraAccel regardless of shock.
+    const essentialsOnly = shockInputs.shockedEssential - recurringTotal;
+    if (sandboxMethod === 'avalanche') {
+      return calculateDebtAvalanche(debts, shockInputs.shockedIncome, essentialsOnly, recurringTotal, income.extraPayment);
+    }
+    if (sandboxMethod === 'custom') {
+      return calculateDebtCustom(debts, shockInputs.shockedIncome, essentialsOnly, recurringTotal, income.extraPayment);
+    }
+    return calculateDebtSnowball(debts, shockInputs.shockedIncome, essentialsOnly, recurringTotal, income.extraPayment);
+  }, [sandboxMethod, shockInputs, debts, recurringTotal, income.extraPayment]);
 
   const explainableInsights = useMemo(() => {
     const insights = [] as { title: string; why: string; impact: string }[];

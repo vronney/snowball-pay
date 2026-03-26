@@ -46,7 +46,7 @@ CREATE DATABASE debt_snowball;
 
 ## Step 2: Auth0 Setup
 
-If you plan to enable Google social login, complete this checklist after finishing the base Auth0 app setup: `AUTH0_GOOGLE_CONNECTION_CHECKLIST.md`.
+If you plan to enable Google social login, complete this checklist after finishing the base Auth0 app setup: `docs/security/AUTH0_GOOGLE_CONNECTION_CHECKLIST.md`.
 
 ### Register for Auth0 Developer Account
 

@@ -2,18 +2,25 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy — SnowballPay',
+  title: 'Privacy Policy',
   description: 'Learn how SnowballPay collects, uses, and protects your personal and financial data.',
+  alternates: {
+    canonical: 'https://getsnowballpay.com/privacy',
+  },
+  robots: {
+    index: true,
+    follow: false,
+  },
 };
 
 export default function PrivacyPolicyPage() {
   return (
-    <div style={{ backgroundColor: '#0d1424', color: '#e1e8f0', minHeight: '100vh' }}>
+    <div style={{ backgroundColor: '#f8fafc', color: '#0f172a', minHeight: '100vh' }}>
       {/* Nav */}
-      <header style={{ borderBottom: '1px solid rgba(255,255,255,0.06)', padding: '16px 24px' }}>
+      <header style={{ borderBottom: '1px solid rgba(15,23,42,0.08)', padding: '16px 24px', backgroundColor: 'rgba(255,255,255,0.95)' }}>
         <div style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <a href="/">
-            <Image src="/logo.svg" alt="SnowballPay" width={130} height={25} />
+            <Image src="/logo-dark.svg" alt="SnowballPay" width={130} height={25} />
           </a>
           <a href="/terms" style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none' }}>
             Terms of Service →
@@ -23,7 +30,7 @@ export default function PrivacyPolicyPage() {
 
       {/* Content */}
       <main style={{ maxWidth: '860px', margin: '0 auto', padding: '56px 24px 80px' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: 700, marginBottom: '8px', color: '#f1f5f9' }}>
+        <h1 style={{ fontSize: '32px', fontWeight: 700, marginBottom: '8px', color: '#0f172a' }}>
           Privacy Policy
         </h1>
         <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '40px' }}>
@@ -54,7 +61,7 @@ export default function PrivacyPolicyPage() {
           </p>
           <p>
             For questions about this Privacy Policy, contact us at:{' '}
-            <a href="mailto:privacy@getsnowballpay.com" style={{ color: '#60a5fa' }}>
+            <a href="mailto:privacy@getsnowballpay.com" style={{ color: '#2563eb' }}>
               privacy@getsnowballpay.com
             </a>
           </p>
@@ -238,7 +245,7 @@ export default function PrivacyPolicyPage() {
           <p>
             You can review Anthropic&apos;s privacy practices at{' '}
             <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer"
-               style={{ color: '#60a5fa' }}>
+               style={{ color: '#2563eb' }}>
               anthropic.com/legal/privacy
             </a>.
           </p>
@@ -314,7 +321,7 @@ export default function PrivacyPolicyPage() {
             <strong>No security system is perfect.</strong> While we take data security seriously, we cannot
             guarantee absolute security of your data. If you believe your account has been compromised,
             please contact us immediately at{' '}
-            <a href="mailto:security@getsnowballpay.com" style={{ color: '#60a5fa' }}>
+            <a href="mailto:security@getsnowballpay.com" style={{ color: '#2563eb' }}>
               security@getsnowballpay.com
             </a>.
           </p>
@@ -368,7 +375,7 @@ export default function PrivacyPolicyPage() {
           </ul>
           <p>
             To exercise any of these rights, contact us at{' '}
-            <a href="mailto:privacy@getsnowballpay.com" style={{ color: '#60a5fa' }}>
+            <a href="mailto:privacy@getsnowballpay.com" style={{ color: '#2563eb' }}>
               privacy@getsnowballpay.com
             </a>. We will respond within <strong>30 days</strong> (extendable to 60 days for complex
             requests, with notice to you). We may need to verify your identity before processing your request.
@@ -377,7 +384,7 @@ export default function PrivacyPolicyPage() {
             If you are unsatisfied with our response, you have the right to lodge a complaint with your
             local data protection supervisory authority. In the EU, you can find your authority at{' '}
             <a href="https://edpb.europa.eu/about-edpb/about-edpb/members_en" target="_blank"
-               rel="noopener noreferrer" style={{ color: '#60a5fa' }}>
+               rel="noopener noreferrer" style={{ color: '#2563eb' }}>
               edpb.europa.eu
             </a>.
           </p>
@@ -430,7 +437,7 @@ export default function PrivacyPolicyPage() {
           </ul>
           <p>
             To submit a verifiable consumer request, contact us at{' '}
-            <a href="mailto:privacy@getsnowballpay.com" style={{ color: '#60a5fa' }}>
+            <a href="mailto:privacy@getsnowballpay.com" style={{ color: '#2563eb' }}>
               privacy@getsnowballpay.com
             </a>. We will respond within <strong>45 days</strong> (extendable to 90 days with notice).
             You may make a request on behalf of yourself or, if you are a parent or guardian, on behalf
@@ -493,15 +500,15 @@ export default function PrivacyPolicyPage() {
         <SectionHeading number="12" title="Contact Us" />
         <LegalSection>
           <p>For any privacy-related questions, requests, or concerns, please contact us:</p>
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '20px', marginTop: '12px' }}>
+          <div style={{ backgroundColor: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', borderRadius: '8px', padding: '20px', marginTop: '12px' }}>
             <p style={{ margin: 0, lineHeight: '2' }}>
               <strong>SnowballPay</strong><br />
               Email:{' '}
-              <a href="mailto:privacy@getsnowballpay.com" style={{ color: '#60a5fa' }}>
+              <a href="mailto:privacy@getsnowballpay.com" style={{ color: '#2563eb' }}>
                 privacy@getsnowballpay.com
               </a><br />
               Website:{' '}
-              <a href="https://getsnowballpay.com" style={{ color: '#60a5fa' }}>
+              <a href="https://getsnowballpay.com" style={{ color: '#2563eb' }}>
                 getsnowballpay.com
               </a>
             </p>
@@ -509,7 +516,7 @@ export default function PrivacyPolicyPage() {
         </LegalSection>
 
         {/* Footer nav */}
-        <div style={{ marginTop: '64px', paddingTop: '24px', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ marginTop: '64px', paddingTop: '24px', borderTop: '1px solid rgba(15,23,42,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <a href="/" style={{ fontSize: '14px', color: '#64748b', textDecoration: 'none' }}>
             ← Back to SnowballPay
           </a>
@@ -529,11 +536,11 @@ function SectionHeading({ number, title }: { number: string; title: string }) {
     <h2 style={{
       fontSize: '20px',
       fontWeight: 600,
-      color: '#f1f5f9',
+      color: '#0f172a',
       marginTop: '40px',
       marginBottom: '12px',
       paddingBottom: '8px',
-      borderBottom: '1px solid rgba(255,255,255,0.06)',
+      borderBottom: '1px solid rgba(15,23,42,0.08)',
     }}>
       {number}. {title}
     </h2>
@@ -542,7 +549,7 @@ function SectionHeading({ number, title }: { number: string; title: string }) {
 
 function SubHeading({ children }: { children: React.ReactNode }) {
   return (
-    <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#cbd5e1', marginTop: '20px', marginBottom: '8px' }}>
+    <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#334155', marginTop: '20px', marginBottom: '8px' }}>
       {children}
     </h3>
   );
@@ -553,7 +560,7 @@ function LegalSection({ children }: { children: React.ReactNode }) {
     <div style={{
       fontSize: '15px',
       lineHeight: '1.75',
-      color: '#94a3b8',
+      color: '#475569',
     }}>
       <style>{`
         .legal-section p { margin-bottom: 12px; }
@@ -574,7 +581,7 @@ function Table({ headers, rows }: { headers: string[]; rows: string[][] }) {
         width: '100%',
         borderCollapse: 'collapse',
         fontSize: '14px',
-        color: '#94a3b8',
+        color: '#475569',
       }}>
         <thead>
           <tr>
@@ -582,10 +589,10 @@ function Table({ headers, rows }: { headers: string[]; rows: string[][] }) {
               <th key={h} style={{
                 textAlign: 'left',
                 padding: '10px 12px',
-                backgroundColor: 'rgba(255,255,255,0.05)',
-                color: '#cbd5e1',
+                backgroundColor: 'rgba(15,23,42,0.04)',
+                color: '#1e293b',
                 fontWeight: 600,
-                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                borderBottom: '1px solid rgba(15,23,42,0.08)',
                 whiteSpace: 'nowrap',
               }}>
                 {h}
@@ -595,7 +602,7 @@ function Table({ headers, rows }: { headers: string[]; rows: string[][] }) {
         </thead>
         <tbody>
           {rows.map((row, i) => (
-            <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+            <tr key={i} style={{ borderBottom: '1px solid rgba(15,23,42,0.05)' }}>
               {row.map((cell, j) => (
                 <td key={j} style={{ padding: '10px 12px', verticalAlign: 'top' }}>
                   {cell}

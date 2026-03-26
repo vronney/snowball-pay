@@ -1,0 +1,66 @@
+# SnowballPay
+
+> SnowballPay is a personal debt elimination planner that uses the proven Debt Snowball and Debt Avalanche strategies to help users pay off debt faster, save on interest, and build lasting financial freedom.
+
+SnowballPay helps individuals track every debt balance, choose a payoff strategy, follow a personalized plan, and visualize their path to becoming debt-free. It is free to start and requires no credit card.
+
+## What Is SnowballPay?
+
+SnowballPay is a web application that automates and visualizes two proven debt payoff methods:
+
+- **Debt Snowball**: Pay debts from smallest balance to largest. Quick wins build momentum and motivation.
+- **Debt Avalanche**: Pay debts from highest interest rate to lowest. Minimizes total interest paid over time.
+
+Users enter their debts (balance, interest rate, minimum payment), choose a strategy, and get an interactive payoff timeline showing exactly when each debt will be gone and how much interest they will save.
+
+## Core Features
+
+- Debt Snowball and Avalanche payoff plans with automatic ordering
+- Interactive payoff timeline chart (exact debt-free date)
+- Per-debt progress bars and payment tracking
+- Interest savings comparison between strategies
+- Payment streak and milestone tracking
+- Free debt payoff calculator (no account required)
+- AI-powered recommendations for optimizing payoff strategy
+- Support for credit cards, car loans, student loans, medical debt, and any installment debt
+
+## Pages
+
+- [Home](https://getsnowballpay.com): Product overview, features, pricing, testimonials, and FAQ.
+- [Learn: Snowball vs Avalanche](https://getsnowballpay.com/learn): Comprehensive educational comparison of both debt payoff strategies — how each works, psychological vs mathematical benefits, side-by-side comparison table, and a decision guide.
+- [Free Debt Payoff Calculator](https://getsnowballpay.com/calculator): No-login calculator. Enter debt balances, interest rates, and minimum payments to see your exact debt-free date and total interest saved — instantly.
+- [Privacy Policy](https://getsnowballpay.com/privacy): How SnowballPay collects, uses, and protects user financial data.
+- [Terms of Service](https://getsnowballpay.com/terms): Usage terms for the platform.
+
+## Debt Snowball Method — Summary
+
+1. List all debts from smallest balance to largest (ignore interest rates).
+2. Pay the minimum on all debts except the smallest.
+3. Direct all extra money at the smallest debt until it is paid off.
+4. Roll that freed-up payment into the next smallest debt.
+5. Repeat — the payment "snowballs" and grows with each victory.
+
+**Best for**: People who need visible progress and psychological wins to stay motivated.
+
+## Debt Avalanche Method — Summary
+
+1. List all debts from highest interest rate to lowest.
+2. Pay the minimum on all debts except the highest-rate debt.
+3. Direct all extra money at the highest-rate debt until it is paid off.
+4. Cascade those savings to the next highest-rate debt.
+5. Repeat — total interest paid is minimized.
+
+**Best for**: Mathematically-minded people focused on minimizing total cost.
+
+## Pricing
+
+- **Free plan**: Track up to 5 debts, Snowball strategy, basic progress tracking.
+- **Pro plan**: Unlimited debts, Avalanche strategy, AI recommendations, document import, advanced payoff reports.
+
+## Target Audience
+
+Adults with consumer debt — credit cards, car loans, student loans, medical bills, personal loans — who want a structured, motivating plan to pay it off faster than making only minimum payments.
+
+## Technology
+
+Built with Next.js 14 (App Router), TypeScript, Tailwind CSS, Prisma, and PostgreSQL (Neon). Authentication via Auth0.

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError, isValidId } from '@/lib/auth-server';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
 const CreatePaymentSchema = z.object({
@@ -48,32 +49,50 @@ export async function POST(request: NextRequest) {
     const debt = await prisma.debt.findUnique({ where: { id: debtId } });
     if (!debt || debt.userId !== auth.user.id) return badRequest('Debt not found');
 
-    const record = await prisma.paymentRecord.upsert({
-      where: { debtId_dueYear_dueMonth: { debtId, dueYear, dueMonth } },
-      update: { amount, paidAt: new Date() },
-      create: { userId: auth.user.id, debtId, amount, dueYear, dueMonth },
-    });
+    let record;
+    let updatedBalance = debt.balance;
+    let shouldDecrementBalance = false;
 
-    // Subtract payment from debt balance (floor at 0)
-    const updatedDebt = await prisma.debt.update({
-      where: { id: debtId },
-      data: { balance: { decrement: amount } },
-    });
-    // Clamp to 0 if it went negative
-    if (updatedDebt.balance < 0) {
-      await prisma.debt.update({ where: { id: debtId }, data: { balance: 0 } });
-      updatedDebt.balance = 0;
+    try {
+      record = await prisma.paymentRecord.create({
+        data: { userId: auth.user.id, debtId, amount, dueYear, dueMonth },
+      });
+      shouldDecrementBalance = true;
+    } catch (error) {
+      if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
+        throw error;
+      }
+
+      // Already marked for this debt/month: update metadata without re-applying balance change.
+      record = await prisma.paymentRecord.update({
+        where: { debtId_dueYear_dueMonth: { debtId, dueYear, dueMonth } },
+        data: { amount, paidAt: new Date() },
+      });
+    }
+
+    if (shouldDecrementBalance) {
+      // Subtract payment from debt balance (floor at 0) only on first mark-paid create.
+      const updatedDebt = await prisma.debt.update({
+        where: { id: debtId },
+        data: { balance: { decrement: amount } },
+      });
+      if (updatedDebt.balance < 0) {
+        await prisma.debt.update({ where: { id: debtId }, data: { balance: 0 } });
+        updatedBalance = 0;
+      } else {
+        updatedBalance = updatedDebt.balance;
+      }
     }
 
     // Record a balance snapshot for this month
     const snapshotDate = new Date(Date.UTC(dueYear, dueMonth, 1));
     await prisma.balanceSnapshot.upsert({
       where: { debtId_recordedAt: { debtId, recordedAt: snapshotDate } },
-      update: { balance: updatedDebt.balance },
-      create: { debtId, userId: auth.user.id, balance: updatedDebt.balance, recordedAt: snapshotDate },
+      update: { balance: updatedBalance },
+      create: { debtId, userId: auth.user.id, balance: updatedBalance, recordedAt: snapshotDate },
     });
 
-    return NextResponse.json({ record, updatedBalance: updatedDebt.balance }, { status: 201 });
+    return NextResponse.json({ record, updatedBalance }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return badRequest(error.issues[0]?.message || 'Invalid payload');
