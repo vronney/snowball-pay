@@ -13,6 +13,8 @@ import { useAllSnapshots } from '@/lib/hooks';
 import { Inbox } from 'lucide-react';
 import PlannerIntelligence from '@/components/payoff/PlannerIntelligence';
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
 interface IntelligenceTabProps {
   debts: Debt[];
   income: Income | null | undefined;
@@ -22,8 +24,6 @@ interface IntelligenceTabProps {
 
 export default function IntelligenceTab({ debts, income, expenses, isLoading }: IntelligenceTabProps) {
   const { data: snapshotsData } = useAllSnapshots();
-
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   const actualBalanceMap = useMemo(() => {
     const snapshots = snapshotsData?.snapshots ?? [];

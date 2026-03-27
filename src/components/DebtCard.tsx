@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { Debt } from '@/types';
-import { Trash2, Pencil, X, Check, DollarSign, RefreshCw } from 'lucide-react';
+import { Trash2, Pencil, DollarSign, RefreshCw } from 'lucide-react';
 import { formatCurrency, formatPercent, getCategoryColor, getOrdinalDay, calculateUtilization } from '@/lib/utils';
 import { useAddBulkSnapshots, useUpdateDebt } from '@/lib/hooks';
 import DebtForm from '@/components/DebtForm';
+import { DebtCardPaymentPanel, DebtCardBalancePanel } from '@/components/debt/DebtCardPanels';
 
 interface DebtCardProps {
   debt: Debt;
@@ -209,85 +210,25 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
 
       {/* Log Payment panel */}
       {panel === 'payment' && (
-        <form
+        <DebtCardPaymentPanel
+          minimumPayment={debt.minimumPayment}
+          paymentAmount={paymentAmount}
+          onAmountChange={setPaymentAmount}
           onSubmit={(e) => void handlePaymentSubmit(e)}
-          className="rounded-lg p-3 flex flex-wrap items-end gap-2"
-          style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.18)' }}
-        >
-          <div className="flex flex-col gap-1 flex-1" style={{ minWidth: '140px' }}>
-            <label className="text-xs" style={{ color: '#64748b' }}>Payment amount ($)</label>
-            <input
-              type="number"
-              min="0.01"
-              step="0.01"
-              placeholder={String(debt.minimumPayment)}
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-              className="input-field"
-              autoFocus
-              required
-            />
-          </div>
-          <div className="flex gap-2 items-end pb-0.5">
-            <button
-              type="submit"
-              disabled={updateDebt.isPending || addBulkSnapshots.isPending}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40"
-              style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: '#059669' }}
-            >
-              <Check size={13} />
-              {updateDebt.isPending ? 'Saving…' : 'Record'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setPanel(null)}
-              className="p-2 rounded-lg hover:bg-slate-100 bg-transparent border-0 opacity-40 hover:opacity-100 transition"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        </form>
+          onClose={() => setPanel(null)}
+          isPending={updateDebt.isPending || addBulkSnapshots.isPending}
+        />
       )}
 
       {/* Update Balance panel */}
       {panel === 'balance' && (
-        <form
+        <DebtCardBalancePanel
+          newBalance={newBalance}
+          onBalanceChange={setNewBalance}
           onSubmit={(e) => void handleBalanceSubmit(e)}
-          className="rounded-lg p-3 flex flex-wrap items-end gap-2"
-          style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.18)' }}
-        >
-          <div className="flex flex-col gap-1 flex-1" style={{ minWidth: '140px' }}>
-            <label className="text-xs" style={{ color: '#64748b' }}>Current balance ($)</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={newBalance}
-              onChange={(e) => setNewBalance(e.target.value)}
-              className="input-field"
-              autoFocus
-              required
-            />
-          </div>
-          <div className="flex gap-2 items-end pb-0.5">
-            <button
-              type="submit"
-              disabled={updateDebt.isPending || addBulkSnapshots.isPending}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40"
-              style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#fbbf24' }}
-            >
-              <Check size={13} />
-              {updateDebt.isPending ? 'Saving…' : 'Update'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setPanel(null)}
-              className="p-2 rounded-lg hover:bg-slate-100 bg-transparent border-0 opacity-40 hover:opacity-100 transition"
-            >
-              <X size={14} />
-            </button>
-          </div>
-        </form>
+          onClose={() => setPanel(null)}
+          isPending={updateDebt.isPending || addBulkSnapshots.isPending}
+        />
       )}
 
       {/* Edit panel */}

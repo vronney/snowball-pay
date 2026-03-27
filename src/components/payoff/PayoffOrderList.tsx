@@ -29,19 +29,19 @@ export default function PayoffOrderList({ payoffSchedule, payoffOrderLabel }: Pa
       </button>
 
       {open && <div className="px-5 pb-5 space-y-3">
-        {payoffSchedule.map((item, i: number) => {
+        {payoffSchedule.map((item) => {
           const categoryColor = getCategoryColor(item.category);
           const yPO = Math.floor(item.monthPaidOff / 12);
           const mPO = item.monthPaidOff % 12;
           const poStr = item.monthPaidOff > 0 ? (yPO > 0 ? `${yPO}y ${mPO}m` : `${mPO}m`) : 'N/A';
 
           return (
-            <div key={i} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#f8fafc', border: '1px solid rgba(15,23,42,0.06)' }}>
+            <div key={item.debtId} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#f8fafc', border: '1px solid rgba(15,23,42,0.06)' }}>
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                 style={{ background: `${categoryColor}22`, color: categoryColor }}
               >
-                {i + 1}
+                {item.orderInPayoff}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">

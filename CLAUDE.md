@@ -19,7 +19,10 @@
 - `docs/security/CYBERSECURITY.md`
 - `docs/security/AUTH0_GOOGLE_CONNECTION_CHECKLIST.md`
 - `docs/marketing/MARKETING_PLAN.md`
-- `docs/agent/SKILL.md`
+
+## Agent Skills
+- `.claude/skills/snowball-pay-developer.md` — feature dev role (PRD phases, TypeScript, Zustand, Recharts)
+- `.claude/skills/cybersecurity.md` — security review role (middleware, CORS, auth, rate limiting)
 
 ## Coding Conventions
 - Prefer small, single-purpose components and utility functions.

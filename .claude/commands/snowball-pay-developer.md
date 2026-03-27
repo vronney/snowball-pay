@@ -1,0 +1,1 @@
+Load and apply the snowball-pay-developer skill from `.claude/skills/snowball-pay-developer.md`. Read the skill file, then read the reference docs listed in it (`docs/product/PRD.md` and `docs/architecture/ARCHITECTURE.md`), and proceed with the user's request using the role, rules, and conventions defined in the skill.

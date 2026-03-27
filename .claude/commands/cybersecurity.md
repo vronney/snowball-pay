@@ -1,0 +1,1 @@
+Load and apply the cybersecurity skill from `.claude/skills/cybersecurity.md`. Read the skill file, then read the reference doc listed in it (`docs/security/AUTH0_GOOGLE_CONNECTION_CHECKLIST.md`), and proceed with the user's security review or hardening request using the role, threat model, and rules defined in the skill.

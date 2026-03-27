@@ -1,5 +1,3 @@
-'use client';
-
 import { type PayoffMethod } from '@/lib/snowball';
 
 interface StrategySelectorProps {

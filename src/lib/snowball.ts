@@ -23,6 +23,7 @@ export interface DebtPayoffSchedule {
   originalBalance: number;
   monthPaidOff: number;
   interestPaid: number;
+  // Position in the selected strategy priority queue (not payoff date rank).
   orderInPayoff: number;
 }
 
@@ -157,13 +158,7 @@ function calculatePayoffByMethod(
     monthlyBalances.push({ month, date: offsetDate(month), totalBalance: remaining });
   }
 
-  const scheduleByPayoff = [...simDebts].sort((a, b) => {
-    const aMonth = a.monthPaidOff > 0 ? a.monthPaidOff : Number.MAX_SAFE_INTEGER;
-    const bMonth = b.monthPaidOff > 0 ? b.monthPaidOff : Number.MAX_SAFE_INTEGER;
-    return aMonth - bMonth;
-  });
-
-  const payoffSchedule: DebtPayoffSchedule[] = scheduleByPayoff.map((debt, index) => ({
+  const payoffSchedule: DebtPayoffSchedule[] = simDebts.map((debt, index) => ({
     debtId: debt.id,
     debtName: debt.name,
     category: debt.category,

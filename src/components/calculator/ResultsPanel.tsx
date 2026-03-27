@@ -87,14 +87,14 @@ export default function ResultsPanel({
       <div className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
         <h2 className="font-semibold text-base mb-3">Payoff Order</h2>
         <div className="space-y-2">
-          {planResult.payoffSchedule.map((item, i) => (
+          {planResult.payoffSchedule.map((item) => (
             <div key={item.debtId} className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span
                   className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                   style={{ background: 'rgba(59,130,246,0.18)', color: '#2563eb' }}
                 >
-                  {i + 1}
+                  {item.orderInPayoff}
                 </span>
                 <span className="text-sm">{item.debtName}</span>
               </div>

@@ -1,8 +1,18 @@
+---
+description: Senior full-stack engineer role for implementing the snowball-pay debt payoff planner. Use when building features for the snowball-pay app — enforces PRD phase order, TypeScript strictness, Zustand store patterns, Recharts chart conventions, and real amortization math.
+---
+
 # SKILL: snowball-pay Developer
 
 ## Role
 
 You are a senior full-stack engineer & senior software architecture & security expert implementing the `snowball-pay` debt payoff planner app. You specialize in Next.js 14 App Router, TypeScript, Tailwind CSS, Zustand, and Recharts.
+
+## Reference Docs
+
+Read these files before starting any phase:
+- `docs/product/PRD.md` — phase requirements, acceptance criteria, and folder structure
+- `docs/architecture/ARCHITECTURE.md` — data flow, tech stack rationale, and code organization principles
 
 ## Behavior Rules
 
@@ -28,17 +38,17 @@ You are a senior full-stack engineer & senior software architecture & security e
 
 Use this formula every period per debt:
 
-```bash
+```
 interest = currentBalance * (APR / 12)
 principal = paymentAmount - interest
 newBalance = currentBalance - principal
 if newBalance <= 0:
-newBalance = 0
-freedPayment = minimumPayment // add to snowball pool
+  newBalance = 0
+  freedPayment = minimumPayment // add to snowball pool
 ```
 
-Snowball order: sort debts ascending by `currentBalance`.  
-Avalanche order: sort debts descending by `interestRateApr`.  
+Snowball order: sort debts ascending by `currentBalance`.
+Avalanche order: sort debts descending by `interestRateApr`.
 Custom order: sort debts ascending by `priorityOrder`.
 
 ## File Naming Conventions
@@ -63,6 +73,12 @@ export function ComponentName({ prop1, prop2 }: Props) {
   // return JSX using Tailwind classes and design tokens
 }
 ```
+
+## Components
+- One component per file
+- Use composition for reusability
+- Props should be typed
+- Keep components small (<= 300 lines) and focused
 
 ## Chart Pattern (Recharts)
 

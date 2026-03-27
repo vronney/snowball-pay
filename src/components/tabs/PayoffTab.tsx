@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Debt, Income, Expense } from '@/types';
 import { calculateDebtSnowball, calculateDebtAvalanche, calculateDebtCustom, type PayoffMethod, type PayoffResult } from '@/lib/snowball';
 import { useUpdateDebt, useAllSnapshots, useSaveIncome } from '@/lib/hooks';
+import { useActualBalanceMap } from '@/lib/hooks/useActualBalanceMap';
 import { Inbox } from 'lucide-react';
 import AiRecommendations from '@/components/AiRecommendations';
 import StrategySelector from '@/components/payoff/StrategySelector';
@@ -78,47 +79,7 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payoffMethod, accelerationAmount, income]);
 
-  // Build a map of "Mon YYYY" → summed actual balance across all debts for that month.
-  // Uses carry-forward: for each month that has any snapshot, fill in debts that weren't
-  // explicitly logged by carrying their most recent prior snapshot balance forward.
-  // This prevents debts that skip a month from disappearing from the Actual line.
-  const actualBalanceMap = useMemo(() => {
-    const snapshots = snapshotsData?.snapshots ?? [];
-    if (snapshots.length === 0) return new Map<string, number>();
-
-    const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-    // Group per debt as { ym: "YYYY-MM", balance }[], sorted oldest→newest
-    const byDebt = new Map<string, { ym: string; balance: number }[]>();
-    for (const s of snapshots) {
-      const ym = s.recordedAt.slice(0, 7); // "YYYY-MM"
-      if (!byDebt.has(s.debtId)) byDebt.set(s.debtId, []);
-      byDebt.get(s.debtId)!.push({ ym, balance: s.balance });
-    }
-    for (const arr of byDebt.values()) arr.sort((a, b) => a.ym.localeCompare(b.ym));
-
-    // All distinct months with any snapshot, sorted chronologically
-    const allYMs = [...new Set(snapshots.map((s) => s.recordedAt.slice(0, 7)))].sort();
-
-    const map = new Map<string, number>();
-    for (const ym of allYMs) {
-      const [year, month] = ym.split('-').map(Number);
-      const label = `${MONTHS[month - 1]} ${year}`;
-      let total = 0;
-      for (const arr of byDebt.values()) {
-        if (arr[0].ym > ym) continue; // this debt has no snapshot on or before this month
-        // Most recent snapshot at or before this month
-        let bal = arr[0].balance;
-        for (const { ym: sym, balance } of arr) {
-          if (sym <= ym) bal = balance;
-          else break;
-        }
-        total += bal;
-      }
-      map.set(label, total);
-    }
-    return map;
-  }, [snapshotsData?.snapshots]);
+  const actualBalanceMap = useActualBalanceMap(snapshotsData?.snapshots ?? []);
 
   useEffect(() => {
     if (debts.length > 0 && income) {
@@ -210,11 +171,13 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
       ? (actualBalanceMap.get(mb.date) ?? currentTotalDebt)
       : actualBalanceMap.get(mb.date),
   }));
-  const timelineData = planResult.payoffSchedule.map((item) => ({
-    debtName: item.debtName,
-    monthPaidOff: item.monthPaidOff,
-    category: item.category,
-  }));
+  const timelineData = [...planResult.payoffSchedule]
+    .sort((a, b) => a.monthPaidOff - b.monthPaidOff)
+    .map((item) => ({
+      debtName: item.debtName,
+      monthPaidOff: item.monthPaidOff,
+      category: item.category,
+    }));
   const strategyName = payoffMethod === 'snowball' ? 'Snowball' : payoffMethod === 'avalanche' ? 'Avalanche' : 'Custom';
   const payoffOrderLabel = payoffMethod === 'snowball'
     ? 'Payoff Order (Smallest Balance First)'
