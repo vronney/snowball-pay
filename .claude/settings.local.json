@@ -11,7 +11,9 @@
       "Bash(cmd /c \"taskkill /F /IM node.exe\")",
       "Bash(set FORCE_COLOR=0)",
       "WebFetch(domain:www.uupm.cc)",
-      "Bash(find \"c:\\\\Users\\\\ronne\\\\Documents\\\\backup_101121\\\\Projects\\\\Budget\\\\src\\\\components\" -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\) -exec wc -l {} +)"
+      "Bash(find \"c:\\\\Users\\\\ronne\\\\Documents\\\\backup_101121\\\\Projects\\\\Budget\\\\src\\\\components\" -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\) -exec wc -l {} +)",
+      "Bash(find c:UsersronneDocumentsbackup_101121ProjectsBudgetsrclib -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
+      "Bash(find c:UsersronneDocumentsbackup_101121ProjectsBudgetsrccomponents -type f -name *.tsx)"
     ],
     "deny": [
       "Bash(rm:*)",

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useCreateDebt, useDeleteDebt, useIncome, useExpenses, useAllSnapshots } from '@/lib/hooks';
 import { Debt, BalanceSnapshot } from '@/types';
 import { PlusCircle, Inbox, Bell, ChevronDown } from 'lucide-react';
@@ -93,7 +93,14 @@ function computeStreak(snapshots: BalanceSnapshot[]): number {
 
 export default function DebtTab({ debts, isLoading, openPaymentDebtId, onPaymentPanelOpened }: DebtTabProps) {
   const [showForm, setShowForm] = useState(false);
-  const [debtsOpen, setDebtsOpen] = useState(true);
+  const [debtsOpen, setDebtsOpen] = useState(false);
+
+  // When a specific debt is targeted from outside (e.g. notification click),
+  // ensure the list is expanded so the card is rendered and can open its panel.
+  useEffect(() => {
+    if (openPaymentDebtId) setDebtsOpen(true);
+  }, [openPaymentDebtId]);
+
   const createDebt = useCreateDebt();
   const deleteDebt = useDeleteDebt();
 

@@ -330,6 +330,7 @@ export function useMarkPaid() {
       queryClient.invalidateQueries({ queryKey: ['payments', variables.dueYear, variables.dueMonth] });
       queryClient.invalidateQueries({ queryKey: ['debts'] });
       queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+      queryClient.invalidateQueries({ queryKey: ['accelerationStats'] });
     },
   });
 }
@@ -344,6 +345,7 @@ export function useUnmarkPaid() {
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['payments', result.dueYear, result.dueMonth] });
+      queryClient.invalidateQueries({ queryKey: ['accelerationStats'] });
     },
   });
 }
@@ -356,6 +358,38 @@ export function useDeleteSnapshot() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+    },
+  });
+}
+
+// ===== ACCELERATION STATS =====
+
+export interface AccelerationMonthData {
+  year: number;
+  month: number;
+  actualExtra: number;
+  onTrack: boolean;
+}
+
+export interface AccelerationStats {
+  plannedMonthly: number;
+  monthlyData: AccelerationMonthData[];
+  totalPlanned: number;
+  totalActualExtra: number;
+  streak: number;
+  currentDebtFreeDate: string | null;
+  baselineDebtFreeDate: string;
+  monthsSaved: number;
+  performanceScore: number;
+}
+
+/** Fetches rolling 3-month acceleration metrics for the tracker widget. */
+export function useAccelerationStats() {
+  return useQuery<AccelerationStats>({
+    queryKey: ['accelerationStats'],
+    queryFn: async () => {
+      const { data } = await axios.get(`${API_URL}/api/acceleration-stats`);
+      return data;
     },
   });
 }

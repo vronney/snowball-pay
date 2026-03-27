@@ -27,9 +27,10 @@ export function useNotifications({
   notifyLowBuffer,
 }: UseNotificationsParams) {
   const notifications = useMemo((): Notification[] => {
-    const items: Notification[] = [];
+    const dueDateItems: Notification[] = [];
+    const otherItems: Notification[] = [];
 
-    // 1. Upcoming due dates from debts that have dueDate set (skip already paid)
+    // 1. Upcoming due dates — collect with daysUntil, sort soonest first
     const debtsWithDue = notifyDueDates
       ? debts.filter((d) => d.dueDate != null && !paidThisMonth.has(d.id))
       : [];
@@ -43,20 +44,22 @@ export function useNotifications({
       const daysUntil = Math.ceil(
         (nextDue.getTime() - today.getTime()) / 86400000,
       );
+      const ord = day === 1 ? "st" : day === 2 ? "nd" : day === 3 ? "rd" : "th";
 
       if (daysUntil <= 3) {
-        items.push({
+        dueDateItems.push({
           id: `due-urgent-${debt.id}`,
           type: "urgent",
           icon: CalendarClock,
-          title: `${debt.name} due in ${daysUntil === 0 ? "today" : `${daysUntil}d`}`,
-          body: `Minimum payment of $${debt.minimumPayment.toFixed(2)} due on the ${day}${day === 1 ? "st" : day === 2 ? "nd" : day === 3 ? "rd" : "th"}.`,
+          title: `${debt.name} due ${daysUntil === 0 ? "today" : `in ${daysUntil}d`}`,
+          body: `Minimum payment of $${debt.minimumPayment.toFixed(2)} due on the ${day}${ord}.`,
           tab: "debts",
           debtId: debt.id,
           debtAmount: debt.minimumPayment,
+          daysUntil,
         });
       } else if (daysUntil <= 7) {
-        items.push({
+        dueDateItems.push({
           id: `due-warn-${debt.id}`,
           type: "warning",
           icon: CalendarClock,
@@ -65,9 +68,13 @@ export function useNotifications({
           tab: "debts",
           debtId: debt.id,
           debtAmount: debt.minimumPayment,
+          daysUntil,
         });
       }
     }
+
+    // Sort due-date notifications soonest first
+    dueDateItems.sort((a, b) => (a.daysUntil ?? 99) - (b.daysUntil ?? 99));
 
     // 2. Guardrail: low cash buffer after acceleration
     if (notifyLowBuffer && income) {
@@ -88,7 +95,7 @@ export function useNotifications({
       const leftover = Math.max(0, available - accel);
       const bufferTarget = income.monthlyTakeHome * 0.1;
       if (leftover < bufferTarget && accel > 0) {
-        items.push({
+        otherItems.push({
           id: "guardrail-buffer",
           type: "warning",
           icon: ShieldAlert,
@@ -101,7 +108,7 @@ export function useNotifications({
 
     // 3. No income set yet
     if (!income && !incomeLoading) {
-      items.push({
+      otherItems.push({
         id: "no-income",
         type: "info",
         icon: AlertTriangle,
@@ -113,7 +120,7 @@ export function useNotifications({
 
     // 4. No debts yet
     if (debts.length === 0 && !debtsLoading) {
-      items.push({
+      otherItems.push({
         id: "no-debts",
         type: "info",
         icon: AlertTriangle,
@@ -123,7 +130,7 @@ export function useNotifications({
       });
     }
 
-    return items;
+    return [...dueDateItems, ...otherItems];
   }, [
     debts,
     income,

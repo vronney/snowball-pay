@@ -17,6 +17,7 @@ import IntelligenceTab from "@/components/tabs/IntelligenceTab";
 import SettingsTab from "@/components/tabs/SettingsTab";
 import ToastNotifications from "@/components/ToastNotifications";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
+import AccelerationTracker from "@/components/AccelerationTracker";
 import NotificationPanel from "@/components/dashboard/NotificationPanel";
 import { useNotifications } from "@/components/dashboard/useNotifications";
 import Image from "next/image";
@@ -258,6 +259,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
           style={{ flex: 1, padding: "28px", width: "100%" }}
           className="db-content"
         >
+          {activeTab !== "settings" && <AccelerationTracker />}
           <div key={activeTab} className="tab-fade-in">
             {activeTab === "debts" && (
               <DebtTab

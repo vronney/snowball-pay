@@ -17,4 +17,5 @@ export interface Notification {
   tab?: Tab;
   debtId?: string;
   debtAmount?: number;
+  daysUntil?: number; // set for due-date notifications; used for sorting and color coding
 }

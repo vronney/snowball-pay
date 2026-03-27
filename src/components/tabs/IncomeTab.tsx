@@ -19,7 +19,7 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
     essentialExpenses: income?.essentialExpenses != null ? String(income.essentialExpenses) : '',
   });
 
-  const [recurringOpen, setRecurringOpen] = useState(true);
+  const [recurringOpen, setRecurringOpen] = useState(false);
   const [recurringForm, setRecurringForm] = useState({ name: '', amount: '' });
 
   const saveIncome = useSaveIncome();

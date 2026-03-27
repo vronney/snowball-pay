@@ -11,7 +11,7 @@ interface PayoffOrderListProps {
 }
 
 export default function PayoffOrderList({ payoffSchedule, payoffOrderLabel }: PayoffOrderListProps) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="rounded-2xl" style={{ background: 'rgb(255, 255, 255)', border: '1px solid rgba(15, 23, 42, 0.08)', boxShadow: 'rgba(15, 23, 42, 0.06) 0px 1px 4px' }}>

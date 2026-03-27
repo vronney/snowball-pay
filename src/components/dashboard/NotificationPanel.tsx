@@ -6,26 +6,35 @@ import { type Notification, type Tab } from "./types";
 
 const today = new Date();
 
-const notifTypeStyle: Record<
-  Notification["type"],
-  { bg: string; border: string; iconColor: string }
-> = {
-  urgent: {
-    bg: "rgba(239,68,68,0.06)",
-    border: "rgba(239,68,68,0.15)",
-    iconColor: "#ef4444",
-  },
-  warning: {
-    bg: "rgba(245,158,11,0.06)",
-    border: "rgba(245,158,11,0.18)",
-    iconColor: "#d97706",
-  },
-  info: {
-    bg: "rgba(37,99,235,0.05)",
-    border: "rgba(37,99,235,0.12)",
-    iconColor: "#2563eb",
-  },
-};
+// Fine-grained color scale based on days until due (for due-date notifications).
+// Falls back to type-based style for non-date notifications.
+function getNotifStyle(
+  type: Notification["type"],
+  daysUntil?: number,
+): { bg: string; border: string; iconColor: string; badgeColor: string; badgeBg: string } {
+  if (daysUntil !== undefined) {
+    if (daysUntil === 0)
+      return { bg: "rgba(153,27,27,0.07)",   border: "rgba(153,27,27,0.22)",   iconColor: "#b91c1c", badgeColor: "#b91c1c", badgeBg: "rgba(153,27,27,0.1)" };
+    if (daysUntil <= 2)
+      return { bg: "rgba(239,68,68,0.06)",   border: "rgba(239,68,68,0.2)",    iconColor: "#ef4444", badgeColor: "#dc2626", badgeBg: "rgba(239,68,68,0.1)" };
+    if (daysUntil === 3)
+      return { bg: "rgba(249,115,22,0.06)",  border: "rgba(249,115,22,0.2)",   iconColor: "#f97316", badgeColor: "#ea580c", badgeBg: "rgba(249,115,22,0.1)" };
+    if (daysUntil <= 5)
+      return { bg: "rgba(245,158,11,0.06)",  border: "rgba(245,158,11,0.2)",   iconColor: "#f59e0b", badgeColor: "#d97706", badgeBg: "rgba(245,158,11,0.1)" };
+    return   { bg: "rgba(234,179,8,0.05)",   border: "rgba(234,179,8,0.18)",   iconColor: "#ca8a04", badgeColor: "#ca8a04", badgeBg: "rgba(234,179,8,0.09)" };
+  }
+  if (type === "urgent")
+    return { bg: "rgba(239,68,68,0.06)",  border: "rgba(239,68,68,0.15)",  iconColor: "#ef4444", badgeColor: "#ef4444", badgeBg: "rgba(239,68,68,0.1)" };
+  if (type === "warning")
+    return { bg: "rgba(245,158,11,0.06)", border: "rgba(245,158,11,0.18)", iconColor: "#d97706", badgeColor: "#d97706", badgeBg: "rgba(245,158,11,0.1)" };
+  return   { bg: "rgba(37,99,235,0.05)",  border: "rgba(37,99,235,0.12)",  iconColor: "#2563eb", badgeColor: "#2563eb", badgeBg: "rgba(37,99,235,0.08)" };
+}
+
+function dueBadgeLabel(daysUntil: number): string {
+  if (daysUntil === 0) return "Today";
+  if (daysUntil === 1) return "Tomorrow";
+  return `${daysUntil}d`;
+}
 
 interface NotificationPanelProps {
   notifications: Notification[];
@@ -182,7 +191,7 @@ export default function NotificationPanel({
               <div style={{ padding: "8px" }}>
                 {notifications.map((notif) => {
                   const Icon = notif.icon;
-                  const s = notifTypeStyle[notif.type];
+                  const s = getNotifStyle(notif.type, notif.daysUntil);
                   return (
                     <div
                       key={notif.id}
@@ -225,18 +234,37 @@ export default function NotificationPanel({
                             marginTop: "1px",
                           }}
                         />
-                        <div>
-                          <p
-                            style={{
-                              fontSize: "13px",
-                              fontWeight: 600,
-                              color: "#0f172a",
-                              margin: "0 0 2px",
-                              lineHeight: 1.3,
-                            }}
-                          >
-                            {notif.title}
-                          </p>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "2px" }}>
+                            <p
+                              style={{
+                                fontSize: "13px",
+                                fontWeight: 600,
+                                color: "#0f172a",
+                                margin: 0,
+                                lineHeight: 1.3,
+                              }}
+                            >
+                              {notif.title}
+                            </p>
+                            {notif.daysUntil !== undefined && (
+                              <span
+                                style={{
+                                  fontSize: "10px",
+                                  fontWeight: 700,
+                                  color: s.badgeColor,
+                                  background: s.badgeBg,
+                                  border: `1px solid ${s.border}`,
+                                  borderRadius: "5px",
+                                  padding: "1px 5px",
+                                  flexShrink: 0,
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                {dueBadgeLabel(notif.daysUntil)}
+                              </span>
+                            )}
+                          </div>
                           <p
                             style={{
                               fontSize: "12px",
