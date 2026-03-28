@@ -44,11 +44,10 @@ export async function GET(request: NextRequest) {
   try {
     const monthRanges = getRolling3Months();
 
-    const [debts, income, expenses, payoffPlan, allRecords] = await Promise.all([
+    const [debts, income, expenses, allRecords] = await Promise.all([
       prisma.debt.findMany({ where: { userId: auth.user.id } }),
       prisma.income.findUnique({ where: { userId: auth.user.id } }),
       prisma.expense.findMany({ where: { userId: auth.user.id } }),
-      prisma.payoffPlan.findUnique({ where: { userId: auth.user.id } }),
       prisma.paymentRecord.findMany({
         where: {
           userId: auth.user.id,
@@ -138,16 +137,14 @@ export async function GET(request: NextRequest) {
       0,
     );
 
-    // Current debt-free date: stored plan (may be slightly stale but fast) or fresh calc
-    const currentDebtFreeDate: Date = payoffPlan?.debtFreeDate
-      ? new Date(payoffPlan.debtFreeDate)
-      : calcFn(
-          normalizedDebts,
-          income.monthlyTakeHome,
-          income.essentialExpenses,
-          recurringTotal,
-          income.extraPayment,
-        ).debtFreeDate;
+    // Always recalculate live so balance changes are immediately reflected
+    const currentDebtFreeDate: Date = calcFn(
+      normalizedDebts,
+      income.monthlyTakeHome,
+      income.essentialExpenses,
+      recurringTotal,
+      income.extraPayment ?? 0,
+    ).debtFreeDate;
 
     // Months saved = how many months earlier the user pays off with extra vs. without
     const baselineMs = baselineResult.debtFreeDate.getTime();

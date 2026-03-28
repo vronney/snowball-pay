@@ -93,7 +93,7 @@ export default function PaymentCalendar({ debts }: Props) {
   const handleUnmark = (debt: Debt) => {
     const rec = paidMap.get(debt.id);
     if (!rec) return;
-    unmarkPaid.mutate({ recordId: rec.id, dueYear: viewYear, dueMonth: viewMonth });
+    unmarkPaid.mutate({ recordId: rec.id, debtId: debt.id, dueYear: viewYear, dueMonth: viewMonth });
   };
 
   const totalDue      = debtsWithDue.reduce((s, d) => s + d.minimumPayment, 0);

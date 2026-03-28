@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Debt, Income, Expense } from '@/types';
 import { calculateDebtSnowball, calculateDebtAvalanche, calculateDebtCustom, type PayoffMethod, type PayoffResult } from '@/lib/snowball';
 import { useUpdateDebt, useAllSnapshots, useSaveIncome } from '@/lib/hooks';
@@ -31,7 +31,6 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
   const [payoffMethod, setPayoffMethod] = useState<PayoffMethod>(
     () => (income?.payoffMethod as PayoffMethod) || 'snowball'
   );
-  const [planResult, setPlanResult] = useState<PayoffResult | null>(null);
   const [accelerationAmount, setAccelerationAmount] = useState<number | null>(
     () => income?.accelerationAmount ?? null
   );
@@ -81,23 +80,21 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
 
   const actualBalanceMap = useActualBalanceMap(snapshotsData?.snapshots ?? []);
 
-  useEffect(() => {
-    if (debts.length > 0 && income) {
-      const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
-      const totalMin = debts.reduce((sum, d) => sum + d.minimumPayment, 0);
-      const totalEss = income.essentialExpenses + recurringTotal;
-      const maxAcceleration = Math.max(0, income.monthlyTakeHome - totalEss - totalMin + (income.extraPayment ?? 0));
-      const targetAcceleration = accelerationAmount !== null
-        ? Math.min(accelerationAmount, maxAcceleration)
-        : maxAcceleration;
-      const adjustedExtra = targetAcceleration - (income.monthlyTakeHome - totalEss - totalMin);
-      const result = payoffMethod === 'avalanche'
-        ? calculateDebtAvalanche(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
-        : payoffMethod === 'custom'
-        ? calculateDebtCustom(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
-        : calculateDebtSnowball(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra);
-      setPlanResult(result);
-    }
+  const planResult = useMemo<PayoffResult | null>(() => {
+    if (!debts.length || !income) return null;
+    const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
+    const totalMin = debts.reduce((sum, d) => sum + d.minimumPayment, 0);
+    const totalEss = income.essentialExpenses + recurringTotal;
+    const maxAcceleration = Math.max(0, income.monthlyTakeHome - totalEss - totalMin + (income.extraPayment ?? 0));
+    const targetAcceleration = accelerationAmount !== null
+      ? Math.min(accelerationAmount, maxAcceleration)
+      : maxAcceleration;
+    const adjustedExtra = targetAcceleration - (income.monthlyTakeHome - totalEss - totalMin);
+    return payoffMethod === 'avalanche'
+      ? calculateDebtAvalanche(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
+      : payoffMethod === 'custom'
+      ? calculateDebtCustom(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
+      : calculateDebtSnowball(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra);
   }, [debts, income, expenses, payoffMethod, accelerationAmount]);
 
   if (isLoading) {

@@ -49,6 +49,8 @@ export function useUpdateDebt() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['debts'] });
       queryClient.invalidateQueries({ queryKey: ['debt', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+      queryClient.invalidateQueries({ queryKey: ['accelerationStats'] });
     },
   });
 }
@@ -190,6 +192,7 @@ export function useAddBulkSnapshots() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['snapshots'] });
+      queryClient.invalidateQueries({ queryKey: ['accelerationStats'] });
     },
   });
 }
@@ -326,26 +329,62 @@ export function useMarkPaid() {
       const { data } = await axios.post(`${API_URL}/api/payments`, { debtId, amount, dueYear, dueMonth });
       return data;
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['payments', variables.dueYear, variables.dueMonth] });
-      queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['snapshots'] });
-      queryClient.invalidateQueries({ queryKey: ['accelerationStats'] });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['debts'] }),
+        queryClient.invalidateQueries({ queryKey: ['snapshots'] }),
+        queryClient.invalidateQueries({ queryKey: ['accelerationStats'] }),
+        queryClient.invalidateQueries({ queryKey: ['recommendations'] }),
+      ]);
     },
   });
 }
 
-/** Unmarks a payment record (deletes by record id). */
+/** Unmarks a payment record (deletes by record id). Also restores the debt balance. */
 export function useUnmarkPaid() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ recordId, dueYear, dueMonth }: { recordId: string; dueYear: number; dueMonth: number }) => {
+    mutationFn: async ({ recordId }: { recordId: string; debtId: string; dueYear: number; dueMonth: number }) => {
       await axios.delete(`${API_URL}/api/payments/${recordId}`);
-      return { dueYear, dueMonth };
     },
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['payments', result.dueYear, result.dueMonth] });
-      queryClient.invalidateQueries({ queryKey: ['accelerationStats'] });
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['debts'] }),
+        queryClient.invalidateQueries({ queryKey: ['snapshots'] }),
+        queryClient.invalidateQueries({ queryKey: ['accelerationStats'] }),
+      ]);
+    },
+  });
+}
+
+/** Fetches all payment records for a specific debt, newest first. */
+export function useDebtPayments(debtId: string) {
+  return useQuery<{ records: PaymentRecord[] }>({
+    queryKey: ['payments', 'debt', debtId],
+    queryFn: async () => {
+      const { data } = await axios.get(`${API_URL}/api/debts/${debtId}/payments`);
+      return data;
+    },
+    enabled: !!debtId,
+  });
+}
+
+/** Updates a payment record amount and adjusts the debt balance. */
+export function useUpdatePayment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ recordId, amount }: { recordId: string; debtId: string; amount: number }) => {
+      await axios.patch(`${API_URL}/api/payments/${recordId}`, { amount });
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['debts'] }),
+        queryClient.invalidateQueries({ queryKey: ['snapshots'] }),
+        queryClient.invalidateQueries({ queryKey: ['accelerationStats'] }),
+      ]);
     },
   });
 }

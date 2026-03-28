@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Debt } from '@/types';
 import { Trash2, Pencil, DollarSign, RefreshCw } from 'lucide-react';
 import { formatCurrency, formatPercent, getCategoryColor, getOrdinalDay, calculateUtilization } from '@/lib/utils';
-import { useAddBulkSnapshots, useUpdateDebt } from '@/lib/hooks';
+import { useAddBulkSnapshots, useUpdateDebt, useMarkPaid } from '@/lib/hooks';
 import DebtForm from '@/components/DebtForm';
 import { DebtCardPaymentPanel, DebtCardBalancePanel } from '@/components/debt/DebtCardPanels';
 
@@ -37,8 +37,13 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
     }
   }, [openPaymentPanel]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    setNewBalance(String(debt.balance));
+  }, [debt.balance]);
+
   const addBulkSnapshots = useAddBulkSnapshots();
   const updateDebt = useUpdateDebt();
+  const markPaid = useMarkPaid();
 
   const togglePanel = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
 
@@ -57,9 +62,17 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
     e.preventDefault();
     const amount = parseFloat(paymentAmount);
     if (!amount || amount <= 0) return;
-    const newBalance = Math.max(0, debt.balance - amount);
-    await updateDebt.mutateAsync({ id: debt.id, updates: { balance: newBalance } });
-    await snapshotAllDebts(newBalance);
+    const now = new Date();
+    // markPaid handles: paymentRecord creation, balance decrement, and snapshot for this debt
+    await markPaid.mutateAsync({ debtId: debt.id, amount, dueYear: now.getFullYear(), dueMonth: now.getMonth() });
+    // snapshot remaining debts so their balances are recorded for this month too
+    const recordedAt = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+    const otherEntries = allDebts
+      .filter((d) => d.id !== debt.id)
+      .map((d) => ({ debtId: d.id, balance: d.balance, recordedAt }));
+    if (otherEntries.length > 0) {
+      await addBulkSnapshots.mutateAsync(otherEntries);
+    }
     setPaymentAmount('');
     setPanel(null);
   };
@@ -211,6 +224,7 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
       {/* Log Payment panel */}
       {panel === 'payment' && (
         <DebtCardPaymentPanel
+          debtId={debt.id}
           minimumPayment={debt.minimumPayment}
           paymentAmount={paymentAmount}
           onAmountChange={setPaymentAmount}
