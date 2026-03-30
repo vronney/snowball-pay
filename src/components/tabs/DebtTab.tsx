@@ -20,6 +20,14 @@ import DebtCard from "@/components/DebtCard";
 import DebtForm from "@/components/DebtForm";
 import PaymentCalendar from "@/components/PaymentCalendar";
 import { getUpcomingPayments, computeStreak } from "@/lib/debtHelpers";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from "@/components/ui/collapsible";
 
 interface DebtTabProps {
   debts: Debt[];
@@ -29,41 +37,8 @@ interface DebtTabProps {
 }
 
 function DebtTabLoadingSkeleton() {
-  const shimmer = {
-    background: "linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%)",
-    backgroundSize: "200% 100%",
-    animation: "debt-tab-shimmer 1.5s ease-in-out infinite",
-  };
-
-  const Bone = ({
-    width,
-    height,
-    radius = 8,
-  }: {
-    width: string | number;
-    height: number;
-    radius?: number;
-  }) => (
-    <div
-      style={{
-        ...shimmer,
-        width,
-        height,
-        borderRadius: radius,
-        flexShrink: 0,
-      }}
-    />
-  );
-
   return (
     <section id="section-debts">
-      <style>{`
-        @keyframes debt-tab-shimmer {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-      `}</style>
-
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
         <div className="xl:col-span-8 2xl:col-span-8 order-2 xl:order-1 space-y-4">
           <div
@@ -82,8 +57,8 @@ function DebtTabLoadingSkeleton() {
             >
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="space-y-2">
-                  <Bone width="70%" height={10} radius={4} />
-                  <Bone width="55%" height={20} radius={6} />
+                  <Skeleton className="h-[10px] w-[70%] rounded-[4px]" />
+                  <Skeleton className="h-5 w-[55%] rounded-[6px]" />
                 </div>
               ))}
             </div>
@@ -97,8 +72,8 @@ function DebtTabLoadingSkeleton() {
             }}
           >
             <div className="flex items-center justify-between">
-              <Bone width={160} height={14} radius={5} />
-              <Bone width={16} height={16} radius={4} />
+              <Skeleton className="h-[14px] w-40 rounded-[5px]" />
+              <Skeleton className="h-4 w-4 rounded-[4px]" />
             </div>
             {[0, 1, 2].map((i) => (
               <div
@@ -115,12 +90,12 @@ function DebtTabLoadingSkeleton() {
                 }}
               >
                 <div className="space-y-2" style={{ flex: 1 }}>
-                  <Bone width="35%" height={12} radius={4} />
-                  <Bone width="65%" height={10} radius={4} />
+                  <Skeleton className="h-3 w-[35%] rounded-[4px]" />
+                  <Skeleton className="h-[10px] w-[65%] rounded-[4px]" />
                 </div>
-                <div className="space-y-2 flex items-end">
-                  <Bone width={62} height={14} radius={4} />
-                  <Bone width={46} height={10} radius={4} />
+                <div className="space-y-2 flex flex-col items-end">
+                  <Skeleton className="h-[14px] w-[62px] rounded-[4px]" />
+                  <Skeleton className="h-[10px] w-[46px] rounded-[4px]" />
                 </div>
               </div>
             ))}
@@ -135,7 +110,7 @@ function DebtTabLoadingSkeleton() {
               border: "1px solid rgba(15,23,42,0.08)",
             }}
           >
-            <Bone width="80%" height={14} radius={5} />
+            <Skeleton className="h-[14px] w-[80%] rounded-[5px]" />
           </div>
 
           <div
@@ -145,9 +120,9 @@ function DebtTabLoadingSkeleton() {
               border: "1px solid rgba(15,23,42,0.08)",
             }}
           >
-            <Bone width={130} height={12} radius={4} />
-            <Bone width="100%" height={32} radius={10} />
-            <Bone width="88%" height={32} radius={10} />
+            <Skeleton className="h-3 w-[130px] rounded-[4px]" />
+            <Skeleton className="h-8 w-full rounded-[10px]" />
+            <Skeleton className="h-8 w-[88%] rounded-[10px]" />
           </div>
         </aside>
       </div>
@@ -377,38 +352,28 @@ export default function DebtTab({
             </div>
           )}
 
-          <div
-            className="rounded-xl"
-            style={{
-              background: "#ffffff",
-              border: "1px solid rgba(15,23,42,0.08)",
-            }}
+          <Collapsible
+            open={debtsOpen}
+            onOpenChange={setDebtsOpen}
+            className="rounded-xl bg-white"
+            style={{ border: "1px solid rgba(15,23,42,0.08)" }}
           >
-            <button
+            <CollapsibleTrigger
               type="button"
-              onClick={() => setDebtsOpen((o) => !o)}
-              className="w-full flex items-center justify-between p-4"
-              style={{
-                background: "transparent",
-                border: "none",
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
+              className="w-full flex items-center justify-between p-4 bg-transparent border-0 cursor-pointer text-left"
+              style={{ fontFamily: "inherit" }}
             >
               <span
                 className="font-semibold text-sm flex items-center gap-2"
                 style={{ color: "#0f172a" }}
               >
                 Your debt accounts
-                <span
-                  className="text-xs font-medium px-2 py-0.5 rounded-full"
-                  style={{
-                    color: "#475569",
-                    background: "rgba(15,23,42,0.05)",
-                  }}
+                <Badge
+                  variant="secondary"
+                  className="bg-black/5 text-slate-600 border-transparent"
                 >
                   {debts.length}
-                </span>
+                </Badge>
               </span>
               <ChevronDown
                 size={16}
@@ -418,9 +383,9 @@ export default function DebtTab({
                   transform: debtsOpen ? "rotate(180deg)" : "rotate(0deg)",
                 }}
               />
-            </button>
+            </CollapsibleTrigger>
 
-            {debtsOpen && (
+            <CollapsibleContent>
               <div className="px-4 pb-4">
                 {/* Debt List */}
                 <div id="debt-list" className="space-y-3">
@@ -467,8 +432,8 @@ export default function DebtTab({
                   </div>
                 )}
               </div>
-            )}
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
 
         <aside className="xl:col-span-4 2xl:col-span-4 order-1 xl:order-2 xl:sticky xl:top-24 self-start space-y-4">
@@ -492,18 +457,14 @@ export default function DebtTab({
               />
             </div>
           ) : (
-            <button
+            <Button
+              variant="outline"
               onClick={() => setShowForm(true)}
-              className="w-full rounded-2xl p-5 snowball-glow font-semibold flex items-center justify-center gap-2 hover:opacity-80 transition"
-              style={{
-                background: "#ffffff",
-                color: "#2563eb",
-                border: "1px solid rgba(37,99,235,0.25)",
-              }}
+              className="w-full rounded-2xl h-auto p-5 snowball-glow font-semibold text-[#2563eb] border-[rgba(37,99,235,0.25)] bg-white gap-2 hover:bg-white hover:text-[#2563eb] hover:opacity-80"
             >
               <PlusCircle size={18} />
               Add New Debt
-            </button>
+            </Button>
           )}
 
           {/* Upcoming Payment Notifications */}

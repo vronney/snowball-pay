@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown, CalendarDays } from 'lucide-react';
 import { Debt } from '@/types';
+import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
 import { usePaymentRecords, useMarkPaid, useUnmarkPaid } from '@/lib/hooks';
 import CalendarGrid from '@/components/calendar/CalendarGrid';
@@ -125,15 +126,15 @@ export default function PaymentCalendar({ debts }: Props) {
 
         {open && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-            <button type="button" onClick={prevMonth} style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(15,23,42,0.04)', border: '1px solid rgba(15,23,42,0.1)', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+            <Button type="button" variant="outline" size="icon-sm" onClick={prevMonth} className="text-slate-500">
               <ChevronLeft size={14} />
-            </button>
+            </Button>
             <span style={{ fontSize: '13px', fontWeight: 600, minWidth: '112px', textAlign: 'center', color: '#0f172a', whiteSpace: 'nowrap' }}>
               {monthName} {viewYear}
             </span>
-            <button type="button" onClick={nextMonth} style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(15,23,42,0.04)', border: '1px solid rgba(15,23,42,0.1)', color: '#64748b', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s' }}>
+            <Button type="button" variant="outline" size="icon-sm" onClick={nextMonth} className="text-slate-500">
               <ChevronRight size={14} />
-            </button>
+            </Button>
           </div>
         )}
       </div>
