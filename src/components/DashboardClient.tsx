@@ -127,7 +127,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
           style={{ flex: 1, padding: "28px", width: "100%" }}
           className="db-content"
         >
-          {activeTab !== "settings" && <AccelerationTracker />}
+          {activeTab !== "settings" && activeTab !== "documents" && <AccelerationTracker />}
           <div key={activeTab} className="tab-fade-in">
             {activeTab === "debts" && (
               <DebtTab

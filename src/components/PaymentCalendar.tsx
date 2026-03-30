@@ -112,9 +112,9 @@ export default function PaymentCalendar({ debts }: Props) {
         >
           <CalendarDays size={16} style={{ color: '#3b82f6', flexShrink: 0 }} />
           <div style={{ minWidth: 0 }}>
-            <span style={{ fontSize: '15px', fontWeight: 600, color: '#0f172a', display: 'block', lineHeight: 1.3, whiteSpace: 'nowrap' }}>Payment Calendar</span>
+            <span className="block whitespace-nowrap font-semibold leading-[1.3] text-xs sm:text-[15px] text-slate-900">Payment Calendar</span>
             {totalDue > 0 && !open && (
-              <span style={{ fontSize: '12px', color: '#475569' }}>{formatCurrency(totalDue)} minimum due monthly</span>
+              <span className="text-xs text-slate-600">{formatCurrency(totalDue)} minimum due monthly</span>
             )}
           </div>
           <ChevronDown
