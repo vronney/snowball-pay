@@ -9,7 +9,7 @@ import {
   useAllSnapshots,
 } from "@/lib/hooks";
 import { Debt } from "@/types";
-import { PlusCircle, Inbox, Bell, ChevronDown } from "lucide-react";
+import { PlusCircle, Inbox, Bell, ChevronDown, Calendar, Mail, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   calculateDebtSnowball,
@@ -138,6 +138,24 @@ export default function DebtTab({
 }: DebtTabProps) {
   const [showForm, setShowForm] = useState(false);
   const [debtsOpen, setDebtsOpen] = useState(true);
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
+  const handleSendEmail = async () => {
+    setEmailStatus('sending');
+    try {
+      const res = await fetch('/api/email/send-plan', { method: 'POST' });
+      if (res.ok) {
+        setEmailStatus('sent');
+        setTimeout(() => setEmailStatus('idle'), 4000);
+      } else {
+        setEmailStatus('error');
+        setTimeout(() => setEmailStatus('idle'), 4000);
+      }
+    } catch {
+      setEmailStatus('error');
+      setTimeout(() => setEmailStatus('idle'), 4000);
+    }
+  };
 
   // When a specific debt is targeted from outside (e.g. notification click),
   // ensure the list is expanded so the card is rendered and can open its panel.
@@ -532,6 +550,56 @@ export default function DebtTab({
           {debts.length > 0 && (
             <div>
               <PaymentCalendar debts={debts} />
+            </div>
+          )}
+
+          {/* Export & Email */}
+          {debts.length > 0 && (
+            <div
+              className="rounded-xl p-4 space-y-2"
+              style={{
+                background: "#ffffff",
+                border: "1px solid rgba(15,23,42,0.08)",
+              }}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span
+                  className="font-semibold text-xs tracking-wide uppercase"
+                  style={{ color: "#475569" }}
+                >
+                  Export & Share
+                </span>
+              </div>
+
+              {debts.some((d) => d.dueDate) && (
+                <a href="/api/calendar/export" download="debt-due-dates.ics">
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 font-medium text-slate-700 hover:text-slate-900"
+                  >
+                    <Calendar size={14} />
+                    Add to Calendar
+                  </Button>
+                </a>
+              )}
+
+              <Button
+                variant="outline"
+                onClick={handleSendEmail}
+                disabled={emailStatus === 'sending'}
+                className="w-full gap-2 font-medium text-slate-700 hover:text-slate-900"
+              >
+                {emailStatus === 'sending' ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Mail size={14} />
+                )}
+                {emailStatus === 'sent'
+                  ? 'Plan Sent!'
+                  : emailStatus === 'error'
+                    ? 'Try Again'
+                    : 'Email My Plan'}
+              </Button>
             </div>
           )}
         </aside>
