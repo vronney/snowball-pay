@@ -2,11 +2,11 @@ import Image from 'next/image';
 
 const footerLinks = {
   Product: [
-    { label: 'Features',    href: '#features' },
-    { label: 'How It Works', href: '#how-it-works' },
-    { label: 'Pricing',     href: '#pricing' },
+    { label: 'Features',    href: '/#features' },
+    { label: 'How It Works', href: '/#how-it-works' },
+    { label: 'Pricing',     href: '/#pricing' },
     { label: 'Calculator',  href: '/calculator' },
-    { label: 'FAQ',         href: '#faq' },
+    { label: 'FAQ',         href: '/#faq' },
   ],
   Company: [
     { label: 'Privacy Policy',   href: '/privacy' },
@@ -15,7 +15,7 @@ const footerLinks = {
   ],
   Resources: [
     { label: 'Snowball vs Avalanche', href: '/learn' },
-    { label: 'Debt Snowball Guide',   href: '#how-it-works' },
+    { label: 'Debt Snowball Guide',   href: '/#how-it-works' },
     { label: 'Interest Calculator',   href: '/auth/login?returnTo=/dashboard' },
     { label: 'Payoff Planner',        href: '/auth/login?returnTo=/dashboard' },
   ],

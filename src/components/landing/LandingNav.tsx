@@ -48,16 +48,16 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
             className="lp-hide-sm"
             style={{ display: "flex", alignItems: "center", gap: "32px" }}
           >
-            <a href="#features" className="lp-nav-link">
+            <a href="/#features" className="lp-nav-link">
               Features
             </a>
             <a href="/learn" className="lp-nav-link">
               Learn
             </a>
-            <a href="#how-it-works" className="lp-nav-link">
+            <a href="/#how-it-works" className="lp-nav-link">
               How It Works
             </a>
-            <a href="#pricing" className="lp-nav-link">
+            <a href="/#pricing" className="lp-nav-link">
               Pricing
             </a>
             <a href="/calculator" className="lp-nav-link">
@@ -160,7 +160,7 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
             }}
           >
             <a
-              href="#features"
+              href="/#features"
               className="lp-mobile-link"
               onClick={() => setMobileOpen(false)}
             >
@@ -174,14 +174,14 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
               Learn
             </a>
             <a
-              href="#how-it-works"
+              href="/#how-it-works"
               className="lp-mobile-link"
               onClick={() => setMobileOpen(false)}
             >
               How It Works
             </a>
             <a
-              href="#pricing"
+              href="/#pricing"
               className="lp-mobile-link"
               onClick={() => setMobileOpen(false)}
             >
