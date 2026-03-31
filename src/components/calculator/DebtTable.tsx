@@ -15,7 +15,7 @@ export default function DebtTable({ rows, onRowChange, onRowRemove, onRowAdd }: 
     <div className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
       <h2 className="font-semibold text-base mb-4">Your Debts</h2>
 
-      <div style={{ overflowX: 'auto', marginLeft: '-4px', paddingLeft: '4px' }}>
+      <div className="overflow-x-auto">
       <div style={{ minWidth: '340px' }}>
       <div
         className="mb-2 text-xs"
@@ -39,32 +39,28 @@ export default function DebtTable({ rows, onRowChange, onRowRemove, onRowAdd }: 
               placeholder="Credit Card"
               value={row.name}
               onChange={(e) => onRowChange(row.id, 'name', e.target.value)}
-              className="input-field"
-              style={{ fontSize: '13px' }}
+              className="input-field text-[13px]"
             />
             <input
               type="number"
               placeholder="5000"
               value={row.balance}
               onChange={(e) => onRowChange(row.id, 'balance', e.target.value)}
-              className="input-field"
-              style={{ fontSize: '13px' }}
+              className="input-field text-[13px]"
             />
             <input
               type="number"
               placeholder="19.99"
               value={row.rate}
               onChange={(e) => onRowChange(row.id, 'rate', e.target.value)}
-              className="input-field"
-              style={{ fontSize: '13px' }}
+              className="input-field text-[13px]"
             />
             <input
               type="number"
               placeholder="100"
               value={row.minimum}
               onChange={(e) => onRowChange(row.id, 'minimum', e.target.value)}
-              className="input-field"
-              style={{ fontSize: '13px' }}
+              className="input-field text-[13px]"
             />
             <button
               onClick={() => onRowRemove(row.id)}
