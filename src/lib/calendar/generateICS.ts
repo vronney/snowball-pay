@@ -52,7 +52,8 @@ export function generateICS(debts: DebtForCalendar[]): string {
       `DTSTART;VALUE=DATE:${dtstart}`,
       `SUMMARY:${summary}`,
       `DESCRIPTION:${description}`,
-      `RRULE:FREQ=MONTHLY;BYMONTHDAY=${debt.dueDate}`,
+      // Use BYMONTHDAY=-1 (last day) for days 29-31 so no month is skipped.
+      `RRULE:FREQ=MONTHLY;BYMONTHDAY=${debt.dueDate >= 29 ? -1 : debt.dueDate}`,
       'END:VEVENT',
     ].join('\r\n');
   });

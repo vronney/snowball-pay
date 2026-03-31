@@ -3,8 +3,6 @@ import { type Debt, type Income } from '@/types';
 import { type PayoffMethod, type PayoffResult } from '@/lib/snowball';
 import { type ChartEntry } from '@/components/payoff/BalanceOverTimeChart';
 
-const TODAY = new Date();
-
 export interface SmartCalendarItem {
   debt: Debt;
   nextDue: Date;
@@ -52,6 +50,8 @@ export function usePlannerComputed(
   balanceChartData: ChartEntry[],
   hasRealSnapshots: boolean,
 ): PlannerComputed {
+  const today = useMemo(() => new Date(), []);
+
   const lastActualPoint = useMemo(() => {
     const reversed = [...balanceChartData].reverse();
     return reversed.find((p) => p.actualBalance != null);
@@ -75,16 +75,16 @@ export function usePlannerComputed(
       .filter((debt) => debt.dueDate != null)
       .map((debt) => {
         const day = debt.dueDate as number;
-        const thisMonth = new Date(TODAY.getFullYear(), TODAY.getMonth(), day);
-        const nextDue = thisMonth >= TODAY ? thisMonth : new Date(TODAY.getFullYear(), TODAY.getMonth() + 1, day);
-        const ms = nextDue.getTime() - TODAY.getTime();
+        const thisMonth = new Date(today.getFullYear(), today.getMonth(), day);
+        const nextDue = thisMonth >= today ? thisMonth : new Date(today.getFullYear(), today.getMonth() + 1, day);
+        const ms = nextDue.getTime() - today.getTime();
         const daysUntil = Math.ceil(ms / (1000 * 60 * 60 * 24));
         return { debt, nextDue, daysUntil };
       })
       .sort((a, b) => a.daysUntil - b.daysUntil);
 
     return { items, dueIn7: items.filter((i) => i.daysUntil <= 7).length, dueIn14: items.filter((i) => i.daysUntil <= 14).length };
-  }, [debts]);
+  }, [debts, today]);
 
   const monthlyInterestLeak = useMemo(
     () => debts.reduce((sum, debt) => sum + ((debt.balance * debt.interestRate) / 100) / 12, 0),

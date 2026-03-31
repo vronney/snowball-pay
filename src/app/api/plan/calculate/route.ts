@@ -77,56 +77,55 @@ export async function POST(request: NextRequest) {
           income.extraPayment
         );
 
-    // Save payoff plan to database
-    const existingPlan = await prisma.payoffPlan.findUnique({
-      where: { userId: auth.user.id },
-    });
-
-    let plan;
-    if (existingPlan) {
-      plan = await prisma.payoffPlan.update({
+    // Save payoff plan and steps atomically
+    const plan = await prisma.$transaction(async (tx) => {
+      const existingPlan = await tx.payoffPlan.findUnique({
         where: { userId: auth.user.id },
-        data: {
-          debtFreeDate: payoffResult.debtFreeDate,
-          totalInterestPaid: payoffResult.totalInterestPaid,
-          totalAmountPaid: payoffResult.totalAmountPaid,
-          monthlyPayment: payoffResult.monthlyPayment,
-        },
-        include: { payoffSteps: true },
       });
 
-      // Delete old payoff steps and create new ones
-      await prisma.payoffStep.deleteMany({
-        where: { payoffPlanId: plan.id },
-      });
-    } else {
-      plan = await prisma.payoffPlan.create({
-        data: {
-          userId: auth.user.id,
-          debtFreeDate: payoffResult.debtFreeDate,
-          totalInterestPaid: payoffResult.totalInterestPaid,
-          totalAmountPaid: payoffResult.totalAmountPaid,
-          monthlyPayment: payoffResult.monthlyPayment,
-        },
-        include: { payoffSteps: true },
-      });
-    }
-
-    // Create new payoff steps
-    await Promise.all(
-      payoffResult.payoffSchedule.map((step: DebtPayoffSchedule) => {
-        return prisma.payoffStep.create({
+      let savedPlan;
+      if (existingPlan) {
+        savedPlan = await tx.payoffPlan.update({
+          where: { userId: auth.user.id },
           data: {
-            debtId: step.debtId,
-            payoffPlanId: plan.id,
-            stepNumber: step.orderInPayoff,
-            startBalance: step.originalBalance,
-            payoffMonth: step.monthPaidOff,
-            interestPaid: step.interestPaid,
+            debtFreeDate: payoffResult.debtFreeDate,
+            totalInterestPaid: payoffResult.totalInterestPaid,
+            totalAmountPaid: payoffResult.totalAmountPaid,
+            monthlyPayment: payoffResult.monthlyPayment,
           },
+          include: { payoffSteps: true },
         });
-      })
-    );
+        await tx.payoffStep.deleteMany({ where: { payoffPlanId: savedPlan.id } });
+      } else {
+        savedPlan = await tx.payoffPlan.create({
+          data: {
+            userId: auth.user.id,
+            debtFreeDate: payoffResult.debtFreeDate,
+            totalInterestPaid: payoffResult.totalInterestPaid,
+            totalAmountPaid: payoffResult.totalAmountPaid,
+            monthlyPayment: payoffResult.monthlyPayment,
+          },
+          include: { payoffSteps: true },
+        });
+      }
+
+      await Promise.all(
+        payoffResult.payoffSchedule.map((step: DebtPayoffSchedule) =>
+          tx.payoffStep.create({
+            data: {
+              debtId: step.debtId,
+              payoffPlanId: savedPlan.id,
+              stepNumber: step.orderInPayoff,
+              startBalance: step.originalBalance,
+              payoffMonth: step.monthPaidOff,
+              interestPaid: step.interestPaid,
+            },
+          }),
+        ),
+      );
+
+      return savedPlan;
+    });
 
     return NextResponse.json({
       payoffPlan: {
