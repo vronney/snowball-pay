@@ -22,6 +22,12 @@ interface PayoffItem {
   orderInPayoff: number;
 }
 
+interface ContentItem {
+  type: string;
+  title: string;
+  body: string;
+}
+
 interface PayoffPlanEmailProps {
   userName?: string;
   totalDebt: number;
@@ -30,6 +36,7 @@ interface PayoffPlanEmailProps {
   debtFreeDate: string;
   payoffSchedule: PayoffItem[];
   method: string;
+  featuredContent?: ContentItem | null;
 }
 
 function fmt(n: number) {
@@ -58,6 +65,7 @@ export function PayoffPlanEmail({
   debtFreeDate,
   payoffSchedule,
   method,
+  featuredContent,
 }: PayoffPlanEmailProps) {
   const safeUserName = userName?.replace(/<[^>]*>/g, '').trim();
   const isEmail = !!safeUserName && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safeUserName);
@@ -223,6 +231,24 @@ export function PayoffPlanEmail({
               );
             })}
           </Section>
+
+          {/* ── Featured Content ──────────────────────────── */}
+          {featuredContent && (
+            <Section style={{ background: '#ffffff', padding: '0 48px 28px' }}>
+              <Hr style={{ borderColor: '#f1f5f9', margin: '0 0 28px' }} />
+              <div style={{ display: 'inline-block', background: '#f0f9ff', borderRadius: '999px', padding: '4px 12px', marginBottom: '14px', border: '1px solid #bae6fd' }}>
+                <Text style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: '#0284c7', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                  {featuredContent.type === 'article' ? '📖 Article' : featuredContent.type === 'advice' ? '💡 Advice' : '💡 Tip'}
+                </Text>
+              </div>
+              <Heading style={{ margin: '0 0 10px', fontSize: '17px', fontWeight: 700, color: '#0f172a', lineHeight: '1.3' }}>
+                {featuredContent.title}
+              </Heading>
+              <Text style={{ margin: 0, fontSize: '14px', color: '#475569', lineHeight: '1.7' }}>
+                {featuredContent.body}
+              </Text>
+            </Section>
+          )}
 
           {/* ── CTA ───────────────────────────────────────── */}
           <Section style={{ background: '#ffffff', padding: '4px 48px 36px', textAlign: 'center' }}>

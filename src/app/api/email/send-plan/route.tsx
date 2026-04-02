@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
 import { rateLimit } from '@/lib/rateLimit';
 import { PayoffPlanEmail } from '@/emails/PayoffPlanEmail';
+import { fetchEmailContent } from '@/lib/emailContent';
 import {
   calculateDebtSnowball,
   calculateDebtAvalanche,
@@ -70,6 +71,8 @@ export async function POST(request: NextRequest) {
       adjustedExtra,
     );
 
+    const featuredContent = await fetchEmailContent();
+
     const html = await render(
       React.createElement(PayoffPlanEmail, {
         userName: user?.name ?? undefined,
@@ -82,6 +85,7 @@ export async function POST(request: NextRequest) {
         }),
         payoffSchedule: result.payoffSchedule,
         method,
+        featuredContent,
       }),
     );
 
