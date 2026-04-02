@@ -81,7 +81,7 @@ export function PayoffPlanEmail({
     <Html>
       <Head />
       <Body style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', background: '#f1f5f9', margin: 0, padding: '32px 0' }}>
-        <Container style={{ maxWidth: '580px', margin: '0 auto' }}>
+        <Container style={{ maxWidth: '680px', margin: '0 auto' }}>
 
           {/* ── Hero ───────────────────────────────────────── */}
           <Section style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #4f46e5 100%)', borderRadius: '16px 16px 0 0', padding: '40px 48px 36px' }}>
@@ -211,7 +211,7 @@ export function PayoffPlanEmail({
                         {fmt(item.originalBalance)} balance · {fmt(item.interestPaid)} interest
                       </Text>
                     </Column>
-                    <Column style={{ width: '52px', textAlign: 'right', verticalAlign: 'top', paddingTop: '2px' }}>
+                    <Column style={{ width: '72px', textAlign: 'right', verticalAlign: 'top', paddingTop: '2px', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'inline-block', background: '#f0fdf4', borderRadius: '6px', padding: '3px 8px', border: '1px solid #bbf7d0' }}>
                         <Text style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: '#059669' }}>
                           {timeStr}
