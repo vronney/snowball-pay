@@ -17,10 +17,16 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    const endsAt = user?.subscriptionEndsAt ?? null;
+    const status = user?.subscriptionStatus ?? 'inactive';
+    // canceling = subscription is still active/trialing but has a scheduled end date
+    const isCanceling = (status === 'active' || status === 'trialing') && endsAt !== null;
+
     return NextResponse.json({
       paidTier: user?.paidTier ?? 'free',
-      subscriptionStatus: user?.subscriptionStatus ?? 'inactive',
-      subscriptionEndsAt: user?.subscriptionEndsAt ?? null,
+      subscriptionStatus: status,
+      subscriptionEndsAt: endsAt,
+      isCanceling,
       hasCustomer: !!user?.stripeCustomerId,
     });
   } catch (error) {

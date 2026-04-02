@@ -452,6 +452,7 @@ export interface SubscriptionInfo {
   paidTier: 'free' | 'pro';
   subscriptionStatus: string;
   subscriptionEndsAt: string | null;
+  isCanceling: boolean;
   hasCustomer: boolean;
 }
 
