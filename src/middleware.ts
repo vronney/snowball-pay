@@ -66,6 +66,11 @@ export async function middleware(request: NextRequest) {
     return new NextResponse(null, { status: 429 });
   }
 
+  // Stripe webhooks are verified by signature — skip session auth entirely.
+  if (pathname === '/api/webhooks/stripe') {
+    return addCorsHeaders(NextResponse.next(), request);
+  }
+
   const requiresDashboardAuth = pathname.startsWith('/dashboard');
   const requiresApiAuth = pathname.startsWith('/api');
 
