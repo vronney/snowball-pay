@@ -80,18 +80,33 @@ export async function POST(request: NextRequest) {
       }
 
       case 'checkout.session.completed': {
-        // Ensure stripeCustomerId is persisted (it may have been set during
-        // session creation, but we confirm here as a safety net).
         const session = event.data.object as Stripe.Checkout.Session;
         if (session.mode !== 'subscription') break;
         const userId = session.metadata?.userId;
         const customerId = session.customer as string | null;
-        if (userId && customerId) {
-          await prisma.user.update({
-            where: { id: userId },
-            data: { stripeCustomerId: customerId },
-          });
+        const subscriptionId = session.subscription as string | null;
+        if (!userId) {
+          console.warn('Webhook: checkout.session.completed missing userId metadata');
+          break;
         }
+        // Fetch the subscription to get its current status
+        let subFields = {
+          subscriptionStatus: 'trialing',
+          paidTier: 'pro',
+          subscriptionEndsAt: null as Date | null,
+        };
+        if (subscriptionId) {
+          const sub = await getStripe().subscriptions.retrieve(subscriptionId);
+          subFields = resolveSubscriptionFields(sub);
+        }
+        await prisma.user.update({
+          where: { id: userId },
+          data: {
+            ...(customerId ? { stripeCustomerId: customerId } : {}),
+            ...(subscriptionId ? { stripeSubscriptionId: subscriptionId } : {}),
+            ...subFields,
+          },
+        });
         break;
       }
 

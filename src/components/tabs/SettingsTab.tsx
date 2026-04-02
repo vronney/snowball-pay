@@ -157,21 +157,24 @@ export default function SettingsTab({ user }: SettingsTabProps) {
               <span style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>
                 {isPro ? 'Pro' : 'Free'}
               </span>
-              {isPro && (
-                <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', background: 'rgba(124,58,237,0.1)', padding: '2px 8px', borderRadius: '999px' }}>
-                  Active
-                </span>
-              )}
-              {!isPro && sub?.subscriptionStatus === 'trialing' && (
+              {isPro && sub?.subscriptionStatus === 'trialing' && (
                 <span style={{ fontSize: '11px', fontWeight: 700, color: '#d97706', background: 'rgba(217,119,6,0.1)', padding: '2px 8px', borderRadius: '999px' }}>
                   Trial
+                </span>
+              )}
+              {isPro && sub?.subscriptionStatus !== 'trialing' && (
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', background: 'rgba(124,58,237,0.1)', padding: '2px 8px', borderRadius: '999px' }}>
+                  Active
                 </span>
               )}
             </div>
             {isPro ? (
               <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
                 You have access to all Pro features.
-                {sub?.subscriptionEndsAt && (
+                {sub?.subscriptionEndsAt && sub.subscriptionStatus === 'trialing' && (
+                  <> Free trial ends {new Date(sub.subscriptionEndsAt).toLocaleDateString()}.</>
+                )}
+                {sub?.subscriptionEndsAt && sub.subscriptionStatus !== 'trialing' && (
                   <> Renews {new Date(sub.subscriptionEndsAt).toLocaleDateString()}.</>
                 )}
               </p>
