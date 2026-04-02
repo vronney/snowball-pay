@@ -9,7 +9,7 @@ import {
   useAllSnapshots,
 } from "@/lib/hooks";
 import { Debt } from "@/types";
-import { PlusCircle, Inbox, Bell, ChevronDown, Calendar, Mail, Loader2 } from "lucide-react";
+import { PlusCircle, Inbox, Bell, ChevronDown, Calendar, Mail, Loader2, ArrowUpDown, Filter } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   calculateDebtSnowball,
@@ -34,6 +34,8 @@ interface DebtTabProps {
   isLoading: boolean;
   openPaymentDebtId?: string | null;
   onPaymentPanelOpened?: () => void;
+  requestAddDebt?: boolean;
+  onAddDebtHandled?: () => void;
 }
 
 function DebtTabLoadingSkeleton() {
@@ -135,10 +137,15 @@ export default function DebtTab({
   isLoading,
   openPaymentDebtId,
   onPaymentPanelOpened,
+  requestAddDebt,
+  onAddDebtHandled,
 }: DebtTabProps) {
   const [showForm, setShowForm] = useState(false);
   const [debtsOpen, setDebtsOpen] = useState(true);
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  // null = follow the active strategy's natural order; set when user explicitly picks
+  const [sortOverride, setSortOverride] = useState<'default' | 'balance-asc' | 'balance-desc' | 'apr-desc' | 'min-desc' | 'due' | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string>('all');
 
   const handleSendEmail = async () => {
     setEmailStatus('sending');
@@ -162,6 +169,14 @@ export default function DebtTab({
   useEffect(() => {
     if (openPaymentDebtId) setDebtsOpen(true);
   }, [openPaymentDebtId]);
+
+  // FAB "Add Debt" on mobile signals us to open the form
+  useEffect(() => {
+    if (requestAddDebt) {
+      setShowForm(true);
+      onAddDebtHandled?.();
+    }
+  }, [requestAddDebt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const createDebt = useCreateDebt();
   const deleteDebt = useDeleteDebt();
@@ -228,6 +243,46 @@ export default function DebtTab({
       return null;
     }
   }, [debts, income, expensesData?.expenses]);
+
+  // Map strategy → natural sort order so the list mirrors the payoff plan by default
+  const strategyDefaultSort = useMemo((): 'balance-asc' | 'apr-desc' | 'default' => {
+    switch (income?.payoffMethod) {
+      case 'avalanche': return 'apr-desc';
+      case 'custom':    return 'default'; // custom uses priorityOrder stored in DB
+      default:          return 'balance-asc'; // snowball (and unset)
+    }
+  }, [income?.payoffMethod]);
+
+  // Effective sort: user's explicit override takes priority; falls back to strategy
+  const sortBy = sortOverride ?? strategyDefaultSort;
+
+  // Priority rank per debt from the payoff schedule (1 = pay off first)
+  const rankByDebtId = useMemo(() => {
+    const map = new Map<string, number>();
+    if (payoffResult) {
+      payoffResult.payoffSchedule.forEach((s) => map.set(s.debtId, s.orderInPayoff));
+    }
+    return map;
+  }, [payoffResult]);
+
+  // Unique categories for the filter dropdown
+  const categories = useMemo(() => {
+    const set = new Set(debts.map((d) => d.category));
+    return Array.from(set).sort();
+  }, [debts]);
+
+  // Sorted + filtered view of debts (does not mutate original array)
+  const visibleDebts = useMemo(() => {
+    let list = filterCategory === 'all' ? debts : debts.filter((d) => d.category === filterCategory);
+    switch (sortBy) {
+      case 'balance-asc':  return [...list].sort((a, b) => a.balance - b.balance);
+      case 'balance-desc': return [...list].sort((a, b) => b.balance - a.balance);
+      case 'apr-desc':     return [...list].sort((a, b) => b.interestRate - a.interestRate);
+      case 'min-desc':     return [...list].sort((a, b) => b.minimumPayment - a.minimumPayment);
+      case 'due':          return [...list].sort((a, b) => (a.dueDate ?? 99) - (b.dueDate ?? 99));
+      default:             return list;
+    }
+  }, [debts, sortBy, filterCategory]);
 
   const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
   const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);
@@ -405,9 +460,72 @@ export default function DebtTab({
 
             <CollapsibleContent>
               <div className="px-4 pb-4">
+                {/* Sort / Filter toolbar — only shown when there are debts */}
+                {debts.length > 0 && (
+                  <div
+                    className="flex flex-wrap items-center gap-2 mb-3 pt-1"
+                  >
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <ArrowUpDown size={13} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                      <select
+                        value={sortBy}
+                        onChange={(e) => {
+                          const v = e.target.value as typeof sortBy;
+                          // Selecting the derived strategy sort resets the override
+                          setSortOverride(v === strategyDefaultSort ? null : v);
+                        }}
+                        className="text-xs rounded-lg px-2 py-1.5 border bg-white cursor-pointer"
+                        style={{
+                          color: '#475569',
+                          borderColor: 'rgba(15,23,42,0.12)',
+                          fontFamily: 'inherit',
+                          appearance: 'none',
+                          paddingRight: '22px',
+                          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E")`,
+                          backgroundRepeat: 'no-repeat',
+                          backgroundPosition: 'right 6px center',
+                        }}
+                      >
+                        <option value="default">Custom order</option>
+                        <option value="balance-asc">Lowest balance (Snowball)</option>
+                        <option value="balance-desc">Highest balance</option>
+                        <option value="apr-desc">Highest APR (Avalanche)</option>
+                        <option value="min-desc">Highest minimum</option>
+                        <option value="due">Soonest due date</option>
+                      </select>
+                    </div>
+
+                    {categories.length > 1 && (
+                      <div className="flex items-center gap-1.5">
+                        <Filter size={13} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                        <select
+                          value={filterCategory}
+                          onChange={(e) => setFilterCategory(e.target.value)}
+                          className="text-xs rounded-lg px-2 py-1.5 border bg-white cursor-pointer"
+                          style={{
+                            color: '#475569',
+                            borderColor: 'rgba(15,23,42,0.12)',
+                            fontFamily: 'inherit',
+                            appearance: 'none',
+                            paddingRight: '22px',
+                            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E")`,
+                            backgroundRepeat: 'no-repeat',
+                            backgroundPosition: 'right 6px center',
+                          }}
+                        >
+                          <option value="all">All types</option>
+                          {categories.map((c) => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Debt List */}
                 <div id="debt-list" className="space-y-3">
-                  {debts.map((debt) => (
+                  {visibleDebts.map((debt) => (
                     <DebtCard
                       key={debt.id}
                       debt={debt}
@@ -418,35 +536,78 @@ export default function DebtTab({
                       }
                       openPaymentPanel={openPaymentDebtId === debt.id}
                       onPaymentPanelOpened={onPaymentPanelOpened}
+                      rank={rankByDebtId.get(debt.id)}
                     />
                   ))}
+
+                  {/* No results after filter */}
+                  {debts.length > 0 && visibleDebts.length === 0 && (
+                    <div className="text-center py-8">
+                      <p className="text-sm" style={{ color: '#94a3b8' }}>
+                        No debts match the current filter.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                {/* Empty State */}
+                {/* Empty State — three helper cards */}
                 {debts.length === 0 && !showForm && (
-                  <div id="empty-debts" className="text-center py-14 px-6">
-                    <div
-                      className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mx-auto mb-4"
-                      style={{
-                        background: "rgba(59,130,246,0.08)",
-                        border: "1px solid rgba(59,130,246,0.18)",
-                      }}
-                    >
-                      <Inbox
-                        size={28}
-                        style={{ color: "#3b82f6", opacity: 0.7 }}
-                      />
+                  <div id="empty-debts" className="py-6 space-y-3">
+                    <div className="text-center mb-5">
+                      <div
+                        className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mx-auto mb-3"
+                        style={{
+                          background: "rgba(59,130,246,0.08)",
+                          border: "1px solid rgba(59,130,246,0.18)",
+                        }}
+                      >
+                        <Inbox size={26} style={{ color: "#3b82f6", opacity: 0.7 }} />
+                      </div>
+                      <p className="font-semibold text-sm mb-1" style={{ color: "#334155" }}>
+                        No debts yet
+                      </p>
+                      <p className="text-xs" style={{ color: "#94a3b8" }}>
+                        Add your first debt to start building your payoff plan.
+                      </p>
                     </div>
-                    <p
-                      className="font-semibold text-sm mb-1"
-                      style={{ color: "#475569" }}
-                    >
-                      No debts yet
-                    </p>
-                    <p className="text-xs" style={{ color: "#94a3b8" }}>
-                      Add your first debt in the panel to start building your
-                      payoff plan.
-                    </p>
+
+                    {/* Helper cards */}
+                    {[
+                      {
+                        title: "How payoff works",
+                        body: "Each month, minimums are paid on all debts. Any extra money is focused on one debt at a time until it's gone — then that payment rolls to the next.",
+                        color: "#2563eb",
+                        bg: "rgba(37,99,235,0.05)",
+                        border: "rgba(37,99,235,0.14)",
+                      },
+                      {
+                        title: "Snowball vs Avalanche",
+                        body: "Snowball targets the smallest balance first for quick wins. Avalanche targets the highest APR first to minimize total interest paid.",
+                        color: "#059669",
+                        bg: "rgba(5,150,105,0.05)",
+                        border: "rgba(5,150,105,0.14)",
+                      },
+                      {
+                        title: "What you'll see after setup",
+                        body: "Your payoff timeline, estimated debt-free date, total interest saved, and a month-by-month plan — all updating in real time.",
+                        color: "#7c3aed",
+                        bg: "rgba(124,58,237,0.05)",
+                        border: "rgba(124,58,237,0.14)",
+                      },
+                    ].map((card) => (
+                      <div
+                        key={card.title}
+                        className="rounded-xl p-4"
+                        style={{ background: card.bg, border: `1px solid ${card.border}` }}
+                      >
+                        <p className="font-semibold text-xs mb-1" style={{ color: card.color }}>
+                          {card.title}
+                        </p>
+                        <p className="text-xs leading-relaxed" style={{ color: '#64748b' }}>
+                          {card.body}
+                        </p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
@@ -455,7 +616,8 @@ export default function DebtTab({
         </div>
 
         <aside className="xl:col-span-4 2xl:col-span-4 order-1 xl:order-2 xl:sticky xl:top-24 self-start space-y-4">
-          {/* Add Debt Form */}
+          {/* Add Debt Form — the open form is always visible; the trigger button
+              is hidden on mobile because the FAB provides that action there */}
           {showForm ? (
             <div
               className="rounded-2xl p-5 snowball-glow"
@@ -475,14 +637,16 @@ export default function DebtTab({
               />
             </div>
           ) : (
-            <Button
-              variant="outline"
-              onClick={() => setShowForm(true)}
-              className="w-full rounded-2xl h-auto p-5 snowball-glow font-semibold text-[#2563eb] border-[rgba(37,99,235,0.25)] bg-white gap-2 hover:bg-white hover:text-[#2563eb] hover:opacity-80"
-            >
-              <PlusCircle size={18} />
-              Add New Debt
-            </Button>
+            <div className="db-add-debt-btn">
+              <Button
+                variant="outline"
+                onClick={() => setShowForm(true)}
+                className="w-full rounded-2xl h-auto p-5 snowball-glow font-semibold text-[#2563eb] border-[rgba(37,99,235,0.25)] bg-white gap-2 hover:bg-white hover:text-[#2563eb] hover:opacity-80"
+              >
+                <PlusCircle size={18} />
+                Add New Debt
+              </Button>
+            </div>
           )}
 
           {/* Upcoming Payment Notifications */}

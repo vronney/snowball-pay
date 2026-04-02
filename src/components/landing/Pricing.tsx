@@ -16,7 +16,7 @@ const plans = [
     name: 'Pro', tagline: 'Serious about debt-free', price: 9, period: 'per month',
     desc: 'The full toolkit for people committed to reaching $0 faster.',
     badge: 'Most Popular', featured: true, accent: '#2563eb',
-    cta: 'Start Pro — 7 Days Free', ghost: false, href: '/auth/login?returnTo=/dashboard',
+    cta: 'Start Pro — 7 Days Free', ghost: false, href: '/auth/login?returnTo=%2Fdashboard%3Fcheckout%3Dpro',
     features: [
       'Unlimited debts',
       'AI payoff recommendations',

@@ -5,19 +5,23 @@ import {
   CreditCard,
   Wallet,
   TrendingDown,
+  BarChart2,
   Upload,
   Sparkles,
   Settings,
   LogOut,
+  HelpCircle,
 } from "lucide-react";
 import { type Tab } from "./types";
 
 const navItems = [
-  { id: "debts", label: "My Debts", icon: CreditCard },
-  { id: "income", label: "Income", icon: Wallet },
-  { id: "plan", label: "Payoff Plan", icon: TrendingDown },
-  { id: "intelligence", label: "Intelligence", icon: Sparkles },
-  { id: "documents", label: "Import", icon: Upload },
+  { id: "debts",        label: "My Debts",    icon: CreditCard },
+  { id: "income",       label: "Income",      icon: Wallet },
+  { id: "plan",         label: "Payoff Plan", icon: TrendingDown },
+  { id: "progress",     label: "Progress",    icon: BarChart2 },
+  { id: "intelligence", label: "Intelligence",icon: Sparkles },
+  { id: "documents",    label: "Import",      icon: Upload },
+  { id: "help",         label: "Help",        icon: HelpCircle },
 ];
 
 interface DashboardSidebarProps {

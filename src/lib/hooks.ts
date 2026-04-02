@@ -1,6 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Debt, Income, Expense, DebtSummary, BudgetSummary, PayoffPlan, BalanceSnapshot } from '@/types';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
+import { upgradeEvents } from '@/lib/upgradeEvents';
+
+/** Check if an axios error is a 403 upgrade_required and dispatch event. */
+function handleUpgradeError(error: unknown): boolean {
+  if (error instanceof AxiosError && error.response?.status === 403) {
+    const feature = (error.response.data as { feature?: string })?.feature ?? 'This feature';
+    upgradeEvents.dispatch(feature);
+    return true;
+  }
+  return false;
+}
 
 // Use relative paths so this works on both localhost and Vercel without config.
 const API_URL = '';
@@ -36,6 +47,7 @@ export function useCreateDebt() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['debts'] });
     },
+    onError: (error) => { handleUpgradeError(error); },
   });
 }
 
@@ -261,6 +273,7 @@ export function useGenerateRecommendations() {
     onSuccess: (data) => {
       queryClient.setQueryData(['recommendations'], data);
     },
+    onError: (error) => { handleUpgradeError(error); },
   });
 }
 
@@ -429,6 +442,50 @@ export function useAccelerationStats() {
     queryFn: async () => {
       const { data } = await axios.get(`${API_URL}/api/acceleration-stats`);
       return data;
+    },
+  });
+}
+
+// ===== SUBSCRIPTION =====
+
+export interface SubscriptionInfo {
+  paidTier: 'free' | 'pro';
+  subscriptionStatus: string;
+  subscriptionEndsAt: string | null;
+  hasCustomer: boolean;
+}
+
+export function useSubscription() {
+  return useQuery<SubscriptionInfo>({
+    queryKey: ['subscription'],
+    queryFn: async () => {
+      const { data } = await axios.get(`${API_URL}/api/user/subscription`);
+      return data;
+    },
+    staleTime: 5 * 60 * 1000, // 5 min
+  });
+}
+
+export function useStartCheckout() {
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await axios.post(`${API_URL}/api/stripe/checkout`);
+      return data as { url: string };
+    },
+    onSuccess: ({ url }) => {
+      window.location.href = url;
+    },
+  });
+}
+
+export function useOpenBillingPortal() {
+  return useMutation({
+    mutationFn: async () => {
+      const { data } = await axios.post(`${API_URL}/api/stripe/portal`);
+      return data as { url: string };
+    },
+    onSuccess: ({ url }) => {
+      window.location.href = url;
     },
   });
 }

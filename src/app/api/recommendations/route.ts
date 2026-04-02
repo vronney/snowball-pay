@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
+import { isPro, upgradeRequired } from '@/lib/gates';
 import { z } from 'zod';
 import { limits } from '@/lib/rateLimit';
 
@@ -106,6 +107,10 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!auth.valid || !auth.user) return unauthorized();
+
+  if (!(await isPro(auth.user.id))) {
+    return upgradeRequired('AI recommendations');
+  }
 
   if (!limits.recommendations(auth.user.id)) {
     return NextResponse.json(

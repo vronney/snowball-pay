@@ -14,6 +14,7 @@ import PayoffSummary from '@/components/payoff/PayoffSummary';
 import BalanceOverTimeChart from '@/components/payoff/BalanceOverTimeChart';
 import PayoffTimeline from '@/components/payoff/PayoffTimeline';
 import PayoffOrderList from '@/components/payoff/PayoffOrderList';
+import FocusDebtExplainer from '@/components/payoff/FocusDebtExplainer';
 import StrategyExplanation from '@/components/payoff/StrategyExplanation';
 
 interface PayoffTabProps {
@@ -248,6 +249,12 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
       />
 
       <PayoffTimeline data={timelineData} />
+
+      <FocusDebtExplainer
+        payoffSchedule={planResult.payoffSchedule}
+        debts={debts}
+        payoffMethod={payoffMethod}
+      />
 
       <PayoffOrderList
         payoffSchedule={planResult.payoffSchedule}

@@ -7,6 +7,7 @@ import { formatCurrency, formatPercent, getCategoryColor, getOrdinalDay, calcula
 import { useAddBulkSnapshots, useUpdateDebt, useMarkPaid } from '@/lib/hooks';
 import DebtForm from '@/components/DebtForm';
 import { DebtCardPaymentPanel, DebtCardBalancePanel } from '@/components/debt/DebtCardPanels';
+import { DebtPaidOffModal } from '@/components/debt/DebtPaidOffModal';
 
 interface DebtCardProps {
   debt: Debt;
@@ -15,11 +16,12 @@ interface DebtCardProps {
   firstSnapshotBalance?: number | null;
   openPaymentPanel?: boolean;
   onPaymentPanelOpened?: () => void;
+  rank?: number;
 }
 
 type Panel = 'payment' | 'balance' | 'edit' | null;
 
-export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalance, openPaymentPanel, onPaymentPanelOpened }: DebtCardProps) {
+export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalance, openPaymentPanel, onPaymentPanelOpened, rank }: DebtCardProps) {
   const util = debt.creditLimit > 0 ? calculateUtilization(debt.balance, debt.creditLimit) : null;
   const categoryColor = getCategoryColor(debt.category);
   const isHighInterest = debt.interestRate >= 20;
@@ -27,6 +29,8 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
   const [panel, setPanel] = useState<Panel>(null);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [newBalance, setNewBalance] = useState(String(debt.balance));
+  const [showPaidOffModal, setShowPaidOffModal] = useState(false);
+  const [clearedAmount, setClearedAmount] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -75,6 +79,11 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
     }
     setPaymentAmount('');
     setPanel(null);
+    // Celebrate if this payment wipes out the balance
+    if (amount >= debt.balance) {
+      setClearedAmount(debt.balance);
+      setShowPaidOffModal(true);
+    }
   };
 
   const handleBalanceSubmit = async (e: React.FormEvent) => {
@@ -115,6 +124,19 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
             >
               {debt.category}
             </span>
+            {rank !== undefined && (
+              <span
+                className="text-xs font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                title="Payoff priority order"
+                style={{
+                  background: rank === 1 ? 'rgba(37,99,235,0.12)' : 'rgba(15,23,42,0.06)',
+                  color: rank === 1 ? '#2563eb' : '#64748b',
+                  border: rank === 1 ? '1px solid rgba(37,99,235,0.25)' : '1px solid rgba(15,23,42,0.1)',
+                }}
+              >
+                #{rank}
+              </span>
+            )}
           </div>
           <div className="flex items-baseline gap-x-3 gap-y-1.5 flex-wrap">
             <span className="mono font-bold text-lg leading-none whitespace-nowrap" style={{ color: '#0f172a' }}>
@@ -259,6 +281,15 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
             isLoading={updateDebt.isPending}
           />
         </div>
+      )}
+
+      {/* Paid-off celebration modal */}
+      {showPaidOffModal && (
+        <DebtPaidOffModal
+          debtName={debt.name || 'Debt'}
+          amountCleared={clearedAmount}
+          onClose={() => setShowPaidOffModal(false)}
+        />
       )}
     </div>
   );

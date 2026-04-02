@@ -4,8 +4,10 @@ export type Tab =
   | "debts"
   | "income"
   | "plan"
+  | "progress"
   | "intelligence"
   | "documents"
+  | "help"
   | "settings";
 
 export interface Notification {

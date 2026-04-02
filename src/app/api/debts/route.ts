@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
+import { getUserTier, FREE_DEBT_LIMIT, upgradeRequired } from '@/lib/gates';
 import { z } from 'zod';
 
 const CreateDebtSchema = z.object({
@@ -37,6 +38,15 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const validated = CreateDebtSchema.parse(body);
+
+    // Free-tier debt limit check
+    const tier = await getUserTier(auth.user.id);
+    if (tier === 'free') {
+      const count = await prisma.debt.count({ where: { userId: auth.user.id } });
+      if (count >= FREE_DEBT_LIMIT) {
+        return upgradeRequired('Unlimited debts');
+      }
+    }
 
     const debt = await prisma.debt.create({
       data: {

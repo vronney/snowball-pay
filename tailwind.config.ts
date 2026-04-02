@@ -9,20 +9,23 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-outfit)', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        sans: ['var(--font-inter)', 'var(--font-outfit)', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
       },
       colors: {
-        bg: '#f5f7fa',
+        bg: '#F8FAFC',
         surface: '#ffffff',
         'surface-2': '#f1f5f9',
-        txt: '#0f172a',
-        'txt-muted': '#64748b',
+        txt: '#111827',
+        'txt-muted': '#6B7280',
         action: '#2563eb',
         'action-light': '#3b82f6',
-        secondary: '#64748b',
-        success: '#10b981',
+        primary: '#2F80ED',
+        secondary: '#6B7280',
+        success: '#27AE60',
+        warning: '#F59E0B',
+        danger: '#EF4444',
         sidebar: '#ffffff',
-        border: 'rgba(15,23,42,0.08)',
+        border: '#E5E7EB',
       },
       keyframes: {
         slideUp: {

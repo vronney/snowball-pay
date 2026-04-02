@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
+import { isPro, upgradeRequired } from '@/lib/gates';
 import { limits } from '@/lib/rateLimit';
 
 // Allow up to 5 minutes — two-pass analysis across many files takes time
@@ -225,6 +226,10 @@ ${summary}`;
 export async function POST(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!auth.valid || !auth.user) return unauthorized();
+
+  if (!(await isPro(auth.user.id))) {
+    return upgradeRequired('Document import');
+  }
 
   if (!limits.documentUpload(auth.user.id)) {
     return NextResponse.json(

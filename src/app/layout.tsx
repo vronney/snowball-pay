@@ -1,7 +1,14 @@
 import type { Metadata } from 'next';
-import { Outfit } from 'next/font/google';
+import { Inter, Outfit } from 'next/font/google';
 import { Providers } from '@/app/providers';
 import './globals.css';
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  weight: ['300', '400', '500', '600', '700', '800', '900'],
+  display: 'swap',
+});
 
 const outfit = Outfit({
   subsets: ['latin'],
@@ -125,7 +132,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={outfit.variable}>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${outfit.variable}`}>
       <head>
         <script
           type="application/ld+json"

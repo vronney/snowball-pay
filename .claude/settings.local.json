@@ -17,7 +17,15 @@
       "WebFetch(domain:heroui.com)",
       "Bash(npx shadcn@latest init --yes)",
       "Bash(npx shadcn@latest init --help)",
-      "Bash(npx shadcn@latest init -b radix -p nova --yes --defaults)"
+      "Bash(npx shadcn@latest init -b radix -p nova --yes --defaults)",
+      "Bash(xargs wc:*)",
+      "Bash(npm install:*)",
+      "Bash(node -e \"const s = require\\('stripe'\\); console.log\\(require\\('stripe/package.json'\\).version\\)\")",
+      "Bash(where stripe:*)",
+      "Bash(stripe --version)",
+      "Read(//c/Users/ronne/scoop/apps/**)",
+      "Read(//c/Program Files/**)",
+      "Read(//c/Users/ronne/**)"
     ],
     "deny": [
       "Bash(rm:*)",

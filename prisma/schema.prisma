@@ -19,6 +19,13 @@ model User {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
+  // Stripe billing
+  stripeCustomerId     String?  @unique
+  stripeSubscriptionId String?  @unique
+  subscriptionStatus   String   @default("inactive") // active | trialing | past_due | canceled | inactive
+  paidTier             String   @default("free")      // free | pro
+  subscriptionEndsAt   DateTime?
+
   debts                   Debt[]
   income                  Income?
   expenses                Expense[]

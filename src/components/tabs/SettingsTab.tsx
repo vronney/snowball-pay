@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useUserSettings, useUpdatePreferences } from '@/lib/hooks';
-import { User, Bell, Trash2, ShieldAlert, CheckCircle2, LogOut } from 'lucide-react';
+import { User, Bell, Trash2, ShieldAlert, CheckCircle2, LogOut, Mail, Sparkles, Zap, ExternalLink } from 'lucide-react';
 import axios from 'axios';
 import Image from 'next/image';
+import { useSubscription, useStartCheckout, useOpenBillingPortal } from '@/lib/hooks';
 
 interface SettingsTabProps {
   user: {
@@ -58,8 +59,23 @@ export default function SettingsTab({ user }: SettingsTabProps) {
   const [clearConfirm, setClearConfirm] = useState(false);
   const [clearState, setClearState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
 
+  const { data: sub } = useSubscription();
+  const startCheckout = useStartCheckout();
+  const openPortal = useOpenBillingPortal();
+
+  const isPro = sub?.paidTier === 'pro';
+
   const notifyDueDates = savedSettings?.preferences?.notifyDueDates ?? true;
   const notifyLowBuffer = savedSettings?.preferences?.notifyLowBuffer ?? true;
+  const actionChecks: Record<string, boolean> = savedSettings?.preferences?.actionChecks ?? {};
+  const notifyWeeklyProgress = actionChecks.weeklyProgress ?? false;
+  const notifyMonthlyReview = actionChecks.monthlyReview ?? false;
+  const notifyMilestones = actionChecks.milestones ?? true;
+  const notifyBudgetChanges = actionChecks.budgetChanges ?? false;
+
+  const updateActionCheck = (key: string, value: boolean) => {
+    updatePreferences.mutate({ actionChecks: { ...actionChecks, [key]: value } });
+  };
 
   const initials = (user?.name || user?.email || 'U').slice(0, 2).toUpperCase();
 
@@ -131,6 +147,81 @@ export default function SettingsTab({ user }: SettingsTabProps) {
         </p>
       </div>
 
+      {/* Subscription / Plan */}
+      <div style={{ ...cardStyle, background: isPro ? 'linear-gradient(135deg, #f0f5ff 0%, #f5f0ff 100%)' : '#ffffff', border: isPro ? '1px solid rgba(37,99,235,0.15)' : '1px solid rgba(15,23,42,0.08)' }}>
+        {sectionTitle('Plan', <Sparkles size={16} style={{ color: isPro ? '#7c3aed' : '#2563eb' }} />)}
+
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>
+                {isPro ? 'Pro' : 'Free'}
+              </span>
+              {isPro && (
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#7c3aed', background: 'rgba(124,58,237,0.1)', padding: '2px 8px', borderRadius: '999px' }}>
+                  Active
+                </span>
+              )}
+              {!isPro && sub?.subscriptionStatus === 'trialing' && (
+                <span style={{ fontSize: '11px', fontWeight: 700, color: '#d97706', background: 'rgba(217,119,6,0.1)', padding: '2px 8px', borderRadius: '999px' }}>
+                  Trial
+                </span>
+              )}
+            </div>
+            {isPro ? (
+              <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                You have access to all Pro features.
+                {sub?.subscriptionEndsAt && (
+                  <> Renews {new Date(sub.subscriptionEndsAt).toLocaleDateString()}.</>
+                )}
+              </p>
+            ) : (
+              <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
+                Upgrade to unlock AI recommendations, document import, unlimited debts, and more.
+              </p>
+            )}
+          </div>
+
+          {isPro ? (
+            <button
+              type="button"
+              onClick={() => openPortal.mutate()}
+              disabled={openPortal.isPending}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '8px 16px', borderRadius: '10px',
+                border: '1px solid rgba(37,99,235,0.2)',
+                background: 'rgba(37,99,235,0.06)',
+                fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                color: '#2563eb', fontFamily: 'inherit', flexShrink: 0,
+                opacity: openPortal.isPending ? 0.6 : 1,
+              }}
+            >
+              <ExternalLink size={13} />
+              {openPortal.isPending ? 'Opening…' : 'Manage billing'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => startCheckout.mutate()}
+              disabled={startCheckout.isPending}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '8px 16px', borderRadius: '10px',
+                border: 'none',
+                background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+                fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                color: '#ffffff', fontFamily: 'inherit', flexShrink: 0,
+                opacity: startCheckout.isPending ? 0.7 : 1,
+              }}
+            >
+              <Zap size={13} />
+              {startCheckout.isPending ? 'Redirecting…' : 'Upgrade to Pro'}
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Notifications */}
       <div style={cardStyle}>
         {sectionTitle('Notifications', <Bell size={16} style={{ color: '#2563eb' }} />)}
@@ -161,6 +252,81 @@ export default function SettingsTab({ user }: SettingsTabProps) {
               checked={notifyLowBuffer}
               onChange={(v) => updatePreferences.mutate({ notifyLowBuffer: v })}
             />
+          </div>
+
+          {divider}
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+            <div>
+              <p style={{ fontSize: '14px', fontWeight: 500, color: '#0f172a', margin: '0 0 2px' }}>Milestone celebrations</p>
+              <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>Notify when you hit a debt payoff milestone (e.g. under $10k).</p>
+            </div>
+            <Toggle
+              checked={notifyMilestones}
+              onChange={(v) => updateActionCheck('milestones', v)}
+            />
+          </div>
+
+          {divider}
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+            <div>
+              <p style={{ fontSize: '14px', fontWeight: 500, color: '#0f172a', margin: '0 0 2px' }}>Weekly progress summary</p>
+              <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>A brief recap of payments made and balance changes each week.</p>
+            </div>
+            <Toggle
+              checked={notifyWeeklyProgress}
+              onChange={(v) => updateActionCheck('weeklyProgress', v)}
+            />
+          </div>
+
+          {divider}
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+            <div>
+              <p style={{ fontSize: '14px', fontWeight: 500, color: '#0f172a', margin: '0 0 2px' }}>Monthly review reminder</p>
+              <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>Remind you to review your budget and balances once a month.</p>
+            </div>
+            <Toggle
+              checked={notifyMonthlyReview}
+              onChange={(v) => updateActionCheck('monthlyReview', v)}
+            />
+          </div>
+
+          {divider}
+
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+            <div>
+              <p style={{ fontSize: '14px', fontWeight: 500, color: '#0f172a', margin: '0 0 2px' }}>Budget change alerts</p>
+              <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>Alert when income or expense changes significantly affect your plan.</p>
+            </div>
+            <Toggle
+              checked={notifyBudgetChanges}
+              onChange={(v) => updateActionCheck('budgetChanges', v)}
+            />
+          </div>
+        </div>
+
+        {/* Channels */}
+        <div style={{ marginTop: '24px' }}>
+          <p style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#94a3b8', marginBottom: '12px' }}>
+            Channels
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '10px', background: 'rgba(37,99,235,0.04)', border: '1px solid rgba(37,99,235,0.12)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Mail size={14} style={{ color: '#2563eb' }} />
+                <span style={{ fontSize: '13px', fontWeight: 500, color: '#0f172a' }}>Email</span>
+              </div>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#059669', background: 'rgba(5,150,105,0.08)', padding: '2px 8px', borderRadius: '999px' }}>Active</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: '10px', background: 'rgba(15,23,42,0.03)', border: '1px solid rgba(15,23,42,0.07)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Bell size={14} style={{ color: '#94a3b8' }} />
+                <span style={{ fontSize: '13px', fontWeight: 500, color: '#94a3b8' }}>Push / SMS</span>
+              </div>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', background: 'rgba(15,23,42,0.05)', padding: '2px 8px', borderRadius: '999px' }}>Coming soon</span>
+            </div>
           </div>
         </div>
       </div>
