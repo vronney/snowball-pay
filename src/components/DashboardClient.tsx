@@ -11,6 +11,7 @@ import {
   useMarkPaid,
   useStartCheckout,
 } from "@/lib/hooks";
+import { useQueryClient } from "@tanstack/react-query";
 import DebtTab from "@/components/tabs/DebtTab";
 import IncomeTab from "@/components/tabs/IncomeTab";
 import PayoffTab from "@/components/tabs/PayoffTab";
@@ -58,6 +59,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
 
   const searchParams = useSearchParams();
   const startCheckout = useStartCheckout();
+  const queryClient = useQueryClient();
 
   // Auto-trigger checkout when landing from pricing page
   useEffect(() => {
@@ -67,6 +69,26 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
       url.searchParams.delete("checkout");
       window.history.replaceState({}, "", url.toString());
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // After returning from Stripe checkout, refetch subscription until Pro is confirmed
+  useEffect(() => {
+    if (searchParams.get("upgrade") !== "success") return;
+    // Clean the URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete("upgrade");
+    window.history.replaceState({}, "", url.toString());
+    // Switch to settings so the user sees the Plan card update
+    setActiveTab("settings");
+    // Poll subscription every 2s for up to 20s waiting for webhook to land
+    let attempts = 0;
+    const interval = setInterval(async () => {
+      await queryClient.invalidateQueries({ queryKey: ["subscription"] });
+      attempts++;
+      if (attempts >= 10) clearInterval(interval);
+    }, 2000);
+    return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
