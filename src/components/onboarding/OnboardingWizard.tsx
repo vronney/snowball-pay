@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSaveIncome, useCreateDebt } from "@/lib/hooks";
 import { formatCurrency } from "@/lib/utils";
@@ -335,6 +335,16 @@ export function OnboardingWizard() {
   const [step, setStep] = useState(0);
   const [state, setState] = useState<StepState>(INITIAL_STATE);
   const [submitting, setSubmitting] = useState(false);
+
+  // Warn before accidental tab close / navigation during wizard
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (submitting) return; // already finishing — let it through
+      e.preventDefault();
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [submitting]);
 
   function onField(k: keyof StepState, v: string) {
     setState((s) => ({ ...s, [k]: v }));

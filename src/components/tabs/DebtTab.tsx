@@ -28,6 +28,7 @@ import {
   CollapsibleTrigger,
   CollapsibleContent,
 } from "@/components/ui/collapsible";
+import { track, Events } from "@/lib/analytics";
 
 interface DebtTabProps {
   debts: Debt[];
@@ -143,6 +144,7 @@ export default function DebtTab({
   const [showForm, setShowForm] = useState(false);
   const [debtsOpen, setDebtsOpen] = useState(true);
   const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [addDebtError, setAddDebtError] = useState<string | null>(null);
   // null = follow the active strategy's natural order; set when user explicitly picks
   const [sortOverride, setSortOverride] = useState<'default' | 'balance-asc' | 'balance-desc' | 'apr-desc' | 'min-desc' | 'due' | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -290,11 +292,14 @@ export default function DebtTab({
   const upcomingPayments = useMemo(() => getUpcomingPayments(debts), [debts]);
 
   const handleSubmit = async (formData: any) => {
+    setAddDebtError(null);
     try {
       await createDebt.mutateAsync(formData);
+      track(Events.DEBT_ADDED, { category: formData.category, balance: formData.balance });
       setShowForm(false);
     } catch (error) {
       console.error("Error creating debt:", error);
+      setAddDebtError("Failed to save debt. Please try again.");
     }
   };
 
@@ -632,9 +637,14 @@ export default function DebtTab({
               </h2>
               <DebtForm
                 onSubmit={handleSubmit}
-                onCancel={() => setShowForm(false)}
+                onCancel={() => { setShowForm(false); setAddDebtError(null); }}
                 isLoading={createDebt.isPending}
               />
+              {addDebtError && (
+                <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px', fontWeight: 500 }}>
+                  {addDebtError}
+                </p>
+              )}
             </div>
           ) : (
             <div className="db-add-debt-btn">
@@ -764,6 +774,11 @@ export default function DebtTab({
                     ? 'Try Again'
                     : 'Email My Plan'}
               </Button>
+              {emailStatus === 'error' && (
+                <p style={{ fontSize: '12px', color: '#ef4444', margin: '4px 0 0', textAlign: 'center' }}>
+                  Failed to send. Check your email address in Settings.
+                </p>
+              )}
             </div>
           )}
         </aside>

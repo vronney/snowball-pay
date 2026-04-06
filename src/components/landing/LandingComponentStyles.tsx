@@ -46,9 +46,6 @@ export default function LandingComponentStyles() {
       @media (max-width: 900px) {
         .lp-hero-cols   { flex-direction: column !important; }
         .lp-hero-right  { max-width: 100% !important; margin-top: 48px; }
-        .lp-pricing-grid { grid-template-columns: 1fr !important; max-width: 480px !important; margin-left: auto !important; margin-right: auto !important; }
-      }
-      @media (max-width: 720px) {
         .lp-hide-sm      { display: none !important; }
         .lp-show-sm      { display: flex !important; }
         .lp-grid-sm1     { grid-template-columns: 1fr !important; }
@@ -57,9 +54,14 @@ export default function LandingComponentStyles() {
         .lp-ps-cols      { flex-direction: column !important; }
         .lp-pricing-grid { grid-template-columns: 1fr !important; max-width: 420px !important; margin-left: auto !important; margin-right: auto !important; }
       }
+      @media (max-width: 640px) {
+        .lp-stat-wrap  { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 0 !important; flex-wrap: unset !important; }
+        .lp-stat-wrap > div { padding-left: 16px !important; padding-right: 16px !important; }
+        .lp-stat-divider { display: none !important; }
+      }
       @media (max-width: 480px) {
         .lp-ftr-grid   { grid-template-columns: 1fr !important; }
-        .lp-stat-wrap  { flex-direction: column !important; gap: 28px !important; }
+        .lp-stat-wrap  { grid-template-columns: 1fr 1fr !important; }
         .lp-ticker     { animation-duration: 20s; }
         .lp-cta-btns   { flex-direction: column !important; align-items: stretch !important; }
         .lp-cta-btns .lp-btn { justify-content: center; }

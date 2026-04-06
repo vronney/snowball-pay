@@ -1,11 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { Calculator, ArrowRight } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import BalanceOverTimeChart, { type ChartEntry } from '@/components/payoff/BalanceOverTimeChart';
 import type { PayoffResult } from '@/lib/snowball';
-
-const LOGIN_URL = '/auth/login?returnTo=/dashboard';
+import SavePlanModal from './SavePlanModal';
+import { track, Events } from '@/lib/analytics';
 
 interface ResultsPanelProps {
   planResult: PayoffResult | null;
@@ -24,6 +25,8 @@ export default function ResultsPanel({
   showMinimumsLine,
   timeStr,
 }: ResultsPanelProps) {
+  const [modalOpen, setModalOpen] = useState(false);
+
   if (!planResult) {
     return (
       <div
@@ -119,15 +122,26 @@ export default function ResultsPanel({
           Create a free account to track payments, log your actual balance each month,
           and watch your real progress vs the plan.
         </p>
-        <a
-          href={LOGIN_URL}
+        <button
+          onClick={() => {
+            track(Events.CALCULATOR_USED, { months: planResult.months });
+            setModalOpen(true);
+          }}
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition"
-          style={{ background: '#3b82f6', color: '#fff' }}
+          style={{ background: '#3b82f6', color: '#fff', border: 'none', cursor: 'pointer' }}
         >
           Save My Plan — It&apos;s Free
           <ArrowRight size={15} />
-        </a>
+        </button>
       </div>
+
+      {modalOpen && (
+        <SavePlanModal
+          onClose={() => setModalOpen(false)}
+          debtFreeDate={planResult.debtFreeDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          interestSaved={Math.round(interestSaved)}
+        />
+      )}
     </div>
   );
 }

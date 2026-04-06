@@ -5,6 +5,7 @@ import { useSaveIncome, useCreateExpense, useDeleteExpense } from '@/lib/hooks';
 import { Income, Expense, Debt } from '@/types';
 import { Calculator, Repeat, Plus, X, ChevronDown } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { track, Events } from '@/lib/analytics';
 
 interface IncomeTabProps {
   income: Income | null | undefined;
@@ -37,6 +38,7 @@ export default function IncomeTab({ income, expenses, debts, isLoading }: Income
   const handleIncomeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await saveIncome.mutateAsync({ monthlyTakeHome: takeHome, essentialExpenses: essential, extraPayment: 0 });
+    track(Events.INCOME_SAVED);
   };
 
   const handleAddRecurring = async (e: React.FormEvent) => {

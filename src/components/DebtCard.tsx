@@ -31,6 +31,7 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
   const [newBalance, setNewBalance] = useState(String(debt.balance));
   const [showPaidOffModal, setShowPaidOffModal] = useState(false);
   const [clearedAmount, setClearedAmount] = useState(0);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -188,14 +189,33 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
           >
             <Pencil size={15} />
           </button>
-          <button
-            onClick={onDelete}
-            className="p-2 rounded-lg hover:bg-red-500/10 cursor-pointer bg-transparent border-0 opacity-30 hover:opacity-80 transition"
-            aria-label="Delete debt"
-            style={{ color: '#f87171' }}
-          >
-            <Trash2 size={15} />
-          </button>
+          {confirmingDelete ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                className="p-1 rounded-lg cursor-pointer bg-transparent border-0 transition"
+                style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setConfirmingDelete(false); onDelete(); }}
+                className="p-1 rounded-lg cursor-pointer border-0 transition"
+                style={{ fontSize: '12px', background: '#ef4444', color: '#fff', fontWeight: 700, borderRadius: '6px', padding: '2px 10px' }}
+              >
+                Delete
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmingDelete(true)}
+              className="p-2 rounded-lg hover:bg-red-500/10 cursor-pointer bg-transparent border-0 opacity-30 hover:opacity-80 transition"
+              aria-label="Delete debt"
+              style={{ color: '#f87171' }}
+            >
+              <Trash2 size={15} />
+            </button>
+          )}
         </div>
       </div>
 

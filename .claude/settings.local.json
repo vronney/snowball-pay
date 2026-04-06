@@ -25,7 +25,9 @@
       "Bash(stripe --version)",
       "Read(//c/Users/ronne/scoop/apps/**)",
       "Read(//c/Program Files/**)",
-      "Read(//c/Users/ronne/**)"
+      "Read(//c/Users/ronne/**)",
+      "Bash(xargs grep:*)",
+      "Bash(npm list:*)"
     ],
     "deny": [
       "Bash(rm:*)",

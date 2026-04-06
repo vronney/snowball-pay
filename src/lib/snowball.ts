@@ -113,6 +113,32 @@ function calculatePayoffByMethod(
   const availableCashFlow = Math.max(0, monthlyIncome - totalEssential - totalMinimumPayments + extraPayment);
   const totalMonthlyPayment = totalMinimumPayments + availableCashFlow;
 
+  // Guard: if income is 0 or payment can't cover any principal, return a
+  // "stuck" result rather than running MAX_MONTHS of a no-progress loop.
+  if (monthlyIncome <= 0 || totalMonthlyPayment <= 0) {
+    const totalBalance = simDebts.reduce((sum, d) => sum + d.balance, 0);
+    const debtFreeDate = new Date();
+    debtFreeDate.setMonth(debtFreeDate.getMonth() + MAX_MONTHS);
+    return {
+      months: MAX_MONTHS,
+      years: Math.floor(MAX_MONTHS / 12),
+      totalInterestPaid: 0,
+      totalAmountPaid: 0,
+      debtFreeDate,
+      payoffSchedule: simDebts.map((d, i) => ({
+        debtId: d.id,
+        debtName: d.name,
+        monthPaidOff: MAX_MONTHS,
+        category: d.category,
+        interestPaid: 0,
+        originalBalance: d.originalBalance,
+        orderInPayoff: i,
+      })),
+      monthlyPayment: 0,
+      monthlyBalances: [{ month: 0, date: offsetDate(0), totalBalance }],
+    };
+  }
+
   let month = 0;
   let totalInterestPaid = 0;
   let snowballExtra = availableCashFlow;

@@ -1,7 +1,8 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, Suspense } from 'react';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
+import PostHogProvider from '@/components/analytics/PostHogProvider';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -15,7 +16,12 @@ const queryClient = new QueryClient({
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      {children}
+      {/* Suspense required because PostHogProvider uses useSearchParams */}
+      <Suspense fallback={null}>
+        <PostHogProvider>
+          {children}
+        </PostHogProvider>
+      </Suspense>
     </QueryClientProvider>
   );
 }

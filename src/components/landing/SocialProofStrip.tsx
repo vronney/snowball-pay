@@ -54,7 +54,7 @@ export default function SocialProofStrip() {
                 <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500 }}>{s.sub}</div>
               </div>
               {i < stats.length - 1 && (
-                <div style={{ width: '1px', height: '60px', background: 'linear-gradient(to bottom, transparent, rgba(15,23,42,0.1), transparent)', flexShrink: 0 }} />
+                <div className="lp-stat-divider" style={{ width: '1px', height: '60px', background: 'linear-gradient(to bottom, transparent, rgba(15,23,42,0.1), transparent)', flexShrink: 0 }} />
               )}
             </div>
           ))}

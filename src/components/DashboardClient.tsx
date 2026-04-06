@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import {
   useDebts,
   useIncome,
@@ -58,8 +58,19 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
   const [upgradeModal, setUpgradeModal] = useState<{ open: boolean; feature?: string }>({ open: false });
 
   const searchParams = useSearchParams();
+  const router = useRouter();
   const startCheckout = useStartCheckout();
   const queryClient = useQueryClient();
+
+  // Send Day 0 welcome email on first dashboard visit (fire-and-forget, idempotent)
+  useEffect(() => {
+    fetch('/api/email/lifecycle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'day0' }),
+    }).catch(() => { /* silent — never break the dashboard */ });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Auto-trigger checkout when landing from pricing page
   useEffect(() => {
@@ -133,6 +144,18 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
     () => expensesData?.expenses ?? [],
     [expensesData?.expenses],
   );
+
+  // Redirect to onboarding if setup is incomplete after data loads.
+  // Only fires once per mount so navigating back from onboarding doesn't loop.
+  const onboardingCheckedRef = useRef(false);
+  useEffect(() => {
+    if (onboardingCheckedRef.current) return;
+    if (debtsLoading || incomeLoading) return;
+    onboardingCheckedRef.current = true;
+    if (!income && debts.length === 0) {
+      router.replace('/onboarding');
+    }
+  }, [debtsLoading, incomeLoading, income, debts.length, router]);
 
   // Map debtId → paid record for this month (to suppress bell notifications)
   const paidThisMonth = useMemo(() => {

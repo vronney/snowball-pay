@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
+import { track, Events } from "@/lib/analytics";
 
 export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -105,6 +106,7 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
                   href="/auth/login?returnTo=/dashboard"
                   className="lp-btn lp-btn-primary"
                   style={{ padding: "9px 20px", fontSize: "14px" }}
+                  onClick={() => track(Events.SIGNUP_STARTED, { source: 'nav' })}
                 >
                   Get Started Free
                 </a>
@@ -218,7 +220,7 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
       </nav>
 
       <style>{`
-        @media (max-width: 720px) {
+        @media (max-width: 900px) {
           .lp-show-sm { display: flex !important; }
         }
       `}</style>

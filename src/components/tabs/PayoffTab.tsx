@@ -6,6 +6,8 @@ import { calculateDebtSnowball, calculateDebtAvalanche, calculateDebtCustom, typ
 import { useUpdateDebt, useAllSnapshots, useSaveIncome } from '@/lib/hooks';
 import { useActualBalanceMap } from '@/lib/hooks/useActualBalanceMap';
 import { Inbox } from 'lucide-react';
+import { track, Events } from '@/lib/analytics';
+import ShareDebtFreeCard from '@/components/dashboard/ShareDebtFreeCard';
 import AiRecommendations from '@/components/AiRecommendations';
 import StrategySelector from '@/components/payoff/StrategySelector';
 import CustomPriorityEditor from '@/components/payoff/CustomPriorityEditor';
@@ -28,7 +30,8 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
   // Lazy initializers read from income when it's already cached (e.g. returning
   // to this tab). This prevents the auto-save effect from firing with stale
   // initial-state values on remount and overwriting what was just loaded.
-  const [priorityOpen, setPriorityOpen] = useState(false);
+  const [priorityOpen, setPriorityOpen]   = useState(false);
+  const [shareCardOpen, setShareCardOpen] = useState(false);
   const [payoffMethod, setPayoffMethod] = useState<PayoffMethod>(
     () => (income?.payoffMethod as PayoffMethod) || 'snowball'
   );
@@ -46,6 +49,9 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
     accel: income?.accelerationAmount ?? null,
   });
   const { data: snapshotsData } = useAllSnapshots();
+
+  // Fire plan_generated once per session when a valid plan first appears.
+  const planTrackedRef = useRef(false);
 
   // Sync payoff preferences from DB when income record first loads.
   useEffect(() => {
@@ -97,6 +103,17 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
       ? calculateDebtCustom(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
       : calculateDebtSnowball(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra);
   }, [debts, income, expenses, payoffMethod, accelerationAmount]);
+
+  // Track plan_generated once per session when planResult first resolves.
+  useEffect(() => {
+    if (!planResult || planTrackedRef.current) return;
+    planTrackedRef.current = true;
+    track(Events.PLAN_GENERATED, {
+      method: payoffMethod,
+      debt_count: debts.length,
+      months: planResult.months,
+    });
+  }, [planResult, payoffMethod, debts.length]);
 
   if (isLoading) {
     return (
@@ -265,12 +282,40 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
         debts={debts}
         income={income}
         expenses={expenses}
-        availableCashFlow={availableCashFlow}
+        availableCashFlow={effectiveAcceleration}
         planMonths={planResult.months}
         totalInterestPaid={planResult.totalInterestPaid}
       />
 
       <StrategyExplanation payoffMethod={payoffMethod} />
+
+      {/* Share card trigger */}
+      <div style={{ textAlign: 'center', paddingBottom: '8px' }}>
+        <button
+          onClick={() => {
+            track(Events.SHARE_CARD_OPENED);
+            setShareCardOpen(true);
+          }}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: '8px',
+            padding: '10px 22px', borderRadius: '10px', cursor: 'pointer',
+            background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.2)',
+            color: '#2563eb', fontSize: '14px', fontWeight: 600,
+          }}
+        >
+          🎯 Share my debt-free date
+        </button>
+      </div>
+
+      {shareCardOpen && (
+        <ShareDebtFreeCard
+          debtFreeDate={planResult.debtFreeDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          interestSaved={Math.round(interestSavedVsMinimums)}
+          totalDebt={currentTotalDebt}
+          monthsRemaining={planResult.months}
+          onClose={() => setShareCardOpen(false)}
+        />
+      )}
     </section>
   );
 }
