@@ -18,6 +18,7 @@ import PayoffTimeline from '@/components/payoff/PayoffTimeline';
 import PayoffOrderList from '@/components/payoff/PayoffOrderList';
 import FocusDebtExplainer from '@/components/payoff/FocusDebtExplainer';
 import StrategyExplanation from '@/components/payoff/StrategyExplanation';
+import ReferralPrompt from '@/components/payoff/ReferralPrompt';
 
 interface PayoffTabProps {
   debts: Debt[];
@@ -288,6 +289,8 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
       />
 
       <StrategyExplanation payoffMethod={payoffMethod} />
+
+      <ReferralPrompt />
 
       {/* Share card trigger */}
       <div style={{ textAlign: 'center', paddingBottom: '8px' }}>

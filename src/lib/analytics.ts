@@ -55,4 +55,5 @@ export const Events = {
   PLAN_SAVED_EMAIL:  'plan_saved_email_captured',
   SHARE_CARD_OPENED: 'share_card_opened',
   SHARE_CARD_DOWNLOADED: 'share_card_downloaded',
+  REFERRAL_LINK_COPIED: 'referral_link_copied',
 } as const;

@@ -11,6 +11,7 @@ const PreferencesSchema = z.object({
   shockMode:        z.enum(['none', 'income-10', 'expense-500']).optional(),
   notifyDueDates:   z.boolean().optional(),
   notifyLowBuffer:  z.boolean().optional(),
+  emailOptOut:      z.boolean().optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -30,6 +31,7 @@ export async function GET(request: NextRequest) {
         shockMode: 'none',
         notifyDueDates: true,
         notifyLowBuffer: true,
+        emailOptOut: false,
       },
     });
   } catch (error) {

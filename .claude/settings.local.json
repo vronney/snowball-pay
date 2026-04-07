@@ -27,7 +27,9 @@
       "Read(//c/Program Files/**)",
       "Read(//c/Users/ronne/**)",
       "Bash(xargs grep:*)",
-      "Bash(npm list:*)"
+      "Bash(npm list:*)",
+      "Bash(node:*)",
+      "Bash(grep -r \"mask_all\\\\|maskAll\\\\|session_recording\\\\|disable_session\" node_modules/posthog-js/dist/*.d.ts)"
     ],
     "deny": [
       "Bash(rm:*)",

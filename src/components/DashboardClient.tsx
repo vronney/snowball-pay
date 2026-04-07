@@ -164,6 +164,8 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
     return map;
   }, [paymentsData]);
 
+  const actionChecks = settingsData?.preferences?.actionChecks ?? {};
+
   const { notifications } = useNotifications({
     debts,
     income,
@@ -173,6 +175,8 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
     paidThisMonth,
     notifyDueDates: settingsData?.preferences?.notifyDueDates ?? true,
     notifyLowBuffer: settingsData?.preferences?.notifyLowBuffer ?? true,
+    notifyMilestones: actionChecks.milestones ?? true,
+    notifyBudgetChanges: actionChecks.budgetChanges ?? false,
   });
 
   const initials = user

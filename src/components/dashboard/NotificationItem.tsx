@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, X } from "lucide-react";
 import { type Notification, type Tab } from "./types";
 
 const today = new Date();
@@ -39,6 +39,7 @@ interface NotificationItemProps {
   onNavigate: (tab: Tab, debtId?: string) => void;
   onMarkPaid: (debtId: string, amount: number, year: number, month: number) => void;
   onClose: () => void;
+  onDismiss: (id: string) => void;
 }
 
 export default function NotificationItem({
@@ -47,6 +48,7 @@ export default function NotificationItem({
   onNavigate,
   onMarkPaid,
   onClose,
+  onDismiss,
 }: NotificationItemProps) {
   const Icon = notif.icon;
   const s = getNotifStyle(notif.type, notif.daysUntil);
@@ -62,12 +64,38 @@ export default function NotificationItem({
         border: `1px solid ${s.border}`,
         background: s.bg,
         marginBottom: "6px",
+        position: "relative",
       }}
     >
+      {/* Dismiss button */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onDismiss(notif.id); }}
+        aria-label="Dismiss notification"
+        style={{
+          position: "absolute",
+          top: "6px",
+          right: "6px",
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          color: "#94a3b8",
+          padding: "2px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: "4px",
+          lineHeight: 1,
+        }}
+      >
+        <X size={11} />
+      </button>
+
       <button
         type="button"
         onClick={(e) => {
           e.stopPropagation();
+          onDismiss(notif.id);
           if (notif.tab) onNavigate(notif.tab, notif.debtId);
           onClose();
         }}
@@ -124,6 +152,7 @@ export default function NotificationItem({
           onClick={(e) => {
             e.stopPropagation();
             onMarkPaid(notif.debtId!, notif.debtAmount ?? 0, today.getFullYear(), today.getMonth());
+            onDismiss(notif.id);
           }}
           style={{
             display: "flex",

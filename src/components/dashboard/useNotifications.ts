@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { AlertTriangle, CalendarClock, ShieldAlert } from "lucide-react";
+import { AlertTriangle, CalendarClock, ShieldAlert, Trophy, TrendingDown } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
 import { type Notification } from "./types";
 
-const today = new Date();
+const MILESTONE_THRESHOLDS = [50_000, 25_000, 10_000, 5_000, 1_000];
 
 interface UseNotificationsParams {
   debts: Debt[];
@@ -14,6 +14,8 @@ interface UseNotificationsParams {
   paidThisMonth: Map<string, string>;
   notifyDueDates: boolean;
   notifyLowBuffer: boolean;
+  notifyMilestones: boolean;
+  notifyBudgetChanges: boolean;
 }
 
 export function useNotifications({
@@ -25,8 +27,11 @@ export function useNotifications({
   paidThisMonth,
   notifyDueDates,
   notifyLowBuffer,
+  notifyMilestones,
+  notifyBudgetChanges,
 }: UseNotificationsParams) {
   const notifications = useMemo((): Notification[] => {
+    const today = new Date();
     const dueDateItems: Notification[] = [];
     const otherItems: Notification[] = [];
 
@@ -106,7 +111,54 @@ export function useNotifications({
       }
     }
 
-    // 3. No income set yet
+    // 3. Milestone celebrations
+    if (notifyMilestones && debts.length > 0) {
+      const totalRemaining = debts.reduce((s, d) => s + d.balance, 0);
+      const paidOffDebt = debts.find((d) => d.balance <= 0);
+
+      if (paidOffDebt) {
+        otherItems.push({
+          id: `milestone-paidoff-${paidOffDebt.id}`,
+          type: "info",
+          icon: Trophy,
+          title: `${paidOffDebt.name} is paid off!`,
+          body: "Congratulations — one debt down. Keep the snowball rolling.",
+          tab: "plan",
+        });
+      } else {
+        const crossed = MILESTONE_THRESHOLDS.find((t) => totalRemaining <= t);
+        if (crossed) {
+          otherItems.push({
+            id: `milestone-under-${crossed}`,
+            type: "info",
+            icon: Trophy,
+            title: `Under $${(crossed / 1000).toFixed(0)}k remaining!`,
+            body: `Total debt is now $${Math.round(totalRemaining).toLocaleString()}. You're making real progress.`,
+            tab: "plan",
+          });
+        }
+      }
+    }
+
+    // 4. Budget change alerts — flag when expenses + minimums exceed take-home
+    if (notifyBudgetChanges && income) {
+      const recurringTotal = expenses.reduce((s, e) => s + e.amount, 0);
+      const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);
+      const shortfall =
+        income.essentialExpenses + recurringTotal + totalMin - income.monthlyTakeHome;
+      if (shortfall > 0) {
+        otherItems.push({
+          id: "budget-shortfall",
+          type: "urgent",
+          icon: TrendingDown,
+          title: "Budget shortfall detected",
+          body: `Expenses and minimums exceed take-home by $${Math.round(shortfall).toLocaleString()}. Review your budget.`,
+          tab: "income",
+        });
+      }
+    }
+
+    // 5. No income set yet
     if (!income && !incomeLoading) {
       otherItems.push({
         id: "no-income",
@@ -118,7 +170,7 @@ export function useNotifications({
       });
     }
 
-    // 4. No debts yet
+    // 6. No debts yet
     if (debts.length === 0 && !debtsLoading) {
       otherItems.push({
         id: "no-debts",
@@ -140,6 +192,8 @@ export function useNotifications({
     paidThisMonth,
     notifyDueDates,
     notifyLowBuffer,
+    notifyMilestones,
+    notifyBudgetChanges,
   ]);
 
   const urgentCount = notifications.filter((n) => n.type === "urgent").length;

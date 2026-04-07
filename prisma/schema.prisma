@@ -49,6 +49,7 @@ model UserPreferences {
   shockMode         String   @default("none")
   notifyDueDates    Boolean  @default(true)
   notifyLowBuffer   Boolean  @default(true)
+  emailOptOut       Boolean  @default(false)
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

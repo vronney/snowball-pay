@@ -24,43 +24,43 @@ export default function ShareDebtFreeCard({
   const [busy, setBusy]       = useState(false);
   const [copied, setCopied]   = useState(false);
 
-  async function captureCard(): Promise<HTMLCanvasElement | null> {
-    if (!cardRef.current) return null;
-    const html2canvas = (await import('html2canvas')).default;
-    return html2canvas(cardRef.current, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: null,
-      logging: false,
-    });
-  }
-
   async function handleDownload() {
+    if (!cardRef.current) return;
     setBusy(true);
     track(Events.SHARE_CARD_DOWNLOADED);
     try {
-      const canvas = await captureCard();
-      if (!canvas) return;
+      const { toBlob } = await import('html-to-image');
+      const blob = await toBlob(cardRef.current, { pixelRatio: 2 });
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.download = 'my-debt-free-plan.png';
-      link.href = canvas.toDataURL('image/png');
+      link.href = url;
+      document.body.appendChild(link);
       link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
     } finally {
       setBusy(false);
     }
   }
 
   async function handleCopy() {
+    if (!cardRef.current) return;
     setBusy(true);
     try {
-      const canvas = await captureCard();
-      if (!canvas) return;
-      canvas.toBlob(async (blob) => {
-        if (!blob) return;
-        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-      }, 'image/png');
+      const { toBlob } = await import('html-to-image');
+      // Pass the Promise directly into ClipboardItem so Chrome keeps the
+      // user-gesture context alive while the image is being generated.
+      const blobPromise = toBlob(cardRef.current, { pixelRatio: 2 }).then((b) => {
+        if (!b) throw new Error('Image capture failed');
+        return b;
+      });
+      await navigator.clipboard.write([
+        new ClipboardItem({ 'image/png': blobPromise }),
+      ]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
     } finally {
       setBusy(false);
     }

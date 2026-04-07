@@ -45,7 +45,10 @@ export async function GET(request: NextRequest) {
   const day2End   = new Date(now); day2End.setDate(day2End.getDate() - 2); day2End.setHours(23, 59, 59, 999);
 
   const day2Users = await prisma.user.findMany({
-    where: { createdAt: { gte: day2Start, lte: day2End } },
+    where: {
+      createdAt: { gte: day2Start, lte: day2End },
+      OR: [{ preferences: null }, { preferences: { emailOptOut: false } }],
+    },
     include: {
       preferences: true,
       debts: { select: { id: true } },
@@ -90,8 +93,9 @@ export async function GET(request: NextRequest) {
   const day5Users = await prisma.user.findMany({
     where: {
       createdAt: { gte: day5Start, lte: day5End },
-      income: { isNot: null },
-      debts: { some: {} },
+      income:    { isNot: null },
+      debts:     { some: {} },
+      OR: [{ preferences: null }, { preferences: { emailOptOut: false } }],
     },
     include: {
       preferences: true,
@@ -151,8 +155,9 @@ export async function GET(request: NextRequest) {
   const day7Users = await prisma.user.findMany({
     where: {
       createdAt: { gte: day7Start, lte: day7End },
-      income: { isNot: null },
-      debts: { some: {} },
+      income:    { isNot: null },
+      debts:     { some: {} },
+      OR: [{ preferences: null }, { preferences: { emailOptOut: false } }],
     },
     include: {
       preferences: true,

@@ -1,9 +1,28 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bell, CheckCircle2 } from "lucide-react";
+import { Bell, CheckCircle2, X } from "lucide-react";
 import { type Notification, type Tab } from "./types";
 import NotificationItem from "./NotificationItem";
+
+const STORAGE_KEY = "sp_dismissed_notifs";
+
+function loadDismissed(): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDismissed(ids: Set<string>): void {
+  try {
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
+  } catch {
+    // sessionStorage unavailable — degrade silently
+  }
+}
 
 interface NotificationPanelProps {
   notifications: Notification[];
@@ -19,10 +38,30 @@ export default function NotificationPanel({
   tabLabels,
 }: NotificationPanelProps) {
   const [notifOpen, setNotifOpen] = useState(false);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => loadDismissed());
   const notifRef = useRef<HTMLDivElement>(null);
 
-  const urgentCount = notifications.filter((n) => n.type === "urgent").length;
-  const badgeCount = notifications.filter((n) => n.type !== "info").length;
+  const visible = notifications.filter((n) => !dismissed.has(n.id));
+
+  const urgentCount  = visible.filter((n) => n.type === "urgent").length;
+  const warningCount = visible.filter((n) => n.type === "warning").length;
+  const badgeCount   = visible.length;
+
+  const badgeColor = urgentCount > 0 ? "#ef4444" : warningCount > 0 ? "#f59e0b" : "#2563eb";
+
+  function dismiss(id: string) {
+    setDismissed((prev) => {
+      const next = new Set(prev).add(id);
+      saveDismissed(next);
+      return next;
+    });
+  }
+
+  function dismissAll() {
+    const next = new Set(notifications.map((n) => n.id));
+    saveDismissed(next);
+    setDismissed(next);
+  }
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -64,7 +103,7 @@ export default function NotificationPanel({
               minWidth: "17px",
               height: "17px",
               borderRadius: "999px",
-              background: urgentCount > 0 ? "#ef4444" : "#f59e0b",
+              background: badgeColor,
               color: "#fff",
               fontSize: "10px",
               fontWeight: 700,
@@ -108,24 +147,44 @@ export default function NotificationPanel({
             <span style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a" }}>
               Notifications
             </span>
-            {badgeCount > 0 && (
-              <span
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 600,
-                  color: "#64748b",
-                  background: "#f1f5f9",
-                  borderRadius: "999px",
-                  padding: "2px 8px",
-                }}
-              >
-                {badgeCount} alert{badgeCount !== 1 ? "s" : ""}
-              </span>
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              {badgeCount > 0 && (
+                <span
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    color: "#64748b",
+                    background: "#f1f5f9",
+                    borderRadius: "999px",
+                    padding: "2px 8px",
+                  }}
+                >
+                  {badgeCount} alert{badgeCount !== 1 ? "s" : ""}
+                </span>
+              )}
+              {visible.length > 0 && (
+                <button
+                  type="button"
+                  onClick={dismissAll}
+                  style={{
+                    fontSize: "11px",
+                    fontWeight: 600,
+                    color: "#94a3b8",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    padding: "2px 4px",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Clear all
+                </button>
+              )}
+            </div>
           </div>
 
           <div style={{ maxHeight: "380px", overflowY: "auto" }}>
-            {notifications.length === 0 ? (
+            {visible.length === 0 ? (
               <div style={{ padding: "28px 16px", textAlign: "center" }}>
                 <CheckCircle2 size={28} style={{ color: "#22c55e", margin: "0 auto 8px" }} />
                 <p style={{ fontSize: "13px", fontWeight: 600, color: "#0f172a", margin: "0 0 4px" }}>
@@ -137,7 +196,7 @@ export default function NotificationPanel({
               </div>
             ) : (
               <div style={{ padding: "8px" }}>
-                {notifications.map((notif) => (
+                {visible.map((notif) => (
                   <NotificationItem
                     key={notif.id}
                     notif={notif}
@@ -145,6 +204,7 @@ export default function NotificationPanel({
                     onNavigate={onNavigate}
                     onMarkPaid={onMarkPaid}
                     onClose={() => setNotifOpen(false)}
+                    onDismiss={dismiss}
                   />
                 ))}
               </div>

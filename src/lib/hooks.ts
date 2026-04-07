@@ -287,6 +287,7 @@ export interface UserPreferences {
   shockMode: string;
   notifyDueDates: boolean;
   notifyLowBuffer: boolean;
+  emailOptOut: boolean;
 }
 
 export function useUserSettings() {
