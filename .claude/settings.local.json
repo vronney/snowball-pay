@@ -29,7 +29,12 @@
       "Bash(xargs grep:*)",
       "Bash(npm list:*)",
       "Bash(node:*)",
-      "Bash(grep -r \"mask_all\\\\|maskAll\\\\|session_recording\\\\|disable_session\" node_modules/posthog-js/dist/*.d.ts)"
+      "Bash(grep -r \"mask_all\\\\|maskAll\\\\|session_recording\\\\|disable_session\" node_modules/posthog-js/dist/*.d.ts)",
+      "Bash(gh repo:*)",
+      "Bash(npm audit:*)",
+      "Bash(npm run:*)",
+      "Bash(python3 -c \"import sys, json; data = json.load\\(sys.stdin\\); vulnerabilities = data.get\\('vulnerabilities', {}\\); axios_vulns = vulnerabilities.get\\('axios', {}\\); print\\('axios vulnerabilities:', axios_vulns if axios_vulns else 'None'\\)\")",
+      "Bash(python3:*)"
     ],
     "deny": [
       "Bash(rm:*)",
