@@ -231,7 +231,7 @@ export async function POST(request: NextRequest) {
     return upgradeRequired('Document import');
   }
 
-  if (!limits.documentUpload(auth.user.id)) {
+  if (!(await limits.documentUpload(auth.user.id))) {
     return NextResponse.json(
       { error: 'Too many uploads. Please wait before uploading more documents.' },
       { status: 429 }

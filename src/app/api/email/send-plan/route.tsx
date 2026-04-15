@@ -3,7 +3,7 @@ import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
-import { rateLimit } from '@/lib/rateLimit';
+import { limits } from '@/lib/rateLimit';
 import { PayoffPlanEmail } from '@/emails/PayoffPlanEmail';
 import { fetchEmailContent } from '@/lib/emailContent';
 import {
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   if (!auth.valid || !auth.user.email) return unauthorized();
 
   // 1 email per user per 10 minutes
-  if (!rateLimit(`email-plan:${auth.user.id}`, 1, 10 * 60 * 1000)) {
+  if (!(await limits.emailPlan(auth.user.id))) {
     return NextResponse.json(
       { error: 'Please wait before sending again' },
       { status: 429 },

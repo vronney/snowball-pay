@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     return upgradeRequired('AI recommendations');
   }
 
-  if (!limits.recommendations(auth.user.id)) {
+  if (!(await limits.recommendations(auth.user.id))) {
     return NextResponse.json(
       { error: 'Too many requests. Please wait before generating new recommendations.' },
       { status: 429 }
