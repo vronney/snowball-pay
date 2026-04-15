@@ -1,7 +1,7 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 
 function secret(): string {
-  const s = process.env.UNSUBSCRIBE_SECRET ?? process.env.AUTH0_SECRET;
+  const s = process.env.UNSUBSCRIBE_SECRET;
   if (!s) throw new Error('UNSUBSCRIBE_SECRET env var is not set');
   return s;
 }
