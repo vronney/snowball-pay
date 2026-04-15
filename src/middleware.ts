@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth0 } from './lib/auth0';
+import { getAllowedOrigin } from '@/lib/corsOrigin';
 
 // Paths probed by automated WordPress/CMS scanners — return 404 immediately.
 const SCANNER_PATH_PREFIXES = [
@@ -33,12 +34,6 @@ function isRateLimited(ip: string): boolean {
   return false;
 }
 
-// Only the app's own origin is allowed to call the API.
-// APP_BASE_URL should be set in your environment (e.g. https://yourdomain.com).
-// Falls back to the request's own origin so local dev always works.
-function getAllowedOrigin(request: NextRequest): string {
-  return process.env.APP_BASE_URL ?? request.nextUrl.origin;
-}
 
 function addCorsHeaders(response: NextResponse, request: NextRequest): NextResponse {
   const allowedOrigin = getAllowedOrigin(request);
