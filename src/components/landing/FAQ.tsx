@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 
+const supportComposeUrl =
+  "https://mail.google.com/mail/?view=cm&fs=1&to=support@getsnowballpay.com&su=SnowballPay%20Support";
+
 const faqs = [
   {
     q: "What is the Debt Snowball method?",
@@ -155,7 +158,9 @@ export default function FAQ() {
         >
           Still have questions?{" "}
           <a
-            href="mailto:support@getsnowballpay.com"
+            href={supportComposeUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             style={{
               color: "#2563eb",
               textDecoration: "none",

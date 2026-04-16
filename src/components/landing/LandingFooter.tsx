@@ -11,7 +11,10 @@ const footerLinks = {
   Company: [
     { label: "Privacy Policy", href: "/privacy" },
     { label: "Terms of Service", href: "/terms" },
-    { label: "Contact", href: "mailto:support@getsnowballpay.com" },
+    {
+      label: "Contact",
+      href: "https://mail.google.com/mail/?view=cm&fs=1&to=support@getsnowballpay.com&su=SnowballPay%20Support",
+    },
   ],
   Resources: [
     { label: "Snowball vs Avalanche", href: "/learn" },
