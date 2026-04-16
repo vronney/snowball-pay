@@ -477,6 +477,33 @@ input[type="number"] {
   .lp-cta-btns .lp-btn { justify-content: center; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .lp-f1,
+  .lp-f2,
+  .lp-f3,
+  .lp-f4,
+  .lp-f5,
+  .lp-f6,
+  .lp-float,
+  .lp-float2,
+  .lp-float3,
+  .lp-ticker,
+  .lp-live-dot,
+  .lp-live-dot::after,
+  .lp-bar,
+  .lp-chart-line,
+  .lp-shimmer::before {
+    animation: none !important;
+  }
+
+  .lp-card-hover,
+  .lp-quote-card,
+  .lp-pricing-card,
+  .lp-btn {
+    transition: none !important;
+  }
+}
+
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;

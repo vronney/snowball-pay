@@ -9,7 +9,7 @@ const solutions = [
   { color: '#2563eb', text: 'One clear, prioritized payoff plan built around your situation' },
   { color: '#059669', text: 'Live progress tracking that makes every payment feel meaningful' },
   { color: '#7c3aed', text: 'AI recommendations that adapt as your finances change' },
-  { color: '#d97706', text: 'A proven method used by 10,000+ people to reach debt-free' },
+  { color: '#d97706', text: 'A practical system you can follow even with multiple debts and changing budgets' },
 ];
 
 export default function ProblemSolution() {

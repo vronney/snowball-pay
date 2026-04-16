@@ -1,15 +1,15 @@
 const stats = [
-  { value: '10,000+', label: 'Active Users',             sub: 'and growing daily',          color: '#2563eb' },
-  { value: '$14,200', label: 'Avg. Interest Saved',       sub: 'per user lifetime',           color: '#059669' },
-  { value: '3.2 yrs', label: 'Avg. Time to Debt-Free',   sub: 'vs. 8.4 yrs minimums only',  color: '#7c3aed' },
-  { value: '97%',     label: 'User Satisfaction',         sub: 'from post-payoff surveys',    color: '#d97706' },
+  { value: 'Clear Plan',     label: 'Prioritized Payoff Order', sub: 'know what to pay next',            color: '#2563eb' },
+  { value: 'Built to Adapt', label: 'Scenario Modeling',        sub: 'adjust when life changes',         color: '#059669' },
+  { value: 'Month by Month', label: 'Timeline Visibility',       sub: 'see your projected debt-free date', color: '#7c3aed' },
+  { value: 'Stay Consistent', label: 'Progress Tracking',        sub: 'watch balances move every payment', color: '#d97706' },
 ];
 
 const BRANDS = [
-  'Forbes', 'TechCrunch', 'Product Hunt', 'Hacker News',
-  'Business Insider', 'The Motley Fool', 'NerdWallet', 'Lifehacker',
-  'Forbes', 'TechCrunch', 'Product Hunt', 'Hacker News',
-  'Business Insider', 'The Motley Fool', 'NerdWallet', 'Lifehacker',
+  'Debt Snowball Strategy', 'Debt Avalanche Comparison', 'Credit Card Payoff Plans', 'Personal Loan Planning',
+  'Monthly Payment Calendar', 'Interest Impact Visibility', 'Progress Milestones', 'Debt-Free Date Forecast',
+  'Debt Snowball Strategy', 'Debt Avalanche Comparison', 'Credit Card Payoff Plans', 'Personal Loan Planning',
+  'Monthly Payment Calendar', 'Interest Impact Visibility', 'Progress Milestones', 'Debt-Free Date Forecast',
 ];
 
 export default function SocialProofStrip() {
@@ -22,7 +22,7 @@ export default function SocialProofStrip() {
 
         <div style={{ display: 'flex', alignItems: 'center', paddingLeft: '140px' }}>
           <div style={{ flexShrink: 0, paddingRight: '48px', fontSize: '9px', fontWeight: 800, letterSpacing: '0.16em', color: '#cbd5e1', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
-            As seen in
+            What you get
           </div>
           <div style={{ overflow: 'hidden', flex: 1 }}>
             <div className="lp-ticker">

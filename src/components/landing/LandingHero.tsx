@@ -1,25 +1,6 @@
-"use client";
+﻿"use client";
 
-import { useState, useEffect } from "react";
 import { track, Events } from "@/lib/analytics";
-
-function useCountUp(target: number, duration = 1800, delay = 300) {
-  const [val, setVal] = useState(0);
-  useEffect(() => {
-    const t = setTimeout(() => {
-      const start = performance.now();
-      const tick = (now: number) => {
-        const p = Math.min((now - start) / duration, 1);
-        const eased = 1 - Math.pow(1 - p, 3);
-        setVal(Math.round(eased * target));
-        if (p < 1) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    }, delay);
-    return () => clearTimeout(t);
-  }, [target, duration, delay]);
-  return val;
-}
 
 const debtRows = [
   {
@@ -49,9 +30,6 @@ const debtRows = [
 ];
 
 export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
-  const users = useCountUp(10247, 1800, 400);
-  const interestSaved = useCountUp(14200, 2000, 600);
-
   return (
     <section
       className="lp-hero-bg"
@@ -103,7 +81,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
           className="lp-hero-cols"
           style={{ display: "flex", alignItems: "center", gap: "64px" }}
         >
-          {/* ── Left: Copy ─────────────────────────────── */}
+          {/* Left: Copy */}
           <div style={{ flex: "1 1 500px", maxWidth: "560px" }}>
             {/* Eyebrow pill */}
             <div
@@ -155,7 +133,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
               }}
             >
               Add your debts. Pick your strategy. Get a clear, month-by-month
-              payoff plan — and the confidence to follow through.
+              payoff plan - and the confidence to follow through.
             </p>
 
             {/* CTA row */}
@@ -174,7 +152,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                   className="lp-btn lp-btn-primary"
                   style={{ fontSize: "16px", padding: "15px 34px" }}
                 >
-                  Open Dashboard →
+                  Open Dashboard
                 </a>
               ) : (
                 <>
@@ -184,14 +162,14 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                     style={{ fontSize: "16px", padding: "15px 34px" }}
                     onClick={() => track(Events.SIGNUP_STARTED, { source: 'hero_primary' })}
                   >
-                    Start Free — No Card Needed
+                    Start Free - No Card Needed
                   </a>
                   <a
                     href="#how-it-works"
                     className="lp-btn lp-btn-ghost"
                     style={{ fontSize: "15px" }}
                   >
-                    See How It Works ↓
+                    See How It Works
                   </a>
                 </>
               )}
@@ -203,12 +181,9 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
               style={{ display: "flex", alignItems: "center" }}
             >
               {[
-                { val: `${users.toLocaleString()}+`, label: "Active Users" },
-                {
-                  val: `$${Math.round(interestSaved / 1000)}k+`,
-                  label: "Avg. Interest Saved",
-                },
-                { val: "3.2yr", label: "Avg. Payoff Time" },
+                { val: "Clear Plan", label: "Prioritized payoff order" },
+                { val: "Track Progress", label: "See every payment move the plan" },
+                { val: "Adjust Anytime", label: "Update your plan as life changes" },
               ].map((s, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center" }}>
                   {i > 0 && (
@@ -250,7 +225,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
             </div>
           </div>
 
-          {/* ── Right: Dashboard visual ─────────────── */}
+          {/* Right: Dashboard visual */}
           <div
             className="lp-hero-right lp-f6"
             style={{
@@ -401,7 +376,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                       fontWeight: 700,
                     }}
                   >
-                    ↘ On track
+On track
                   </span>
                 </div>
                 <svg
@@ -573,12 +548,12 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                     border: "1px solid rgba(37,99,235,0.15)",
                   }}
                 >
-                  $340 on Apr 1
+                  $340 monthly target
                 </span>
               </div>
             </div>
 
-            {/* Floating badge — interest saved */}
+            {/* Floating badge - interest impact */}
             <div
               className="lp-float"
               style={{
@@ -603,7 +578,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                   marginBottom: "4px",
                 }}
               >
-                Interest Saved
+                Interest Impact
               </p>
               <p
                 style={{
@@ -613,16 +588,16 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                   letterSpacing: "-0.03em",
                 }}
               >
-                +$4,280
+                Trending Down
               </p>
               <p
                 style={{ fontSize: "10px", color: "#6ee7b7", marginTop: "2px" }}
               >
-                so far this year
+                as balances decrease
               </p>
             </div>
 
-            {/* Floating badge — payment streak */}
+            {/* Floating badge - payment streak */}
             <div
               className="lp-float2"
               style={{
@@ -662,7 +637,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
               <p
                 style={{ fontSize: "10px", color: "#a78bfa", marginTop: "2px" }}
               >
-                on-time payments ✓
+                on-time payments
               </p>
             </div>
           </div>
@@ -671,3 +646,4 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
     </section>
   );
 }
+
