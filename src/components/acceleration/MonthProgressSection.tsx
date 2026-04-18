@@ -34,10 +34,14 @@ export default function MonthProgressSection({
   pctColor,
   now,
 }: MonthProgressSectionProps) {
+  const hasCurrentMonth = monthlyData.some(
+    ({ year, month }) => now.getFullYear() === year && now.getMonth() === month
+  );
+
   return (
     <div>
       {/* Month pills */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: hasCurrentMonth ? '4px' : '12px' }}>
         {monthlyData.map(({ year, month, actualExtra, onTrack }) => {
           const isCurrent  = now.getFullYear() === year && now.getMonth() === month;
           const hasActivity = actualExtra > 0;
@@ -45,19 +49,21 @@ export default function MonthProgressSection({
           return (
             <div
               key={`${year}-${month}`}
-              style={{ display: 'flex', alignItems: 'center', gap: '5px', background: '#f8fafc', border: '1px solid rgba(15,23,42,0.07)', borderRadius: '7px', padding: '5px 9px', fontSize: '12px', color: '#64748b', fontWeight: 500 }}
+              style={{ display: 'flex', alignItems: 'center', gap: '5px', background: isCurrent ? '#f0f9ff' : '#f8fafc', border: `1px solid ${isCurrent ? 'rgba(37,99,235,0.12)' : 'rgba(15,23,42,0.07)'}`, borderRadius: '7px', padding: '5px 9px', fontSize: '12px', color: '#64748b', fontWeight: 500 }}
             >
               <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
-              <span style={{ color: '#64748b' }}>
+              <span style={{ color: isCurrent ? '#2563eb' : '#64748b', fontWeight: isCurrent ? 600 : 500 }}>
                 {MONTH_NAMES[month]}
-                {isCurrent && <span style={{ color: '#cbd5e1', fontSize: '10px' }}>*</span>}
               </span>
               <span style={{ fontWeight: 700, color: '#0f172a' }}>{fmt$(actualExtra)}</span>
             </div>
           );
         })}
-        <span style={{ fontSize: '10px', color: '#cbd5e1', alignSelf: 'center' }}>* partial month</span>
       </div>
+      {hasCurrentMonth && (
+        <p style={{ fontSize: '10px', color: '#cbd5e1', margin: '0 0 12px' }}>* {MONTH_NAMES[now.getMonth()]} is a partial month</p>
+      )}
+
 
       {/* Label row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>

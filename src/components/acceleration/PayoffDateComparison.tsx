@@ -3,7 +3,8 @@
 import { Target, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+  // Force UTC so "Oct 1 UTC" doesn't render as "Sep" in US timezones
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
 interface PayoffDateComparisonProps {

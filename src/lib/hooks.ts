@@ -217,6 +217,7 @@ export interface AiRecommendation {
   title: string;
   body: string;
   action: string;
+  why?: string;
 }
 
 export interface RecommendationCache {

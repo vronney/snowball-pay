@@ -77,7 +77,6 @@ const featured = [
 const compact = [
   { accent: '#7c3aed', bg: 'rgba(124,58,237,0.06)', border: 'rgba(124,58,237,0.12)', num: '03', Icon: IconBrain,  title: 'AI Recommendations', desc: 'Personalized payoff tips based on your income, goals, and behavior patterns.' },
   { accent: '#0891b2', bg: 'rgba(8,145,178,0.06)',  border: 'rgba(8,145,178,0.12)', num: '04', Icon: IconLayers, title: 'Multi-Debt Tracking',  desc: 'Credit cards, car loans, student debt — every balance organized in one clean dashboard.' },
-  { accent: '#d97706', bg: 'rgba(217,119,6,0.06)',  border: 'rgba(217,119,6,0.12)', num: '05', Icon: IconFileUp, title: 'Document Import',      desc: 'Upload bank statements or CSV files to auto-fill your debts in seconds.' },
   { accent: '#db2777', bg: 'rgba(219,39,119,0.06)', border: 'rgba(219,39,119,0.12)',num: '06', Icon: IconCalc,   title: 'Interest Calculator',   desc: "See exactly how much interest you'll save with each extra payment you make." },
 ];
 

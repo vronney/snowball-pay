@@ -15,9 +15,11 @@ import { formatCurrency } from '@/lib/utils';
 
 export type ChartEntry = {
   date: string;
+  month: number;
   totalBalance: number | undefined;
   minimumsBalance: number | undefined;
   actualBalance: number | undefined;
+  avalancheBalance: number | undefined;
 };
 
 interface BalanceOverTimeChartProps {
@@ -25,6 +27,10 @@ interface BalanceOverTimeChartProps {
   effectiveAcceleration: number;
   showMinimumsLine: boolean;
   hasRealSnapshots: boolean;
+  showAvalancheLine?: boolean;
+  totalPlanMonths?: number;
+  strategyLabel?: string;
+  comparisonLabel?: string;
 }
 
 export default function BalanceOverTimeChart({
@@ -32,6 +38,10 @@ export default function BalanceOverTimeChart({
   effectiveAcceleration,
   showMinimumsLine,
   hasRealSnapshots,
+  showAvalancheLine = false,
+  totalPlanMonths,
+  strategyLabel = 'Snowball',
+  comparisonLabel = 'Avalanche',
 }: BalanceOverTimeChartProps) {
   const hasAnyActual = true; // always render — starts at current debt, extends as payments are logged
 
@@ -41,7 +51,9 @@ export default function BalanceOverTimeChart({
         <h2 className="font-semibold text-base mb-1">Balance Over Time</h2>
         <p className="text-xs" style={{ color: '#64748b' }}>
           Shows your total debt balance across all debts over time.{' '}
-          {hasRealSnapshots
+          {showAvalancheLine
+            ? 'Blue = your selected strategy. Purple dashed = comparison strategy. See which method pays off debt faster for your situation.'
+            : hasRealSnapshots
             ? "Green dashed = what you actually owe each month (recorded when you log a payment). Blue = your plan. Below the blue line means you're ahead of schedule."
             : 'Green dashed starts at your current balance. Log a payment on any debt card to see how your actual progress tracks against the plan.'}
         </p>
@@ -64,35 +76,48 @@ export default function BalanceOverTimeChart({
               tickFormatter={(value: number) => formatCurrency(value)}
             />
             <Tooltip
-              formatter={(value: number, name: string, props: { payload?: { totalBalance?: number } }) => {
+              formatter={(value: number, name: string, props: { payload?: { totalBalance?: number; month?: number } }) => {
                 if (name === 'actualBalance') {
                   const projected = props.payload?.totalBalance;
                   const diff = projected != null ? projected - value : null;
                   const diffLabel = diff != null
-                    ? diff > 0 ? ` (${formatCurrency(diff)} ahead of plan)` : diff < 0 ? ` (${formatCurrency(Math.abs(diff))} behind plan)` : ' (on track)'
+                    ? diff > 0 ? ` (${formatCurrency(diff)} ahead)` : diff < 0 ? ` (${formatCurrency(Math.abs(diff))} behind)` : ' (on track)'
                     : '';
                   return [`${formatCurrency(value)}${diffLabel}`, 'Actual Balance'];
                 }
-                if (name === 'totalBalance') return [formatCurrency(value), `Plan (+${formatCurrency(effectiveAcceleration)}/mo extra)`];
+                if (name === 'totalBalance') return [formatCurrency(value), `${strategyLabel} (+${formatCurrency(effectiveAcceleration)}/mo)`];
                 if (name === 'minimumsBalance') return [formatCurrency(value), 'Minimums Only'];
+                if (name === 'avalancheBalance') return [formatCurrency(value), comparisonLabel];
                 return [formatCurrency(value), name];
               }}
-              labelFormatter={(label) => `Month: ${String(label)}`}
+              labelFormatter={(label, payload) => {
+                const entry = payload?.[0]?.payload as (ChartEntry | undefined);
+                const month = entry?.month ?? 0;
+                const pct = totalPlanMonths ? Math.round((month / totalPlanMonths) * 100) : null;
+                const remaining = totalPlanMonths != null ? totalPlanMonths - month : null;
+                const parts: string[] = [`${String(label)}`];
+                if (pct !== null) parts.push(`${pct}% complete`);
+                if (remaining !== null && remaining > 0) parts.push(`${remaining} months left`);
+                return parts.join('  ·  ');
+              }}
               contentStyle={{
                 background: '#ffffff',
                 border: '1px solid rgba(15,23,42,0.12)',
                 borderRadius: 10,
                 color: '#0f172a',
+                fontSize: 12,
               }}
             />
-            {(hasAnyActual || showMinimumsLine) && (
+            {(hasAnyActual || showMinimumsLine || showAvalancheLine) && (
               <Legend
                 formatter={(value) => (
                   <span style={{ color: '#64748b', fontSize: 11 }}>
                     {value === 'totalBalance'
-                      ? `With Extra (+${formatCurrency(effectiveAcceleration)}/mo)`
+                      ? `${strategyLabel} (+${formatCurrency(effectiveAcceleration)}/mo)`
                       : value === 'minimumsBalance'
                       ? 'Minimums Only'
+                      : value === 'avalancheBalance'
+                      ? comparisonLabel
                       : 'Actual'}
                   </span>
                 )}
@@ -117,6 +142,18 @@ export default function BalanceOverTimeChart({
                 strokeDasharray="5 4"
                 dot={false}
                 activeDot={{ r: 4, fill: '#fbbf24' }}
+                connectNulls={false}
+              />
+            )}
+            {showAvalancheLine && (
+              <Line
+                type="monotone"
+                dataKey="avalancheBalance"
+                stroke="#7c3aed"
+                strokeWidth={2}
+                strokeDasharray="7 3"
+                dot={false}
+                activeDot={{ r: 5, fill: '#8b5cf6' }}
                 connectNulls={false}
               />
             )}

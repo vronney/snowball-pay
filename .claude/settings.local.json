@@ -34,7 +34,12 @@
       "Bash(npm audit:*)",
       "Bash(npm run:*)",
       "Bash(python3 -c \"import sys, json; data = json.load\\(sys.stdin\\); vulnerabilities = data.get\\('vulnerabilities', {}\\); axios_vulns = vulnerabilities.get\\('axios', {}\\); print\\('axios vulnerabilities:', axios_vulns if axios_vulns else 'None'\\)\")",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Skill(office-hours)",
+      "Skill(office-hours:*)",
+      "Skill(gstack)",
+      "Skill(gstack:*)",
+      "WebSearch"
     ],
     "deny": [
       "Bash(rm:*)",

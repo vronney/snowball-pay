@@ -7,6 +7,7 @@ import { User, Bell, Trash2, ShieldAlert, CheckCircle2, LogOut, Mail, Sparkles, 
 import axios from 'axios';
 import Image from 'next/image';
 import { useSubscription, useStartCheckout, useOpenBillingPortal } from '@/lib/hooks';
+import { LOGOUT_URL, runLogoutClientCleanup } from '@/lib/logout-client';
 
 interface SettingsTabProps {
   user: {
@@ -192,7 +193,7 @@ export default function SettingsTab({ user }: SettingsTabProps) {
               </p>
             ) : (
               <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-                Upgrade to unlock AI recommendations, document import, unlimited debts, and more.
+                Upgrade to unlock AI recommendations, unlimited debts, advanced analytics, and more.
               </p>
             )}
           </div>
@@ -379,7 +380,8 @@ export default function SettingsTab({ user }: SettingsTabProps) {
       <div style={cardStyle}>
         {sectionTitle('Account', <LogOut size={16} style={{ color: '#2563eb' }} />)}
         <a
-          href="/auth/logout"
+          href={LOGOUT_URL}
+          onClick={runLogoutClientCleanup}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: '8px',
             padding: '9px 16px', borderRadius: '10px',

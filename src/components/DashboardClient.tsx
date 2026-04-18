@@ -12,11 +12,11 @@ import {
   useStartCheckout,
 } from "@/lib/hooks";
 import { useQueryClient } from "@tanstack/react-query";
+import HomeTab from "@/components/tabs/HomeTab";
 import DebtTab from "@/components/tabs/DebtTab";
 import IncomeTab from "@/components/tabs/IncomeTab";
 import PayoffTab from "@/components/tabs/PayoffTab";
 import ProgressTab from "@/components/tabs/ProgressTab";
-import DocumentImport from "@/components/DocumentImport";
 import IntelligenceTab from "@/components/tabs/IntelligenceTab";
 import SettingsTab from "@/components/tabs/SettingsTab";
 import HelpTab from "@/components/tabs/HelpTab";
@@ -28,6 +28,7 @@ import { useNotifications } from "@/components/dashboard/useNotifications";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { MilestoneWidget } from "@/components/dashboard/MilestoneWidget";
 import { MobileFAB } from "@/components/dashboard/MobileFAB";
+import DashboardLoadingScreen from "@/components/dashboard/DashboardLoadingScreen";
 import { type Tab } from "@/components/dashboard/types";
 import { upgradeEvents } from "@/lib/upgradeEvents";
 
@@ -40,18 +41,22 @@ type UserInfo = {
 const today = new Date();
 
 const tabLabels: Record<Tab, string> = {
+  home: "Home",
   debts: "My Debts",
   income: "Income & Budget",
   plan: "Payoff Plan",
   progress: "Progress",
   intelligence: "Planner Intelligence",
-  documents: "Import Documents",
   help: "Help & Education",
   settings: "Settings",
 };
 
+function isValidTab(value: string | null): value is Tab {
+  return !!value && Object.prototype.hasOwnProperty.call(tabLabels, value);
+}
+
 export default function DashboardClient({ user }: { user: UserInfo | null }) {
-  const [activeTab, setActiveTab] = useState<Tab>("debts");
+  const [activeTab, setActiveTab] = useState<Tab>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openPaymentDebtId, setOpenPaymentDebtId] = useState<string | null>(null);
   const [fabAddDebtRequest, setFabAddDebtRequest] = useState(false);
@@ -80,6 +85,18 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
       url.searchParams.delete("checkout");
       window.history.replaceState({}, "", url.toString());
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Honor explicit tab query params (e.g. Stripe billing portal return_url).
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (!isValidTab(tab)) return;
+
+    setActiveTab(tab);
+    const url = new URL(window.location.href);
+    url.searchParams.delete("tab");
+    window.history.replaceState({}, "", url.toString());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -183,6 +200,20 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
     ? (user.name || user.email || "U").slice(0, 2).toUpperCase()
     : "U";
 
+  if (debtsLoading || incomeLoading || expensesLoading) {
+    let loadingLabel = "Preparing your dashboard...";
+
+    if (debtsLoading && incomeLoading) {
+      loadingLabel = "Loading your debt profile...";
+    } else if (debtsLoading) {
+      loadingLabel = "Loading debts...";
+    } else if (incomeLoading || expensesLoading) {
+      loadingLabel = "Loading your budget...";
+    }
+
+    return <DashboardLoadingScreen label={loadingLabel} />;
+  }
+
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f5f7fa" }}>
       <DashboardSidebar
@@ -225,13 +256,24 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
           style={{ flex: 1, padding: "28px", width: "100%" }}
           className="db-content"
         >
-          {activeTab !== "settings" && activeTab !== "documents" && activeTab !== "progress" && activeTab !== "help" && <AccelerationTracker />}
+          {activeTab !== "home" && activeTab !== "settings" && activeTab !== "progress" && activeTab !== "help" && <AccelerationTracker />}
           {activeTab === "debts" && debts.length > 0 && (
             <div className="mb-4">
               <MilestoneWidget debts={debts} />
             </div>
           )}
           <div key={activeTab} className="tab-fade-in">
+            {activeTab === "home" && (
+              <HomeTab
+                debts={debts}
+                income={income}
+                expenses={expenses}
+                isLoading={debtsLoading || incomeLoading}
+                userName={user?.name}
+                notifications={notifications}
+                onNavigate={(tab) => setActiveTab(tab)}
+              />
+            )}
             {activeTab === "debts" && (
               <DebtTab
                 debts={debts}
@@ -273,7 +315,6 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
                 isLoading={debtsLoading || incomeLoading}
               />
             )}
-            {activeTab === "documents" && <DocumentImport />}
             {activeTab === "help" && <HelpTab />}
             {activeTab === "settings" && <SettingsTab user={user} />}
           </div>

@@ -1,19 +1,19 @@
 import type { Metadata } from 'next';
-import { Inter, Outfit } from 'next/font/google';
+import { Manrope, Plus_Jakarta_Sans } from 'next/font/google';
 import { Providers } from '@/app/providers';
 import './globals.css';
 
-const inter = Inter({
+const manrope = Manrope({
   subsets: ['latin'],
-  variable: '--font-inter',
-  weight: ['300', '400', '500', '600', '700', '800', '900'],
+  variable: '--font-manrope',
+  weight: ['300', '400', '500', '600', '700', '800'],
   display: 'swap',
 });
 
-const outfit = Outfit({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  variable: '--font-outfit',
-  weight: ['300', '400', '500', '600', '700', '800', '900'],
+  variable: '--font-jakarta',
+  weight: ['300', '400', '500', '600', '700', '800'],
   display: 'swap',
 });
 
@@ -132,7 +132,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${outfit.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${manrope.variable} ${jakarta.variable}`}>
       <head>
         <script
           type="application/ld+json"

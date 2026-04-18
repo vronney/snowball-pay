@@ -59,7 +59,7 @@ function PaymentHistory({ debtId, minimumPayment }: { debtId: string; minimumPay
               <span className="text-xs font-semibold flex-1" style={{ color: '#0f172a' }}>
                 {formatCurrency(record.amount)}
                 {extra > 0 && (
-                  <span className="ml-1 font-normal" style={{ color: '#10b981' }}>+{formatCurrency(extra)} extra</span>
+                  <span className="ml-1 font-normal" style={{ color: '#10b981' }}>{formatCurrency(extra)} above min</span>
                 )}
               </span>
             )}
@@ -135,27 +135,56 @@ export function DebtCardPaymentPanel({
   onClose,
   isPending,
 }: PaymentPanelProps) {
+  const parsed = parseFloat(paymentAmount);
+  const isValid = !isNaN(parsed) && parsed > 0;
+  const extra = isValid ? Math.max(0, parsed - minimumPayment) : null;
+  const isBelowMin = isValid && parsed < minimumPayment;
+
   return (
     <div
-      className="rounded-lg p-3 flex flex-col gap-3"
+      className="rounded-lg p-3 flex flex-col gap-2"
       style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.18)' }}
     >
-      <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-2">
-        <div className="flex flex-col gap-1 flex-1" style={{ minWidth: '140px' }}>
+      <form onSubmit={onSubmit} className="flex flex-col gap-2">
+        {/* Label row with minimum shown inline */}
+        <div className="flex items-center justify-between">
           <label className="text-xs" style={{ color: '#64748b' }}>Payment amount ($)</label>
-          <input
-            type="number"
-            min="0.01"
-            step="0.01"
-            placeholder={String(minimumPayment)}
-            value={paymentAmount}
-            onChange={(e) => onAmountChange(e.target.value)}
-            className="input-field"
-            autoFocus
-            required
-          />
+          <span className="text-xs" style={{ color: '#94a3b8' }}>
+            Min: <span style={{ fontWeight: 600, color: '#64748b' }}>{formatCurrency(minimumPayment)}</span>
+          </span>
         </div>
-        <div className="flex gap-2 items-end pb-0.5">
+
+        <input
+          type="number"
+          min="0.01"
+          step="0.01"
+          placeholder={String(minimumPayment)}
+          value={paymentAmount}
+          onChange={(e) => onAmountChange(e.target.value)}
+          className="input-field"
+          autoFocus
+          required
+        />
+
+        {/* Live hint */}
+        {isValid && (
+          <div className="text-xs" style={{ color: '#64748b' }}>
+            {isBelowMin ? (
+              <span style={{ color: '#dc2626' }}>
+                {formatCurrency(minimumPayment - parsed)} below minimum
+              </span>
+            ) : extra !== null && extra > 0 ? (
+              <span>
+                <span style={{ color: '#10b981', fontWeight: 600 }}>{formatCurrency(extra)} above minimum</span>
+                <span style={{ color: '#94a3b8' }}> will count as extra</span>
+              </span>
+            ) : (
+              <span style={{ color: '#10b981' }}>Covers the minimum</span>
+            )}
+          </div>
+        )}
+
+        <div className="flex gap-2">
           <button
             type="submit"
             disabled={isPending}
@@ -200,28 +229,26 @@ export function DebtCardBalancePanel({
   return (
     <form
       onSubmit={onSubmit}
-      className="rounded-lg p-3 flex flex-wrap items-end gap-2"
+      className="rounded-lg p-3 flex flex-col gap-2"
       style={{ background: 'rgba(245,158,11,0.04)', border: '1px solid rgba(245,158,11,0.18)' }}
     >
-      <div className="flex flex-col gap-1 flex-1" style={{ minWidth: '140px' }}>
-        <label className="text-xs" style={{ color: '#64748b' }}>Current balance ($)</label>
-        <input
-          type="number"
-          min="0"
-          step="0.01"
-          value={newBalance}
-          onChange={(e) => onBalanceChange(e.target.value)}
-          className="input-field"
-          autoFocus
-          required
-        />
-      </div>
-      <div className="flex gap-2 items-end pb-0.5">
+      <label className="text-xs" style={{ color: '#64748b' }}>Current balance ($)</label>
+      <input
+        type="number"
+        min="0"
+        step="0.01"
+        value={newBalance}
+        onChange={(e) => onBalanceChange(e.target.value)}
+        className="input-field"
+        autoFocus
+        required
+      />
+      <div className="flex gap-2">
         <button
           type="submit"
           disabled={isPending}
           className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition disabled:opacity-40"
-          style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#fbbf24' }}
+          style={{ background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)', color: '#d97706' }}
         >
           <Check size={13} />
           {isPending ? 'Saving…' : 'Update'}

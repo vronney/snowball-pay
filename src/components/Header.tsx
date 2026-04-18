@@ -2,6 +2,7 @@
 
 import Image from 'next/image';
 import { LogOut } from 'lucide-react';
+import { LOGOUT_URL, runLogoutClientCleanup } from '@/lib/logout-client';
 
 type UserInfo = {
   name?: string | null;
@@ -46,7 +47,8 @@ export default function Header({ user }: { user?: UserInfo | null }) {
             </div>
 
             <a
-              href="/auth/logout"
+              href={LOGOUT_URL}
+              onClick={runLogoutClientCleanup}
               className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 transition-colors text-slate-600"
               title="Sign out"
             >

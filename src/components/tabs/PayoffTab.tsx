@@ -19,6 +19,7 @@ import PayoffOrderList from '@/components/payoff/PayoffOrderList';
 import FocusDebtExplainer from '@/components/payoff/FocusDebtExplainer';
 import StrategyExplanation from '@/components/payoff/StrategyExplanation';
 import ReferralPrompt from '@/components/payoff/ReferralPrompt';
+import WhatIfCard from '@/components/payoff/WhatIfCard';
 
 interface PayoffTabProps {
   debts: Debt[];
@@ -145,6 +146,8 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
     ? Math.min(accelerationAmount, availableCashFlow)
     : availableCashFlow;
   const monthlyPayment = totalMinPayments + effectiveAcceleration;
+  // Extra payment relative to natural surplus — passed to WhatIfCard for +$50/+$100 scenarios
+  const adjustedExtra = effectiveAcceleration - (income.monthlyTakeHome - totalEssential - totalMinPayments);
 
   if (!planResult) {
     return (
@@ -162,8 +165,20 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
   const showMinimumsLine = effectiveAcceleration > 0;
   const projectedBalanceMap = new Map(planResult.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]));
   const minimumsBalanceMap = new Map(minimumsOnlyResult.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]));
+
+  // Compute the comparison strategy result for the overlay line.
+  // When the user is on snowball, show avalanche as the comparison (and vice versa).
+  // Custom uses avalanche as comparison since it has no natural counterpart.
+  const comparisonResult = payoffMethod === 'avalanche'
+    ? calculateDebtSnowball(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
+    : calculateDebtAvalanche(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra);
+  const avalancheBalanceMap = new Map(comparisonResult.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]));
+  const showAvalancheLine = payoffMethod !== 'custom';
+
   const baseBalances = minimumsOnlyResult.months >= planResult.months
     ? minimumsOnlyResult.monthlyBalances
+    : comparisonResult.months >= planResult.months
+    ? comparisonResult.monthlyBalances
     : planResult.monthlyBalances;
   const priorityEditorDebts = [...debts].sort((a, b) => {
     const aPriority = a.priorityOrder ?? Number.MAX_SAFE_INTEGER;
@@ -179,8 +194,10 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
   const hasRealSnapshots = actualBalanceMap.size > 0;
   const balanceChartData = baseBalances.map((mb, index) => ({
     date: mb.date,
+    month: mb.month,
     totalBalance: projectedBalanceMap.get(mb.date),
     minimumsBalance: minimumsBalanceMap.get(mb.date),
+    avalancheBalance: avalancheBalanceMap.get(mb.date),
     // Month 0 is always anchored to current total debt so all three lines share
     // the same starting point. Subsequent months use recorded snapshot data.
     actualBalance: index === 0
@@ -250,6 +267,16 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
         onAccelerationChange={setAccelerationAmount}
       />
 
+      <WhatIfCard
+        debts={debts}
+        income={income}
+        expenses={expenses}
+        adjustedExtra={adjustedExtra}
+        currentMonths={planResult.months}
+        currentInterestPaid={planResult.totalInterestPaid}
+        payoffMethod={payoffMethod}
+      />
+
       <PayoffSummary
         planResult={planResult}
         strategyName={strategyName}
@@ -264,6 +291,10 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
         effectiveAcceleration={effectiveAcceleration}
         showMinimumsLine={showMinimumsLine}
         hasRealSnapshots={hasRealSnapshots}
+        showAvalancheLine={showAvalancheLine}
+        totalPlanMonths={planResult.months}
+        strategyLabel={strategyName}
+        comparisonLabel={payoffMethod === 'avalanche' ? 'Snowball' : 'Avalanche'}
       />
 
       <PayoffTimeline data={timelineData} />

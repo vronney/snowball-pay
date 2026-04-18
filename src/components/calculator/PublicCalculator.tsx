@@ -95,10 +95,12 @@ export default function PublicCalculator() {
       ? minimumsResult.monthlyBalances
       : planResult.monthlyBalances;
     return base.map((mb) => ({
-      date:            mb.date,
-      totalBalance:    projMap.get(mb.date),
-      minimumsBalance: minMap.get(mb.date),
-      actualBalance:   undefined,
+      date:             mb.date,
+      month:            mb.month,
+      totalBalance:     projMap.get(mb.date),
+      minimumsBalance:  minMap.get(mb.date),
+      actualBalance:    undefined,
+      avalancheBalance: undefined,
     }));
   }, [planResult, minimumsResult]);
 

@@ -137,13 +137,18 @@ export async function GET(request: NextRequest) {
       0,
     );
 
+    // "With extra" uses the planned monthly acceleration. Convert to the extraPayment
+    // param format: amount above the natural cash-flow surplus after minimums.
+    const naturalSurplus = income.monthlyTakeHome - income.essentialExpenses - recurringTotal - totalMinPayments;
+    const adjustedExtra = Math.max(0, plannedMonthly - naturalSurplus);
+
     // Always recalculate live so balance changes are immediately reflected
     const currentDebtFreeDate: Date = calcFn(
       normalizedDebts,
       income.monthlyTakeHome,
       income.essentialExpenses,
       recurringTotal,
-      income.extraPayment ?? 0,
+      adjustedExtra,
     ).debtFreeDate;
 
     // Months saved = how many months earlier the user pays off with extra vs. without

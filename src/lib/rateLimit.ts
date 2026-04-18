@@ -99,4 +99,8 @@ export const limits = {
   /** 1 plan email per 10 minutes per user. */
   emailPlan: (userId: string) =>
     check('email-plan', `email-plan:${userId}`, 1, '600 s', 10 * 60 * 1000),
+
+  /** 3 support form submissions per 10 minutes per client key (IP/user-agent). */
+  supportContact: (clientKey: string) =>
+    check('support-contact', `support-contact:${clientKey}`, 3, '600 s', 10 * 60 * 1000),
 };

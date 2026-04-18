@@ -1,12 +1,12 @@
 import { type LucideIcon } from "lucide-react";
 
 export type Tab =
+  | "home"
   | "debts"
   | "income"
   | "plan"
   | "progress"
   | "intelligence"
-  | "documents"
   | "help"
   | "settings";
 

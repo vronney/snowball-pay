@@ -1,18 +1,17 @@
 'use client';
 
-import { List, Wallet, TrendingDown, Upload } from 'lucide-react';
+import { List, Wallet, TrendingDown } from 'lucide-react';
 
 interface TabNavigationProps {
-  activeTab: 'debts' | 'income' | 'plan' | 'documents';
-  onTabChange: (tab: 'debts' | 'income' | 'plan' | 'documents') => void;
+  activeTab: 'debts' | 'income' | 'plan';
+  onTabChange: (tab: 'debts' | 'income' | 'plan') => void;
 }
 
 export default function TabNavigation({ activeTab, onTabChange }: TabNavigationProps) {
   const tabs = [
-    { id: 'debts',     label: 'My Debts',       icon: List },
-    { id: 'income',    label: 'Income & Budget', icon: Wallet },
-    { id: 'plan',      label: 'Payoff Plan',     icon: TrendingDown },
-    { id: 'documents', label: 'Import',           icon: Upload },
+    { id: 'debts',  label: 'My Debts',       icon: List },
+    { id: 'income', label: 'Income & Budget', icon: Wallet },
+    { id: 'plan',   label: 'Payoff Plan',     icon: TrendingDown },
   ];
 
   return (
@@ -25,7 +24,7 @@ export default function TabNavigation({ activeTab, onTabChange }: TabNavigationP
             return (
               <button
                 key={tab.id}
-                onClick={() => onTabChange(tab.id as 'debts' | 'income' | 'plan' | 'documents')}
+                onClick={() => onTabChange(tab.id as 'debts' | 'income' | 'plan')}
                 style={{
                   padding: '7px 14px',
                   borderRadius: '8px',

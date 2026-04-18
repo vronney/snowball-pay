@@ -23,14 +23,6 @@ const faqJsonLd = {
     },
     {
       "@type": "Question",
-      name: "How does the document import feature work?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "You can upload a PDF statement or CSV export. SnowballPay reads balances, rates, and minimum payments so you can build your plan faster.",
-      },
-    },
-    {
-      "@type": "Question",
       name: "Is my financial data secure?",
       acceptedAnswer: {
         "@type": "Answer",
@@ -42,7 +34,7 @@ const faqJsonLd = {
       name: "Does SnowballPay connect to my bank accounts?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "No. SnowballPay does not require a bank connection. You can add debts manually or import statement files.",
+        text: "No. SnowballPay does not require a bank connection. Add your debts manually in seconds.",
       },
     },
     {

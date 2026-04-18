@@ -30,7 +30,8 @@ Return ONLY valid JSON — no markdown fences, no explanation:
       "impact": "high | medium | low",
       "title": "short headline under 8 words",
       "body": "2 specific sentences referencing their actual numbers",
-      "action": "one clear next step under 12 words"
+      "action": "one clear next step under 12 words",
+      "why": "one sentence explaining why this applies to THIS user based on their specific numbers"
     }
   ]
 }`;

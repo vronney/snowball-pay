@@ -19,12 +19,18 @@ export async function GET(request: NextRequest) {
 
     const endsAt = user?.subscriptionEndsAt ?? null;
     const status = user?.subscriptionStatus ?? 'inactive';
-    // canceling = subscription is still active/trialing but has a scheduled end date
-    const isCanceling = (status === 'active' || status === 'trialing') && endsAt !== null;
+    const now = new Date();
+
+    // If the subscription end date has already passed, treat it as expired regardless
+    // of what's in the DB (handles webhook delivery delays).
+    const isExpired = endsAt !== null && new Date(endsAt) < now;
+    const effectiveStatus = isExpired ? 'canceled' : status;
+    const effectiveTier = isExpired ? 'free' : (user?.paidTier ?? 'free');
+    const isCanceling = (effectiveStatus === 'active' || effectiveStatus === 'trialing') && endsAt !== null;
 
     return NextResponse.json({
-      paidTier: user?.paidTier ?? 'free',
-      subscriptionStatus: status,
+      paidTier: effectiveTier,
+      subscriptionStatus: effectiveStatus,
       subscriptionEndsAt: endsAt,
       isCanceling,
       hasCustomer: !!user?.stripeCustomerId,

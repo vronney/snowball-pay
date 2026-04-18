@@ -1,15 +1,21 @@
 'use client';
 
 import {
-  Target, TrendingUp, CalendarClock, Shield,
-  ListChecks, BadgeCheck, Activity, Wrench,
+  Target,
+  TrendingUp,
+  CalendarClock,
+  Shield,
+  ListChecks,
+  BadgeCheck,
+  Wrench,
+  Gauge,
+  LayoutGrid,
+  PiggyBank,
 } from 'lucide-react';
 import { type Debt } from '@/types';
 import { type PayoffMethod, type PayoffResult } from '@/lib/snowball';
 import { formatCurrency } from '@/lib/utils';
 import { type SmartCalendar, type MilestoneData, type RefinanceCandidate } from '@/lib/hooks/usePlannerComputed';
-
-type ShockMode = 'none' | 'income-10' | 'expense-500';
 
 function toTimeLabel(months: number) {
   const years = Math.floor(months / 12);
@@ -17,10 +23,105 @@ function toTimeLabel(months: number) {
   return years > 0 ? `${years}y ${rem}m` : `${rem}m`;
 }
 
-const CARD_STYLE = { background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' };
+function methodLabel(method: PayoffMethod) {
+  if (method === 'avalanche') return 'Avalanche';
+  if (method === 'custom') return 'Custom';
+  return 'Snowball';
+}
+
+const CARD_STYLE = {
+  background: '#ffffff',
+  border: '1px solid rgba(15,23,42,0.08)',
+  boxShadow: '0 1px 4px rgba(15,23,42,0.06)',
+};
 const INNER_STYLE = { background: '#f8fafc', border: '1px solid rgba(15,23,42,0.08)' };
 
-// ── 1. Forecast ───────────────────────────────────────────────────────────────
+interface IntelligenceOverviewCardProps {
+  planResult: PayoffResult;
+  minimumsOnlyResult: PayoffResult;
+  effectiveAcceleration: number;
+  monthlyDebtSpend: number;
+  debtCoveragePct: number;
+  nextDebtLabel: string;
+  nextDebtMonth: number | null;
+}
+
+export function IntelligenceOverviewCard({
+  planResult,
+  minimumsOnlyResult,
+  effectiveAcceleration,
+  monthlyDebtSpend,
+  debtCoveragePct,
+  nextDebtLabel,
+  nextDebtMonth,
+}: IntelligenceOverviewCardProps) {
+  const monthsSaved = Math.max(0, minimumsOnlyResult.months - planResult.months);
+  const interestSaved = Math.max(0, minimumsOnlyResult.totalInterestPaid - planResult.totalInterestPaid);
+
+  return (
+    <div className="rounded-2xl p-5 xl:col-span-3 h-full flex flex-col gap-4" style={CARD_STYLE}>
+      <div className="flex items-center gap-2">
+        <Gauge size={16} style={{ color: '#2563eb' }} />
+        <h3 className="text-sm font-semibold">Plan Command Center</h3>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="rounded-xl p-3" style={INNER_STYLE}>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            Timeline reduction
+          </p>
+          <p className="text-sm font-semibold" style={{ color: '#0f172a' }}>
+            {monthsSaved} months faster
+          </p>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            vs minimums only
+          </p>
+        </div>
+
+        <div className="rounded-xl p-3" style={INNER_STYLE}>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            Interest avoided
+          </p>
+          <p className="text-sm font-semibold" style={{ color: '#059669' }}>
+            {formatCurrency(interestSaved)}
+          </p>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            projected lifetime savings
+          </p>
+        </div>
+
+        <div className="rounded-xl p-3" style={INNER_STYLE}>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            Debt payment intensity
+          </p>
+          <p className="text-sm font-semibold" style={{ color: '#0f172a' }}>
+            {formatCurrency(monthlyDebtSpend)} / mo
+          </p>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            {debtCoveragePct.toFixed(1)}% of take-home
+          </p>
+        </div>
+
+        <div className="rounded-xl p-3" style={INNER_STYLE}>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            Next payoff milestone
+          </p>
+          <p className="text-sm font-semibold" style={{ color: '#0f172a' }}>
+            {nextDebtLabel}
+          </p>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            {nextDebtMonth == null ? 'No active debts' : `expected in ${nextDebtMonth}m`}
+          </p>
+        </div>
+      </div>
+
+      <p className="text-xs" style={{ color: '#64748b' }}>
+        Acceleration is set to {formatCurrency(effectiveAcceleration)}/mo. Adjust in Strategy Lab to tune speed vs buffer.
+      </p>
+    </div>
+  );
+}
+
 interface ForecastCardProps {
   planResult: PayoffResult;
   planGap: number | null;
@@ -37,25 +138,32 @@ export function ForecastCard({ planResult, planGap, confidencePct, confidenceRan
       </div>
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div className="rounded-xl p-3" style={INNER_STYLE}>
-          <p className="text-xs" style={{ color: '#64748b' }}>Projected debt-free date</p>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            Projected debt-free date
+          </p>
           <p className="text-sm font-semibold" style={{ color: '#0f172a' }}>
             {planResult.debtFreeDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
           </p>
-          <p className="text-xs" style={{ color: '#64748b' }}>Confidence band: +/- {confidenceRangeMonths}m</p>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            Confidence band: +/- {confidenceRangeMonths}m
+          </p>
         </div>
         <div className="rounded-xl p-3" style={INNER_STYLE}>
-          <p className="text-xs" style={{ color: '#64748b' }}>Progress vs plan</p>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            Progress vs plan
+          </p>
           <p className="text-sm font-semibold" style={{ color: planGap == null ? '#64748b' : planGap >= 0 ? '#059669' : '#dc2626' }}>
             {planGap == null ? 'No snapshots yet' : planGap >= 0 ? `${formatCurrency(planGap)} ahead` : `${formatCurrency(Math.abs(planGap))} behind`}
           </p>
-          <p className="text-xs" style={{ color: '#64748b' }}>Confidence score: {confidencePct}%</p>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            Confidence score: {confidencePct}%
+          </p>
         </div>
       </div>
     </div>
   );
 }
 
-// ── 2. Strategy Lab ───────────────────────────────────────────────────────────
 interface StrategyLabCardProps {
   sandboxMethod: PayoffMethod;
   sandboxExtra: number;
@@ -66,7 +174,15 @@ interface StrategyLabCardProps {
   onExtraChange: (v: number) => void;
 }
 
-export function StrategyLabCard({ sandboxMethod, sandboxExtra, availableCashFlow, scenarioResult, bestStrategy, onMethodChange, onExtraChange }: StrategyLabCardProps) {
+export function StrategyLabCard({
+  sandboxMethod,
+  sandboxExtra,
+  availableCashFlow,
+  scenarioResult,
+  bestStrategy,
+  onMethodChange,
+  onExtraChange,
+}: StrategyLabCardProps) {
   return (
     <div className="rounded-2xl p-5 h-full flex flex-col" style={CARD_STYLE}>
       <div className="flex items-center gap-2 mb-3">
@@ -75,29 +191,52 @@ export function StrategyLabCard({ sandboxMethod, sandboxExtra, availableCashFlow
       </div>
       <div className="grid grid-cols-3 gap-2 mb-3">
         {(['snowball', 'avalanche', 'custom'] as const).map((method) => (
-          <button key={method} type="button" onClick={() => onMethodChange(method)}
+          <button
+            key={method}
+            type="button"
+            onClick={() => onMethodChange(method)}
             className="rounded-lg px-2 py-2 text-xs font-semibold transition"
-            style={{ background: sandboxMethod === method ? 'rgba(37,99,235,0.12)' : '#f8fafc', border: sandboxMethod === method ? '1px solid rgba(37,99,235,0.35)' : '1px solid rgba(15,23,42,0.08)', color: sandboxMethod === method ? '#1d4ed8' : '#334155' }}>
-            {method === 'snowball' ? 'Snowball' : method === 'avalanche' ? 'Avalanche' : 'Custom'}
+            style={{
+              background: sandboxMethod === method ? 'rgba(37,99,235,0.12)' : '#f8fafc',
+              border: sandboxMethod === method ? '1px solid rgba(37,99,235,0.35)' : '1px solid rgba(15,23,42,0.08)',
+              color: sandboxMethod === method ? '#1d4ed8' : '#334155',
+            }}
+          >
+            {methodLabel(method)}
           </button>
         ))}
       </div>
-      <label className="text-xs mb-1 block" style={{ color: '#64748b' }}>What-if extra payment</label>
-      <input type="range" min={0} max={Math.max(availableCashFlow, 1)} step={25}
+      <label className="text-xs mb-1 block" style={{ color: '#64748b' }}>
+        What-if extra payment
+      </label>
+      <input
+        type="range"
+        min={0}
+        max={Math.max(availableCashFlow, 1)}
+        step={25}
         value={Math.min(sandboxExtra, availableCashFlow)}
         onChange={(e) => onExtraChange(parseFloat(e.target.value))}
-        style={{ width: '100%', accentColor: '#2563eb' }} />
+        style={{ width: '100%', accentColor: '#2563eb' }}
+      />
       <div className="flex items-center justify-between mt-1 mb-3">
-        <span className="text-xs" style={{ color: '#64748b' }}>Scenario extra: {formatCurrency(sandboxExtra)}</span>
-        <span className="text-xs" style={{ color: '#64748b' }}>Best: {bestStrategy[0]} ({toTimeLabel(bestStrategy[1].months)})</span>
+        <span className="text-xs" style={{ color: '#64748b' }}>
+          Scenario extra: {formatCurrency(sandboxExtra)}
+        </span>
+        <span className="text-xs" style={{ color: '#64748b' }}>
+          Best: {methodLabel(bestStrategy[0])} ({toTimeLabel(bestStrategy[1].months)})
+        </span>
       </div>
       <div className="grid grid-cols-2 gap-3 mt-auto">
         <div className="rounded-xl p-3" style={INNER_STYLE}>
-          <p className="text-xs" style={{ color: '#64748b' }}>Debt-free in</p>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            Debt-free in
+          </p>
           <p className="text-sm font-semibold">{toTimeLabel(scenarioResult.months)}</p>
         </div>
         <div className="rounded-xl p-3" style={INNER_STYLE}>
-          <p className="text-xs" style={{ color: '#64748b' }}>Total interest</p>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            Total interest
+          </p>
           <p className="text-sm font-semibold">{formatCurrency(scenarioResult.totalInterestPaid)}</p>
         </div>
       </div>
@@ -105,7 +244,113 @@ export function StrategyLabCard({ sandboxMethod, sandboxExtra, availableCashFlow
   );
 }
 
-// ── 3. Smart Calendar ─────────────────────────────────────────────────────────
+interface MethodMatrixCardProps {
+  strategyMatrix: {
+    method: PayoffMethod;
+    months: number;
+    totalInterestPaid: number;
+    active: boolean;
+  }[];
+}
+
+export function MethodMatrixCard({ strategyMatrix }: MethodMatrixCardProps) {
+  return (
+    <div className="rounded-2xl p-5 h-full flex flex-col" style={CARD_STYLE}>
+      <div className="flex items-center gap-2 mb-3">
+        <LayoutGrid size={16} style={{ color: '#2563eb' }} />
+        <h3 className="text-sm font-semibold">Method Comparison Matrix</h3>
+      </div>
+      <div className="space-y-2 flex-1">
+        {strategyMatrix.map((row) => (
+          <div
+            key={row.method}
+            className="rounded-lg p-3 flex items-center justify-between gap-2"
+            style={{
+              ...INNER_STYLE,
+              border: row.active ? '1px solid rgba(37,99,235,0.32)' : '1px solid rgba(15,23,42,0.08)',
+            }}
+          >
+            <div>
+              <p className="text-xs font-semibold" style={{ color: row.active ? '#1d4ed8' : '#0f172a' }}>
+                {methodLabel(row.method)} {row.active ? '(active)' : ''}
+              </p>
+              <p className="text-xs" style={{ color: '#64748b' }}>
+                Debt-free in {toTimeLabel(row.months)}
+              </p>
+            </div>
+            <p className="text-xs font-semibold" style={{ color: '#0f172a' }}>
+              {formatCurrency(row.totalInterestPaid)}
+            </p>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs mt-3" style={{ color: '#64748b' }}>
+        Comparison reflects your current what-if extra amount.
+      </p>
+    </div>
+  );
+}
+
+interface CashFlowMixCardProps {
+  monthlyTakeHome: number;
+  totalEssential: number;
+  recurringTotal: number;
+  totalMinPayments: number;
+  effectiveAcceleration: number;
+  leftoverAfterAcceleration: number;
+  bufferTarget: number;
+}
+
+export function CashFlowMixCard({
+  monthlyTakeHome,
+  totalEssential,
+  recurringTotal,
+  totalMinPayments,
+  effectiveAcceleration,
+  leftoverAfterAcceleration,
+  bufferTarget,
+}: CashFlowMixCardProps) {
+  const safeIncome = Math.max(monthlyTakeHome, 1);
+  const essentialsPct = (totalEssential / safeIncome) * 100;
+  const minPct = (totalMinPayments / safeIncome) * 100;
+  const accelPct = (effectiveAcceleration / safeIncome) * 100;
+  const leftoverPct = (leftoverAfterAcceleration / safeIncome) * 100;
+  const guardrailStatus = leftoverAfterAcceleration >= bufferTarget ? 'On target' : 'Below target';
+
+  return (
+    <div className="rounded-2xl p-5 h-full flex flex-col" style={CARD_STYLE}>
+      <div className="flex items-center gap-2 mb-3">
+        <PiggyBank size={16} style={{ color: '#2563eb' }} />
+        <h3 className="text-sm font-semibold">Cash Flow Mix</h3>
+      </div>
+
+      <div className="rounded-lg p-3 mb-3" style={INNER_STYLE}>
+        <p className="text-xs mb-2" style={{ color: '#64748b' }}>
+          Monthly take-home: {formatCurrency(monthlyTakeHome)}
+        </p>
+        <div className="h-2 w-full rounded-full overflow-hidden" style={{ background: '#e2e8f0' }}>
+          <div className="h-full" style={{ width: `${Math.min(100, essentialsPct)}%`, background: '#94a3b8', float: 'left' }} />
+          <div className="h-full" style={{ width: `${Math.min(100, minPct)}%`, background: '#2563eb', float: 'left' }} />
+          <div className="h-full" style={{ width: `${Math.min(100, accelPct)}%`, background: '#059669', float: 'left' }} />
+          <div className="h-full" style={{ width: `${Math.min(100, leftoverPct)}%`, background: '#f59e0b', float: 'left' }} />
+        </div>
+      </div>
+
+      <div className="space-y-1 text-xs" style={{ color: '#64748b' }}>
+        <p>Essentials + recurring: {formatCurrency(totalEssential)} ({essentialsPct.toFixed(1)}%)</p>
+        <p>Recurring only: {formatCurrency(recurringTotal)}</p>
+        <p>Minimum debt payments: {formatCurrency(totalMinPayments)} ({minPct.toFixed(1)}%)</p>
+        <p>Acceleration: {formatCurrency(effectiveAcceleration)} ({accelPct.toFixed(1)}%)</p>
+        <p>Leftover buffer: {formatCurrency(leftoverAfterAcceleration)} ({leftoverPct.toFixed(1)}%)</p>
+      </div>
+
+      <p className="text-xs mt-3" style={{ color: guardrailStatus === 'On target' ? '#059669' : '#b45309' }}>
+        Guardrail target: {formatCurrency(bufferTarget)} - {guardrailStatus}
+      </p>
+    </div>
+  );
+}
+
 export function SmartCalendarCard({ smartCalendar }: { smartCalendar: SmartCalendar }) {
   return (
     <div className="rounded-2xl p-5 h-full flex flex-col" style={CARD_STYLE}>
@@ -123,19 +368,24 @@ export function SmartCalendarCard({ smartCalendar }: { smartCalendar: SmartCalen
       <div className="space-y-2 flex-1">
         {smartCalendar.items.slice(0, 4).map((item) => (
           <div key={item.debt.id} className="rounded-lg p-2 flex items-center justify-between" style={INNER_STYLE}>
-            <span className="text-xs" style={{ color: '#334155' }}>{item.debt.name}</span>
-            <span className="text-xs" style={{ color: '#64748b' }}>{item.daysUntil}d · {formatCurrency(item.debt.minimumPayment)}</span>
+            <span className="text-xs" style={{ color: '#334155' }}>
+              {item.debt.name}
+            </span>
+            <span className="text-xs" style={{ color: '#64748b' }}>
+              {item.daysUntil}d - {formatCurrency(item.debt.minimumPayment)}
+            </span>
           </div>
         ))}
         {smartCalendar.items.length === 0 && (
-          <p className="text-xs" style={{ color: '#94a3b8' }}>Add due dates on debts to activate smart calendar flags.</p>
+          <p className="text-xs" style={{ color: '#94a3b8' }}>
+            Add due dates on debts to activate smart calendar flags.
+          </p>
         )}
       </div>
     </div>
   );
 }
 
-// ── 4. Guardrails ─────────────────────────────────────────────────────────────
 interface GuardrailsCardProps {
   monthlyInterestLeak: number;
   monthlyInterestAvoided: number;
@@ -153,12 +403,20 @@ export function GuardrailsCard({ monthlyInterestLeak, monthlyInterestAvoided, le
       </div>
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div className="rounded-xl p-3" style={INNER_STYLE}>
-          <p className="text-xs" style={{ color: '#64748b' }}>Interest burned this month</p>
-          <p className="text-sm font-semibold" style={{ color: '#dc2626' }}>{formatCurrency(monthlyInterestLeak)}</p>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            Interest burned this month
+          </p>
+          <p className="text-sm font-semibold" style={{ color: '#dc2626' }}>
+            {formatCurrency(monthlyInterestLeak)}
+          </p>
         </div>
         <div className="rounded-xl p-3" style={INNER_STYLE}>
-          <p className="text-xs" style={{ color: '#64748b' }}>Interest avoided monthly</p>
-          <p className="text-sm font-semibold" style={{ color: '#059669' }}>{formatCurrency(monthlyInterestAvoided)}</p>
+          <p className="text-xs" style={{ color: '#64748b' }}>
+            Interest avoided monthly
+          </p>
+          <p className="text-sm font-semibold" style={{ color: '#059669' }}>
+            {formatCurrency(monthlyInterestAvoided)}
+          </p>
         </div>
       </div>
       <div className="rounded-lg p-3" style={{ background: isLow ? 'rgba(245,158,11,0.12)' : 'rgba(16,185,129,0.12)' }}>
@@ -172,7 +430,6 @@ export function GuardrailsCard({ monthlyInterestLeak, monthlyInterestAvoided, le
   );
 }
 
-// ── 5. Priority Queue ─────────────────────────────────────────────────────────
 interface PriorityQueueCardProps {
   priorityQueue: Debt[];
   effectiveAcceleration: number;
@@ -191,8 +448,12 @@ export function PriorityQueueCard({ priorityQueue, effectiveAcceleration, action
       <div className="space-y-2 mb-3 flex-1">
         {priorityQueue.map((debt, idx) => (
           <div key={debt.id} className="rounded-lg p-2 flex items-center justify-between" style={INNER_STYLE}>
-            <span className="text-xs" style={{ color: '#334155' }}>{idx + 1}. {debt.name}</span>
-            <span className="text-xs" style={{ color: '#64748b' }}>{formatCurrency(Math.min(debt.balance, Math.max(100, effectiveAcceleration / 2)))}</span>
+            <span className="text-xs" style={{ color: '#334155' }}>
+              {idx + 1}. {debt.name}
+            </span>
+            <span className="text-xs" style={{ color: '#64748b' }}>
+              {formatCurrency(Math.min(debt.balance, Math.max(100, effectiveAcceleration / 2)))}
+            </span>
           </div>
         ))}
       </div>
@@ -208,7 +469,6 @@ export function PriorityQueueCard({ priorityQueue, effectiveAcceleration, action
   );
 }
 
-// ── 6. Milestones ─────────────────────────────────────────────────────────────
 interface MilestonesCardProps {
   milestoneData: MilestoneData;
   refinanceCandidates: RefinanceCandidate[];
@@ -222,87 +482,42 @@ export function MilestonesCard({ milestoneData, refinanceCandidates }: Milestone
         <h3 className="text-sm font-semibold">Milestones and Refinance Opportunities</h3>
       </div>
       <div className="rounded-lg p-3 mb-3" style={INNER_STYLE}>
-        <p className="text-xs" style={{ color: '#64748b' }}>Paid down progress</p>
-        <p className="text-sm font-semibold" style={{ color: '#0f172a' }}>{milestoneData.pctPaid.toFixed(1)}% paid off</p>
-        <p className="text-xs" style={{ color: '#64748b' }}>On-plan streak: {milestoneData.streak} months</p>
+        <p className="text-xs" style={{ color: '#64748b' }}>
+          Paid down progress
+        </p>
+        <p className="text-sm font-semibold" style={{ color: '#0f172a' }}>
+          {milestoneData.pctPaid.toFixed(1)}% paid off
+        </p>
+        <p className="text-xs" style={{ color: '#64748b' }}>
+          On-plan streak: {milestoneData.streak} months
+        </p>
       </div>
       <div className="space-y-2 flex-1">
         {refinanceCandidates.map(({ debt, estimatedSavings }) => (
           <div key={debt.id} className="rounded-lg p-2 flex items-center justify-between" style={INNER_STYLE}>
-            <span className="text-xs" style={{ color: '#334155' }}>{debt.name} at {debt.interestRate.toFixed(2)}%</span>
-            <span className="text-xs" style={{ color: '#059669' }}>~{formatCurrency(estimatedSavings)} potential save</span>
+            <span className="text-xs" style={{ color: '#334155' }}>
+              {debt.name} at {debt.interestRate.toFixed(2)}%
+            </span>
+            <span className="text-xs" style={{ color: '#059669' }}>
+              ~{formatCurrency(estimatedSavings)} potential save
+            </span>
           </div>
         ))}
         {refinanceCandidates.length === 0 && (
-          <p className="text-xs" style={{ color: '#94a3b8' }}>No strong refinance flags right now.</p>
+          <p className="text-xs" style={{ color: '#94a3b8' }}>
+            No strong refinance flags right now.
+          </p>
         )}
       </div>
     </div>
   );
 }
 
-// ── 7. Goal Split ─────────────────────────────────────────────────────────────
-interface GoalSplitCardProps {
-  splitDebtPercent: number;
-  debtSplitAmount: number;
-  emergencySplitAmount: number;
-  shockMode: ShockMode;
-  shockResult: PayoffResult;
-  onSplitChange: (v: number) => void;
-  onShockChange: (m: ShockMode) => void;
+interface Insight {
+  title: string;
+  why: string;
+  impact: string;
 }
-
-export function GoalSplitCard({ splitDebtPercent, debtSplitAmount, emergencySplitAmount, shockMode, shockResult, onSplitChange, onShockChange }: GoalSplitCardProps) {
-  const shockOptions: { key: ShockMode; label: string }[] = [
-    { key: 'none', label: 'No shock' },
-    { key: 'income-10', label: 'Income -10%' },
-    { key: 'expense-500', label: 'Expense +$500' },
-  ];
-  return (
-    <div className="rounded-2xl p-5 xl:col-span-2 h-full flex flex-col" style={CARD_STYLE}>
-      <div className="flex items-center gap-2 mb-1">
-        <Activity size={16} style={{ color: '#2563eb' }} />
-        <h3 className="text-sm font-semibold">Goal Split and Shock Forecast</h3>
-      </div>
-      <p className="text-xs mb-3" style={{ color: '#64748b' }}>
-        Use the slider to decide how to divide your available cash between paying off debt and building an emergency fund.
-        Then simulate a financial setback — a drop in income or a spike in expenses — to see how your debt-free date shifts.
-        This is a planning tool only; it does not change your actual payoff plan.
-      </p>
-      <label className="text-xs mb-1 block" style={{ color: '#64748b' }}>Debt vs emergency split</label>
-      <input type="range" min={0} max={100} step={5} value={splitDebtPercent}
-        onChange={(e) => onSplitChange(parseFloat(e.target.value))}
-        style={{ width: '100%', accentColor: '#2563eb' }} />
-      <div className="grid grid-cols-2 gap-2 mt-2 mb-3">
-        <div className="rounded-lg p-2" style={INNER_STYLE}>
-          <p className="text-xs" style={{ color: '#64748b' }}>Debt acceleration</p>
-          <p className="text-sm font-semibold">{formatCurrency(debtSplitAmount)}</p>
-        </div>
-        <div className="rounded-lg p-2" style={INNER_STYLE}>
-          <p className="text-xs" style={{ color: '#64748b' }}>Emergency reserve</p>
-          <p className="text-sm font-semibold">{formatCurrency(emergencySplitAmount)}</p>
-        </div>
-      </div>
-      <label className="text-xs mb-1 block" style={{ color: '#64748b' }}>Simulate a financial shock</label>
-      <div className="flex gap-2 mb-3">
-        {shockOptions.map((item) => (
-          <button key={item.key} type="button" onClick={() => onShockChange(item.key)}
-            className="rounded-lg px-2 py-1.5 text-xs font-semibold"
-            style={{ background: shockMode === item.key ? 'rgba(37,99,235,0.12)' : '#f8fafc', border: shockMode === item.key ? '1px solid rgba(37,99,235,0.35)' : '1px solid rgba(15,23,42,0.08)', color: shockMode === item.key ? '#1d4ed8' : '#334155' }}>
-            {item.label}
-          </button>
-        ))}
-      </div>
-      <div className="rounded-lg p-2 mt-auto" style={INNER_STYLE}>
-        <p className="text-xs" style={{ color: '#64748b' }}>Shock forecast debt-free</p>
-        <p className="text-sm font-semibold">{toTimeLabel(shockResult.months)}</p>
-      </div>
-    </div>
-  );
-}
-
-// ── 8. Explainable Insights ───────────────────────────────────────────────────
-interface Insight { title: string; why: string; impact: string; }
 
 export function ExplainableInsightsCard({ insights }: { insights: Insight[] }) {
   return (
@@ -314,9 +529,15 @@ export function ExplainableInsightsCard({ insights }: { insights: Insight[] }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {insights.map((insight) => (
           <div key={insight.title} className="rounded-xl p-3" style={INNER_STYLE}>
-            <p className="text-xs font-semibold mb-1" style={{ color: '#0f172a' }}>{insight.title}</p>
-            <p className="text-xs mb-2" style={{ color: '#64748b' }}>{insight.why}</p>
-            <p className="text-xs" style={{ color: '#1d4ed8' }}>{insight.impact}</p>
+            <p className="text-xs font-semibold mb-1" style={{ color: '#0f172a' }}>
+              {insight.title}
+            </p>
+            <p className="text-xs mb-2" style={{ color: '#64748b' }}>
+              {insight.why}
+            </p>
+            <p className="text-xs" style={{ color: '#1d4ed8' }}>
+              {insight.impact}
+            </p>
           </div>
         ))}
       </div>

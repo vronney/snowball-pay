@@ -2,8 +2,7 @@
 
 import { useState } from "react";
 
-const supportComposeUrl =
-  "https://mail.google.com/mail/?view=cm&fs=1&to=support@getsnowballpay.com&su=SnowballPay%20Support";
+const supportHref = "/contact";
 
 const faqs = [
   {
@@ -13,10 +12,6 @@ const faqs = [
   {
     q: "How is Snowball different from the Avalanche method?",
     a: "Avalanche prioritizes the highest interest rate first to minimize total interest paid. Snowball prioritizes the smallest balance first for faster early wins. SnowballPay supports both approaches.",
-  },
-  {
-    q: "How does the document import feature work?",
-    a: "You can upload a PDF statement or CSV export. SnowballPay reads balances, rates, and minimum payments so you can build your plan faster.",
   },
   {
     q: "Is my financial data secure?",
@@ -37,137 +32,60 @@ const faqs = [
 ];
 
 export default function FAQ() {
-  const [open, setOpen] = useState<number | null>(0);
+  const [openIndex, setOpenIndex] = useState(0);
 
   return (
-    <section
-      id="faq"
-      style={{
-        padding: "112px 24px",
-        position: "relative",
-        overflow: "hidden",
-        background: "#ffffff",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "760px",
-          margin: "0 auto",
-          position: "relative",
-          zIndex: 1,
-        }}
-      >
-        <div style={{ textAlign: "center", marginBottom: "68px" }}>
-          <div
-            className="lp-section-tag"
-            style={{
-              color: "#7c3aed",
-              background: "rgba(124,58,237,0.06)",
-              borderColor: "rgba(124,58,237,0.14)",
-            }}
-          >
+    <section id="faq" className="lp-faq-section">
+      <div className="lp-faq-wrap">
+        <div className="lp-faq-header">
+          <div className="lp-section-tag lp-section-tag-faq">
             <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
               <circle cx="5" cy="5" r="5" />
             </svg>
             FAQ
           </div>
-          <h2
-            style={{
-              fontSize: "clamp(2rem, 5vw, 3rem)",
-              fontWeight: 900,
-              letterSpacing: "-0.04em",
-              color: "#0f172a",
-              margin: "0 0 18px",
-              lineHeight: 1.1,
-            }}
-          >
-            Questions and answers
+          <h2 className="lp-faq-title">
+            Questions, answered with
+            <br />
+            practical clarity
           </h2>
-          <p
-            style={{
-              fontSize: "17px",
-              color: "#64748b",
-              maxWidth: "420px",
-              margin: "0 auto",
-              lineHeight: 1.7,
-            }}
-          >
+          <p className="lp-faq-subtitle">
             Everything you need to know before you start your debt payoff plan.
           </p>
         </div>
 
-        <div>
-          {faqs.map((f, i) => (
-            <div key={i} className="lp-faq-row">
-              <button
-                className="lp-faq-trigger"
-                onClick={() => setOpen(open === i ? null : i)}
-                aria-expanded={open === i}
+        <div className="lp-faq-shell">
+          <div className="lp-faq-core">
+            {faqs.map((item, index) => (
+              <details
+                key={item.q}
+                className="lp-faq-item"
+                open={openIndex === index}
               >
-                <span>{f.q}</span>
-                <span
-                  style={{
-                    width: "28px",
-                    height: "28px",
-                    borderRadius: "8px",
-                    flexShrink: 0,
-                    background:
-                      open === i
-                        ? "rgba(37,99,235,0.08)"
-                        : "rgba(15,23,42,0.04)",
-                    border: `1px solid ${
-                      open === i ? "rgba(37,99,235,0.25)" : "rgba(15,23,42,0.1)"
-                    }`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "16px",
-                    color: open === i ? "#2563eb" : "#94a3b8",
-                    transition:
-                      "background 0.2s, border-color 0.2s, color 0.2s, transform 0.25s",
-                    transform: open === i ? "rotate(45deg)" : "rotate(0deg)",
+                <summary
+                  className="lp-faq-trigger"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setOpenIndex((current) => (current === index ? -1 : index));
                   }}
                 >
-                  +
-                </span>
-              </button>
-              {open === i && (
-                <p
-                  style={{
-                    fontSize: "15px",
-                    lineHeight: 1.78,
-                    color: "#64748b",
-                    paddingBottom: "26px",
-                    margin: 0,
-                  }}
-                >
-                  {f.a}
-                </p>
-              )}
-            </div>
-          ))}
+                  <span className="lp-faq-question">{item.q}</span>
+                  <span className="lp-faq-plus-wrap" aria-hidden="true">
+                    <span className="lp-faq-plus">+</span>
+                  </span>
+                </summary>
+                <div className="lp-faq-answer">
+                  <p>{item.a}</p>
+                </div>
+              </details>
+            ))}
+          </div>
         </div>
 
-        <p
-          style={{
-            textAlign: "center",
-            fontSize: "14px",
-            color: "#94a3b8",
-            marginTop: "48px",
-          }}
-        >
+        <p className="lp-faq-support">
           Still have questions?{" "}
-          <a
-            href={supportComposeUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              color: "#2563eb",
-              textDecoration: "none",
-              fontWeight: 600,
-            }}
-          >
-            Email our team -&gt;
+          <a href={supportHref}>
+            Contact support {"->"}
           </a>
         </p>
       </div>

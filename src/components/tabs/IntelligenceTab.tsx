@@ -86,8 +86,10 @@ export default function IntelligenceTab({ debts, income, expenses, isLoading }: 
 
     const balanceChartData = baseBalances.map((mb, index) => ({
       date: mb.date,
+      month: mb.month,
       totalBalance: projectedBalanceMap.get(mb.date),
       minimumsBalance: minimumsBalanceMap.get(mb.date),
+      avalancheBalance: undefined as number | undefined,
       actualBalance: index === 0
         ? (actualBalanceMap.get(mb.date) ?? currentTotalDebt)
         : actualBalanceMap.get(mb.date),

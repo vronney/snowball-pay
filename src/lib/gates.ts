@@ -11,10 +11,17 @@ export const FREE_DEBT_LIMIT = PLANS.free.debtLimit;
 export async function getUserTier(userId: string): Promise<PaidTier> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    select: { paidTier: true, subscriptionStatus: true },
+    select: { paidTier: true, subscriptionStatus: true, subscriptionEndsAt: true },
   });
   if (!user) return 'free';
-  // Treat canceled / inactive / past_due (grace period) as free unless still active
+
+  // Guard against webhook delays: if the known end timestamp has passed,
+  // access is no longer Pro even if status has not been updated yet.
+  const now = new Date();
+  const isExpired = user.subscriptionEndsAt !== null && user.subscriptionEndsAt < now;
+  if (isExpired) return 'free';
+
+  // Treat canceled / inactive / past_due as free unless still active/trialing.
   const activeStatuses = ['active', 'trialing'];
   if (user.paidTier === 'pro' && activeStatuses.includes(user.subscriptionStatus)) {
     return 'pro';

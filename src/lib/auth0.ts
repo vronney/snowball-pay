@@ -1,6 +1,8 @@
 import { Auth0Client } from '@auth0/nextjs-auth0/server';
 
 export const auth0 = new Auth0Client({
+  // Force Auth0 /v2/logout so federated logout query params are honored.
+  logoutStrategy: 'v2',
   session: {
     rolling: true,
     inactivityDuration: 60 * 60,     // 1 hour inactivity → logged out

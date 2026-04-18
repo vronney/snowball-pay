@@ -1,6 +1,7 @@
 'use client';
 
-import { Lightbulb, Sparkles, TrendingUp, Target, Banknote, ArrowRight, RefreshCcw, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { Lightbulb, Sparkles, TrendingUp, Target, Banknote, ArrowRight, RefreshCcw, AlertTriangle, ChevronDown } from 'lucide-react';
 import {
   useCachedRecommendations,
   useGenerateRecommendations,
@@ -43,6 +44,60 @@ function SkeletonCard() {
       <div style={{ height: '16px', borderRadius: '4px', background: 'rgba(15,23,42,0.10)', marginBottom: '8px', width: '70%' }} />
       <div style={{ height: '12px', borderRadius: '4px', background: 'rgba(15,23,42,0.06)', marginBottom: '5px' }} />
       <div style={{ height: '12px', borderRadius: '4px', background: 'rgba(15,23,42,0.06)', width: '85%' }} />
+    </div>
+  );
+}
+
+function RecommendationCard({ rec, index }: { rec: AiRecommendation; index: number }) {
+  const [whyOpen, setWhyOpen] = useState(false);
+  const meta = TYPE_META[rec.type] ?? TYPE_META.strategy;
+  const Icon = meta.icon;
+
+  return (
+    <div
+      style={{
+        borderRadius: '14px',
+        padding: '18px 20px',
+        background: '#f8fafc',
+        border: '1px solid rgba(15,23,42,0.08)',
+        borderLeft: `2px solid ${meta.color}55`,
+        animation: `fadeInUp 0.5s cubic-bezier(0.22,1,0.36,1) ${index * 0.08}s both`,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+        <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${meta.color}14`, border: `1px solid ${meta.color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Icon size={13} style={{ color: meta.color }} />
+        </div>
+        <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: meta.color, textTransform: 'uppercase' }}>{meta.label}</span>
+        <span style={{ marginLeft: 'auto', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: IMPACT_COLOR[rec.impact], background: `${IMPACT_COLOR[rec.impact]}12`, padding: '2px 7px', borderRadius: '4px' }}>
+          {rec.impact}
+        </span>
+      </div>
+
+      <p style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', margin: '0 0 8px', lineHeight: 1.35 }}>{rec.title}</p>
+      <p style={{ fontSize: '13px', lineHeight: 1.65, color: '#475569', margin: '0 0 14px' }}>{rec.body}</p>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: meta.color, marginBottom: rec.why ? '10px' : '0' }}>
+        <ArrowRight size={11} />
+        {rec.action}
+      </div>
+
+      {rec.why && (
+        <div style={{ borderTop: '1px solid rgba(15,23,42,0.07)', paddingTop: '10px' }}>
+          <button
+            onClick={() => setWhyOpen((v) => !v)}
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontSize: '11px', fontWeight: 600, color: '#94a3b8' }}
+          >
+            <ChevronDown size={12} style={{ transform: whyOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }} />
+            Why this recommendation?
+          </button>
+          {whyOpen && (
+            <p style={{ margin: '7px 0 0', fontSize: '12px', lineHeight: 1.6, color: '#64748b', paddingLeft: '16px', borderLeft: `2px solid ${meta.color}33` }}>
+              {rec.why}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -172,41 +227,9 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
       {/* Results */}
       {hasResults && !isGenerating && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
-          {(recommendations as AiRecommendation[]).map((rec, i) => {
-            const meta = TYPE_META[rec.type] ?? TYPE_META.strategy;
-            const Icon = meta.icon;
-            return (
-              <div
-                key={i}
-                style={{
-                  borderRadius: '14px',
-                  padding: '18px 20px',
-                  background: '#f8fafc',
-                  border: '1px solid rgba(15,23,42,0.08)',
-                  borderLeft: `2px solid ${meta.color}55`,
-                  animation: `fadeInUp 0.5s cubic-bezier(0.22,1,0.36,1) ${i * 0.08}s both`,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: `${meta.color}14`, border: `1px solid ${meta.color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon size={13} style={{ color: meta.color }} />
-                  </div>
-                  <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.06em', color: meta.color, textTransform: 'uppercase' }}>{meta.label}</span>
-                  <span style={{ marginLeft: 'auto', fontSize: '10px', fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: IMPACT_COLOR[rec.impact], background: `${IMPACT_COLOR[rec.impact]}12`, padding: '2px 7px', borderRadius: '4px' }}>
-                    {rec.impact}
-                  </span>
-                </div>
-
-                <p style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', margin: '0 0 8px', lineHeight: 1.35 }}>{rec.title}</p>
-                <p style={{ fontSize: '13px', lineHeight: 1.65, color: '#475569', margin: '0 0 14px' }}>{rec.body}</p>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: 600, color: meta.color }}>
-                  <ArrowRight size={11} />
-                  {rec.action}
-                </div>
-              </div>
-            );
-          })}
+          {(recommendations as AiRecommendation[]).map((rec, i) => (
+            <RecommendationCard key={i} rec={rec} index={i} />
+          ))}
         </div>
       )}
     </div>

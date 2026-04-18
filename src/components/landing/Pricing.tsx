@@ -34,11 +34,9 @@
     features: [
       "Unlimited debts",
       "AI payoff recommendations",
-      "Document import (PDF / CSV)",
       "Advanced charts and analytics",
       "Interest impact projections",
       "Custom debt priority order",
-      "Export to PDF / CSV",
       "Priority support",
     ],
   },
@@ -85,7 +83,12 @@ export default function Pricing() {
       }}
     >
       <div
-        style={{ maxWidth: "1120px", margin: "0 auto", position: "relative", zIndex: 1 }}
+        style={{
+          maxWidth: "1120px",
+          margin: "0 auto",
+          position: "relative",
+          zIndex: 1,
+        }}
       >
         <div style={{ textAlign: "center", marginBottom: "72px" }}>
           <div className="lp-section-tag">
@@ -104,7 +107,8 @@ export default function Pricing() {
               lineHeight: 1.1,
             }}
           >
-            Transparent pricing. <span className="lp-text-blue">No surprises.</span>
+            Transparent pricing.{" "}
+            <span className="lp-text-blue">No surprises.</span>
           </h2>
           <p
             style={{
@@ -172,7 +176,9 @@ export default function Pricing() {
                         ? "rgba(37,99,235,0.08)"
                         : `${plan.accent}0f`,
                       border: `1px solid ${
-                        plan.featured ? "rgba(37,99,235,0.2)" : plan.accent + "28"
+                        plan.featured
+                          ? "rgba(37,99,235,0.2)"
+                          : plan.accent + "28"
                       }`,
                       color: plan.featured ? "#2563eb" : plan.accent,
                     }}
@@ -204,7 +210,14 @@ export default function Pricing() {
                 {plan.tagline}
               </p>
 
-              <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "6px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "baseline",
+                  gap: "4px",
+                  marginBottom: "6px",
+                }}
+              >
                 {plan.price === 0 ? (
                   <span
                     style={{
@@ -281,9 +294,17 @@ export default function Pricing() {
                 {plan.cta}
               </a>
 
-              <div style={{ height: "1px", background: "rgba(15,23,42,0.07)", marginBottom: "22px" }} />
+              <div
+                style={{
+                  height: "1px",
+                  background: "rgba(15,23,42,0.07)",
+                  marginBottom: "22px",
+                }}
+              />
 
-              <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: "2px" }}
+              >
                 {plan.features.map((feat, fi) => (
                   <div key={fi} className="lp-check-item">
                     <CheckIcon color={plan.accent} />
@@ -310,8 +331,16 @@ export default function Pricing() {
             </div>
           ))}
         </div>
-        <p style={{ textAlign: "center", fontSize: "13px", color: "#94a3b8", marginTop: "20px" }}>
-          All paid plans include a 7-day free trial. No credit card required to start.
+        <p
+          style={{
+            textAlign: "center",
+            fontSize: "13px",
+            color: "#94a3b8",
+            marginTop: "20px",
+          }}
+        >
+          All paid plans include a 7-day free trial. No credit card required to
+          start.
         </p>
       </div>
     </section>

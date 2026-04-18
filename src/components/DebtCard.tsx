@@ -116,18 +116,22 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
       {/* Header row */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1.5">
+          {/* Name row — full width, no badges competing */}
+          <div className="flex items-center gap-2 mb-1">
             <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: categoryColor }} />
-            <span className="font-semibold text-sm truncate">{debt.name || 'Unnamed'}</span>
+            <span className="font-semibold text-sm truncate min-w-0 flex-1">{debt.name || 'Unnamed'}</span>
+          </div>
+          {/* Badges row */}
+          <div className="flex items-center gap-1.5 mb-1.5 pl-4">
             <span
-              className="text-xs px-1.5 py-0.5 rounded-full ml-auto flex-shrink-0"
+              className="text-xs px-1.5 py-0.5 rounded-full"
               style={{ background: `${categoryColor}20`, color: categoryColor, border: `1px solid ${categoryColor}35` }}
             >
               {debt.category}
             </span>
             {rank !== undefined && (
               <span
-                className="text-xs font-bold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                className="text-xs font-bold px-1.5 py-0.5 rounded-full"
                 title="Payoff priority order"
                 style={{
                   background: rank === 1 ? 'rgba(37,99,235,0.12)' : 'rgba(15,23,42,0.06)',
@@ -159,49 +163,49 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
 
         {/* Action buttons */}
         <div
-          className="flex items-center gap-1 flex-shrink-0 rounded-lg p-1"
-          style={{ background: 'rgba(15,23,42,0.03)', border: '1px solid rgba(15,23,42,0.06)' }}
+          className="flex items-center gap-0.5 flex-shrink-0 rounded-lg"
+          style={{ background: 'rgba(15,23,42,0.03)', border: '1px solid rgba(15,23,42,0.06)', padding: '2px' }}
         >
           <button
             onClick={() => togglePanel('payment')}
             title="Log payment"
-            className="p-2 rounded-lg hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
+            className="p-1.5 rounded-md hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
             aria-label="Log payment"
             style={{ color: panel === 'payment' ? '#34d399' : undefined, opacity: panel === 'payment' ? 1 : 0.4 }}
           >
-            <DollarSign size={15} />
+            <DollarSign size={13} />
           </button>
           <button
             onClick={() => togglePanel('balance')}
             title="Update balance"
-            className="p-2 rounded-lg hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
+            className="p-1.5 rounded-md hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
             aria-label="Update balance"
             style={{ color: panel === 'balance' ? '#fbbf24' : undefined, opacity: panel === 'balance' ? 1 : 0.4 }}
           >
-            <RefreshCw size={15} />
+            <RefreshCw size={13} />
           </button>
           <button
             onClick={() => togglePanel('edit')}
             title="Edit debt"
-            className="p-2 rounded-lg hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
+            className="p-1.5 rounded-md hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
             aria-label="Edit debt"
             style={{ color: panel === 'edit' ? '#93c5fd' : undefined, opacity: panel === 'edit' ? 1 : 0.4 }}
           >
-            <Pencil size={15} />
+            <Pencil size={13} />
           </button>
           {confirmingDelete ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '3px', padding: '0 2px' }}>
               <button
                 onClick={() => setConfirmingDelete(false)}
-                className="p-1 rounded-lg cursor-pointer bg-transparent border-0 transition"
-                style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 600 }}
+                className="rounded cursor-pointer bg-transparent border-0 transition"
+                style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600, padding: '2px 4px' }}
               >
                 Cancel
               </button>
               <button
                 onClick={() => { setConfirmingDelete(false); onDelete(); }}
-                className="p-1 rounded-lg cursor-pointer border-0 transition"
-                style={{ fontSize: '12px', background: '#ef4444', color: '#fff', fontWeight: 700, borderRadius: '6px', padding: '2px 10px' }}
+                className="rounded cursor-pointer border-0 transition"
+                style={{ fontSize: '11px', background: '#ef4444', color: '#fff', fontWeight: 700, padding: '2px 8px' }}
               >
                 Delete
               </button>
@@ -209,11 +213,11 @@ export default function DebtCard({ debt, allDebts, onDelete, firstSnapshotBalanc
           ) : (
             <button
               onClick={() => setConfirmingDelete(true)}
-              className="p-2 rounded-lg hover:bg-red-500/10 cursor-pointer bg-transparent border-0 opacity-30 hover:opacity-80 transition"
+              className="p-1.5 rounded-md hover:bg-red-500/10 cursor-pointer bg-transparent border-0 opacity-30 hover:opacity-80 transition"
               aria-label="Delete debt"
               style={{ color: '#f87171' }}
             >
-              <Trash2 size={15} />
+              <Trash2 size={13} />
             </button>
           )}
         </div>

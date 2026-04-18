@@ -2,25 +2,26 @@
 
 import Image from "next/image";
 import {
+  Home,
   CreditCard,
   Wallet,
   TrendingDown,
   BarChart2,
-  Upload,
   Sparkles,
   Settings,
   LogOut,
   HelpCircle,
 } from "lucide-react";
 import { type Tab } from "./types";
+import { LOGOUT_URL, runLogoutClientCleanup } from "@/lib/logout-client";
 
 const navItems = [
+  { id: "home",         label: "Home",        icon: Home },
   { id: "debts",        label: "My Debts",    icon: CreditCard },
   { id: "income",       label: "Income",      icon: Wallet },
   { id: "plan",         label: "Payoff Plan", icon: TrendingDown },
   { id: "progress",     label: "Progress",    icon: BarChart2 },
   { id: "intelligence", label: "Intelligence",icon: Sparkles },
-  { id: "documents",    label: "Import",      icon: Upload },
   { id: "help",         label: "Help",        icon: HelpCircle },
 ];
 
@@ -224,7 +225,8 @@ export default function DashboardSidebar({
           }}
         >
           <a
-            href="/auth/logout"
+            href={LOGOUT_URL}
+            onClick={runLogoutClientCleanup}
             style={{
               display: "flex",
               alignItems: "center",

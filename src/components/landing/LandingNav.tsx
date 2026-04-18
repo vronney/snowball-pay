@@ -1,40 +1,54 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { track, Events } from "@/lib/analytics";
+import { LOGOUT_URL, runLogoutClientCleanup } from "@/lib/logout-client";
+
+const navItems = [
+  { label: "Features", href: "/#features" },
+  { label: "Learn", href: "/learn" },
+  { label: "How It Works", href: "/#how-it-works" },
+  { label: "Pricing", href: "/#pricing" },
+  { label: "Calculator", href: "/calculator" },
+];
+
+function ArrowIsland() {
+  return (
+    <span className="lp-btn-arrow">
+      <span>{">"}</span>
+    </span>
+  );
+}
 
 export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const onEsc = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, [mobileOpen]);
+
   return (
     <>
-      <nav
-        className="lp-nav"
-        style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 50 }}
-      >
-        <div
-          style={{
-            maxWidth: "1160px",
-            margin: "0 auto",
-            padding: "0 24px",
-            height: "68px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          {/* Logo */}
-          <a
-            href="/"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              textDecoration: "none",
-              flexShrink: 0,
-            }}
-          >
+      <nav className="lp-nav-shell">
+        <div className="lp-nav-inner">
+          <a href="/" className="lp-nav-brand" aria-label="SnowballPay home">
             <Image
               src="/logo-dark.svg"
               alt="SnowballPay"
@@ -44,186 +58,132 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
             />
           </a>
 
-          {/* Center nav — desktop */}
-          <div
-            className="lp-hide-sm"
-            style={{ display: "flex", alignItems: "center", gap: "32px" }}
-          >
-            <a href="/#features" className="lp-nav-link">
-              Features
-            </a>
-            <a href="/learn" className="lp-nav-link">
-              Learn
-            </a>
-            <a href="/#how-it-works" className="lp-nav-link">
-              How It Works
-            </a>
-            <a href="/#pricing" className="lp-nav-link">
-              Pricing
-            </a>
-            <a href="/calculator" className="lp-nav-link">
-              Calculator
-            </a>
+          <div className="lp-hide-sm lp-nav-links">
+            {navItems.map((item) => (
+              <a key={item.label} href={item.href} className="lp-nav-link">
+                {item.label}
+              </a>
+            ))}
           </div>
 
-          {/* CTA cluster — desktop */}
-          <div
-            className="lp-hide-sm"
-            style={{ display: "flex", alignItems: "center", gap: "10px" }}
-          >
+          <div className="lp-hide-sm lp-nav-cta">
             {isLoggedIn ? (
               <>
-                <a
-                  href="/auth/logout"
-                  className="lp-nav-link"
-                  style={{ padding: "8px 14px" }}
-                >
+                <a href={LOGOUT_URL} className="lp-nav-signin" onClick={runLogoutClientCleanup}>
                   Sign Out
                 </a>
-                <a
-                  href="/dashboard"
-                  className="lp-btn lp-btn-primary"
-                  style={{ padding: "9px 20px", fontSize: "14px" }}
-                >
-                  Dashboard →
+                <a href="/dashboard" className="lp-btn lp-btn-primary lp-btn-with-icon">
+                  Dashboard
+                  <ArrowIsland />
                 </a>
               </>
             ) : (
               <>
-                <a
-                  href="/auth/login?returnTo=/dashboard"
-                  className="lp-nav-link"
-                  style={{
-                    padding: "8px 18px",
-                    borderRadius: "8px",
-                    border: "1px solid rgba(15,23,42,0.12)",
-                    background: "transparent",
-                  }}
-                >
+                <a href="/auth/login?returnTo=/dashboard" className="lp-nav-signin">
                   Sign In
                 </a>
                 <a
                   href="/auth/login?returnTo=/dashboard"
-                  className="lp-btn lp-btn-primary"
-                  style={{ padding: "9px 20px", fontSize: "14px" }}
-                  onClick={() => track(Events.SIGNUP_STARTED, { source: 'nav' })}
+                  className="lp-btn lp-btn-primary lp-btn-with-icon"
+                  onClick={() => track(Events.SIGNUP_STARTED, { source: "nav" })}
                 >
                   Get Started Free
+                  <ArrowIsland />
                 </a>
               </>
             )}
           </div>
 
-          {/* Mobile: CTA + hamburger */}
-          <div
-            className="lp-show-sm"
-            style={{ display: "none", alignItems: "center", gap: "10px" }}
-          >
+          <div className="lp-show-sm lp-nav-mobile">
             <a
-              href={
-                isLoggedIn ? "/dashboard" : "/auth/login?returnTo=/dashboard"
+              href={isLoggedIn ? "/dashboard" : "/auth/login?returnTo=/dashboard"}
+              className="lp-btn lp-btn-primary lp-nav-mobile-cta"
+              onClick={
+                isLoggedIn
+                  ? undefined
+                  : () => track(Events.SIGNUP_STARTED, { source: "nav_mobile" })
               }
-              className="lp-btn lp-btn-primary"
-              style={{ padding: "8px 16px", fontSize: "13px" }}
             >
-              {isLoggedIn ? "Dashboard" : "Get Started"}
+              {isLoggedIn ? "Dashboard" : "Start Free"}
             </a>
+
             <button
-              onClick={() => setMobileOpen((o) => !o)}
-              style={{
-                background: "#f1f5f9",
-                border: "1px solid rgba(15,23,42,0.1)",
-                borderRadius: "8px",
-                padding: "8px",
-                cursor: "pointer",
-                color: "#334155",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
+              type="button"
+              className={`lp-menu-btn ${mobileOpen ? "is-open" : ""}`}
+              aria-expanded={mobileOpen}
               aria-label="Toggle menu"
+              onClick={() => setMobileOpen((prev) => !prev)}
             >
-              {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+              <span />
+              <span />
             </button>
           </div>
         </div>
-
-        {/* Mobile dropdown */}
-        {mobileOpen && (
-          <div
-            className="lp-show-sm"
-            style={{
-              display: "none",
-              borderTop: "1px solid rgba(15,23,42,0.07)",
-              padding: "16px 24px 20px",
-              flexDirection: "column",
-              gap: "15px",
-              background: "rgba(248,250,252,0.98)",
-            }}
-          >
-            <a
-              href="/#features"
-              className="lp-mobile-link"
-              onClick={() => setMobileOpen(false)}
-            >
-              Features
-            </a>
-            <a
-              href="/learn"
-              className="lp-mobile-link"
-              onClick={() => setMobileOpen(false)}
-            >
-              Learn
-            </a>
-            <a
-              href="/#how-it-works"
-              className="lp-mobile-link"
-              onClick={() => setMobileOpen(false)}
-            >
-              How It Works
-            </a>
-            <a
-              href="/#pricing"
-              className="lp-mobile-link"
-              onClick={() => setMobileOpen(false)}
-            >
-              Pricing
-            </a>
-            <a
-              href="/calculator"
-              className="lp-mobile-link"
-              onClick={() => setMobileOpen(false)}
-            >
-              Calculator
-            </a>
-            <div
-              style={{
-                height: "1px",
-                background: "rgba(15,23,42,0.07)",
-                margin: "8px 0",
-              }}
-            />
-            {isLoggedIn ? (
-              <a href="/auth/logout" className="lp-mobile-link">
-                Sign Out
-              </a>
-            ) : (
-              <a
-                href="/auth/login?returnTo=/dashboard"
-                className="lp-mobile-link"
-              >
-                Sign In
-              </a>
-            )}
-          </div>
-        )}
       </nav>
 
-      <style>{`
-        @media (max-width: 900px) {
-          .lp-show-sm { display: flex !important; }
-        }
-      `}</style>
+      <div className={`lp-nav-overlay ${mobileOpen ? "is-open" : ""}`} aria-hidden={!mobileOpen}>
+        <div className="lp-nav-overlay-panel">
+          <p className="lp-nav-overlay-eyebrow">Navigation</p>
+
+          <div className="lp-nav-overlay-links">
+            {navItems.map((item, index) => (
+              <a
+                key={item.label}
+                href={item.href}
+                className="lp-mobile-link"
+                style={{ transitionDelay: `${120 + index * 50}ms` }}
+                onClick={() => setMobileOpen(false)}
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+
+          <div className="lp-nav-overlay-divider" />
+
+          <div className="lp-nav-overlay-actions">
+            {isLoggedIn ? (
+              <>
+                <a href="/dashboard" className="lp-btn lp-btn-primary lp-btn-with-icon" onClick={() => setMobileOpen(false)}>
+                  Open Dashboard
+                  <ArrowIsland />
+                </a>
+                <a
+                  href={LOGOUT_URL}
+                  className="lp-nav-signin"
+                  onClick={() => {
+                    runLogoutClientCleanup();
+                    setMobileOpen(false);
+                  }}
+                >
+                  Sign Out
+                </a>
+              </>
+            ) : (
+              <>
+                <a
+                  href="/auth/login?returnTo=/dashboard"
+                  className="lp-btn lp-btn-primary lp-btn-with-icon"
+                  onClick={() => {
+                    track(Events.SIGNUP_STARTED, { source: "nav_mobile_overlay" });
+                    setMobileOpen(false);
+                  }}
+                >
+                  Create Free Account
+                  <ArrowIsland />
+                </a>
+                <a
+                  href="/auth/login?returnTo=/dashboard"
+                  className="lp-nav-signin"
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Sign In
+                </a>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </>
   );
 }
