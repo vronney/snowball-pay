@@ -81,7 +81,7 @@ export async function middleware(request: NextRequest) {
     return authResponse;
   }
 
-  const session = await auth0.getSession(request);
+  const session = await auth0.getSession(authResponse);
   if (session) {
     return requiresApiAuth ? addCorsHeaders(authResponse, request) : authResponse;
   }
