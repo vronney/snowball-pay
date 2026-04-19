@@ -68,7 +68,7 @@ function makeEvent(type: string, object: Record<string, unknown>) {
 describe('POST /api/webhooks/stripe', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_secret';
+    process.env.STRIPE_WEBHOOK_SECRET_LIVE = 'whsec_test_secret';
   });
 
   // --- Signature verification ---

@@ -6,7 +6,7 @@ import type Stripe from 'stripe';
 // Required: disable body parsing so we can verify the raw signature
 export const runtime = 'nodejs';
 
-const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET!;
+const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET_LIVE;
 
 /**
  * Maps a Stripe subscription status to our internal tier.
@@ -37,6 +37,9 @@ export async function POST(request: NextRequest) {
 
   let event: Stripe.Event;
   try {
+    if (!WEBHOOK_SECRET) {
+      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
+    }
     event = getStripe().webhooks.constructEvent(body, sig, WEBHOOK_SECRET);
   } catch (err) {
     console.error('Webhook signature verification failed:', err);

@@ -8,17 +8,17 @@ let _stripe: Stripe | null = null;
  */
 export function getStripe(): Stripe {
   if (!_stripe) {
-    if (!process.env.STRIPE_SECRET_KEY) {
-      throw new Error('STRIPE_SECRET_KEY is not set');
+    if (!process.env.STRIPE_SECRET_KEY_LIVE) {
+      throw new Error('STRIPE_SECRET_KEY_LIVE is not set');
     }
-    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY_LIVE, {
       apiVersion: '2026-03-25.dahlia',
     });
   }
   return _stripe;
 }
 
-export const STRIPE_PRICE_ID = process.env.STRIPE_PRO_PRICE_ID ?? '';
+export const STRIPE_PRICE_ID_LIVE = process.env.STRIPE_PRO_PRICE_ID_LIVE ?? '';
 
 export const PLANS = {
   free: {

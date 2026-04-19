@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe, STRIPE_PRICE_ID } from '@/lib/stripe';
+import { getStripe, STRIPE_PRICE_ID_LIVE } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       mode: 'subscription',
-      line_items: [{ price: STRIPE_PRICE_ID, quantity: 1 }],
+      line_items: [{ price: STRIPE_PRICE_ID_LIVE, quantity: 1 }],
       allow_promotion_codes: true,
       metadata: { userId: auth.user.id },
       subscription_data: {

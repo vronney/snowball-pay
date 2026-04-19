@@ -50,5 +50,8 @@
       "Bash(curl *|*sh:*)",
       "Bash(wget *|*sh:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "stripe"
+  ]
 }
