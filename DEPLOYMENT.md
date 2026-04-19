@@ -27,10 +27,13 @@ Vercel is the easiest option as it's optimized for Next.js and created by the sa
      AUTH0_DOMAIN
      AUTH0_CLIENT_ID
      AUTH0_CLIENT_SECRET
-     AUTH0_DOMAIN
-     AUTH0_CLIENT_ID
-     NEXT_PUBLIC_API_URL (set to your Vercel URL)
+     AUTH0_SECRET          ← required: session cookie encryption key (copy from .env.local)
+     APP_BASE_URL          ← required: set to https://your-project.vercel.app (or custom domain)
+     NEXT_PUBLIC_API_URL   ← set to same value as APP_BASE_URL
+     UNSUBSCRIBE_HMAC_SECRET ← required if lifecycle emails are enabled
      ```
+   - **CRITICAL:** `AUTH0_SECRET` must match across all deployments. If it changes, all existing sessions are invalidated.
+   - **CRITICAL:** `APP_BASE_URL` must be the exact production URL (e.g. `https://snowball-pay.vercel.app`). Wrong value = login callback fails.
 
 4. **Add Postgres Database**
    - Click **Storage** → **Create Database** → **Postgres**
