@@ -117,6 +117,36 @@ describe('POST /api/stripe/checkout', () => {
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 
+  it('recreates customer and retries when stored customer does not exist in current Stripe mode', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.user.findUnique.mockResolvedValue({ stripeCustomerId: 'cus_stale_test_mode', email: 'test@example.com' });
+    mockStripe.checkout.sessions.create
+      .mockRejectedValueOnce({
+        code: 'resource_missing',
+        param: 'customer',
+        message: "No such customer: 'cus_stale_test_mode'; a similar object exists in test mode",
+      })
+      .mockResolvedValueOnce({ url: CHECKOUT_URL });
+    mockStripe.customers.create.mockResolvedValue({ id: 'cus_live_new_123' });
+    mockPrisma.user.update.mockResolvedValue({});
+
+    const res = await POST(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.url).toBe(CHECKOUT_URL);
+
+    expect(mockStripe.customers.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { stripeCustomerId: 'cus_live_new_123' },
+    });
+    expect(mockStripe.checkout.sessions.create).toHaveBeenCalledTimes(2);
+    expect(mockStripe.checkout.sessions.create.mock.calls[1][0]).toEqual(
+      expect.objectContaining({ customer: 'cus_live_new_123' }),
+    );
+  });
+
   // --- Checkout session shape ---
 
   it('creates subscription session with 7-day trial and correct price', async () => {
