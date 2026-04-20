@@ -26,7 +26,10 @@ export async function GET(request: NextRequest) {
     const isExpired = endsAt !== null && new Date(endsAt) < now;
     const effectiveStatus = isExpired ? 'canceled' : status;
     const effectiveTier = isExpired ? 'free' : (user?.paidTier ?? 'free');
-    const isCanceling = (effectiveStatus === 'active' || effectiveStatus === 'trialing') && endsAt !== null;
+    // Trialing subscriptions naturally have a trial_end date; that should not be
+    // shown as "Canceling". Only active subscriptions with an end date are treated
+    // as scheduled to cancel.
+    const isCanceling = effectiveStatus === 'active' && endsAt !== null;
 
     return NextResponse.json({
       paidTier: effectiveTier,
