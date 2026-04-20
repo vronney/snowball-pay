@@ -65,9 +65,6 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
-  icons: {
-    icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
-  },
   alternates: {
     canonical: BASE_URL,
   },
@@ -82,14 +79,6 @@ const jsonLd = {
       url: BASE_URL,
       name: 'SnowballPay',
       description: 'Debt Snowball & Avalanche Payoff Planner',
-      potentialAction: {
-        '@type': 'SearchAction',
-        target: {
-          '@type': 'EntryPoint',
-          urlTemplate: `${BASE_URL}/?q={search_term_string}`,
-        },
-        'query-input': 'required name=search_term_string',
-      },
     },
     {
       '@type': 'SoftwareApplication',
@@ -120,7 +109,9 @@ const jsonLd = {
       url: BASE_URL,
       logo: {
         '@type': 'ImageObject',
-        url: `${BASE_URL}/logo-dark.svg`,
+        url: `${BASE_URL}/opengraph-image`,
+        width: 1200,
+        height: 630,
       },
     },
   ],
