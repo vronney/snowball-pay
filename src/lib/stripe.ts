@@ -1,11 +1,34 @@
 import Stripe from 'stripe';
 
 let _stripe: Stripe | null = null;
-let _stripeSecret: string | null = null;
 
 type StripeMode = 'live' | 'test';
+type StripeEnvKey = 'secret' | 'price' | 'webhook';
 
-function readFirstEnv(...names: string[]): string | undefined {
+const STRIPE_ENV_KEYS: Record<StripeMode, Record<StripeEnvKey, readonly string[]>> = {
+  live: {
+    secret: ['STRIPE_SECRET_KEY_LIVE', 'STRIPE_SECRET_KEY'],
+    price: ['STRIPE_PRO_PRICE_ID_LIVE', 'STRIPE_PRICE_ID_LIVE', 'STRIPE_PRO_PRICE_ID', 'STRIPE_PRICE_ID'],
+    webhook: ['STRIPE_WEBHOOK_SECRET_LIVE', 'STRIPE_WEBHOOK_SECRET'],
+  },
+  test: {
+    secret: ['STRIPE_SECRET_KEY_TEST', 'STRIPE_SECRET_KEY'],
+    price: ['STRIPE_PRO_PRICE_ID_TEST', 'STRIPE_PRICE_ID_TEST', 'STRIPE_PRO_PRICE_ID', 'STRIPE_PRICE_ID'],
+    webhook: ['STRIPE_WEBHOOK_SECRET_TEST', 'STRIPE_WEBHOOK_SECRET'],
+  },
+};
+
+const EXPECTED_SECRET: Record<StripeMode, string> = {
+  live: 'STRIPE_SECRET_KEY_LIVE (or STRIPE_SECRET_KEY fallback)',
+  test: 'STRIPE_SECRET_KEY_TEST (or STRIPE_SECRET_KEY fallback)',
+};
+
+const EXPECTED_PRICE: Record<StripeMode, string> = {
+  live: 'STRIPE_PRO_PRICE_ID_LIVE / STRIPE_PRICE_ID_LIVE (or unsuffixed fallback)',
+  test: 'STRIPE_PRO_PRICE_ID_TEST / STRIPE_PRICE_ID_TEST (or unsuffixed fallback)',
+};
+
+function readFirstEnv(names: readonly string[]): string | undefined {
   for (const name of names) {
     const value = process.env[name]?.trim();
     if (value) return value;
@@ -26,15 +49,9 @@ export function getStripeMode(): StripeMode {
 }
 
 function getStripeSecretKey(mode = getStripeMode()): string {
-  const key = mode === 'live'
-    ? readFirstEnv('STRIPE_SECRET_KEY_LIVE', 'STRIPE_SECRET_KEY')
-    : readFirstEnv('STRIPE_SECRET_KEY_TEST', 'STRIPE_SECRET_KEY');
-
+  const key = readFirstEnv(STRIPE_ENV_KEYS[mode].secret);
   if (!key) {
-    const expected = mode === 'live'
-      ? 'STRIPE_SECRET_KEY_LIVE (or STRIPE_SECRET_KEY legacy fallback)'
-      : 'STRIPE_SECRET_KEY_TEST (or STRIPE_SECRET_KEY fallback)';
-    throw new Error(`Stripe secret key is not set for ${mode} mode. Expected ${expected}.`);
+    throw new Error(`Stripe secret key is not set for ${mode} mode. Expected ${EXPECTED_SECRET[mode]}.`);
   }
   return key;
 }
@@ -44,34 +61,24 @@ function getStripeSecretKey(mode = getStripeMode()): string {
  * Throws at request time if STRIPE_SECRET_KEY is missing (not at build time).
  */
 export function getStripe(): Stripe {
-  const secret = getStripeSecretKey();
-  if (!_stripe || _stripeSecret !== secret) {
-    _stripe = new Stripe(secret, {
+  if (!_stripe) {
+    _stripe = new Stripe(getStripeSecretKey(), {
       apiVersion: '2026-03-25.dahlia',
     });
-    _stripeSecret = secret;
   }
   return _stripe;
 }
 
 export function getStripeProPriceId(mode = getStripeMode()): string {
-  const priceId = mode === 'live'
-    ? readFirstEnv('STRIPE_PRO_PRICE_ID_LIVE', 'STRIPE_PRO_PRICE_ID')
-    : readFirstEnv('STRIPE_PRO_PRICE_ID_TEST', 'STRIPE_PRO_PRICE_ID');
-
+  const priceId = readFirstEnv(STRIPE_ENV_KEYS[mode].price);
   if (!priceId) {
-    const expected = mode === 'live'
-      ? 'STRIPE_PRO_PRICE_ID_LIVE (or STRIPE_PRO_PRICE_ID legacy fallback)'
-      : 'STRIPE_PRO_PRICE_ID_TEST (or STRIPE_PRO_PRICE_ID fallback)';
-    throw new Error(`Stripe price ID is not set for ${mode} mode. Expected ${expected}.`);
+    throw new Error(`Stripe price ID is not set for ${mode} mode. Expected ${EXPECTED_PRICE[mode]}.`);
   }
   return priceId;
 }
 
 export function getStripeWebhookSecret(mode = getStripeMode()): string | null {
-  return mode === 'live'
-    ? readFirstEnv('STRIPE_WEBHOOK_SECRET_LIVE', 'STRIPE_WEBHOOK_SECRET') ?? null
-    : readFirstEnv('STRIPE_WEBHOOK_SECRET_TEST', 'STRIPE_WEBHOOK_SECRET') ?? null;
+  return readFirstEnv(STRIPE_ENV_KEYS[mode].webhook) ?? null;
 }
 
 export const PLANS = {

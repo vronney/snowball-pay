@@ -10,6 +10,9 @@ function clearStripeEnv() {
   delete process.env.STRIPE_PRO_PRICE_ID;
   delete process.env.STRIPE_PRO_PRICE_ID_TEST;
   delete process.env.STRIPE_PRO_PRICE_ID_LIVE;
+  delete process.env.STRIPE_PRICE_ID;
+  delete process.env.STRIPE_PRICE_ID_TEST;
+  delete process.env.STRIPE_PRICE_ID_LIVE;
   delete process.env.STRIPE_WEBHOOK_SECRET;
   delete process.env.STRIPE_WEBHOOK_SECRET_TEST;
   delete process.env.STRIPE_WEBHOOK_SECRET_LIVE;
@@ -81,6 +84,18 @@ describe('lib/stripe env selection', () => {
     expect(() => stripe.getStripe()).not.toThrow();
   });
 
+  it('accepts STRIPE_PRICE_ID legacy name as fallback', async () => {
+    process.env.NODE_ENV = 'production';
+    process.env.STRIPE_SECRET_KEY = 'sk_live_legacy';
+    process.env.STRIPE_PRICE_ID = 'price_legacy_only';
+
+    const stripe = await import('@/lib/stripe');
+
+    expect(stripe.getStripeMode()).toBe('live');
+    expect(stripe.getStripeProPriceId()).toBe('price_legacy_only');
+    expect(() => stripe.getStripe()).not.toThrow();
+  });
+
   it('throws clear errors when required key/price are missing for selected mode', async () => {
     process.env.NODE_ENV = 'production';
     process.env.STRIPE_ENV = 'live';
@@ -91,4 +106,3 @@ describe('lib/stripe env selection', () => {
     expect(() => stripe.getStripeProPriceId()).toThrow(/Stripe price ID is not set for live mode/);
   });
 });
-
