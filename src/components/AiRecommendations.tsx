@@ -5,10 +5,12 @@ import { Lightbulb, Sparkles, TrendingUp, Target, Banknote, ArrowRight, RefreshC
 import {
   useCachedRecommendations,
   useGenerateRecommendations,
+  useSubscription,
   buildRecommendationHash,
   type AiRecommendation,
   type RecommendationPayload,
 } from '@/lib/hooks';
+import { upgradeEvents } from '@/lib/upgradeEvents';
 import { Debt, Income, Expense } from '@/types';
 
 interface Props {
@@ -125,7 +127,9 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
   const currentHash = buildRecommendationHash(payload);
 
   const { data: cache, isLoading: cacheLoading } = useCachedRecommendations();
+  const { data: subscription, isLoading: subscriptionLoading } = useSubscription();
   const generate = useGenerateRecommendations();
+  const isPro = subscription?.paidTier === 'pro';
 
   const recommendations = generate.data?.recommendations ?? cache?.recommendations ?? null;
   const savedHash       = generate.data?.dataHash        ?? cache?.dataHash        ?? null;
@@ -135,7 +139,13 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
   const hasResults = recommendations !== null && recommendations.length > 0;
   const isGenerating = generate.isPending;
 
-  const handleGenerate = () => { void generate.mutateAsync(payload); };
+  const handleGenerate = () => {
+    if (!subscriptionLoading && !isPro) {
+      upgradeEvents.dispatch('AI recommendations');
+      return;
+    }
+    generate.mutate(payload);
+  };
 
   const timeAgo = (iso: string) => {
     const diff = Date.now() - new Date(iso).getTime();
@@ -179,7 +189,7 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
               style={{ padding: '7px 14px', borderRadius: '9px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', border: '1px solid rgba(29,78,216,0.4)', color: '#ffffff', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)' }}
             >
               <Sparkles size={13} />
-              Get tips personalised to your plan
+              {(!subscriptionLoading && !isPro) ? 'Upgrade to unlock AI tips' : 'Get tips personalised to your plan'}
             </button>
           )}
         </div>

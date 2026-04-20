@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { Sparkles, X, Check, Zap } from 'lucide-react';
-import { useStartCheckout } from '@/lib/hooks';
+import { getErrorMessage, useStartCheckout } from '@/lib/hooks';
 import { PLANS } from '@/lib/stripe';
 
 interface UpgradeModalProps {
@@ -12,6 +12,9 @@ interface UpgradeModalProps {
 
 export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
   const checkout = useStartCheckout();
+  const checkoutError = checkout.isError
+    ? getErrorMessage(checkout.error, 'Could not start checkout. Please try again.')
+    : null;
 
   // Close on Escape
   useEffect(() => {
@@ -112,6 +115,23 @@ export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
           <Zap size={16} />
           {checkout.isPending ? 'Redirecting…' : 'Start 7-day free trial'}
         </button>
+
+        {checkoutError && (
+          <p
+            role="alert"
+            style={{
+              margin: '10px 0 0',
+              fontSize: '12px',
+              color: '#b91c1c',
+              background: 'rgba(239,68,68,0.08)',
+              border: '1px solid rgba(239,68,68,0.2)',
+              borderRadius: '8px',
+              padding: '8px 10px',
+            }}
+          >
+            {checkoutError}
+          </p>
+        )}
 
         <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', marginTop: '12px' }}>
           Cancel anytime. No charge during trial.

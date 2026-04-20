@@ -1,24 +1,78 @@
 import Stripe from 'stripe';
 
 let _stripe: Stripe | null = null;
+let _stripeSecret: string | null = null;
+
+type StripeMode = 'live' | 'test';
+
+function readFirstEnv(...names: string[]): string | undefined {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return value;
+  }
+  return undefined;
+}
+
+/**
+ * Resolves Stripe mode for the current runtime:
+ * - `STRIPE_ENV=live|test` explicitly overrides
+ * - production defaults to `live`
+ * - everything else defaults to `test`
+ */
+export function getStripeMode(): StripeMode {
+  const explicit = process.env.STRIPE_ENV?.toLowerCase();
+  if (explicit === 'live' || explicit === 'test') return explicit;
+  return process.env.NODE_ENV === 'production' ? 'live' : 'test';
+}
+
+function getStripeSecretKey(mode = getStripeMode()): string {
+  const key = mode === 'live'
+    ? readFirstEnv('STRIPE_SECRET_KEY_LIVE', 'STRIPE_SECRET_KEY')
+    : readFirstEnv('STRIPE_SECRET_KEY_TEST', 'STRIPE_SECRET_KEY');
+
+  if (!key) {
+    const expected = mode === 'live'
+      ? 'STRIPE_SECRET_KEY_LIVE (or STRIPE_SECRET_KEY legacy fallback)'
+      : 'STRIPE_SECRET_KEY_TEST (or STRIPE_SECRET_KEY fallback)';
+    throw new Error(`Stripe secret key is not set for ${mode} mode. Expected ${expected}.`);
+  }
+  return key;
+}
 
 /**
  * Returns a singleton Stripe client.
  * Throws at request time if STRIPE_SECRET_KEY is missing (not at build time).
  */
 export function getStripe(): Stripe {
-  if (!_stripe) {
-    if (!process.env.STRIPE_SECRET_KEY_LIVE) {
-      throw new Error('STRIPE_SECRET_KEY_LIVE is not set');
-    }
-    _stripe = new Stripe(process.env.STRIPE_SECRET_KEY_LIVE, {
+  const secret = getStripeSecretKey();
+  if (!_stripe || _stripeSecret !== secret) {
+    _stripe = new Stripe(secret, {
       apiVersion: '2026-03-25.dahlia',
     });
+    _stripeSecret = secret;
   }
   return _stripe;
 }
 
-export const STRIPE_PRICE_ID_LIVE = process.env.STRIPE_PRO_PRICE_ID_LIVE ?? '';
+export function getStripeProPriceId(mode = getStripeMode()): string {
+  const priceId = mode === 'live'
+    ? readFirstEnv('STRIPE_PRO_PRICE_ID_LIVE', 'STRIPE_PRO_PRICE_ID')
+    : readFirstEnv('STRIPE_PRO_PRICE_ID_TEST', 'STRIPE_PRO_PRICE_ID');
+
+  if (!priceId) {
+    const expected = mode === 'live'
+      ? 'STRIPE_PRO_PRICE_ID_LIVE (or STRIPE_PRO_PRICE_ID legacy fallback)'
+      : 'STRIPE_PRO_PRICE_ID_TEST (or STRIPE_PRO_PRICE_ID fallback)';
+    throw new Error(`Stripe price ID is not set for ${mode} mode. Expected ${expected}.`);
+  }
+  return priceId;
+}
+
+export function getStripeWebhookSecret(mode = getStripeMode()): string | null {
+  return mode === 'live'
+    ? readFirstEnv('STRIPE_WEBHOOK_SECRET_LIVE', 'STRIPE_WEBHOOK_SECRET') ?? null
+    : readFirstEnv('STRIPE_WEBHOOK_SECRET_TEST', 'STRIPE_WEBHOOK_SECRET') ?? null;
+}
 
 export const PLANS = {
   free: {

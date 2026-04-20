@@ -6,7 +6,8 @@ import { useUserSettings, useUpdatePreferences } from '@/lib/hooks';
 import { User, Bell, Trash2, ShieldAlert, CheckCircle2, LogOut, Mail, Sparkles, Zap, ExternalLink } from 'lucide-react';
 import axios from 'axios';
 import Image from 'next/image';
-import { useSubscription, useStartCheckout, useOpenBillingPortal } from '@/lib/hooks';
+import { useSubscription, useOpenBillingPortal } from '@/lib/hooks';
+import UpgradeModal from '@/components/billing/UpgradeModal';
 import { LOGOUT_URL, runLogoutClientCleanup } from '@/lib/logout-client';
 
 interface SettingsTabProps {
@@ -59,9 +60,9 @@ export default function SettingsTab({ user }: SettingsTabProps) {
 
   const [clearConfirm, setClearConfirm] = useState(false);
   const [clearState, setClearState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   const { data: sub } = useSubscription();
-  const startCheckout = useStartCheckout();
   const openPortal = useOpenBillingPortal();
 
   const isPro = sub?.paidTier === 'pro';
@@ -219,8 +220,7 @@ export default function SettingsTab({ user }: SettingsTabProps) {
           ) : (
             <button
               type="button"
-              onClick={() => startCheckout.mutate()}
-              disabled={startCheckout.isPending}
+              onClick={() => setUpgradeModalOpen(true)}
               style={{
                 display: 'flex', alignItems: 'center', gap: '6px',
                 padding: '8px 16px', borderRadius: '10px',
@@ -228,11 +228,11 @@ export default function SettingsTab({ user }: SettingsTabProps) {
                 background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
                 fontSize: '13px', fontWeight: 700, cursor: 'pointer',
                 color: '#ffffff', fontFamily: 'inherit', flexShrink: 0,
-                opacity: startCheckout.isPending ? 0.7 : 1,
+                opacity: 1,
               }}
             >
               <Zap size={13} />
-              {startCheckout.isPending ? 'Redirecting…' : 'Upgrade to Pro'}
+              Upgrade to Pro
             </button>
           )}
         </div>
@@ -461,6 +461,12 @@ export default function SettingsTab({ user }: SettingsTabProps) {
           <p style={{ fontSize: '12px', color: '#ef4444', margin: '12px 0 0' }}>Something went wrong. Please try again.</p>
         )}
       </div>
+
+      {upgradeModalOpen && (
+        <UpgradeModal
+          onClose={() => setUpgradeModalOpen(false)}
+        />
+      )}
 
     </div>
   );

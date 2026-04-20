@@ -26,6 +26,7 @@ const { mockStripe, mockPrisma } = vi.hoisted(() => {
 
 vi.mock('@/lib/stripe', () => ({
   getStripe: vi.fn(() => mockStripe),
+  getStripeWebhookSecret: vi.fn(() => 'whsec_test_secret'),
 }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
@@ -68,7 +69,6 @@ function makeEvent(type: string, object: Record<string, unknown>) {
 describe('POST /api/webhooks/stripe', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.STRIPE_WEBHOOK_SECRET_LIVE = 'whsec_test_secret';
   });
 
   // --- Signature verification ---

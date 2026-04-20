@@ -3,6 +3,19 @@ import { Debt, Income, Expense, DebtSummary, BudgetSummary, PayoffPlan, BalanceS
 import axios, { AxiosError } from 'axios';
 import { upgradeEvents } from '@/lib/upgradeEvents';
 
+/**
+ * Extract a user-safe error message from Axios/network errors.
+ * API routes in this app usually return { error: string } on failure.
+ */
+export function getErrorMessage(error: unknown, fallback = 'Something went wrong. Please try again.'): string {
+  if (error instanceof AxiosError) {
+    const body = error.response?.data as { error?: string; message?: string } | undefined;
+    return body?.error ?? body?.message ?? error.message ?? fallback;
+  }
+  if (error instanceof Error) return error.message || fallback;
+  return fallback;
+}
+
 /** Check if an axios error is a 403 upgrade_required and dispatch event. */
 function handleUpgradeError(error: unknown): boolean {
   if (error instanceof AxiosError && error.response?.status === 403) {

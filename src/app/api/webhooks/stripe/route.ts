@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe } from '@/lib/stripe';
+import { getStripe, getStripeWebhookSecret } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import type Stripe from 'stripe';
 
 // Required: disable body parsing so we can verify the raw signature
 export const runtime = 'nodejs';
-
-const WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET_LIVE;
 
 /**
  * Maps a Stripe subscription status to our internal tier.
@@ -37,10 +35,11 @@ export async function POST(request: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    if (!WEBHOOK_SECRET) {
+    const webhookSecret = getStripeWebhookSecret();
+    if (!webhookSecret) {
       return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
     }
-    event = getStripe().webhooks.constructEvent(body, sig, WEBHOOK_SECRET);
+    event = getStripe().webhooks.constructEvent(body, sig, webhookSecret);
   } catch (err) {
     console.error('Webhook signature verification failed:', err);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });

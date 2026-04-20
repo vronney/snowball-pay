@@ -29,7 +29,7 @@ const { mockStripe, mockPrisma } = vi.hoisted(() => {
 
 vi.mock('@/lib/stripe', () => ({
   getStripe: vi.fn(() => mockStripe),
-  STRIPE_PRICE_ID_LIVE: 'price_test_pro',
+  getStripeProPriceId: vi.fn(() => 'price_test_pro'),
 }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
