@@ -151,7 +151,7 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
     <div className="rounded-2xl p-5" style={{ background: 'rgb(255, 255, 255)', border: '1px solid rgba(15, 23, 42, 0.08)', boxShadow: 'rgba(15, 23, 42, 0.06) 0px 1px 4px' }}>
 
       {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: (hasResults || isGenerating) ? '16px' : '0' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: '8px', marginBottom: (hasResults || isGenerating) ? '16px' : '0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Lightbulb size={16} style={{ color: '#8b5cf6' }} />
           <span style={{ fontSize: '15px', fontWeight: 600 }}>AI Recommendations</span>
@@ -173,7 +173,7 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
             </button>
           )}
 
-          {!hasResults && !isGenerating && !cacheLoading && (
+          {!hasResults && !isGenerating && !cacheLoading && !generate.isError && (
             <button
               onClick={handleGenerate}
               style={{ padding: '7px 14px', borderRadius: '9px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', border: '1px solid rgba(29,78,216,0.4)', color: '#ffffff', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)' }}
@@ -219,7 +219,7 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
 
       {/* Error */}
       {generate.isError && (
-        <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#fca5a5', fontSize: '13px' }}>
+        <div style={{ padding: '12px 14px', borderRadius: '10px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#b91c1c', fontSize: '13px' }}>
           Could not load recommendations. Check your connection and try again.
         </div>
       )}

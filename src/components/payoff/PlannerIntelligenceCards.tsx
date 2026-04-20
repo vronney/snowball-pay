@@ -59,7 +59,7 @@ export function IntelligenceOverviewCard({
   const interestSaved = Math.max(0, minimumsOnlyResult.totalInterestPaid - planResult.totalInterestPaid);
 
   return (
-    <div className="rounded-2xl p-5 xl:col-span-3 h-full flex flex-col gap-4" style={CARD_STYLE}>
+    <div className="rounded-2xl p-5 xl:col-span-3 h-auto md:h-full flex flex-col gap-4" style={CARD_STYLE}>
       <div className="flex items-center gap-2">
         <Gauge size={16} style={{ color: '#2563eb' }} />
         <h3 className="text-sm font-semibold">Plan Command Center</h3>
@@ -131,7 +131,7 @@ interface ForecastCardProps {
 
 export function ForecastCard({ planResult, planGap, confidencePct, confidenceRangeMonths }: ForecastCardProps) {
   return (
-    <div className="rounded-2xl p-5 xl:col-span-2 h-full flex flex-col" style={CARD_STYLE}>
+    <div className="rounded-2xl p-5 xl:col-span-2 h-auto md:h-full flex flex-col" style={CARD_STYLE}>
       <div className="flex items-center gap-2 mb-3">
         <Target size={16} style={{ color: '#2563eb' }} />
         <h3 className="text-sm font-semibold">Debt-Free Forecast and Plan Tracking</h3>
@@ -184,7 +184,7 @@ export function StrategyLabCard({
   onExtraChange,
 }: StrategyLabCardProps) {
   return (
-    <div className="rounded-2xl p-5 h-full flex flex-col" style={CARD_STYLE}>
+    <div className="rounded-2xl p-5 h-auto md:h-full flex flex-col" style={CARD_STYLE}>
       <div className="flex items-center gap-2 mb-3">
         <TrendingUp size={16} style={{ color: '#2563eb' }} />
         <h3 className="text-sm font-semibold">Strategy Lab and What-If Simulator</h3>
@@ -255,7 +255,7 @@ interface MethodMatrixCardProps {
 
 export function MethodMatrixCard({ strategyMatrix }: MethodMatrixCardProps) {
   return (
-    <div className="rounded-2xl p-5 h-full flex flex-col" style={CARD_STYLE}>
+    <div className="rounded-2xl p-5 h-auto md:h-full flex flex-col" style={CARD_STYLE}>
       <div className="flex items-center gap-2 mb-3">
         <LayoutGrid size={16} style={{ color: '#2563eb' }} />
         <h3 className="text-sm font-semibold">Method Comparison Matrix</h3>
@@ -318,7 +318,7 @@ export function CashFlowMixCard({
   const guardrailStatus = leftoverAfterAcceleration >= bufferTarget ? 'On target' : 'Below target';
 
   return (
-    <div className="rounded-2xl p-5 h-full flex flex-col" style={CARD_STYLE}>
+    <div className="rounded-2xl p-5 h-auto md:h-full flex flex-col" style={CARD_STYLE}>
       <div className="flex items-center gap-2 mb-3">
         <PiggyBank size={16} style={{ color: '#2563eb' }} />
         <h3 className="text-sm font-semibold">Cash Flow Mix</h3>
@@ -353,7 +353,7 @@ export function CashFlowMixCard({
 
 export function SmartCalendarCard({ smartCalendar }: { smartCalendar: SmartCalendar }) {
   return (
-    <div className="rounded-2xl p-5 h-full flex flex-col" style={CARD_STYLE}>
+    <div className="rounded-2xl p-5 h-auto md:h-full flex flex-col" style={CARD_STYLE}>
       <div className="flex items-center gap-2 mb-3">
         <CalendarClock size={16} style={{ color: '#2563eb' }} />
         <h3 className="text-sm font-semibold">Smart Payment Calendar</h3>
@@ -396,7 +396,7 @@ interface GuardrailsCardProps {
 export function GuardrailsCard({ monthlyInterestLeak, monthlyInterestAvoided, leftoverAfterAcceleration, bufferTarget }: GuardrailsCardProps) {
   const isLow = leftoverAfterAcceleration < bufferTarget;
   return (
-    <div className="rounded-2xl p-5 h-full flex flex-col" style={CARD_STYLE}>
+    <div className="rounded-2xl p-5 h-auto md:h-full flex flex-col" style={CARD_STYLE}>
       <div className="flex items-center gap-2 mb-3">
         <Shield size={16} style={{ color: '#2563eb' }} />
         <h3 className="text-sm font-semibold">Interest Leak and Guardrails</h3>
@@ -440,7 +440,7 @@ interface PriorityQueueCardProps {
 
 export function PriorityQueueCard({ priorityQueue, effectiveAcceleration, actions, actionChecks, onActionCheck }: PriorityQueueCardProps) {
   return (
-    <div className="rounded-2xl p-5 h-full flex flex-col" style={CARD_STYLE}>
+    <div className="rounded-2xl p-5 h-auto md:h-full flex flex-col" style={CARD_STYLE}>
       <div className="flex items-center gap-2 mb-3">
         <ListChecks size={16} style={{ color: '#2563eb' }} />
         <h3 className="text-sm font-semibold">Priority Queue and Action Center</h3>
@@ -476,7 +476,7 @@ interface MilestonesCardProps {
 
 export function MilestonesCard({ milestoneData, refinanceCandidates }: MilestonesCardProps) {
   return (
-    <div className="rounded-2xl p-5 h-full flex flex-col" style={CARD_STYLE}>
+    <div className="rounded-2xl p-5 h-auto md:h-full flex flex-col" style={CARD_STYLE}>
       <div className="flex items-center gap-2 mb-3">
         <BadgeCheck size={16} style={{ color: '#2563eb' }} />
         <h3 className="text-sm font-semibold">Milestones and Refinance Opportunities</h3>
@@ -521,7 +521,7 @@ interface Insight {
 
 export function ExplainableInsightsCard({ insights }: { insights: Insight[] }) {
   return (
-    <div className="rounded-2xl p-5 xl:col-span-3 h-full flex flex-col" style={CARD_STYLE}>
+    <div className="rounded-2xl p-5 xl:col-span-3 h-auto md:h-full flex flex-col" style={CARD_STYLE}>
       <div className="flex items-center gap-2 mb-3">
         <Wrench size={16} style={{ color: '#2563eb' }} />
         <h3 className="text-sm font-semibold">Explainable Insights</h3>
