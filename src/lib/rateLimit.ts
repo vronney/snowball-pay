@@ -103,4 +103,8 @@ export const limits = {
   /** 3 support form submissions per 10 minutes per client key (IP/user-agent). */
   supportContact: (clientKey: string) =>
     check('support-contact', `support-contact:${clientKey}`, 3, '600 s', 10 * 60 * 1000),
+
+  /** 3 payment celebration AI calls per 24 hours per user. */
+  paymentCelebration: (userId: string) =>
+    check('pay-cel', `pay-cel:${userId}`, 3, '1440 s', 24 * 60 * 60 * 1000),
 };

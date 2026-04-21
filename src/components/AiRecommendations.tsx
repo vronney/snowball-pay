@@ -8,6 +8,7 @@ import {
   useSubscription,
   buildRecommendationHash,
   type AiRecommendation,
+  type AiRecommendationType,
   type RecommendationPayload,
 } from '@/lib/hooks';
 import { upgradeEvents } from '@/lib/upgradeEvents';
@@ -22,11 +23,17 @@ interface Props {
   totalInterestPaid: number;
 }
 
-const TYPE_META: Record<AiRecommendation['type'], { label: string; icon: typeof Sparkles; color: string }> = {
-  strategy: { label: 'Strategy',  icon: Sparkles,   color: '#8b5cf6' },
-  cashflow: { label: 'Cash Flow', icon: TrendingUp, color: '#3b82f6' },
-  priority: { label: 'Priority',  icon: Target,     color: '#f59e0b' },
-  savings:  { label: 'Savings',   icon: Banknote,   color: '#10b981' },
+const TYPE_META: Record<AiRecommendationType, { label: string; icon: typeof Sparkles; color: string }> = {
+  payoff_advice:          { label: 'Payoff Advice',      icon: Sparkles,     color: '#8b5cf6' },
+  spending_insight:       { label: 'Spending Insight',   icon: TrendingUp,   color: '#2563eb' },
+  month_change:           { label: 'What Changed',       icon: RefreshCcw,   color: '#0891b2' },
+  behavior_nudge:         { label: 'Behavior Nudge',     icon: Target,       color: '#f59e0b' },
+  debt_risk_alert:        { label: 'Debt Risk Alert',    icon: AlertTriangle,color: '#dc2626' },
+  negotiation_suggestion: { label: 'Negotiation Tip',    icon: Banknote,     color: '#10b981' },
+  strategy:               { label: 'Strategy',           icon: Sparkles,     color: '#8b5cf6' },
+  cashflow:               { label: 'Cash Flow',          icon: TrendingUp,   color: '#3b82f6' },
+  priority:               { label: 'Priority',           icon: Target,       color: '#f59e0b' },
+  savings:                { label: 'Savings',            icon: Banknote,     color: '#10b981' },
 };
 
 const IMPACT_COLOR: Record<AiRecommendation['impact'], string> = {
@@ -52,7 +59,7 @@ function SkeletonCard() {
 
 function RecommendationCard({ rec, index }: { rec: AiRecommendation; index: number }) {
   const [whyOpen, setWhyOpen] = useState(false);
-  const meta = TYPE_META[rec.type] ?? TYPE_META.strategy;
+  const meta = TYPE_META[rec.type] ?? TYPE_META.payoff_advice;
   const Icon = meta.icon;
 
   return (
@@ -114,6 +121,12 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
       interestRate: d.interestRate,
       minimumPayment: d.minimumPayment,
       category: d.category,
+      creditLimit: d.creditLimit,
+    })),
+    expenseItems: expenses.map((e) => ({
+      name: e.name,
+      amount: e.amount,
+      category: e.category,
     })),
     monthlyTakeHome:   income.monthlyTakeHome,
     essentialExpenses: income.essentialExpenses,
@@ -164,7 +177,7 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', rowGap: '8px', marginBottom: (hasResults || isGenerating) ? '16px' : '0' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Lightbulb size={16} style={{ color: '#8b5cf6' }} />
-          <span style={{ fontSize: '15px', fontWeight: 600 }}>AI Recommendations</span>
+          <span style={{ fontSize: '15px', fontWeight: 600 }}>AI Insights</span>
           {generatedAt && !isGenerating && (
             <span style={{ fontSize: '11px', color: 'rgba(15,23,42,0.5)', marginLeft: '2px' }}>
               · {timeAgo(generatedAt)}
@@ -189,7 +202,7 @@ export default function AiRecommendations({ debts, income, expenses, availableCa
               style={{ padding: '7px 14px', borderRadius: '9px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', border: '1px solid rgba(29,78,216,0.4)', color: '#ffffff', cursor: 'pointer', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.2s cubic-bezier(0.34,1.56,0.64,1)' }}
             >
               <Sparkles size={13} />
-              {(!subscriptionLoading && !isPro) ? 'Upgrade to unlock AI tips' : 'Get tips personalised to your plan'}
+              {(!subscriptionLoading && !isPro) ? 'Upgrade to unlock AI insights' : 'Get personalized monthly insights'}
             </button>
           )}
         </div>

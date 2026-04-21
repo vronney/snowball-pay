@@ -311,7 +311,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                         letterSpacing: "0.08em",
                       }}
                     >
-                      LIVE
+                      SAMPLE
                     </span>
                   </div>
                   <div style={{ textAlign: "right" }}>
@@ -445,6 +445,16 @@ On track
                     Mar 2027
                   </span>
                 </div>
+                <p
+                  style={{
+                    fontSize: "9px",
+                    color: "#94a3b8",
+                    marginTop: "6px",
+                    marginBottom: 0,
+                  }}
+                >
+                  Illustrative dashboard example
+                </p>
               </div>
 
               {/* Debt rows */}

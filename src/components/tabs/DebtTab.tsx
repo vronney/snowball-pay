@@ -8,6 +8,7 @@ import {
   useExpenses,
   useAllSnapshots,
 } from "@/lib/hooks";
+import PaymentCelebrationBanner from "@/components/PaymentCelebrationBanner";
 import { Debt } from "@/types";
 import { PlusCircle, Inbox, Bell, ChevronDown, Calendar, Mail, Loader2, ArrowUpDown, Filter } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
@@ -527,6 +528,8 @@ export default function DebtTab({
                     )}
                   </div>
                 )}
+
+                <PaymentCelebrationBanner />
 
                 {/* Debt List */}
                 <div id="debt-list" className="space-y-3">

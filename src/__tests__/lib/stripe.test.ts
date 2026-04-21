@@ -1,5 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+// Mock the Stripe SDK so the constructor doesn't trigger async telemetry / network
+// calls that can cause the test to hang or timeout. These tests only verify env-var
+// selection logic — not Stripe API behavior.
+vi.mock('stripe', () => {
+  class MockStripe {}
+  return { default: MockStripe };
+});
+
 const ORIGINAL_ENV = process.env;
 
 function clearStripeEnv() {

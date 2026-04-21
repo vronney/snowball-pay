@@ -224,8 +224,21 @@ export function useAddBulkSnapshots() {
 
 // ===== AI RECOMMENDATIONS =====
 
+export type AiRecommendationType =
+  | 'payoff_advice'
+  | 'spending_insight'
+  | 'month_change'
+  | 'behavior_nudge'
+  | 'debt_risk_alert'
+  | 'negotiation_suggestion'
+  // Legacy types from older cached records.
+  | 'strategy'
+  | 'cashflow'
+  | 'priority'
+  | 'savings';
+
 export interface AiRecommendation {
-  type: 'strategy' | 'cashflow' | 'priority' | 'savings';
+  type: AiRecommendationType;
   impact: 'high' | 'medium' | 'low';
   title: string;
   body: string;
@@ -240,7 +253,15 @@ export interface RecommendationCache {
 }
 
 export type RecommendationPayload = {
-  debts: { name: string; balance: number; interestRate: number; minimumPayment: number; category: string }[];
+  debts: {
+    name: string;
+    balance: number;
+    interestRate: number;
+    minimumPayment: number;
+    category: string;
+    creditLimit?: number | null;
+  }[];
+  expenseItems: { name: string; amount: number; category: string }[];
   monthlyTakeHome: number;
   essentialExpenses: number;
   recurringExpenses: number;
@@ -254,6 +275,11 @@ export type RecommendationPayload = {
 export function buildRecommendationHash(payload: RecommendationPayload): string {
   const totalDebt = payload.debts.reduce((s, d) => s + d.balance, 0);
   const totalMin  = payload.debts.reduce((s, d) => s + d.minimumPayment, 0);
+  const expenseSignature = [...payload.expenseItems]
+    .sort((a, b) => b.amount - a.amount || a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
+    .slice(0, 5)
+    .map((e) => `${e.category}:${e.amount.toFixed(0)}`)
+    .join(',');
   return [
     totalDebt.toFixed(0),
     totalMin.toFixed(0),
@@ -262,6 +288,7 @@ export function buildRecommendationHash(payload: RecommendationPayload): string 
     payload.recurringExpenses.toFixed(0),
     payload.extraPayment.toFixed(0),
     payload.planMonths,
+    expenseSignature,
   ].join('|');
 }
 
@@ -352,7 +379,8 @@ export function usePaymentRecords(year: number, month: number) {
 /** Marks a debt payment as paid for a given month. */
 export function useMarkPaid() {
   const queryClient = useQueryClient();
-  return useMutation({
+
+  const mutation = useMutation({
     mutationFn: async ({ debtId, amount, dueYear, dueMonth }: { debtId: string; amount: number; dueYear: number; dueMonth: number }) => {
       const { data } = await axios.post(`${API_URL}/api/payments`, { debtId, amount, dueYear, dueMonth });
       return data;
@@ -366,6 +394,62 @@ export function useMarkPaid() {
         queryClient.invalidateQueries({ queryKey: ['recommendations'] }),
       ]);
     },
+  });
+
+  const mutateAsync = async (args: { debtId: string; amount: number; dueYear: number; dueMonth: number }) => {
+    // Snapshot BEFORE mutation — cache is cleared in onSuccess
+    const cachedDebts = queryClient.getQueryData<{ debts: Debt[] }>(['debts'])?.debts ?? [];
+    const targetDebt = cachedDebts.find((d) => d.id === args.debtId);
+    const totalDebtOriginal = cachedDebts.reduce((s, d) => s + (d.originalBalance ?? d.balance), 0);
+    const totalDebtPaid = cachedDebts.reduce((s, d) => s + ((d.originalBalance ?? d.balance) - d.balance), 0);
+    const allPaymentEntries = queryClient.getQueriesData<{ records: PaymentRecord[] }>({ queryKey: ['payments'] });
+    const isFirstPayment = allPaymentEntries.every(([, data]) => !data?.records?.length);
+
+    const result = await mutation.mutateAsync(args);
+
+    if (targetDebt) {
+      fireCelebration({
+        debtId: args.debtId,
+        debtName: targetDebt.name,
+        amountPaid: args.amount,
+        totalDebtPaid: totalDebtPaid + args.amount,
+        totalDebtOriginal,
+        isFirstPayment,
+        debtBalance: Math.max(0, targetDebt.balance - args.amount),
+        debtOriginalBalance: targetDebt.originalBalance ?? targetDebt.balance,
+        debtCreatedAt: targetDebt.createdAt instanceof Date
+          ? targetDebt.createdAt.toISOString()
+          : String(targetDebt.createdAt),
+      });
+    }
+
+    return result;
+  };
+
+  return { ...mutation, mutateAsync };
+}
+
+function fireCelebration(payload: {
+  debtId: string;
+  debtName: string;
+  amountPaid: number;
+  totalDebtPaid: number;
+  totalDebtOriginal: number;
+  isFirstPayment: boolean;
+  debtBalance: number;
+  debtOriginalBalance: number;
+  debtCreatedAt: string;
+}) {
+  import('@/lib/celebrationState').then(({ triggerCelebration }) => {
+    axios
+      .post('/api/ai/payment-celebration', payload)
+      .then((res) => {
+        const { message, milestoneLabel } = res.data as { message: string; milestoneLabel: string | null };
+        triggerCelebration({ message, debtName: payload.debtName, milestoneLabel });
+      })
+      .catch(() => {
+        // silent — never interrupt the payment flow
+      });
   });
 }
 

@@ -4,7 +4,7 @@
     tagline: "Start your journey",
     price: 0,
     period: "forever",
-    desc: "Everything you need to start eliminating debt - no strings attached.",
+    desc: "Build your payoff plan and track progress at no cost.",
     badge: null,
     featured: false,
     accent: "#2563eb",
@@ -24,18 +24,19 @@
     tagline: "Serious about debt-free",
     price: 9,
     period: "per month",
-    desc: "The full toolkit for people committed to reaching $0 faster.",
+    desc: "Stay consistent with guidance and deeper planning to reach $0 faster.",
     badge: "Most Popular",
     featured: true,
     accent: "#2563eb",
-    cta: "Start Pro - 7 Days Free",
+    cta: "Try Pro Free for 7 Days",
     ghost: false,
     href: "/auth/login?returnTo=%2Fdashboard%3Fcheckout%3Dpro",
     features: [
       "Unlimited debts",
-      "AI payoff recommendations",
-      "Advanced charts and analytics",
-      "Interest impact projections",
+      "Personalized payoff advice",
+      "Spending insights and monthly change summaries",
+      "Behavior nudges and debt-risk alerts",
+      "Negotiation suggestions for selected debts",
       "Custom debt priority order",
       "Priority support",
     ],
@@ -119,8 +120,8 @@ export default function Pricing() {
               lineHeight: 1.7,
             }}
           >
-            Start free, upgrade when you are ready. Every plan includes a 7-day
-            trial of Pro features.
+            Start on Free with no card required. Upgrade when you are ready.
+            Pro includes a 7-day trial at checkout.
           </p>
         </div>
 
@@ -339,8 +340,7 @@ export default function Pricing() {
             marginTop: "20px",
           }}
         >
-          All paid plans include a 7-day free trial. No credit card required to
-          start.
+          Free plan requires no card. Pro trial lasts 7 days and can be canceled before billing.
         </p>
       </div>
     </section>
