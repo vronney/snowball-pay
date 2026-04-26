@@ -11,6 +11,11 @@ const SCANNER_PATH_PREFIXES = [
   '/xmlrpc.php',
 ];
 
+const PUBLIC_API_PATHS = [
+  '/api/support/contact',
+  '/api/webhooks/stripe',
+];
+
 function isScannerPath(pathname: string): boolean {
   return SCANNER_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
@@ -61,8 +66,8 @@ export async function middleware(request: NextRequest) {
     return new NextResponse(null, { status: 429 });
   }
 
-  // Stripe webhooks are verified by signature — skip session auth entirely.
-  if (pathname === '/api/webhooks/stripe') {
+  // Public API routes handle their own validation/rate limiting.
+  if (PUBLIC_API_PATHS.includes(pathname)) {
     return addCorsHeaders(NextResponse.next(), request);
   }
 

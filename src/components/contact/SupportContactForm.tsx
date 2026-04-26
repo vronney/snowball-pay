@@ -39,6 +39,10 @@ export default function SupportContactForm() {
 
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Please sign in and try again, or email support@getsnowballpay.com directly.');
+        }
+
         throw new Error(data?.error || 'Unable to send message right now.');
       }
 
