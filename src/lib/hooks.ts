@@ -55,9 +55,18 @@ export function useCreateDebt() {
   return useMutation({
     mutationFn: async (debt: Partial<Debt>) => {
       const { data } = await axios.post(`${API_URL}/api/debts`, debt);
-      return data;
+      return data as { debt: Debt };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      queryClient.setQueryData<{ debts: Debt[] }>(['debts'], (current) => {
+        const existing = current?.debts ?? [];
+        return {
+          debts: [
+            data.debt,
+            ...existing.filter((debt) => debt.id !== data.debt.id),
+          ],
+        };
+      });
       queryClient.invalidateQueries({ queryKey: ['debts'] });
     },
     onError: (error) => { handleUpgradeError(error); },
@@ -108,9 +117,10 @@ export function useSaveIncome() {
   return useMutation({
     mutationFn: async (income: Partial<Income>) => {
       const { data } = await axios.post(`${API_URL}/api/income`, income);
-      return data;
+      return data as { income: Income };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      queryClient.setQueryData(['income'], data);
       queryClient.invalidateQueries({ queryKey: ['income'] });
     },
   });

@@ -8,7 +8,7 @@ import axios from 'axios';
 import Image from 'next/image';
 import { useSubscription, useOpenBillingPortal } from '@/lib/hooks';
 import UpgradeModal from '@/components/billing/UpgradeModal';
-import { LOGOUT_URL, runLogoutClientCleanup } from '@/lib/logout-client';
+import { LOGOUT_URL, LOGOUT_URL_LOCAL, runLogoutClientCleanup } from '@/lib/logout-client';
 
 interface SettingsTabProps {
   user: {
@@ -60,6 +60,7 @@ export default function SettingsTab({ user }: SettingsTabProps) {
 
   const [clearConfirm, setClearConfirm] = useState(false);
   const [clearState, setClearState] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
+  const [clearError, setClearError] = useState('');
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   const { data: sub } = useSubscription();
@@ -84,12 +85,23 @@ export default function SettingsTab({ user }: SettingsTabProps) {
 
   const handleClearData = async () => {
     setClearState('loading');
+    setClearError('');
     try {
       await axios.delete('/api/user/data');
-      await queryClient.invalidateQueries();
+      queryClient.clear();
+      runLogoutClientCleanup();
       setClearState('done');
       setClearConfirm(false);
-    } catch {
+      window.location.assign(LOGOUT_URL_LOCAL);
+    } catch (error) {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.error
+        : undefined;
+      setClearError(
+        typeof message === 'string'
+          ? message
+          : 'We could not delete your account. Please try again or contact support.',
+      );
       setClearState('error');
     }
   };
@@ -402,15 +414,15 @@ export default function SettingsTab({ user }: SettingsTabProps) {
 
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap' }}>
           <div>
-            <p style={{ fontSize: '14px', fontWeight: 500, color: '#0f172a', margin: '0 0 2px' }}>Clear all financial data</p>
+            <p style={{ fontSize: '14px', fontWeight: 500, color: '#0f172a', margin: '0 0 2px' }}>Delete account and data</p>
             <p style={{ fontSize: '12px', color: '#64748b', margin: 0 }}>
-              Permanently deletes all debts, income, expenses, and snapshots. This cannot be undone.
+              Permanently deletes your login account, debts, income, expenses, payment history, uploaded documents, settings, and cached recommendations. If you have an active SnowballPay subscription, we will cancel it too. We will email a deletion confirmation and sign you out.
             </p>
           </div>
           {clearState === 'done' ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#059669', fontSize: '13px', fontWeight: 600 }}>
               <CheckCircle2 size={15} />
-              Cleared
+              Deleted
             </div>
           ) : clearConfirm ? (
             <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
@@ -435,7 +447,7 @@ export default function SettingsTab({ user }: SettingsTabProps) {
                   color: '#fff', fontFamily: 'inherit', opacity: clearState === 'loading' ? 0.6 : 1,
                 }}
               >
-                {clearState === 'loading' ? 'Clearing…' : 'Yes, clear everything'}
+                {clearState === 'loading' ? 'Deleting account...' : 'Yes, delete my account'}
               </button>
             </div>
           ) : (
@@ -452,13 +464,13 @@ export default function SettingsTab({ user }: SettingsTabProps) {
               }}
             >
               <Trash2 size={14} />
-              Clear data
+              Delete account
             </button>
           )}
         </div>
 
         {clearState === 'error' && (
-          <p style={{ fontSize: '12px', color: '#ef4444', margin: '12px 0 0' }}>Something went wrong. Please try again.</p>
+          <p style={{ fontSize: '12px', color: '#ef4444', margin: '12px 0 0' }}>{clearError}</p>
         )}
       </div>
 

@@ -1,6 +1,6 @@
 # Product Marketing Context
 
-*Last updated: April 18, 2026*
+*Last updated: April 27, 2026*
 
 ## Product Overview
 **One-liner:**  
@@ -109,6 +109,9 @@ Existing spreadsheet routines, minimum-payment autopilot behavior, and avoidance
 
 **Anxiety:**  
 Fear of relying on a new tool, concern about data privacy, and uncertainty about whether the plan will hold up in real life.
+
+## Privacy & Account Deletion
+Users can delete their SnowballPay account from Settings. This removes the Auth0 login account, the app user record, and associated active database data, including debts, income, expenses, payment records, balance snapshots, payoff plans, uploaded documents, preferences, and cached recommendations. If a stored active SnowballPay subscription exists, deletion also cancels it. After deletion, the user receives a confirmation email, is signed out, and is returned to the home page.
 
 ## Customer Language
 **How they describe the problem:**  

@@ -39,7 +39,22 @@
       "Skill(office-hours:*)",
       "Skill(gstack)",
       "Skill(gstack:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(~/.claude/skills/gstack/bin/gstack-review-read)",
+      "Skill(plan-eng-review)",
+      "Bash(~/.claude/skills/gstack/bin/gstack-learnings-search --limit 5)",
+      "Skill(review)",
+      "Skill(review:*)",
+      "Bash(sed -n '121,150p' src/components/tabs/PayoffTab.tsx)",
+      "Bash(sed -n '510,560p' src/components/tabs/HomeTab.tsx)",
+      "Bash(sed -n '121,160p' src/components/tabs/IntelligenceTab.tsx)",
+      "Bash(sed -n '560,630p' src/components/tabs/DebtTab.tsx)",
+      "Bash(sed -n '300,340p' src/components/tabs/ProgressTab.tsx)",
+      "Bash(sed -n '1,20p' src/components/tabs/PayoffTab.tsx)",
+      "Bash(sed -n '120,145p' src/components/tabs/PayoffTab.tsx)",
+      "Bash(sed -n '24,32p' src/components/tabs/PayoffTab.tsx)",
+      "Bash(sed -n '18,26p' src/components/tabs/IntelligenceTab.tsx)",
+      "Bash(sed -n '19,60p' src/components/tabs/ProgressTab.tsx)"
     ],
     "deny": [
       "Bash(rm:*)",

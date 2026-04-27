@@ -479,7 +479,13 @@ export function OnboardingWizard() {
 
         {/* Skip to dashboard link */}
         <p className="text-center text-xs mt-4" style={{ color: "#94a3b8" }}>
-          <a href="/dashboard" style={{ color: "#94a3b8", textDecoration: "underline" }}>
+          <a
+            href="/dashboard"
+            style={{ color: "#94a3b8", textDecoration: "underline" }}
+            onClick={() => {
+              try { sessionStorage.setItem('sp_onboarding_skipped', '1'); } catch { /* ignore */ }
+            }}
+          >
             Skip setup — go to dashboard
           </a>
         </p>

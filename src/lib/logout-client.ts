@@ -8,6 +8,12 @@ export const LOGOUT_URL = APP_URL
   ? `/auth/logout?returnTo=${encodeURIComponent(APP_URL)}&federated=true`
   : "/auth/logout";
 
+// Used after account deletion — ends the Auth0 session without signing the
+// user out of their Google account.
+export const LOGOUT_URL_LOCAL = APP_URL
+  ? `/auth/logout?returnTo=${encodeURIComponent(APP_URL)}`
+  : "/auth/logout";
+
 function clearStorageWithPrefix(storage: Storage, prefix: string) {
   const keysToRemove: string[] = [];
 

@@ -67,6 +67,17 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
   const startCheckout = useStartCheckout();
   const queryClient = useQueryClient();
 
+  // When the browser restores this page from bfcache (back button after logout/deletion),
+  // event.persisted is true and no new server request is made, so middleware auth
+  // checks never fire. Force a reload so the server can redirect unauthenticated users.
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) window.location.reload();
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
+
   // Send Day 0 welcome email on first dashboard visit (fire-and-forget, idempotent)
   useEffect(() => {
     fetch('/api/email/lifecycle', {
@@ -127,8 +138,8 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
     });
   }, []);
 
-  const { data: debtsData, isLoading: debtsLoading } = useDebts();
-  const { data: incomeData, isLoading: incomeLoading } = useIncome();
+  const { data: debtsData, isLoading: debtsLoading, isFetching: debtsFetching } = useDebts();
+  const { data: incomeData, isLoading: incomeLoading, isFetching: incomeFetching } = useIncome();
   const { data: expensesData, isLoading: expensesLoading } = useExpenses();
   const { data: settingsData } = useUserSettings();
   const { data: paymentsData } = usePaymentRecords(
@@ -164,15 +175,23 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
 
   // Redirect to onboarding if setup is incomplete after data loads.
   // Only fires once per mount so navigating back from onboarding doesn't loop.
+  // Skipped if the user explicitly chose "Skip setup" on the onboarding page.
   const onboardingCheckedRef = useRef(false);
   useEffect(() => {
     if (onboardingCheckedRef.current) return;
     if (debtsLoading || incomeLoading) return;
+    if (debtsFetching || incomeFetching) return;
     onboardingCheckedRef.current = true;
+    try {
+      if (sessionStorage.getItem('sp_onboarding_skipped')) {
+        sessionStorage.removeItem('sp_onboarding_skipped');
+        return;
+      }
+    } catch { /* ignore storage access failures */ }
     if (!income && debts.length === 0) {
       router.replace('/onboarding');
     }
-  }, [debtsLoading, incomeLoading, income, debts.length, router]);
+  }, [debtsLoading, incomeLoading, debtsFetching, incomeFetching, income, debts.length, router]);
 
   // Map debtId → paid record for this month (to suppress bell notifications)
   const paidThisMonth = useMemo(() => {
@@ -298,6 +317,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
                 income={income}
                 expenses={expenses}
                 isLoading={debtsLoading || incomeLoading}
+                onNavigate={(tab) => setActiveTab(tab)}
               />
             )}
             {activeTab === "progress" && (
@@ -305,6 +325,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
                 debts={debts}
                 income={income}
                 isLoading={debtsLoading || incomeLoading}
+                onNavigate={(tab) => setActiveTab(tab)}
               />
             )}
             {activeTab === "intelligence" && (
@@ -313,6 +334,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
                 income={income}
                 expenses={expenses}
                 isLoading={debtsLoading || incomeLoading}
+                onNavigate={(tab) => setActiveTab(tab)}
               />
             )}
             {activeTab === "help" && <HelpTab />}

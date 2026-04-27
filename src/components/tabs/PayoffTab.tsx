@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Debt, Income, Expense } from '@/types';
+import { type Tab } from '@/components/dashboard/types';
 import { calculateDebtSnowball, calculateDebtAvalanche, calculateDebtCustom, type PayoffMethod, type PayoffResult } from '@/lib/snowball';
 import { useUpdateDebt, useAllSnapshots, useSaveIncome } from '@/lib/hooks';
 import { useActualBalanceMap } from '@/lib/hooks/useActualBalanceMap';
-import { Inbox } from 'lucide-react';
+import { ChevronRight, CalendarCheck } from 'lucide-react';
 import { track, Events } from '@/lib/analytics';
 import ShareDebtFreeCard from '@/components/dashboard/ShareDebtFreeCard';
 import AiRecommendations from '@/components/AiRecommendations';
@@ -26,9 +27,10 @@ interface PayoffTabProps {
   income: Income | null | undefined;
   expenses: Expense[];
   isLoading: boolean;
+  onNavigate: (tab: Tab) => void;
 }
 
-export default function PayoffTab({ debts, income, expenses, isLoading }: PayoffTabProps) {
+export default function PayoffTab({ debts, income, expenses, isLoading, onNavigate }: PayoffTabProps) {
   // Lazy initializers read from income when it's already cached (e.g. returning
   // to this tab). This prevents the auto-save effect from firing with stale
   // initial-state values on remount and overwriting what was just loaded.
@@ -129,12 +131,25 @@ export default function PayoffTab({ debts, income, expenses, isLoading }: Payoff
 
   if (!income || debts.length === 0) {
     return (
-      <section id="section-plan" className="hidden">
-        <div id="plan-empty" className="text-center py-16 opacity-40">
-          <Inbox size={48} className="mx-auto mb-3" />
-          <p className="text-sm">Add your debts and budget info to generate a payoff plan.</p>
-        </div>
-      </section>
+      <div
+        className="rounded-2xl p-8 text-center"
+        style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)' }}
+      >
+        <CalendarCheck size={36} style={{ color: '#2563eb', margin: '0 auto 12px' }} />
+        <p className="font-semibold text-base mb-2" style={{ color: '#0f172a' }}>
+          Your payoff plan is waiting
+        </p>
+        <p className="text-sm mb-4" style={{ color: '#64748b' }}>
+          Add at least one debt and your income to generate a month-by-month payoff schedule with an exact debt-free date.
+        </p>
+        <button
+          onClick={() => onNavigate('debts')}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm"
+          style={{ background: '#2563eb', color: '#ffffff', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+        >
+          Add My First Debt <ChevronRight size={14} />
+        </button>
+      </div>
     );
   }
 

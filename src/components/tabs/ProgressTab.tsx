@@ -2,9 +2,10 @@
 
 import { useMemo } from "react";
 import { Debt, Income, BalanceSnapshot } from "@/types";
+import { type Tab } from "@/components/dashboard/types";
 import { useAllSnapshots } from "@/lib/hooks";
 import { formatCurrency } from "@/lib/utils";
-import { TrendingDown, CheckCircle2, Flame, Calendar } from "lucide-react";
+import { TrendingDown, CheckCircle2, Flame, Calendar, ChevronRight, TrendingUp } from "lucide-react";
 import {
   ResponsiveContainer,
   LineChart,
@@ -20,6 +21,7 @@ interface ProgressTabProps {
   debts: Debt[];
   income: Income | null | undefined;
   isLoading: boolean;
+  onNavigate: (tab: Tab) => void;
 }
 
 function StatCard({
@@ -152,7 +154,7 @@ function MilestoneRow({
   );
 }
 
-export default function ProgressTab({ debts, income, isLoading }: ProgressTabProps) {
+export default function ProgressTab({ debts, income, isLoading, onNavigate }: ProgressTabProps) {
   const { data: snapshotData, isLoading: snapsLoading } = useAllSnapshots();
   const snapshots = useMemo(
     () => snapshotData?.snapshots ?? [],
@@ -233,6 +235,30 @@ export default function ProgressTab({ debts, income, isLoading }: ProgressTabPro
         </div>
         <Skeleton className="h-64 rounded-xl" />
       </section>
+    );
+  }
+
+  if (debts.length === 0) {
+    return (
+      <div
+        className="rounded-2xl p-8 text-center"
+        style={{ background: "#ffffff", border: "1px solid rgba(15,23,42,0.08)" }}
+      >
+        <TrendingUp size={36} style={{ color: "#2563eb", margin: "0 auto 12px" }} />
+        <p className="font-semibold text-base mb-2" style={{ color: "#0f172a" }}>
+          Start tracking your progress
+        </p>
+        <p className="text-sm mb-4" style={{ color: "#64748b" }}>
+          Add your debts to see milestones, balance trends, and a running total of how much you&apos;ve paid off over time.
+        </p>
+        <button
+          onClick={() => onNavigate("debts")}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm"
+          style={{ background: "#2563eb", color: "#ffffff", border: "none", cursor: "pointer", fontFamily: "inherit" }}
+        >
+          Add My First Debt <ChevronRight size={14} />
+        </button>
+      </div>
     );
   }
 

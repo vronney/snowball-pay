@@ -71,7 +71,8 @@ export async function middleware(request: NextRequest) {
     return addCorsHeaders(NextResponse.next(), request);
   }
 
-  const requiresDashboardAuth = pathname.startsWith('/dashboard');
+  const requiresDashboardAuth =
+    pathname.startsWith('/dashboard') || pathname.startsWith('/onboarding');
   const requiresApiAuth = pathname.startsWith('/api');
 
   // Handle CORS preflight for API routes.
@@ -94,6 +95,12 @@ export async function middleware(request: NextRequest) {
   if (requiresApiAuth) {
     const unauth = NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     return addCorsHeaders(unauth, request);
+  }
+
+  // Unauthenticated visitors to /onboarding have no account to set up —
+  // send them to the landing page rather than the login flow.
+  if (pathname.startsWith('/onboarding')) {
+    return NextResponse.redirect(new URL('/', request.nextUrl.origin));
   }
 
   const loginUrl = new URL('/auth/login', request.nextUrl.origin);
