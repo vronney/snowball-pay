@@ -54,7 +54,8 @@
       "Bash(sed -n '120,145p' src/components/tabs/PayoffTab.tsx)",
       "Bash(sed -n '24,32p' src/components/tabs/PayoffTab.tsx)",
       "Bash(sed -n '18,26p' src/components/tabs/IntelligenceTab.tsx)",
-      "Bash(sed -n '19,60p' src/components/tabs/ProgressTab.tsx)"
+      "Bash(sed -n '19,60p' src/components/tabs/ProgressTab.tsx)",
+      "Bash(ls src/lib/celebrat*)"
     ],
     "deny": [
       "Bash(rm:*)",
