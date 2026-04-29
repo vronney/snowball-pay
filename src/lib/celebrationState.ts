@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { MilestoneTier } from '@/lib/milestoneDetection';
 
 export interface CelebrationData {
   message: string;
   debtName: string;
-  milestoneLabel: string | null;
+  milestoneLabel: MilestoneTier;
+  highlightStat: string;
 }
 
 export interface CelebrationState {

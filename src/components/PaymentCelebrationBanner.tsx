@@ -30,9 +30,15 @@ export default function PaymentCelebrationBanner() {
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
+
     if (data) {
-      timerRef.current = setTimeout(() => { dismissCelebration(); }, 6000);
+      // debt_paid_off: no auto-dismiss — user must act (share/close)
+      if (data.milestoneLabel === 'debt_paid_off') return;
+
+      const dismissMs = data.milestoneLabel ? 8000 : 5000;
+      timerRef.current = setTimeout(() => { dismissCelebration(); }, dismissMs);
     }
+
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [data]);
 
@@ -159,6 +165,18 @@ export default function PaymentCelebrationBanner() {
         >
           {data!.message}
         </p>
+        {data!.highlightStat && (
+          <p
+            style={{
+              fontSize: '12px',
+              color: '#64748b',
+              margin: '4px 0 0',
+              fontWeight: 500,
+            }}
+          >
+            {data!.highlightStat}
+          </p>
+        )}
       </div>
 
       <button
@@ -167,12 +185,13 @@ export default function PaymentCelebrationBanner() {
         style={{
           background: 'none',
           border: 'none',
-          padding: '2px',
+          padding: '10px',
           cursor: 'pointer',
           color: '#94a3b8',
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
+          margin: '-10px -10px 0 0',
         }}
       >
         <X size={14} />

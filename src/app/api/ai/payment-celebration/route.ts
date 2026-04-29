@@ -5,6 +5,7 @@ import { verifyAuth, unauthorized, badRequest } from '@/lib/auth-server';
 import { limits } from '@/lib/rateLimit';
 import { anthropic, parseClaudeJson, extractTextBlocks } from '@/lib/claude';
 import { detectMilestone, type MilestoneTier } from '@/lib/milestoneDetection';
+import { computeHighlightStat } from '@/lib/highlightStat';
 
 export const maxDuration = 15;
 
@@ -20,6 +21,7 @@ const RequestSchema = z.object({
   debtBalance:         z.number().min(0),
   debtOriginalBalance: z.number().positive(),
   debtCreatedAt:       z.string(),
+  monthsSaved:         z.number().optional(),
 });
 
 type CelebrationRequest = z.infer<typeof RequestSchema>;
@@ -109,6 +111,20 @@ export async function POST(request: NextRequest) {
   const streakMonths = await getStreakMonths(auth.user.id);
   const milestone = detectMilestone(body, streakMonths);
 
+  const pctThisDebt = body.debtOriginalBalance > 0
+    ? ((body.debtOriginalBalance - body.debtBalance) / body.debtOriginalBalance) * 100
+    : 0;
+  const pctAllDebts = body.totalDebtOriginal > 0
+    ? (body.totalDebtPaid / body.totalDebtOriginal) * 100
+    : 0;
+  const highlightStat = computeHighlightStat({
+    tier: milestone,
+    monthsSaved: body.monthsSaved,
+    pctThisDebt,
+    pctAllDebts,
+    debtName: body.debtName,
+  });
+
   try {
     const ac = new AbortController();
     const timeout = setTimeout(() => ac.abort(), 4000);
@@ -136,11 +152,12 @@ export async function POST(request: NextRequest) {
       ? validated.data.message
       : `${body.debtName} — payment logged.`;
 
-    return NextResponse.json({ message, milestoneLabel: milestone });
+    return NextResponse.json({ message, milestoneLabel: milestone, highlightStat });
   } catch {
     return NextResponse.json({
       message: `${body.debtName} — payment logged.`,
       milestoneLabel: milestone,
+      highlightStat,
     });
   }
 }
