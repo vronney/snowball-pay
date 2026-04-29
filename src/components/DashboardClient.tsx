@@ -20,6 +20,7 @@ import ProgressTab from "@/components/tabs/ProgressTab";
 import IntelligenceTab from "@/components/tabs/IntelligenceTab";
 import SettingsTab from "@/components/tabs/SettingsTab";
 import HelpTab from "@/components/tabs/HelpTab";
+import JourneyTab from "@/components/tabs/JourneyTab";
 import UpgradeModal from "@/components/billing/UpgradeModal";
 import ToastNotifications from "@/components/ToastNotifications";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
@@ -47,6 +48,7 @@ const tabLabels: Record<Tab, string> = {
   plan: "Payoff Plan",
   progress: "Progress",
   intelligence: "Planner Intelligence",
+  journey: "My Journey",
   help: "Help & Education",
   settings: "Settings",
 };
@@ -275,7 +277,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
           style={{ flex: 1, padding: "28px", width: "100%" }}
           className="db-content"
         >
-          {activeTab !== "home" && activeTab !== "settings" && activeTab !== "progress" && activeTab !== "help" && <AccelerationTracker />}
+          {activeTab !== "home" && activeTab !== "settings" && activeTab !== "progress" && activeTab !== "help" && activeTab !== "journey" && <AccelerationTracker />}
           {activeTab === "debts" && debts.length > 0 && (
             <div className="mb-4">
               <MilestoneWidget debts={debts} />
@@ -337,6 +339,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
                 onNavigate={(tab) => setActiveTab(tab)}
               />
             )}
+            {activeTab === "journey" && <JourneyTab />}
             {activeTab === "help" && <HelpTab />}
             {activeTab === "settings" && <SettingsTab user={user} />}
           </div>

@@ -15,10 +15,14 @@ export async function getUserTier(userId: string): Promise<PaidTier> {
   });
   if (!user) return 'free';
 
-  // Guard against webhook delays: if the known end timestamp has passed,
-  // access is no longer Pro even if status has not been updated yet.
+  // Guard against webhook delays: if the scheduled cancel date has passed,
+  // treat access as expired. Exclude 'trialing' — a past trial_end means the
+  // trial just converted to paid; we wait for the webhook to confirm, not penalize.
   const now = new Date();
-  const isExpired = user.subscriptionEndsAt !== null && user.subscriptionEndsAt < now;
+  const isExpired =
+    user.subscriptionEndsAt !== null &&
+    user.subscriptionEndsAt < now &&
+    user.subscriptionStatus !== 'trialing';
   if (isExpired) return 'free';
 
   // Treat canceled / inactive / past_due as free unless still active/trialing.

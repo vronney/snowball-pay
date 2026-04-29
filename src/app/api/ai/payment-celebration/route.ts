@@ -35,16 +35,21 @@ async function getStreakMonths(userId: string): Promise<number> {
     monthWindows.push({ dueYear: d.getFullYear(), dueMonth: d.getMonth() + 1 });
   }
 
-  const records = await prisma.paymentRecord.findMany({
-    where: {
-      debt: { userId },
-      OR: monthWindows.map(({ dueYear, dueMonth }) => ({ dueYear, dueMonth })),
-    },
-    select: { dueYear: true, dueMonth: true },
-  });
+  try {
+    const records = await prisma.paymentRecord.findMany({
+      where: {
+        debt: { userId },
+        OR: monthWindows.map(({ dueYear, dueMonth }) => ({ dueYear, dueMonth })),
+      },
+      select: { dueYear: true, dueMonth: true },
+    });
 
-  const uniqueMonths = new Set(records.map((r) => `${r.dueYear}-${r.dueMonth}`));
-  return uniqueMonths.size;
+    const uniqueMonths = new Set(records.map((r) => `${r.dueYear}-${r.dueMonth}`));
+    return uniqueMonths.size;
+  } catch {
+    // DB failure — treat streak as zero rather than propagating a 500
+    return 0;
+  }
 }
 
 // ── Claude message builder ────────────────────────────────────────────────────

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Debt, Income, Expense, DebtSummary, BudgetSummary, PayoffPlan, BalanceSnapshot } from '@/types';
 import axios, { AxiosError } from 'axios';
 import { upgradeEvents } from '@/lib/upgradeEvents';
+import { track, Events } from '@/lib/analytics';
 
 /**
  * Extract a user-safe error message from Axios/network errors.
@@ -450,15 +451,28 @@ function fireCelebration(payload: {
   debtOriginalBalance: number;
   debtCreatedAt: string;
 }) {
-  import('@/lib/celebrationState').then(({ triggerCelebration }) => {
+  import('@/lib/celebrationState').then(({ triggerCelebration, triggerCelebrationLoading }) => {
+    triggerCelebrationLoading();
     axios
       .post('/api/ai/payment-celebration', payload)
       .then((res) => {
         const { message, milestoneLabel } = res.data as { message: string; milestoneLabel: string | null };
         triggerCelebration({ message, debtName: payload.debtName, milestoneLabel });
+        track(Events.CELEBRATION_FIRED, {
+          tier: milestoneLabel ?? 'routine',
+          isFirstPayment: payload.isFirstPayment,
+        });
       })
-      .catch(() => {
-        // silent — never interrupt the payment flow
+      .catch((err: unknown) => {
+        const status = err instanceof AxiosError ? err.response?.status : undefined;
+        if (status === 429) {
+          track(Events.CELEBRATION_RATE_LIMITED);
+        }
+        track(Events.CELEBRATION_FALLBACK, { reason: status === 429 ? '429' : 'error' });
+        // Still show fallback banner so the payment feels acknowledged
+        import('@/lib/celebrationState').then(({ triggerCelebration: trigger }) => {
+          trigger({ message: `${payload.debtName} — payment logged.`, debtName: payload.debtName, milestoneLabel: null });
+        });
       });
   });
 }

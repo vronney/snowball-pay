@@ -8,6 +8,7 @@ import {
   TrendingDown,
   BarChart2,
   Sparkles,
+  BookOpen,
   Settings,
   LogOut,
   HelpCircle,
@@ -22,6 +23,7 @@ const navItems = [
   { id: "plan",         label: "Payoff Plan", icon: TrendingDown },
   { id: "progress",     label: "Progress",    icon: BarChart2 },
   { id: "intelligence", label: "Intelligence",icon: Sparkles },
+  { id: "journey",      label: "My Journey",  icon: BookOpen },
   { id: "help",         label: "Help",        icon: HelpCircle },
 ];
 
