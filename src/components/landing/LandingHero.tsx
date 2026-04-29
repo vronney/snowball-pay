@@ -16,16 +16,16 @@ const debtRows = [
     remaining: "$8,100",
     paid: "$5,900",
     pct: 42,
-    color: "#7c3aed",
-    track: "rgba(124,58,237,0.1)",
+    color: "#0891b2",
+    track: "rgba(8,145,178,0.1)",
   },
   {
     label: "Student Loan",
     remaining: "$7,120",
     paid: "$2,080",
     pct: 22,
-    color: "#0891b2",
-    track: "rgba(8,145,178,0.1)",
+    color: "#10b981",
+    track: "rgba(16,185,129,0.1)",
   },
 ];
 
@@ -42,33 +42,6 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
         paddingRight: "24px",
       }}
     >
-      {/* Very subtle orbs */}
-      <div
-        className="lp-orb"
-        style={{
-          width: "800px",
-          height: "800px",
-          background: "rgba(37,99,235,0.06)",
-          top: "-380px",
-          right: "-180px",
-          animationDelay: "0s",
-        }}
-      />
-      <div
-        className="lp-orb"
-        style={{
-          width: "500px",
-          height: "500px",
-          background: "rgba(124,58,237,0.05)",
-          bottom: "-220px",
-          left: "-160px",
-          animationDelay: "4s",
-        }}
-      />
-
-      {/* Dot grid overlay */}
-      <div className="lp-grid-overlay" />
-
       <div
         style={{
           maxWidth: "1160px",
@@ -617,7 +590,7 @@ On track
                 borderRadius: "16px",
                 padding: "14px 18px",
                 background: "#ffffff",
-                border: "1px solid rgba(124,58,237,0.18)",
+                border: "1px solid rgba(236,72,153,0.2)",
                 boxShadow: "0 12px 36px rgba(15,23,42,0.1)",
                 animationDelay: "2.2s",
               }}
@@ -627,7 +600,7 @@ On track
                   fontSize: "9px",
                   fontWeight: 700,
                   letterSpacing: "0.12em",
-                  color: "#7c3aed",
+                  color: "#ec4899",
                   textTransform: "uppercase",
                   marginBottom: "4px",
                 }}
@@ -638,14 +611,14 @@ On track
                 style={{
                   fontSize: "20px",
                   fontWeight: 900,
-                  color: "#4c1d95",
+                  color: "#9d174d",
                   letterSpacing: "-0.03em",
                 }}
               >
                 8 months
               </p>
               <p
-                style={{ fontSize: "10px", color: "#a78bfa", marginTop: "2px" }}
+                style={{ fontSize: "10px", color: "#f9a8d4", marginTop: "2px" }}
               >
                 on-time payments
               </p>

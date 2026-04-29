@@ -11,10 +11,10 @@ const steps = [
   },
   {
     num: "02",
-    color: "#7c3aed",
-    glow: "rgba(124,58,237,0.18)",
-    bg: "rgba(124,58,237,0.07)",
-    border: "rgba(124,58,237,0.15)",
+    color: "#0891b2",
+    glow: "rgba(8,145,178,0.18)",
+    bg: "rgba(8,145,178,0.07)",
+    border: "rgba(8,145,178,0.15)",
     icon: ">",
     title: "Get Your Plan",
     desc: "We instantly generate a personalized payoff roadmap. Choose Snowball (smallest first) or Avalanche (highest rate first).",
@@ -51,7 +51,7 @@ export default function HowItWorks() {
         </div>
 
         <div style={{ position: "relative" }}>
-          <div className="lp-hide-sm" style={{ position: "absolute", top: "38px", left: "calc(16.5% + 20px)", right: "calc(16.5% + 20px)", height: "1px", background: "linear-gradient(to right, rgba(37,99,235,0.25), rgba(124,58,237,0.25), rgba(5,150,105,0.25))" }} />
+          <div className="lp-hide-sm" style={{ position: "absolute", top: "38px", left: "calc(16.5% + 20px)", right: "calc(16.5% + 20px)", height: "1px", background: "linear-gradient(to right, rgba(37,99,235,0.25), rgba(8,145,178,0.25), rgba(5,150,105,0.25))" }} />
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "40px" }}>
             {steps.map((s, i) => (

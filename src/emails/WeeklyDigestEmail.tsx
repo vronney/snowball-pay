@@ -1,0 +1,125 @@
+import {
+  Html, Head, Body, Container, Section,
+  Heading, Text, Button, Hr,
+} from '@react-email/components';
+import * as React from 'react';
+
+interface WeeklyDigestEmailProps {
+  userName?: string;
+  weeklyPaymentCount: number;
+  weeklyAmountPaid: number;
+  bestMilestoneLabel?: string | null;
+  recentMessage?: string;
+  unsubscribeUrl: string;
+}
+
+const MILESTONE_DISPLAY: Record<string, string> = {
+  first_payment:     'First payment',
+  debt_paid_off:     'Debt paid off 🎉',
+  quarter_paid:      '25% of total debt paid',
+  half_paid:         '50% of total debt paid',
+  three_quarter:     '75% of total debt paid',
+  streak_six_months: '6-month payment streak',
+  anniversary:       '1-year anniversary',
+};
+
+const BASE = 'https://getsnowballpay.com';
+
+export default function WeeklyDigestEmail({
+  userName = 'there',
+  weeklyPaymentCount,
+  weeklyAmountPaid,
+  bestMilestoneLabel,
+  recentMessage,
+  unsubscribeUrl,
+}: WeeklyDigestEmailProps) {
+  const fmt = (n: number) =>
+    n.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 });
+
+  const milestoneDisplay = bestMilestoneLabel
+    ? (MILESTONE_DISPLAY[bestMilestoneLabel] ?? bestMilestoneLabel)
+    : null;
+
+  return (
+    <Html>
+      <Head />
+      <Body style={{ background: '#f8fafc', fontFamily: 'Inter, system-ui, sans-serif', margin: 0, padding: 0 }}>
+        <Container style={{ maxWidth: '560px', margin: '40px auto', background: '#ffffff', borderRadius: '16px', overflow: 'hidden', border: '1px solid rgba(15,23,42,0.08)' }}>
+
+          {/* Header */}
+          <Section style={{ background: 'linear-gradient(135deg, #0f172a, #1e293b)', padding: '32px 40px 28px' }}>
+            <Heading style={{ color: '#ffffff', fontSize: '22px', fontWeight: 800, margin: '0 0 4px', letterSpacing: '-0.02em' }}>
+              SnowballPay
+            </Heading>
+            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: '13px', margin: 0 }}>
+              Your debt week in review
+            </Text>
+          </Section>
+
+          {/* Body */}
+          <Section style={{ padding: '36px 40px' }}>
+            <Heading style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+              Hey {userName} 👋
+            </Heading>
+            <Text style={{ fontSize: '15px', color: '#475569', lineHeight: '1.7', margin: '0 0 28px' }}>
+              You paid {fmt(weeklyAmountPaid)} this week.{' '}
+              {weeklyPaymentCount === 1
+                ? 'One payment logged.'
+                : `${weeklyPaymentCount} payments logged.`}{' '}
+              Here&apos;s what SnowballPay noticed.
+            </Text>
+
+            {/* Milestone callout */}
+            {milestoneDisplay && (
+              <Section style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: '12px', padding: '16px 20px', marginBottom: '24px' }}>
+                <Text style={{ fontSize: '11px', fontWeight: 700, color: '#10b981', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 4px' }}>
+                  Milestone this week
+                </Text>
+                <Text style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                  {milestoneDisplay}
+                </Text>
+              </Section>
+            )}
+
+            {/* Recent celebration message */}
+            {recentMessage && (
+              <Section style={{ background: '#f8fafc', borderRadius: '12px', padding: '16px 20px', marginBottom: '28px', borderLeft: '3px solid #2563eb' }}>
+                <Text style={{ fontSize: '14px', color: '#334155', lineHeight: '1.65', margin: 0, fontStyle: 'italic' }}>
+                  &ldquo;{recentMessage}&rdquo;
+                </Text>
+              </Section>
+            )}
+
+            <Button
+              href={`${BASE}/dashboard?tab=journey`}
+              style={{
+                background: '#2563eb',
+                color: '#ffffff',
+                borderRadius: '10px',
+                padding: '12px 24px',
+                fontSize: '14px',
+                fontWeight: 700,
+                textDecoration: 'none',
+                display: 'inline-block',
+              }}
+            >
+              See your journey →
+            </Button>
+          </Section>
+
+          <Hr style={{ borderColor: 'rgba(15,23,42,0.08)', margin: '0 40px' }} />
+
+          {/* Footer */}
+          <Section style={{ padding: '24px 40px' }}>
+            <Text style={{ fontSize: '12px', color: '#94a3b8', lineHeight: '1.6', margin: 0 }}>
+              You&apos;re receiving this because you have weekly digest emails enabled.{' '}
+              <a href={unsubscribeUrl} style={{ color: '#64748b' }}>Unsubscribe</a>
+              {' '}· SnowballPay · <a href={`${BASE}/dashboard?tab=settings`} style={{ color: '#64748b' }}>Manage preferences</a>
+            </Text>
+          </Section>
+
+        </Container>
+      </Body>
+    </Html>
+  );
+}

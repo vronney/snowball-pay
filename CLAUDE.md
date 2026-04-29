@@ -46,6 +46,20 @@
 - `/test`: run `npm run lint` and `npm run build` with pass/fail report.
 - `/deploy-check`: run pre-deploy checks against `DEPLOYMENT.md` requirements.
 
+## Design System
+Always read `DESIGN.md` before making any visual or UI decisions.
+All font choices, colors, spacing, border-radius, and aesthetic direction are defined there.
+Do not deviate without explicit user approval.
+In QA mode, flag any code that doesn't match `DESIGN.md`.
+
+Key rules from DESIGN.md:
+- Display font: **Geist** (700–900). Body: **DM Sans**. Numbers: **Geist Mono** with `tabular-nums`.
+- Primary color `#2563eb` — used ONLY on CTAs, progress fills, and active states. Not on nav or passive elements.
+- Border radius is hierarchical: cards 12px, inputs 8px, tags 6px. Never uniform.
+- Celebration easing: `cubic-bezier(0.22,1,0.36,1)` — all win-moment animations must use this curve.
+- Never use Inter, Roboto, system-ui, Space Grotesk as display/body fonts.
+- Never add purple/violet gradients, 3-column icon grids, or gradient CTA buttons.
+
 ## gstack
 - Use the `/browse` skill from gstack for **all web browsing**. Never use `mcp__claude-in-chrome__*` tools directly.
 - gstack is installed at `~/.claude/skills/gstack`.

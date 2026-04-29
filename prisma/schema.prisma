@@ -25,6 +25,7 @@ model User {
   subscriptionStatus   String   @default("inactive") // active | trialing | past_due | canceled | inactive
   paidTier             String   @default("free")      // free | pro
   subscriptionEndsAt   DateTime?
+  emailDigest          Boolean   @default(true)
 
   debts                   Debt[]
   income                  Income?
@@ -237,4 +238,25 @@ model UploadedDocument {
 
   @@index([userId])
   @@map("uploaded_documents")
+}
+
+// ---------------------------------------------------------------------------
+// Debt Story — one entry per payment celebration logged by the AI route.
+// Drives the JourneyTab timeline: cursor-paginated, scoped to user.
+// milestoneLabel is null for routine payments.
+// ---------------------------------------------------------------------------
+model DebtStory {
+  id             String   @id @default(cuid())
+  userId         String
+  debtId         String
+  debtName       String
+  amountPaid     Float
+  message        String
+  milestoneLabel String?  // null for routine payments
+  highlightStat  String
+
+  createdAt      DateTime @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("debt_stories")
 }

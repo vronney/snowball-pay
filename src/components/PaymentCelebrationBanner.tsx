@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { Sparkles, X } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { Sparkles, X, Share2, Download } from 'lucide-react';
 import { useCelebrationStore, dismissCelebration } from '@/lib/celebrationState';
 
 const MILESTONE_COLORS: Record<string, string> = {
@@ -27,6 +27,39 @@ const MILESTONE_DISPLAY: Record<string, string> = {
 export default function PaymentCelebrationBanner() {
   const { data, isLoading } = useCelebrationStore();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [shareState, setShareState] = useState<'idle' | 'loading' | 'done'>('idle');
+
+  // All hooks must be called unconditionally, before any early returns
+  const buildOgUrl = useCallback(() => {
+    const d = data;
+    if (!d) return '/api/og/debt-payoff';
+    const params = new URLSearchParams({
+      name:   d.debtName,
+      msg:    d.message,
+      paid:   String(Math.round(d.paidTotal ?? 0)),
+      months: String(d.monthsElapsed ?? 0),
+    });
+    return `/api/og/debt-payoff?${params.toString()}`;
+  }, [data]);
+
+  const handleShare = useCallback(async () => {
+    setShareState('loading');
+    try {
+      const url = buildOgUrl();
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const file = new File([blob], 'debt-paid-off.png', { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: `${data?.debtName ?? ''} — Debt Free!` });
+      } else {
+        window.open(url, '_blank');
+      }
+      setShareState('done');
+      setTimeout(() => setShareState('idle'), 3000);
+    } catch {
+      setShareState('idle');
+    }
+  }, [buildOgUrl, data]);
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -176,6 +209,57 @@ export default function PaymentCelebrationBanner() {
           >
             {data!.highlightStat}
           </p>
+        )}
+
+        {data!.milestoneLabel === 'debt_paid_off' && (
+          <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+            <button
+              onClick={handleShare}
+              disabled={shareState === 'loading'}
+              aria-label="Share your payoff card"
+              style={{
+                display:      'inline-flex',
+                alignItems:   'center',
+                gap:          '5px',
+                fontSize:     '12px',
+                fontWeight:   600,
+                color:        '#ffffff',
+                background:   accentColor,
+                border:       'none',
+                borderRadius: '8px',
+                padding:      '6px 12px',
+                cursor:       shareState === 'loading' ? 'default' : 'pointer',
+                opacity:      shareState === 'loading' ? 0.7 : 1,
+                fontFamily:   'inherit',
+              }}
+            >
+              <Share2 size={12} />
+              {shareState === 'done' ? 'Shared!' : shareState === 'loading' ? 'Sharing…' : 'Share'}
+            </button>
+            <a
+              href={buildOgUrl()}
+              download="debt-paid-off.png"
+              aria-label="Download your payoff card"
+              style={{
+                display:      'inline-flex',
+                alignItems:   'center',
+                gap:          '5px',
+                fontSize:     '12px',
+                fontWeight:   600,
+                color:        accentColor,
+                background:   `${accentColor}14`,
+                border:       `1px solid ${accentColor}30`,
+                borderRadius: '8px',
+                padding:      '6px 12px',
+                cursor:       'pointer',
+                textDecoration: 'none',
+                fontFamily:   'inherit',
+              }}
+            >
+              <Download size={12} />
+              Save
+            </a>
+          </div>
         )}
       </div>
 

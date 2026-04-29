@@ -80,9 +80,9 @@ const featured = [
 
 const compact = [
   {
-    accent: "#7c3aed",
-    bg: "rgba(124,58,237,0.06)",
-    border: "rgba(124,58,237,0.12)",
+    accent: "#0891b2",
+    bg: "rgba(8,145,178,0.06)",
+    border: "rgba(8,145,178,0.12)",
     num: "03",
     Icon: IconBrain,
     title: "AI Recommendations",
@@ -134,8 +134,6 @@ export default function FeaturesGrid() {
               className="lp-card-hover"
               style={{ borderRadius: "20px", padding: "36px", cursor: "default", background: "#ffffff", border: `1px solid ${f.border}`, position: "relative", overflow: "hidden", boxShadow: `0 1px 3px ${f.shadow}` }}
             >
-              <div style={{ position: "absolute", top: "-30px", right: "-30px", width: "140px", height: "140px", borderRadius: "50%", background: f.bg, filter: "blur(48px)", pointerEvents: "none" }} />
-
               <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "24px", position: "relative" }}>
                 <div className="lp-feat-icon" style={{ background: f.bg, border: `1px solid ${f.border}`, color: f.accent, boxShadow: `0 4px 16px ${f.shadow}` }}>
                   <f.Icon />

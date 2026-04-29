@@ -152,12 +152,33 @@ export async function POST(request: NextRequest) {
       ? validated.data.message
       : `${body.debtName} — payment logged.`;
 
-    return NextResponse.json({ message, milestoneLabel: milestone, highlightStat });
+    return NextResponse.json({
+      message,
+      milestoneLabel: milestone,
+      highlightStat,
+      ...buildPayoffExtras(body, milestone),
+    });
   } catch {
     return NextResponse.json({
       message: `${body.debtName} — payment logged.`,
       milestoneLabel: milestone,
       highlightStat,
+      ...buildPayoffExtras(body, milestone),
     });
   }
+}
+
+// ── Payoff card extras ────────────────────────────────────────────────────────
+
+function buildPayoffExtras(
+  body: CelebrationRequest,
+  milestone: MilestoneTier,
+): { paidTotal?: number; monthsElapsed?: number } {
+  if (milestone !== 'debt_paid_off') return {};
+  const paidTotal = body.debtOriginalBalance;
+  const createdMs = new Date(body.debtCreatedAt).getTime();
+  const monthsElapsed = isNaN(createdMs)
+    ? undefined
+    : Math.round((Date.now() - createdMs) / (1000 * 60 * 60 * 24 * 30));
+  return { paidTotal, monthsElapsed };
 }

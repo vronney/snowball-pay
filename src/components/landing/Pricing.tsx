@@ -149,7 +149,7 @@ export default function Pricing() {
                   height: "3px",
                   borderRadius: "20px 20px 0 0",
                   background: plan.featured
-                    ? "linear-gradient(to right, #3b82f6, #7c3aed)"
+                    ? "#2563eb"
                     : `linear-gradient(to right, ${plan.accent}66, transparent)`,
                 }}
               />

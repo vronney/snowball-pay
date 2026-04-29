@@ -462,12 +462,14 @@ function fireCelebration(payload: {
     axios
       .post('/api/ai/payment-celebration', payload)
       .then((res) => {
-        const { message, milestoneLabel, highlightStat } = res.data as {
+        const { message, milestoneLabel, highlightStat, paidTotal, monthsElapsed } = res.data as {
           message: string;
           milestoneLabel: MilestoneTier;
           highlightStat: string;
+          paidTotal?: number;
+          monthsElapsed?: number;
         };
-        triggerCelebration({ message, debtName: payload.debtName, milestoneLabel, highlightStat });
+        triggerCelebration({ message, debtName: payload.debtName, milestoneLabel, highlightStat, paidTotal, monthsElapsed });
         track(Events.CELEBRATION_FIRED, {
           tier: milestoneLabel ?? 'routine',
           isFirstPayment: payload.isFirstPayment,

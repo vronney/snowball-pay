@@ -1,7 +1,7 @@
 const stats = [
   { value: 'Clear Plan',     label: 'Prioritized Payoff Order', sub: 'know what to pay next',            color: '#2563eb' },
   { value: 'Built to Adapt', label: 'Scenario Modeling',        sub: 'adjust when life changes',         color: '#059669' },
-  { value: 'Month by Month', label: 'Timeline Visibility',       sub: 'see your projected debt-free date', color: '#7c3aed' },
+  { value: 'Month by Month', label: 'Timeline Visibility',       sub: 'see your projected debt-free date', color: '#0891b2' },
   { value: 'Stay Consistent', label: 'Progress Tracking',        sub: 'watch balances move every payment', color: '#d97706' },
 ];
 

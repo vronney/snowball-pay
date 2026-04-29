@@ -8,6 +8,9 @@ export interface CelebrationData {
   debtName: string;
   milestoneLabel: MilestoneTier;
   highlightStat: string;
+  // Present only when milestoneLabel === 'debt_paid_off' — used to build OG card URL
+  paidTotal?: number;
+  monthsElapsed?: number;
 }
 
 export interface CelebrationState {
