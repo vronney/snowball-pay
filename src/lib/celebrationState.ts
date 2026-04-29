@@ -1,26 +1,42 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { MilestoneTier } from '@/lib/milestoneDetection';
 
 export interface CelebrationData {
   message: string;
   debtName: string;
-  milestoneLabel: string | null;
+  milestoneLabel: MilestoneTier;
+  highlightStat: string;
 }
 
-type Listener = (data: CelebrationData | null) => void;
+export interface CelebrationState {
+  data: CelebrationData | null;
+  isLoading: boolean;
+}
 
-let current: CelebrationData | null = null;
+type Listener = (state: CelebrationState) => void;
+
+let state: CelebrationState = { data: null, isLoading: false };
 const listeners = new Set<Listener>();
 
+function notify() {
+  listeners.forEach((l) => l(state));
+}
+
+export function triggerCelebrationLoading() {
+  state = { data: null, isLoading: true };
+  notify();
+}
+
 export function triggerCelebration(data: CelebrationData) {
-  current = data;
-  listeners.forEach((l) => l(current));
+  state = { data, isLoading: false };
+  notify();
 }
 
 export function dismissCelebration() {
-  current = null;
-  listeners.forEach((l) => l(null));
+  state = { data: null, isLoading: false };
+  notify();
 }
 
 function subscribe(listener: Listener): () => void {
@@ -28,13 +44,13 @@ function subscribe(listener: Listener): () => void {
   return () => listeners.delete(listener);
 }
 
-export function useCelebrationStore(): CelebrationData | null {
-  const [data, setData] = useState<CelebrationData | null>(current);
+export function useCelebrationStore(): CelebrationState {
+  const [current, setCurrent] = useState<CelebrationState>(state);
 
   useEffect(() => {
-    setData(current);
-    return subscribe(setData);
+    setCurrent(state);
+    return subscribe(setCurrent);
   }, []);
 
-  return data;
+  return current;
 }

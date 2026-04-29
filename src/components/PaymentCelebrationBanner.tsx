@@ -14,28 +14,92 @@ const MILESTONE_COLORS: Record<string, string> = {
   anniversary:       '#8b5cf6',
 };
 
+const MILESTONE_DISPLAY: Record<string, string> = {
+  first_payment:     'First payment!',
+  debt_paid_off:     'Debt paid off!',
+  quarter_paid:      '25% paid down',
+  half_paid:         '50% paid down',
+  three_quarter:     '75% paid down',
+  streak_six_months: '6-month streak',
+  anniversary:       '1-year anniversary',
+};
+
 export default function PaymentCelebrationBanner() {
-  const data = useCelebrationStore();
+  const { data, isLoading } = useCelebrationStore();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
 
     if (data) {
-      timerRef.current = setTimeout(() => {
-        dismissCelebration();
-      }, 6000);
+      // debt_paid_off: no auto-dismiss — user must act (share/close)
+      if (data.milestoneLabel === 'debt_paid_off') return;
+
+      const dismissMs = data.milestoneLabel ? 8000 : 5000;
+      timerRef.current = setTimeout(() => { dismissCelebration(); }, dismissMs);
     }
 
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [data]);
 
-  if (!data) return null;
+  if (!data && !isLoading) return null;
 
-  const accentColor = data.milestoneLabel
-    ? (MILESTONE_COLORS[data.milestoneLabel] ?? '#8b5cf6')
+  // Loading shimmer — shown while the Claude call is in-flight (1-2s)
+  if (isLoading) {
+    return (
+      <div
+        role="status"
+        aria-label="Loading celebration message"
+        style={{
+          borderRadius: '14px',
+          padding: '14px 16px',
+          background: 'linear-gradient(135deg, #2563eb18, #2563eb08)',
+          border: '1px solid #2563eb30',
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'flex-start',
+          gap: '10px',
+          animation: 'slideUp 0.4s cubic-bezier(0.22,1,0.36,1) both',
+        }}
+      >
+        <div
+          style={{
+            width: '32px',
+            height: '32px',
+            borderRadius: '10px',
+            background: '#2563eb18',
+            border: '1px solid #2563eb30',
+            flexShrink: 0,
+            animation: 'pulse 1.5s ease-in-out infinite',
+          }}
+        />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          <div
+            style={{
+              height: '13px',
+              borderRadius: '6px',
+              background: '#e2e8f0',
+              width: '75%',
+              animation: 'pulse 1.5s ease-in-out infinite',
+            }}
+          />
+          <div
+            style={{
+              height: '13px',
+              borderRadius: '6px',
+              background: '#e2e8f0',
+              width: '50%',
+              animation: 'pulse 1.5s ease-in-out infinite',
+              animationDelay: '0.15s',
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  const accentColor = data!.milestoneLabel
+    ? (MILESTONE_COLORS[data!.milestoneLabel] ?? '#8b5cf6')
     : '#2563eb';
 
   return (
@@ -72,7 +136,7 @@ export default function PaymentCelebrationBanner() {
       </div>
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        {data.milestoneLabel && (
+        {data!.milestoneLabel && (
           <span
             style={{
               display: 'inline-block',
@@ -87,7 +151,7 @@ export default function PaymentCelebrationBanner() {
               marginBottom: '5px',
             }}
           >
-            {MILESTONE_DISPLAY[data.milestoneLabel] ?? data.milestoneLabel}
+            {MILESTONE_DISPLAY[data!.milestoneLabel] ?? data!.milestoneLabel}
           </span>
         )}
         <p
@@ -99,8 +163,20 @@ export default function PaymentCelebrationBanner() {
             fontWeight: 500,
           }}
         >
-          {data.message}
+          {data!.message}
         </p>
+        {data!.highlightStat && (
+          <p
+            style={{
+              fontSize: '12px',
+              color: '#64748b',
+              margin: '4px 0 0',
+              fontWeight: 500,
+            }}
+          >
+            {data!.highlightStat}
+          </p>
+        )}
       </div>
 
       <button
@@ -109,12 +185,13 @@ export default function PaymentCelebrationBanner() {
         style={{
           background: 'none',
           border: 'none',
-          padding: '2px',
+          padding: '10px',
           cursor: 'pointer',
           color: '#94a3b8',
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
+          margin: '-10px -10px 0 0',
         }}
       >
         <X size={14} />
@@ -122,13 +199,3 @@ export default function PaymentCelebrationBanner() {
     </div>
   );
 }
-
-const MILESTONE_DISPLAY: Record<string, string> = {
-  first_payment:     'First payment!',
-  debt_paid_off:     'Debt paid off!',
-  quarter_paid:      '25% paid down',
-  half_paid:         '50% paid down',
-  three_quarter:     '75% paid down',
-  streak_six_months: '6-month streak',
-  anniversary:       '1-year anniversary',
-};

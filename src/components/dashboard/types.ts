@@ -7,6 +7,7 @@ export type Tab =
   | "plan"
   | "progress"
   | "intelligence"
+  | "journey"
   | "help"
   | "settings";
 

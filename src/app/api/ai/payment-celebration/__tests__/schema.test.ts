@@ -11,6 +11,7 @@ const RequestSchema = z.object({
   debtBalance:         z.number().min(0),
   debtOriginalBalance: z.number().positive(),
   debtCreatedAt:       z.string(),
+  monthsSaved:         z.number().optional(),
 });
 
 describe('payment-celebration request schema', () => {
@@ -35,6 +36,11 @@ describe('payment-celebration request schema', () => {
     expect(RequestSchema.safeParse(rest).success).toBe(false);
   });
 
+  it('accepts optional monthsSaved', () => {
+    expect(RequestSchema.safeParse({ ...valid, monthsSaved: 3 }).success).toBe(true);
+    expect(RequestSchema.safeParse({ ...valid, monthsSaved: undefined }).success).toBe(true);
+  });
+
   it('rejects negative amountPaid', () => {
     expect(RequestSchema.safeParse({ ...valid, amountPaid: -10 }).success).toBe(false);
   });
@@ -56,21 +62,37 @@ describe('payment-celebration response schema', () => {
   const ResponseSchema = z.object({
     message:        z.string().min(1).max(200),
     milestoneLabel: z.string().nullable(),
+    highlightStat:  z.string(),
   });
 
+  const validResponse = {
+    message:       'Great job!',
+    milestoneLabel: 'first_payment',
+    highlightStat:  '8% of Chase Sapphire paid',
+  };
+
   it('accepts a valid response with milestone', () => {
-    expect(ResponseSchema.safeParse({ message: 'Great job!', milestoneLabel: 'first_payment' }).success).toBe(true);
+    expect(ResponseSchema.safeParse(validResponse).success).toBe(true);
   });
 
   it('accepts null milestoneLabel', () => {
-    expect(ResponseSchema.safeParse({ message: 'Payment logged.', milestoneLabel: null }).success).toBe(true);
+    expect(ResponseSchema.safeParse({ ...validResponse, milestoneLabel: null }).success).toBe(true);
+  });
+
+  it('accepts highlightStat with schedule info', () => {
+    expect(ResponseSchema.safeParse({ ...validResponse, highlightStat: '3 months ahead of original schedule' }).success).toBe(true);
+  });
+
+  it('rejects missing highlightStat', () => {
+    const { highlightStat: _, ...rest } = validResponse;
+    expect(ResponseSchema.safeParse(rest).success).toBe(false);
   });
 
   it('rejects empty message', () => {
-    expect(ResponseSchema.safeParse({ message: '', milestoneLabel: null }).success).toBe(false);
+    expect(ResponseSchema.safeParse({ ...validResponse, message: '' }).success).toBe(false);
   });
 
   it('rejects message over 200 chars', () => {
-    expect(ResponseSchema.safeParse({ message: 'x'.repeat(201), milestoneLabel: null }).success).toBe(false);
+    expect(ResponseSchema.safeParse({ ...validResponse, message: 'x'.repeat(201) }).success).toBe(false);
   });
 });

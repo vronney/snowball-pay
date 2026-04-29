@@ -2,6 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Debt, Income, Expense, DebtSummary, BudgetSummary, PayoffPlan, BalanceSnapshot } from '@/types';
 import axios, { AxiosError } from 'axios';
 import { upgradeEvents } from '@/lib/upgradeEvents';
+import { track, Events } from '@/lib/analytics';
+import { computeHighlightStat } from '@/lib/highlightStat';
+import type { MilestoneTier } from '@/lib/milestoneDetection';
 
 /**
  * Extract a user-safe error message from Axios/network errors.
@@ -414,6 +417,8 @@ export function useMarkPaid() {
     const totalDebtPaid = cachedDebts.reduce((s, d) => s + ((d.originalBalance ?? d.balance) - d.balance), 0);
     const allPaymentEntries = queryClient.getQueriesData<{ records: PaymentRecord[] }>({ queryKey: ['payments'] });
     const isFirstPayment = allPaymentEntries.every(([, data]) => !data?.records?.length);
+    // monthsSaved must be captured now — accelerationStats is invalidated in onSuccess
+    const monthsSaved = queryClient.getQueryData<AccelerationStats>(['accelerationStats'])?.monthsSaved;
 
     const result = await mutation.mutateAsync(args);
 
@@ -430,6 +435,7 @@ export function useMarkPaid() {
         debtCreatedAt: targetDebt.createdAt instanceof Date
           ? targetDebt.createdAt.toISOString()
           : String(targetDebt.createdAt),
+        monthsSaved,
       });
     }
 
@@ -449,16 +455,50 @@ function fireCelebration(payload: {
   debtBalance: number;
   debtOriginalBalance: number;
   debtCreatedAt: string;
+  monthsSaved?: number;
 }) {
-  import('@/lib/celebrationState').then(({ triggerCelebration }) => {
+  import('@/lib/celebrationState').then(({ triggerCelebration, triggerCelebrationLoading }) => {
+    triggerCelebrationLoading();
     axios
       .post('/api/ai/payment-celebration', payload)
       .then((res) => {
-        const { message, milestoneLabel } = res.data as { message: string; milestoneLabel: string | null };
-        triggerCelebration({ message, debtName: payload.debtName, milestoneLabel });
+        const { message, milestoneLabel, highlightStat } = res.data as {
+          message: string;
+          milestoneLabel: MilestoneTier;
+          highlightStat: string;
+        };
+        triggerCelebration({ message, debtName: payload.debtName, milestoneLabel, highlightStat });
+        track(Events.CELEBRATION_FIRED, {
+          tier: milestoneLabel ?? 'routine',
+          isFirstPayment: payload.isFirstPayment,
+        });
       })
-      .catch(() => {
-        // silent — never interrupt the payment flow
+      .catch((err: unknown) => {
+        const status = err instanceof AxiosError ? err.response?.status : undefined;
+        if (status === 429) {
+          // Rate limited: show a silent acknowledgement banner with computed stat
+          track(Events.CELEBRATION_RATE_LIMITED);
+          track(Events.CELEBRATION_FALLBACK, { reason: '429' });
+          const pctThisDebt = payload.debtOriginalBalance > 0
+            ? ((payload.debtOriginalBalance - payload.debtBalance) / payload.debtOriginalBalance) * 100
+            : 0;
+          const highlightStat = computeHighlightStat({
+            tier: null,
+            monthsSaved: payload.monthsSaved,
+            pctThisDebt,
+            pctAllDebts: payload.totalDebtOriginal > 0
+              ? (payload.totalDebtPaid / payload.totalDebtOriginal) * 100
+              : 0,
+            debtName: payload.debtName,
+          });
+          triggerCelebration({
+            message: `${payload.debtName} — payment logged.`,
+            debtName: payload.debtName,
+            milestoneLabel: null,
+            highlightStat,
+          });
+        }
+        // All other errors (timeout, network, 5xx): silent dismiss — payment is saved, banner is optional
       });
   });
 }

@@ -56,4 +56,7 @@ export const Events = {
   SHARE_CARD_OPENED: 'share_card_opened',
   SHARE_CARD_DOWNLOADED: 'share_card_downloaded',
   REFERRAL_LINK_COPIED: 'referral_link_copied',
+  CELEBRATION_FIRED:        'celebration_fired',
+  CELEBRATION_FALLBACK:     'celebration_fallback',
+  CELEBRATION_RATE_LIMITED: 'celebration_rate_limited',
 } as const;
