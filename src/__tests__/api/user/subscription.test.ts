@@ -97,4 +97,43 @@ describe('GET /api/user/subscription', () => {
     expect(body.subscriptionStatus).toBe('canceled');
     expect(body.isCanceling).toBe(false);
   });
+
+  it('expires a trialing subscription whose trial_end is past the 2-hour grace period', async () => {
+    // Simulate: trial ended 3 days ago but webhook never updated the DB row
+    const expiredTrialEnd = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      paidTier: 'pro',
+      subscriptionStatus: 'trialing',
+      subscriptionEndsAt: expiredTrialEnd,
+      stripeCustomerId: 'cus_123',
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.paidTier).toBe('free');
+    expect(body.subscriptionStatus).toBe('canceled');
+    expect(body.isCanceling).toBe(false);
+  });
+
+  it('keeps a trialing subscription active if trial_end is within the 2-hour grace period', async () => {
+    // Simulate: trial ended 30 minutes ago — grace period not yet elapsed
+    const recentTrialEnd = new Date(Date.now() - 30 * 60 * 1000);
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      paidTier: 'pro',
+      subscriptionStatus: 'trialing',
+      subscriptionEndsAt: recentTrialEnd,
+      stripeCustomerId: 'cus_123',
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.paidTier).toBe('pro');
+    expect(body.subscriptionStatus).toBe('trialing');
+  });
 });

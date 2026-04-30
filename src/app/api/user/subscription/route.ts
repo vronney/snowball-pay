@@ -21,10 +21,11 @@ export async function GET(request: NextRequest) {
     const status = user?.subscriptionStatus ?? 'inactive';
     const now = new Date();
 
-    // If the scheduled cancel date has passed, treat access as expired.
-    // Exclude 'trialing': a past trial_end means the trial just converted to paid;
-    // wait for the webhook to confirm rather than prematurely downgrading.
-    const isExpired = endsAt !== null && new Date(endsAt) < now && status !== 'trialing';
+    // Allow 2 hours after the end date for webhook delivery. After that, treat
+    // the subscription as expired regardless of status — including 'trialing'
+    // whose trial_end has passed without a webhook converting it to active.
+    const TRIAL_GRACE_MS = 2 * 60 * 60 * 1000;
+    const isExpired = endsAt !== null && endsAt.getTime() + TRIAL_GRACE_MS < now.getTime();
     const effectiveStatus = isExpired ? 'canceled' : status;
     const effectiveTier = isExpired ? 'free' : (user?.paidTier ?? 'free');
     // Trialing subscriptions naturally have a trial_end date; that should not be
