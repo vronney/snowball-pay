@@ -181,18 +181,14 @@ export default function DebtCard({
             >
               {debt.category}
             </span>
-            {rank !== undefined && (
+            {rank !== undefined && rank !== 1 && (
               <span
                 className="text-xs font-bold px-1.5 py-0.5 rounded-full"
                 title="Payoff priority order"
                 style={{
-                  background:
-                    rank === 1 ? "rgba(37,99,235,0.12)" : "rgba(15,23,42,0.06)",
-                  color: rank === 1 ? "#2563eb" : "#64748b",
-                  border:
-                    rank === 1
-                      ? "1px solid rgba(37,99,235,0.25)"
-                      : "1px solid rgba(15,23,42,0.1)",
+                  background: "rgba(15,23,42,0.06)",
+                  color: "#64748b",
+                  border: "1px solid rgba(15,23,42,0.1)",
                 }}
               >
                 #{rank}
