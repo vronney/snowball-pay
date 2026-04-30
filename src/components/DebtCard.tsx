@@ -170,9 +170,9 @@ export default function DebtCard({
             </span>
           </div>
           {/* Badges row */}
-          <div className="flex items-center gap-1.5 mb-1.5 pl-4">
+          <div className="flex items-center gap-1.5 mb-1.5">
             <span
-              className="text-xs px-1.5 py-0.5 rounded-full"
+              className="text-[0.65rem] px-1.5 py-0.5 rounded-full"
               style={{
                 background: `${categoryColor}20`,
                 color: categoryColor,
@@ -183,7 +183,7 @@ export default function DebtCard({
             </span>
             {rank !== undefined && rank !== 1 && (
               <span
-                className="text-xs font-bold px-1.5 py-0.5 rounded-full"
+                className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full"
                 title="Payoff priority order"
                 style={{
                   background: "rgba(15,23,42,0.06)",
@@ -196,7 +196,7 @@ export default function DebtCard({
             )}
             {rank === 1 && (
               <span
-                className="text-xs font-bold px-2 py-0.5 rounded-full"
+                className="text-[0.65rem] font-bold px-2 py-0.5 rounded-full"
                 style={{
                   background: "#2563eb",
                   color: "#ffffff",
