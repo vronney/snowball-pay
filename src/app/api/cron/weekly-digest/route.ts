@@ -78,7 +78,7 @@ function bestMilestone(labels: Array<string | null>): string | null {
   return best;
 }
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   // Auth
   const isDev = process.env.NODE_ENV === 'development';
   if (!isDev) {

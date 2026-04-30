@@ -12,6 +12,7 @@ const PreferencesSchema = z.object({
   notifyDueDates:   z.boolean().optional(),
   notifyLowBuffer:  z.boolean().optional(),
   emailOptOut:      z.boolean().optional(),
+  emailDigest:      z.boolean().optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -19,11 +20,12 @@ export async function GET(request: NextRequest) {
   if (!auth.valid || !auth.user) return unauthorized();
 
   try {
-    const prefs = await prisma.userPreferences.findUnique({
-      where: { userId: auth.user.id },
-    });
+    const [prefs, user] = await Promise.all([
+      prisma.userPreferences.findUnique({ where: { userId: auth.user.id } }),
+      prisma.user.findUnique({ where: { id: auth.user.id }, select: { emailDigest: true } }),
+    ]);
     return NextResponse.json({
-      preferences: prefs ?? {
+      preferences: {
         actionChecks: {},
         sandboxMethod: 'snowball',
         sandboxExtra: null,
@@ -32,6 +34,8 @@ export async function GET(request: NextRequest) {
         notifyDueDates: true,
         notifyLowBuffer: true,
         emailOptOut: false,
+        ...(prefs ?? {}),
+        emailDigest: user?.emailDigest ?? true,
       },
     });
   } catch (error) {
@@ -48,13 +52,20 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const validated = PreferencesSchema.parse(body);
 
-    const prefs = await prisma.userPreferences.upsert({
-      where: { userId: auth.user.id },
-      update: validated,
-      create: { userId: auth.user.id, ...validated },
-    });
+    const { emailDigest, ...prefsData } = validated;
 
-    return NextResponse.json({ preferences: prefs });
+    const [prefs, user] = await Promise.all([
+      prisma.userPreferences.upsert({
+        where: { userId: auth.user.id },
+        update: prefsData,
+        create: { userId: auth.user.id, ...prefsData },
+      }),
+      emailDigest !== undefined
+        ? prisma.user.update({ where: { id: auth.user.id }, data: { emailDigest }, select: { emailDigest: true } })
+        : prisma.user.findUnique({ where: { id: auth.user.id }, select: { emailDigest: true } }),
+    ]);
+
+    return NextResponse.json({ preferences: { ...prefs, emailDigest: user?.emailDigest ?? true } });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(

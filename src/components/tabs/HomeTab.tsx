@@ -17,7 +17,6 @@ import {
 import {
   Sparkles,
   TrendingDown,
-  BarChart2,
   Bell,
   ChevronRight,
   CreditCard,
@@ -59,7 +58,7 @@ function LoadingSkeleton() {
   );
 }
 
-const PIE_COLORS = ["#2563eb", "#f59e0b"];
+const PIE_COLORS = ["#2563eb", "#f97316"];
 
 function PaymentBreakdownChart({
   totalPrincipal,
@@ -130,7 +129,7 @@ function PaymentBreakdownChart({
           <p className="text-xs" style={{ color: "#64748b" }}>
             Interest
           </p>
-          <p className="font-bold text-base" style={{ color: "#f59e0b" }}>
+          <p className="font-bold text-base" style={{ color: "#f97316" }}>
             {interestPct}%
           </p>
         </div>
@@ -379,6 +378,55 @@ export default function HomeTab({
     }));
   }, [payoffResult]);
 
+  const boostResult = useMemo(() => {
+    if (!income || debts.length === 0) return null;
+    const recurring = expenses.reduce((s, e) => s + e.amount, 0);
+    const essential = income.essentialExpenses ?? 0;
+    const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);
+    const naturalSurplus = Math.max(
+      0,
+      income.monthlyTakeHome - essential - recurring - totalMin,
+    );
+    const maxAccel = naturalSurplus + (income.extraPayment ?? 0);
+    const targetAccel =
+      income.accelerationAmount !== null &&
+      income.accelerationAmount !== undefined
+        ? Math.min(income.accelerationAmount + 50, maxAccel + 50)
+        : maxAccel + 50;
+    const adjustedExtra = targetAccel - naturalSurplus;
+    try {
+      const method = income.payoffMethod ?? "snowball";
+      const calc =
+        method === "avalanche"
+          ? calculateDebtAvalanche
+          : method === "custom"
+            ? calculateDebtCustom
+            : calculateDebtSnowball;
+      return calc(
+        debts,
+        income.monthlyTakeHome,
+        essential,
+        recurring,
+        adjustedExtra,
+      );
+    } catch {
+      return null;
+    }
+  }, [debts, income, expenses]);
+
+  const boostMonthsSaved =
+    payoffResult && boostResult
+      ? Math.max(0, payoffResult.months - boostResult.months)
+      : 0;
+
+  const boostInterestSaved =
+    payoffResult && boostResult
+      ? Math.max(
+          0,
+          payoffResult.totalInterestPaid - boostResult.totalInterestPaid,
+        )
+      : 0;
+
   // First urgent notification for the alert card
   const topAlert = useMemo(
     () =>
@@ -436,19 +484,43 @@ export default function HomeTab({
       >
         {payoffResult ? (
           <>
-            <div>
-              <p
-                className="text-xs font-semibold uppercase tracking-widest"
-                style={{ color: "rgba(255,255,255,0.7)" }}
-              >
-                Debt-Free
-              </p>
-              <p className="text-3xl font-bold mt-1" style={{ color: "#ffffff" }}>
-                {debtFreeLabel}
-              </p>
+            <div style={{ position: "relative" }}>
+              <div
+                style={{
+                  position: "absolute",
+                  inset: "-8px -12px",
+                  borderRadius: "16px",
+                  background: "rgba(255,255,255,0.12)",
+                  border: "1px solid rgba(255,255,255,0.25)",
+                  pointerEvents: "none",
+                }}
+              />
+              <div style={{ position: "relative" }}>
+                <p
+                  className="text-xs font-semibold uppercase tracking-widest"
+                  style={{ color: "rgba(255,255,255,0.85)" }}
+                >
+                  🏁 Debt-Free Date
+                </p>
+                <p
+                  className="font-bold mt-1"
+                  style={{
+                    color: "#ffffff",
+                    fontSize: "2rem",
+                    letterSpacing: "-0.02em",
+                    lineHeight: 1.1,
+                  }}
+                >
+                  {debtFreeLabel}
+                </p>
+              </div>
             </div>
             <div
-              style={{ height: 40, width: 1, background: "rgba(255,255,255,0.2)" }}
+              style={{
+                height: 40,
+                width: 1,
+                background: "rgba(255,255,255,0.2)",
+              }}
               className="hidden sm:block"
             />
             <div>
@@ -458,12 +530,19 @@ export default function HomeTab({
               >
                 Remaining
               </p>
-              <p className="text-xl font-bold mt-1" style={{ color: "#ffffff" }}>
+              <p
+                className="text-xl font-bold mt-1"
+                style={{ color: "#ffffff" }}
+              >
                 {formatCurrency(totalDebt)}
               </p>
             </div>
             <div
-              style={{ height: 40, width: 1, background: "rgba(255,255,255,0.2)" }}
+              style={{
+                height: 40,
+                width: 1,
+                background: "rgba(255,255,255,0.2)",
+              }}
               className="hidden sm:block"
             />
             <div>
@@ -473,12 +552,19 @@ export default function HomeTab({
               >
                 Monthly Payment
               </p>
-              <p className="text-xl font-bold mt-1" style={{ color: "#ffffff" }}>
+              <p
+                className="text-xl font-bold mt-1"
+                style={{ color: "#ffffff" }}
+              >
                 {monthlyPayment}
               </p>
             </div>
             <div
-              style={{ height: 40, width: 1, background: "rgba(255,255,255,0.2)" }}
+              style={{
+                height: 40,
+                width: 1,
+                background: "rgba(255,255,255,0.2)",
+              }}
               className="hidden sm:block"
             />
             <div>
@@ -488,7 +574,10 @@ export default function HomeTab({
               >
                 Strategy
               </p>
-              <p className="text-xl font-bold mt-1" style={{ color: "#ffffff" }}>
+              <p
+                className="text-xl font-bold mt-1"
+                style={{ color: "#ffffff" }}
+              >
                 {methodLabel}
               </p>
             </div>
@@ -504,7 +593,10 @@ export default function HomeTab({
             <p className="text-3xl font-bold mt-1" style={{ color: "#ffffff" }}>
               {formatCurrency(totalDebt)}
             </p>
-            <p className="text-sm mt-2" style={{ color: "rgba(255,255,255,0.7)" }}>
+            <p
+              className="text-sm mt-2"
+              style={{ color: "rgba(255,255,255,0.7)" }}
+            >
               Add income to see your payoff date
             </p>
           </div>
@@ -568,33 +660,50 @@ export default function HomeTab({
               title="Smart AI Tips"
             >
               {payoffResult && payoffResult.totalInterestPaid > 0 ? (
-                <>
-                  Adding{" "}
-                  <span className="font-semibold" style={{ color: "#0f172a" }}>
-                    {formatCurrency(50)}/mo extra
-                  </span>{" "}
-                  could save{" "}
-                  <span className="font-semibold" style={{ color: "#059669" }}>
-                    months
-                  </span>{" "}
-                  off your payoff date. Visit{" "}
+                <div className="space-y-2">
+                  <p>
+                    Adding{" "}
+                    <span
+                      className="font-semibold"
+                      style={{ color: "#0f172a" }}
+                    >
+                      $50/mo extra
+                    </span>{" "}
+                    could save{" "}
+                    <span
+                      className="font-semibold"
+                      style={{ color: "#059669" }}
+                    >
+                      {boostMonthsSaved > 0
+                        ? `${boostMonthsSaved} month${boostMonthsSaved === 1 ? "" : "s"}`
+                        : "time"}
+                    </span>{" "}
+                    and{" "}
+                    <span
+                      className="font-semibold"
+                      style={{ color: "#059669" }}
+                    >
+                      {boostInterestSaved > 0
+                        ? formatCurrency(Math.round(boostInterestSaved))
+                        : "interest"}
+                    </span>{" "}
+                    in interest.
+                  </p>
                   <button
-                    onClick={() => onNavigate("intelligence")}
-                    className="underline font-medium"
+                    onClick={() => onNavigate("plan")}
+                    className="inline-flex items-center rounded-lg text-xs font-semibold transition-all hover:opacity-90"
                     style={{
-                      color: "#8b5cf6",
-                      background: "none",
+                      background: "#8b5cf6",
+                      color: "#ffffff",
                       border: "none",
                       cursor: "pointer",
-                      padding: 0,
                       fontFamily: "inherit",
-                      fontSize: "inherit",
+                      padding: "6px 12px",
                     }}
                   >
-                    Planner Intelligence
-                  </button>{" "}
-                  for personalized advice.
-                </>
+                    Update My Payment →
+                  </button>
+                </div>
               ) : (
                 <>
                   Go to{" "}
@@ -681,35 +790,193 @@ export default function HomeTab({
             </InfoCard>
           </div>
 
-          {/* Action buttons row */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <ActionButton
-              icon={<TrendingDown size={15} />}
-              label="Snowball Strategy"
-              description="Pay smallest balances first for quick wins and momentum."
-              color="#2563eb"
-              bg="rgba(37,99,235,0.05)"
-              border="rgba(37,99,235,0.2)"
-              onClick={() => onNavigate("plan")}
-            />
-            <ActionButton
-              icon={<Sparkles size={15} />}
-              label="Avalanche Strategy"
-              description="Target highest interest rates first to minimize total interest paid."
-              color="#059669"
-              bg="rgba(5,150,105,0.05)"
-              border="rgba(5,150,105,0.2)"
-              onClick={() => onNavigate("plan")}
-            />
-            <ActionButton
-              icon={<BarChart2 size={15} />}
-              label="Progress Reports"
-              description="Track your payment history, streaks, and milestones over time."
-              color="#7c3aed"
-              bg="rgba(124,58,237,0.05)"
-              border="rgba(124,58,237,0.2)"
-              onClick={() => onNavigate("progress")}
-            />
+          {/* Personal journey: Payoff Target + Recent Activity */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* This Month's Target */}
+            <div
+              className="rounded-2xl p-5"
+              style={{
+                background: "#ffffff",
+                border: "1px solid rgba(15,23,42,0.08)",
+                boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
+              }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <div
+                  className="flex items-center justify-center rounded-xl"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    background: "rgba(37,99,235,0.1)",
+                    color: "#2563eb",
+                    flexShrink: 0,
+                  }}
+                >
+                  <TrendingDown size={16} />
+                </div>
+                <span
+                  className="font-semibold text-sm"
+                  style={{ color: "#0f172a" }}
+                >
+                  This Month&apos;s Target
+                </span>
+              </div>
+              {(() => {
+                const sorted = [...debts].sort((a, b) =>
+                  payoffMethod === "avalanche"
+                    ? b.interestRate - a.interestRate
+                    : a.balance - b.balance,
+                );
+                const target = sorted[0];
+                if (!target)
+                  return (
+                    <p className="text-xs" style={{ color: "#64748b" }}>
+                      Add your debts to see your payoff target.
+                    </p>
+                  );
+                const extraPayment = payoffResult
+                  ? Math.max(
+                      0,
+                      payoffResult.monthlyPayment -
+                        debts.reduce((s, d) => s + d.minimumPayment, 0),
+                    )
+                  : 0;
+                return (
+                  <>
+                    <p
+                      className="font-semibold text-base mb-2"
+                      style={{ color: "#0f172a" }}
+                    >
+                      {target.name}
+                    </p>
+                    <div className="flex gap-4 text-sm mb-3">
+                      <div>
+                        <p
+                          className="text-xs mb-0.5"
+                          style={{ color: "#64748b" }}
+                        >
+                          Balance
+                        </p>
+                        <p
+                          className="font-bold mono"
+                          style={{ color: "#2563eb" }}
+                        >
+                          {formatCurrency(target.balance)}
+                        </p>
+                      </div>
+                      <div>
+                        <p
+                          className="text-xs mb-0.5"
+                          style={{ color: "#64748b" }}
+                        >
+                          Min Payment
+                        </p>
+                        <p
+                          className="font-bold mono"
+                          style={{ color: "#0f172a" }}
+                        >
+                          {formatCurrency(target.minimumPayment)}
+                        </p>
+                      </div>
+                      {extraPayment > 0 && (
+                        <div>
+                          <p
+                            className="text-xs mb-0.5"
+                            style={{ color: "#64748b" }}
+                          >
+                            Extra Applied
+                          </p>
+                          <p
+                            className="font-bold mono"
+                            style={{ color: "#059669" }}
+                          >
+                            +{formatCurrency(extraPayment)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => onNavigate("plan")}
+                      className="text-xs font-semibold px-3 py-1.5 rounded-lg transition hover:opacity-90"
+                      style={{
+                        background: "#2563eb",
+                        color: "#ffffff",
+                        border: "none",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      View Full Plan →
+                    </button>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Recent Activity */}
+            <div
+              className="rounded-2xl p-5"
+              style={{
+                background: "#ffffff",
+                border: "1px solid rgba(15,23,42,0.08)",
+                boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
+              }}
+            >
+              <div className="flex items-center gap-2 mb-3">
+                <div
+                  className="flex items-center justify-center rounded-xl"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    background: "rgba(5,150,105,0.1)",
+                    color: "#059669",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Bell size={16} />
+                </div>
+                <span
+                  className="font-semibold text-sm"
+                  style={{ color: "#0f172a" }}
+                >
+                  Recent Activity
+                </span>
+              </div>
+              {notifications.length > 0 ? (
+                <ul className="space-y-2.5">
+                  {notifications.slice(0, 3).map((n) => (
+                    <li key={n.id} className="flex items-start gap-2">
+                      <span className="text-sm leading-none mt-0.5">
+                        {n.type === "urgent"
+                          ? "🔴"
+                          : n.type === "warning"
+                            ? "💡"
+                            : "📌"}
+                      </span>
+                      <div>
+                        <p
+                          className="text-xs font-semibold leading-tight"
+                          style={{ color: "#0f172a" }}
+                        >
+                          {n.title}
+                        </p>
+                        <p
+                          className="text-xs leading-relaxed mt-0.5"
+                          style={{ color: "#64748b" }}
+                        >
+                          {n.body}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs" style={{ color: "#64748b" }}>
+                  Make your first payment to start seeing activity and
+                  milestones here.
+                </p>
+              )}
+            </div>
           </div>
         </>
       )}

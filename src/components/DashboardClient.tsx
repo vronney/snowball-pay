@@ -60,9 +60,14 @@ function isValidTab(value: string | null): value is Tab {
 export default function DashboardClient({ user }: { user: UserInfo | null }) {
   const [activeTab, setActiveTab] = useState<Tab>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [openPaymentDebtId, setOpenPaymentDebtId] = useState<string | null>(null);
+  const [openPaymentDebtId, setOpenPaymentDebtId] = useState<string | null>(
+    null,
+  );
   const [fabAddDebtRequest, setFabAddDebtRequest] = useState(false);
-  const [upgradeModal, setUpgradeModal] = useState<{ open: boolean; feature?: string }>({ open: false });
+  const [upgradeModal, setUpgradeModal] = useState<{
+    open: boolean;
+    feature?: string;
+  }>({ open: false });
 
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -76,18 +81,20 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
     const handlePageShow = (event: PageTransitionEvent) => {
       if (event.persisted) window.location.reload();
     };
-    window.addEventListener('pageshow', handlePageShow);
-    return () => window.removeEventListener('pageshow', handlePageShow);
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
   }, []);
 
   // Send Day 0 welcome email on first dashboard visit (fire-and-forget, idempotent)
   useEffect(() => {
-    fetch('/api/email/lifecycle', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'day0' }),
-    }).catch(() => { /* silent — never break the dashboard */ });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetch("/api/email/lifecycle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "day0" }),
+    }).catch(() => {
+      /* silent — never break the dashboard */
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-trigger checkout when landing from pricing page
@@ -98,7 +105,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
       url.searchParams.delete("checkout");
       window.history.replaceState({}, "", url.toString());
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Honor explicit tab query params (e.g. Stripe billing portal return_url).
@@ -110,7 +117,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
     const url = new URL(window.location.href);
     url.searchParams.delete("tab");
     window.history.replaceState({}, "", url.toString());
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // After returning from Stripe checkout, refetch subscription until Pro is confirmed
@@ -130,7 +137,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
       if (attempts >= 10) clearInterval(interval);
     }, 2000);
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Listen for upgrade_required events from any child hook/component
@@ -140,8 +147,16 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
     });
   }, []);
 
-  const { data: debtsData, isLoading: debtsLoading, isFetching: debtsFetching } = useDebts();
-  const { data: incomeData, isLoading: incomeLoading, isFetching: incomeFetching } = useIncome();
+  const {
+    data: debtsData,
+    isLoading: debtsLoading,
+    isFetching: debtsFetching,
+  } = useDebts();
+  const {
+    data: incomeData,
+    isLoading: incomeLoading,
+    isFetching: incomeFetching,
+  } = useIncome();
   const { data: expensesData, isLoading: expensesLoading } = useExpenses();
   const { data: settingsData } = useUserSettings();
   const { data: paymentsData } = usePaymentRecords(
@@ -185,15 +200,25 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
     if (debtsFetching || incomeFetching) return;
     onboardingCheckedRef.current = true;
     try {
-      if (sessionStorage.getItem('sp_onboarding_skipped')) {
-        sessionStorage.removeItem('sp_onboarding_skipped');
+      if (sessionStorage.getItem("sp_onboarding_skipped")) {
+        sessionStorage.removeItem("sp_onboarding_skipped");
         return;
       }
-    } catch { /* ignore storage access failures */ }
-    if (!income && debts.length === 0) {
-      router.replace('/onboarding');
+    } catch {
+      /* ignore storage access failures */
     }
-  }, [debtsLoading, incomeLoading, debtsFetching, incomeFetching, income, debts.length, router]);
+    if (!income && debts.length === 0) {
+      router.replace("/onboarding");
+    }
+  }, [
+    debtsLoading,
+    incomeLoading,
+    debtsFetching,
+    incomeFetching,
+    income,
+    debts.length,
+    router,
+  ]);
 
   // Map debtId → paid record for this month (to suppress bell notifications)
   const paidThisMonth = useMemo(() => {
@@ -277,7 +302,11 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
           style={{ flex: 1, padding: "28px", width: "100%" }}
           className="db-content"
         >
-          {activeTab !== "home" && activeTab !== "settings" && activeTab !== "progress" && activeTab !== "help" && activeTab !== "journey" && <AccelerationTracker />}
+          {activeTab !== "home" &&
+            activeTab !== "settings" &&
+            activeTab !== "progress" &&
+            activeTab !== "help" &&
+            activeTab !== "journey" && <AccelerationTracker />}
           {activeTab === "debts" && debts.length > 0 && (
             <div className="mb-4">
               <MilestoneWidget debts={debts} />
@@ -340,7 +369,9 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
               />
             )}
             {activeTab === "journey" && <JourneyTab />}
-            {activeTab === "help" && <HelpTab />}
+            {activeTab === "help" && (
+              <HelpTab onNavigate={(tab) => setActiveTab(tab)} />
+            )}
             {activeTab === "settings" && <SettingsTab user={user} />}
           </div>
         </main>

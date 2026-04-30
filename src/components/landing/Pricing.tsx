@@ -5,7 +5,7 @@
     price: 0,
     period: "forever",
     desc: "Build your payoff plan and track progress at no cost.",
-    badge: null,
+    badge: "Free Forever",
     featured: false,
     accent: "#2563eb",
     cta: "Get Started Free",
@@ -25,7 +25,7 @@
     price: 9,
     period: "per month",
     desc: "Stay consistent with guidance and deeper planning to reach $0 faster.",
-    badge: "Most Popular",
+    badge: "Best Value",
     featured: true,
     accent: "#2563eb",
     cta: "Try Pro Free for 7 Days",
@@ -120,8 +120,8 @@ export default function Pricing() {
               lineHeight: 1.7,
             }}
           >
-            Start on Free with no card required. Upgrade when you are ready.
-            Pro includes a 7-day trial at checkout.
+            Start on Free with no card required. Upgrade when you are ready. Pro
+            includes a 7-day trial at checkout.
           </p>
         </div>
 
@@ -138,7 +138,13 @@ export default function Pricing() {
             <div
               key={plan.name}
               className={`lp-pricing-card ${plan.featured ? "lp-pricing-featured" : ""}`}
-              style={{ marginTop: plan.featured ? "0" : "16px" }}
+              style={{
+                marginTop: plan.featured ? "0" : "16px",
+                background: plan.featured ? "#ffffff" : "#f8fafc",
+                borderColor: plan.featured
+                  ? "rgba(37,99,235,0.3)"
+                  : "rgba(15,23,42,0.1)",
+              }}
             >
               <div
                 style={{
@@ -175,13 +181,13 @@ export default function Pricing() {
                       letterSpacing: "0.07em",
                       background: plan.featured
                         ? "rgba(37,99,235,0.08)"
-                        : `${plan.accent}0f`,
+                        : "rgba(15,23,42,0.06)",
                       border: `1px solid ${
                         plan.featured
                           ? "rgba(37,99,235,0.2)"
-                          : plan.accent + "28"
+                          : "rgba(15,23,42,0.14)"
                       }`,
-                      color: plan.featured ? "#2563eb" : plan.accent,
+                      color: plan.featured ? "#2563eb" : "#334155",
                     }}
                   >
                     {plan.badge}
@@ -263,11 +269,37 @@ export default function Pricing() {
                   fontSize: "12px",
                   color: "#94a3b8",
                   fontWeight: 500,
-                  marginBottom: "18px",
+                  marginBottom: "14px",
                 }}
               >
                 {plan.period}
               </p>
+
+              {plan.featured ? (
+                <p
+                  style={{
+                    fontSize: "11px",
+                    color: "#2563eb",
+                    fontWeight: 700,
+                    marginBottom: "16px",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  7-day trial first, then ${plan.price}/month
+                </p>
+              ) : (
+                <p
+                  style={{
+                    fontSize: "11px",
+                    color: "#475569",
+                    fontWeight: 700,
+                    marginBottom: "16px",
+                    letterSpacing: "0.02em",
+                  }}
+                >
+                  Keep this plan forever with no card required
+                </p>
+              )}
 
               <p
                 style={{
@@ -340,7 +372,8 @@ export default function Pricing() {
             marginTop: "20px",
           }}
         >
-          Free plan requires no card. Pro trial lasts 7 days and can be canceled before billing.
+          Free plan requires no card. Pro trial lasts 7 days and can be canceled
+          before billing.
         </p>
       </div>
     </section>

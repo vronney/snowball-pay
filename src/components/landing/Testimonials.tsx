@@ -1,31 +1,27 @@
-﻿const proofCards = [
+﻿const testimonials = [
   {
-    title: "Clear next action",
-    detail: "Know which debt to pay next based on your selected strategy.",
-    tag: "Prioritized order",
+    quote:
+      "This finally helped me visualize my student loans without feeling overwhelmed.",
+    name: "Maya R.",
+    context: "Beta user - student loans",
+    tag: "Clarity",
     color: "#2563eb",
-    offset: "0px",
   },
   {
-    title: "Visible progress",
-    detail: "Track balances month by month so momentum does not fade.",
-    tag: "Progress tracking",
-    color: "#7c3aed",
-    offset: "28px",
+    quote:
+      "Seeing my debt-free date update each month gave me the push to stay consistent.",
+    name: "Jordan K.",
+    context: "Beta user - mixed debt",
+    tag: "Momentum",
+    color: "#0891b2",
   },
   {
-    title: "Flexible planning",
-    detail: "Adjust extra payments, debt order, and timing as life changes.",
-    tag: "Scenario updates",
+    quote:
+      "I changed my payment amount after a job switch and my whole plan adjusted instantly.",
+    name: "Nina S.",
+    context: "Beta user - life change",
+    tag: "Flexibility",
     color: "#059669",
-    offset: "14px",
-  },
-  {
-    title: "Consistent execution",
-    detail: "Turn a payoff goal into a plan you can follow every month.",
-    tag: "Habit support",
-    color: "#d97706",
-    offset: "42px",
   },
 ];
 
@@ -41,7 +37,12 @@ export default function Testimonials() {
       }}
     >
       <div
-        style={{ maxWidth: "1120px", margin: "0 auto", position: "relative", zIndex: 1 }}
+        style={{
+          maxWidth: "1120px",
+          margin: "0 auto",
+          position: "relative",
+          zIndex: 1,
+        }}
       >
         <div style={{ textAlign: "center", marginBottom: "72px" }}>
           <div
@@ -55,7 +56,7 @@ export default function Testimonials() {
             <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
               <circle cx="5" cy="5" r="5" />
             </svg>
-            Why It Works
+            Early Social Proof
           </div>
           <h2
             style={{
@@ -67,7 +68,7 @@ export default function Testimonials() {
               lineHeight: 1.1,
             }}
           >
-            Built for consistency, <span className="lp-text-blue">not guesswork</span>
+            Real feedback from <span className="lp-text-blue">beta users</span>
           </h2>
           <p
             style={{
@@ -78,27 +79,26 @@ export default function Testimonials() {
               lineHeight: 1.7,
             }}
           >
-            SnowballPay focuses on clear decisions, visible progress, and flexible
-            planning so you can stay on track.
+            People using SnowballPay report more clarity, less stress, and
+            stronger follow-through month to month.
           </p>
         </div>
 
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
             gap: "18px",
             alignItems: "start",
           }}
         >
-          {proofCards.map((card, i) => (
+          {testimonials.map((card, i) => (
             <div
               key={i}
               className="lp-glass lp-quote-card"
               style={{
                 borderRadius: "20px",
                 padding: "28px",
-                marginTop: card.offset,
                 position: "relative",
                 overflow: "hidden",
               }}
@@ -131,28 +131,44 @@ export default function Testimonials() {
                 {card.tag}
               </span>
 
-              <h3
-                style={{
-                  fontSize: "18px",
-                  fontWeight: 800,
-                  color: "#0f172a",
-                  letterSpacing: "-0.02em",
-                  margin: "0 0 10px",
-                }}
-              >
-                {card.title}
-              </h3>
-
               <p
                 style={{
-                  fontSize: "14px",
-                  lineHeight: 1.78,
-                  color: "#475569",
-                  margin: 0,
+                  fontSize: "15px",
+                  lineHeight: 1.75,
+                  color: "#334155",
+                  margin: "0 0 18px",
                 }}
               >
-                {card.detail}
+                &ldquo;{card.quote}&rdquo;
               </p>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "10px",
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    color: "#0f172a",
+                  }}
+                >
+                  {card.name}
+                </span>
+                <span
+                  style={{
+                    fontSize: "11px",
+                    color: "#64748b",
+                    fontWeight: 600,
+                  }}
+                >
+                  {card.context}
+                </span>
+              </div>
             </div>
           ))}
         </div>

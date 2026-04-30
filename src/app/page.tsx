@@ -100,16 +100,19 @@ export default async function Home() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
-      <div className="lp" style={{ backgroundColor: "#f8fafc", color: "#0f172a" }}>
+      <div
+        className="lp"
+        style={{ backgroundColor: "#f8fafc", color: "#0f172a" }}
+      >
         <LandingNav isLoggedIn={isLoggedIn} />
         <LandingHero isLoggedIn={isLoggedIn} />
         <SocialProofStrip />
+        <Testimonials />
         <ProblemSolution />
         <FeaturesGrid />
         <CaseStudies />
         <HowItWorks />
         <Pricing />
-        <Testimonials />
         <FAQ />
         <FinalCTA isLoggedIn={isLoggedIn} />
         <LandingFooter />

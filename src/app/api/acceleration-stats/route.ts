@@ -34,6 +34,7 @@ export interface AccelerationStatsResponse {
   baselineDebtFreeDate: string;
   monthsSaved: number;
   performanceScore: number;
+  interestSaved: number;
 }
 
 /** GET /api/acceleration-stats — returns rolling 3-month acceleration metrics */
@@ -67,13 +68,13 @@ export async function GET(request: NextRequest) {
         baselineDebtFreeDate: new Date().toISOString(),
         monthsSaved: 0,
         performanceScore: 0,
+        interestSaved: 0,
       });
     }
 
     const recurringTotal = expenses.reduce((s, e) => s + e.amount, 0);
     const totalMinPayments = debts.reduce((s, d) => s + d.minimumPayment, 0);
 
-    // Planned monthly extra: explicit override, or natural cash flow after all obligations
     const plannedMonthly =
       income.accelerationAmount != null
         ? income.accelerationAmount
@@ -85,11 +86,8 @@ export async function GET(request: NextRequest) {
               totalMinPayments,
           );
 
-    // Map debtId → minimumPayment for extra-payment calculation
     const debtMinMap = new Map(debts.map((d) => [d.id, d.minimumPayment]));
 
-    // Compute actual extra paid per month
-    // Extra = sum of max(0, payment.amount - debt.minimumPayment) for that month
     const monthlyData: AccelerationMonthData[] = monthRanges.map(({ year, month }) => {
       const monthRecords = allRecords.filter(
         (r) => r.dueYear === year && r.dueMonth === month,
@@ -98,12 +96,10 @@ export async function GET(request: NextRequest) {
         const min = debtMinMap.get(r.debtId) ?? 0;
         return sum + Math.max(0, r.amount - min);
       }, 0);
-      // On-track if they hit at least 85% of their planned monthly extra
       const onTrack = plannedMonthly > 0 && actualExtra >= plannedMonthly * 0.85;
       return { year, month, actualExtra, onTrack };
     });
 
-    // Streak: consecutive on-track months going backwards from the most recent
     let streak = 0;
     for (let i = monthlyData.length - 1; i >= 0; i--) {
       if (monthlyData[i].onTrack) streak++;
@@ -113,7 +109,6 @@ export async function GET(request: NextRequest) {
     const totalPlanned = plannedMonthly * 3;
     const totalActualExtra = monthlyData.reduce((s, m) => s + m.actualExtra, 0);
 
-    // Normalise debts for the snowball lib
     const normalizedDebts: Debt[] = debts.map((d) => ({
       ...d,
       category: d.category as Debt['category'],
@@ -128,7 +123,6 @@ export async function GET(request: NextRequest) {
           ? calculateDebtCustom
           : calculateDebtSnowball;
 
-    // Baseline: what payoff looks like with zero extra payment
     const baselineResult = calcFn(
       normalizedDebts,
       income.monthlyTakeHome,
@@ -137,27 +131,24 @@ export async function GET(request: NextRequest) {
       0,
     );
 
-    // "With extra" uses the planned monthly acceleration. Convert to the extraPayment
-    // param format: amount above the natural cash-flow surplus after minimums.
     const naturalSurplus = income.monthlyTakeHome - income.essentialExpenses - recurringTotal - totalMinPayments;
     const adjustedExtra = Math.max(0, plannedMonthly - naturalSurplus);
 
-    // Always recalculate live so balance changes are immediately reflected
-    const currentDebtFreeDate: Date = calcFn(
+    const currentResult = calcFn(
       normalizedDebts,
       income.monthlyTakeHome,
       income.essentialExpenses,
       recurringTotal,
       adjustedExtra,
-    ).debtFreeDate;
+    );
+    const currentDebtFreeDate: Date = currentResult.debtFreeDate;
+    const interestSaved = Math.max(0, baselineResult.totalInterestPaid - currentResult.totalInterestPaid);
 
-    // Months saved = how many months earlier the user pays off with extra vs. without
     const baselineMs = baselineResult.debtFreeDate.getTime();
     const currentMs = currentDebtFreeDate.getTime();
     const msPerMonth = 1000 * 60 * 60 * 24 * 30.44;
     const monthsSaved = Math.round((baselineMs - currentMs) / msPerMonth);
 
-    // Performance score (0–1): consistency 50%, streak 30%, months-saved 20%
     const consistencyScore =
       totalPlanned > 0 ? Math.min(1, totalActualExtra / totalPlanned) : 0;
     const streakScore = Math.min(1, streak / 3);
@@ -175,6 +166,7 @@ export async function GET(request: NextRequest) {
       baselineDebtFreeDate: baselineResult.debtFreeDate.toISOString(),
       monthsSaved,
       performanceScore,
+      interestSaved,
     });
   } catch (error) {
     console.error('Error fetching acceleration stats:', error);

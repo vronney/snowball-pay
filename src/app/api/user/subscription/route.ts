@@ -5,6 +5,7 @@ import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 
 const ACTIVE_STATUSES = ['active', 'trialing'];
 const TRIAL_GRACE_MS = 2 * 60 * 60 * 1000;
+const PRO_MONTHLY_PRICE = 9;
 
 function isStale(endsAt: Date | null): boolean {
   return endsAt !== null && endsAt.getTime() + TRIAL_GRACE_MS < Date.now();
@@ -59,6 +60,7 @@ export async function GET(request: NextRequest) {
       subscriptionEndsAt: endsAt,
       isCanceling,
       hasCustomer: !!user?.stripeCustomerId,
+      monthlyPrice: PRO_MONTHLY_PRICE,
     });
   } catch (error) {
     console.error('Subscription fetch error:', error);

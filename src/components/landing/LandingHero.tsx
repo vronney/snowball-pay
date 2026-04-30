@@ -36,8 +36,8 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
       style={{
         position: "relative",
         overflow: "hidden",
-        paddingTop: "148px",
-        paddingBottom: "120px",
+        paddingTop: "132px",
+        paddingBottom: "96px",
         paddingLeft: "24px",
         paddingRight: "24px",
       }}
@@ -52,7 +52,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
       >
         <div
           className="lp-hero-cols"
-          style={{ display: "flex", alignItems: "center", gap: "64px" }}
+          style={{ display: "flex", alignItems: "flex-start", gap: "56px" }}
         >
           {/* Left: Copy */}
           <div style={{ flex: "1 1 500px", maxWidth: "560px" }}>
@@ -67,7 +67,9 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                 borderRadius: "999px",
                 fontSize: "12px",
                 fontWeight: 700,
-                color: "#2563eb",
+                color: "#1e3a8a",
+                background: "#dbeafe",
+                border: "1px solid #93c5fd",
                 marginBottom: "28px",
               }}
             >
@@ -116,7 +118,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                 display: "flex",
                 flexWrap: "wrap",
                 gap: "12px",
-                marginBottom: "48px",
+                marginBottom: "20px",
               }}
             >
               {isLoggedIn ? (
@@ -133,7 +135,9 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                     href="/auth/login?returnTo=/dashboard"
                     className="lp-btn lp-btn-primary"
                     style={{ fontSize: "16px", padding: "15px 34px" }}
-                    onClick={() => track(Events.SIGNUP_STARTED, { source: 'hero_primary' })}
+                    onClick={() =>
+                      track(Events.SIGNUP_STARTED, { source: "hero_primary" })
+                    }
                   >
                     Start Free - No Card Needed
                   </a>
@@ -148,6 +152,36 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
               )}
             </div>
 
+            <div
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "8px 12px",
+                borderRadius: "999px",
+                background: "#ffffff",
+                border: "1px solid rgba(37,99,235,0.18)",
+                color: "#1e3a8a",
+                fontSize: "12px",
+                fontWeight: 700,
+                marginBottom: "28px",
+              }}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M8 1.6a3 3 0 00-3 3v1.1H4a1.2 1.2 0 00-1.2 1.2v6A1.2 1.2 0 004 14h8a1.2 1.2 0 001.2-1.2v-6A1.2 1.2 0 0012 5.7h-1V4.6a3 3 0 00-3-3zM6.3 5.7V4.6a1.7 1.7 0 013.4 0v1.1H6.3z"
+                  fill="#2563eb"
+                />
+              </svg>
+              Bank-Level Security | 100% Private
+            </div>
+
             {/* Animated stats */}
             <div
               className="lp-f5"
@@ -155,8 +189,14 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
             >
               {[
                 { val: "Clear Plan", label: "Prioritized payoff order" },
-                { val: "Track Progress", label: "See every payment move the plan" },
-                { val: "Adjust Anytime", label: "Update your plan as life changes" },
+                {
+                  val: "Track Progress",
+                  label: "See every payment move the plan",
+                },
+                {
+                  val: "Adjust Anytime",
+                  label: "Update your plan as life changes",
+                },
               ].map((s, i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center" }}>
                   {i > 0 && (
@@ -349,7 +389,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                       fontWeight: 700,
                     }}
                   >
-On track
+                    On track
                   </span>
                 </div>
                 <svg
@@ -420,8 +460,8 @@ On track
                 </div>
                 <p
                   style={{
-                    fontSize: "9px",
-                    color: "#94a3b8",
+                    fontSize: "10px",
+                    color: "#64748b",
                     marginTop: "6px",
                     marginBottom: 0,
                   }}
@@ -629,4 +669,3 @@ On track
     </section>
   );
 }
-

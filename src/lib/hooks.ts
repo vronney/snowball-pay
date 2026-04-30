@@ -129,6 +129,49 @@ export function useSaveIncome() {
   });
 }
 
+export interface OnboardingCompletePayload {
+  income: {
+    monthlyTakeHome: number;
+    essentialExpenses: number;
+    extraPayment: number;
+    payoffMethod: 'snowball' | 'avalanche' | 'custom';
+  };
+  firstDebt: {
+    name: string;
+    category: 'Credit Card' | 'Student Loan' | 'Auto Loan' | 'Mortgage' | 'Personal Loan' | 'Medical Debt' | 'Other';
+    balance: number;
+    interestRate: number;
+    minimumPayment: number;
+    creditLimit?: number;
+    dueDate?: number;
+  };
+}
+
+export function useCompleteOnboarding() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ payload, idempotencyKey }: { payload: OnboardingCompletePayload; idempotencyKey?: string }) => {
+      const { data } = await axios.post(
+        `${API_URL}/api/onboarding/complete`,
+        payload,
+        idempotencyKey
+          ? { headers: { 'x-idempotency-key': idempotencyKey } }
+          : undefined
+      );
+      return data;
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['income'] }),
+        queryClient.invalidateQueries({ queryKey: ['debts'] }),
+      ]);
+    },
+    onError: (error) => {
+      handleUpgradeError(error);
+    },
+  });
+}
+
 // ===== EXPENSES =====
 export function useExpenses() {
   return useQuery<{ expenses: Expense[] }>({
@@ -250,6 +293,8 @@ export type AiRecommendationType =
   | 'priority'
   | 'savings';
 
+export type ActionPayload = { action_type: 'reallocate_funds'; source_amount: number };
+
 export interface AiRecommendation {
   type: AiRecommendationType;
   impact: 'high' | 'medium' | 'low';
@@ -257,6 +302,7 @@ export interface AiRecommendation {
   body: string;
   action: string;
   why?: string;
+  action_payload?: ActionPayload;
 }
 
 export interface RecommendationCache {
@@ -342,6 +388,7 @@ export interface UserPreferences {
   notifyDueDates: boolean;
   notifyLowBuffer: boolean;
   emailOptOut: boolean;
+  emailDigest: boolean;
 }
 
 export function useUserSettings() {
@@ -584,6 +631,7 @@ export interface AccelerationStats {
   baselineDebtFreeDate: string;
   monthsSaved: number;
   performanceScore: number;
+  interestSaved: number;
 }
 
 /** Fetches rolling 3-month acceleration metrics for the tracker widget. */
@@ -605,6 +653,7 @@ export interface SubscriptionInfo {
   subscriptionEndsAt: string | null;
   isCanceling: boolean;
   hasCustomer: boolean;
+  monthlyPrice?: number;
 }
 
 export function useSubscription() {

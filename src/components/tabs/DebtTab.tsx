@@ -10,7 +10,19 @@ import {
 } from "@/lib/hooks";
 import PaymentCelebrationBanner from "@/components/PaymentCelebrationBanner";
 import { Debt } from "@/types";
-import { PlusCircle, Inbox, Bell, ChevronDown, Calendar, Mail, Loader2, ArrowUpDown, Filter } from "lucide-react";
+import {
+  PlusCircle,
+  Inbox,
+  Bell,
+  ChevronDown,
+  Calendar,
+  Mail,
+  Loader2,
+  ArrowUpDown,
+  Filter,
+  CheckCircle2,
+  Circle,
+} from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import {
   calculateDebtSnowball,
@@ -144,26 +156,42 @@ export default function DebtTab({
 }: DebtTabProps) {
   const [showForm, setShowForm] = useState(false);
   const [debtsOpen, setDebtsOpen] = useState(true);
-  const [emailStatus, setEmailStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+  const [emailStatus, setEmailStatus] = useState<
+    "idle" | "sending" | "sent" | "error"
+  >("idle");
   const [addDebtError, setAddDebtError] = useState<string | null>(null);
   // null = follow the active strategy's natural order; set when user explicitly picks
-  const [sortOverride, setSortOverride] = useState<'default' | 'balance-asc' | 'balance-desc' | 'apr-desc' | 'min-desc' | 'due' | null>(null);
-  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [sortOverride, setSortOverride] = useState<
+    | "default"
+    | "balance-asc"
+    | "balance-desc"
+    | "apr-desc"
+    | "min-desc"
+    | "due"
+    | null
+  >(null);
+  const [filterCategory, setFilterCategory] = useState<string>("all");
+  const [internalOpenDebtId, setInternalOpenDebtId] = useState<string | null>(
+    null,
+  );
+  const [markedPaymentIds, setMarkedPaymentIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const handleSendEmail = async () => {
-    setEmailStatus('sending');
+    setEmailStatus("sending");
     try {
-      const res = await fetch('/api/email/send-plan', { method: 'POST' });
+      const res = await fetch("/api/email/send-plan", { method: "POST" });
       if (res.ok) {
-        setEmailStatus('sent');
-        setTimeout(() => setEmailStatus('idle'), 4000);
+        setEmailStatus("sent");
+        setTimeout(() => setEmailStatus("idle"), 4000);
       } else {
-        setEmailStatus('error');
-        setTimeout(() => setEmailStatus('idle'), 4000);
+        setEmailStatus("error");
+        setTimeout(() => setEmailStatus("idle"), 4000);
       }
     } catch {
-      setEmailStatus('error');
-      setTimeout(() => setEmailStatus('idle'), 4000);
+      setEmailStatus("error");
+      setTimeout(() => setEmailStatus("idle"), 4000);
     }
   };
 
@@ -248,11 +276,17 @@ export default function DebtTab({
   }, [debts, income, expensesData?.expenses]);
 
   // Map strategy → natural sort order so the list mirrors the payoff plan by default
-  const strategyDefaultSort = useMemo((): 'balance-asc' | 'apr-desc' | 'default' => {
+  const strategyDefaultSort = useMemo(():
+    | "balance-asc"
+    | "apr-desc"
+    | "default" => {
     switch (income?.payoffMethod) {
-      case 'avalanche': return 'apr-desc';
-      case 'custom':    return 'default'; // custom uses priorityOrder stored in DB
-      default:          return 'balance-asc'; // snowball (and unset)
+      case "avalanche":
+        return "apr-desc";
+      case "custom":
+        return "default"; // custom uses priorityOrder stored in DB
+      default:
+        return "balance-asc"; // snowball (and unset)
     }
   }, [income?.payoffMethod]);
 
@@ -263,7 +297,9 @@ export default function DebtTab({
   const rankByDebtId = useMemo(() => {
     const map = new Map<string, number>();
     if (payoffResult) {
-      payoffResult.payoffSchedule.forEach((s) => map.set(s.debtId, s.orderInPayoff));
+      payoffResult.payoffSchedule.forEach((s) =>
+        map.set(s.debtId, s.orderInPayoff),
+      );
     }
     return map;
   }, [payoffResult]);
@@ -276,14 +312,23 @@ export default function DebtTab({
 
   // Sorted + filtered view of debts (does not mutate original array)
   const visibleDebts = useMemo(() => {
-    let list = filterCategory === 'all' ? debts : debts.filter((d) => d.category === filterCategory);
+    let list =
+      filterCategory === "all"
+        ? debts
+        : debts.filter((d) => d.category === filterCategory);
     switch (sortBy) {
-      case 'balance-asc':  return [...list].sort((a, b) => a.balance - b.balance);
-      case 'balance-desc': return [...list].sort((a, b) => b.balance - a.balance);
-      case 'apr-desc':     return [...list].sort((a, b) => b.interestRate - a.interestRate);
-      case 'min-desc':     return [...list].sort((a, b) => b.minimumPayment - a.minimumPayment);
-      case 'due':          return [...list].sort((a, b) => (a.dueDate ?? 99) - (b.dueDate ?? 99));
-      default:             return list;
+      case "balance-asc":
+        return [...list].sort((a, b) => a.balance - b.balance);
+      case "balance-desc":
+        return [...list].sort((a, b) => b.balance - a.balance);
+      case "apr-desc":
+        return [...list].sort((a, b) => b.interestRate - a.interestRate);
+      case "min-desc":
+        return [...list].sort((a, b) => b.minimumPayment - a.minimumPayment);
+      case "due":
+        return [...list].sort((a, b) => (a.dueDate ?? 99) - (b.dueDate ?? 99));
+      default:
+        return list;
     }
   }, [debts, sortBy, filterCategory]);
 
@@ -296,7 +341,10 @@ export default function DebtTab({
     setAddDebtError(null);
     try {
       await createDebt.mutateAsync(formData);
-      track(Events.DEBT_ADDED, { category: formData.category, balance: formData.balance });
+      track(Events.DEBT_ADDED, {
+        category: formData.category,
+        balance: formData.balance,
+      });
       setShowForm(false);
     } catch (error) {
       console.error("Error creating debt:", error);
@@ -315,7 +363,7 @@ export default function DebtTab({
           {/* Debt Overview Banner */}
           {debts.length > 0 && (
             <div
-              className="rounded-xl p-4"
+              className="rounded-xl p-3"
               style={{
                 background: "#f8fafc",
                 border: "1px solid rgba(15,23,42,0.08)",
@@ -324,11 +372,18 @@ export default function DebtTab({
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-                  gap: "16px",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))",
+                  gap: "8px",
                 }}
               >
-                <div>
+                <div
+                  style={{
+                    background: "#fff",
+                    border: "1px solid rgba(15,23,42,0.07)",
+                    borderRadius: "10px",
+                    padding: "10px 12px",
+                  }}
+                >
                   <span
                     style={{
                       fontSize: "11px",
@@ -347,7 +402,14 @@ export default function DebtTab({
                   </span>
                 </div>
                 {payoffResult && (
-                  <div>
+                  <div
+                    style={{
+                      background: "#fff",
+                      border: "1px solid rgba(15,23,42,0.07)",
+                      borderRadius: "10px",
+                      padding: "10px 12px",
+                    }}
+                  >
                     <span
                       style={{
                         fontSize: "11px",
@@ -370,7 +432,14 @@ export default function DebtTab({
                   </div>
                 )}
                 {payoffResult && (
-                  <div>
+                  <div
+                    style={{
+                      background: "#fff",
+                      border: "1px solid rgba(15,23,42,0.07)",
+                      borderRadius: "10px",
+                      padding: "10px 12px",
+                    }}
+                  >
                     <span
                       style={{
                         fontSize: "11px",
@@ -389,7 +458,14 @@ export default function DebtTab({
                     </span>
                   </div>
                 )}
-                <div>
+                <div
+                  style={{
+                    background: "#fff",
+                    border: "1px solid rgba(15,23,42,0.07)",
+                    borderRadius: "10px",
+                    padding: "10px 12px",
+                  }}
+                >
                   <span
                     style={{
                       fontSize: "11px",
@@ -408,7 +484,14 @@ export default function DebtTab({
                   </span>
                 </div>
                 {streak > 0 && (
-                  <div>
+                  <div
+                    style={{
+                      background: "#fff",
+                      border: "1px solid rgba(15,23,42,0.07)",
+                      borderRadius: "10px",
+                      padding: "10px 12px",
+                    }}
+                  >
                     <span
                       style={{
                         fontSize: "11px",
@@ -454,25 +537,50 @@ export default function DebtTab({
                   {debts.length}
                 </Badge>
               </span>
-              <ChevronDown
-                size={16}
-                style={{
-                  color: "#94a3b8",
-                  transition: "transform 0.2s",
-                  transform: debtsOpen ? "rotate(180deg)" : "rotate(0deg)",
-                }}
-              />
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "8px" }}
+              >
+                {!showForm && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowForm(true);
+                    }}
+                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                    style={{
+                      background: "rgba(37,99,235,0.08)",
+                      color: "#2563eb",
+                      border: "1px solid rgba(37,99,235,0.18)",
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    <PlusCircle size={12} />
+                    Add Debt
+                  </button>
+                )}
+                <ChevronDown
+                  size={16}
+                  style={{
+                    color: "#94a3b8",
+                    transition: "transform 0.2s",
+                    transform: debtsOpen ? "rotate(180deg)" : "rotate(0deg)",
+                  }}
+                />
+              </div>
             </CollapsibleTrigger>
 
             <CollapsibleContent>
               <div className="px-4 pb-4">
                 {/* Sort / Filter toolbar — only shown when there are debts */}
                 {debts.length > 0 && (
-                  <div
-                    className="flex flex-wrap items-center gap-2 mb-3 pt-1"
-                  >
+                  <div className="flex flex-wrap items-center gap-2 mb-3 pt-1">
                     <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                      <ArrowUpDown size={13} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                      <ArrowUpDown
+                        size={13}
+                        style={{ color: "#94a3b8", flexShrink: 0 }}
+                      />
                       <select
                         value={sortBy}
                         onChange={(e) => {
@@ -482,20 +590,24 @@ export default function DebtTab({
                         }}
                         className="text-xs rounded-lg px-2 py-1.5 border bg-white cursor-pointer"
                         style={{
-                          color: '#475569',
-                          borderColor: 'rgba(15,23,42,0.12)',
-                          fontFamily: 'inherit',
-                          appearance: 'none',
-                          paddingRight: '22px',
+                          color: "#475569",
+                          borderColor: "rgba(15,23,42,0.12)",
+                          fontFamily: "inherit",
+                          appearance: "none",
+                          paddingRight: "22px",
                           backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E")`,
-                          backgroundRepeat: 'no-repeat',
-                          backgroundPosition: 'right 6px center',
+                          backgroundRepeat: "no-repeat",
+                          backgroundPosition: "right 6px center",
                         }}
                       >
                         <option value="default">Custom order</option>
-                        <option value="balance-asc">Lowest balance (Snowball)</option>
+                        <option value="balance-asc">
+                          Lowest balance (Snowball)
+                        </option>
                         <option value="balance-desc">Highest balance</option>
-                        <option value="apr-desc">Highest APR (Avalanche)</option>
+                        <option value="apr-desc">
+                          Highest APR (Avalanche)
+                        </option>
                         <option value="min-desc">Highest minimum</option>
                         <option value="due">Soonest due date</option>
                       </select>
@@ -503,25 +615,30 @@ export default function DebtTab({
 
                     {categories.length > 1 && (
                       <div className="flex items-center gap-1.5">
-                        <Filter size={13} style={{ color: '#94a3b8', flexShrink: 0 }} />
+                        <Filter
+                          size={13}
+                          style={{ color: "#94a3b8", flexShrink: 0 }}
+                        />
                         <select
                           value={filterCategory}
                           onChange={(e) => setFilterCategory(e.target.value)}
                           className="text-xs rounded-lg px-2 py-1.5 border bg-white cursor-pointer"
                           style={{
-                            color: '#475569',
-                            borderColor: 'rgba(15,23,42,0.12)',
-                            fontFamily: 'inherit',
-                            appearance: 'none',
-                            paddingRight: '22px',
+                            color: "#475569",
+                            borderColor: "rgba(15,23,42,0.12)",
+                            fontFamily: "inherit",
+                            appearance: "none",
+                            paddingRight: "22px",
                             backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E")`,
-                            backgroundRepeat: 'no-repeat',
-                            backgroundPosition: 'right 6px center',
+                            backgroundRepeat: "no-repeat",
+                            backgroundPosition: "right 6px center",
                           }}
                         >
                           <option value="all">All types</option>
                           {categories.map((c) => (
-                            <option key={c} value={c}>{c}</option>
+                            <option key={c} value={c}>
+                              {c}
+                            </option>
                           ))}
                         </select>
                       </div>
@@ -542,8 +659,15 @@ export default function DebtTab({
                       firstSnapshotBalance={
                         earliestBalanceByDebt.get(debt.id) ?? null
                       }
-                      openPaymentPanel={openPaymentDebtId === debt.id}
-                      onPaymentPanelOpened={onPaymentPanelOpened}
+                      openPaymentPanel={
+                        openPaymentDebtId === debt.id ||
+                        internalOpenDebtId === debt.id
+                      }
+                      onPaymentPanelOpened={() => {
+                        onPaymentPanelOpened?.();
+                        if (internalOpenDebtId === debt.id)
+                          setInternalOpenDebtId(null);
+                      }}
                       rank={rankByDebtId.get(debt.id)}
                     />
                   ))}
@@ -551,7 +675,7 @@ export default function DebtTab({
                   {/* No results after filter */}
                   {debts.length > 0 && visibleDebts.length === 0 && (
                     <div className="text-center py-8">
-                      <p className="text-sm" style={{ color: '#94a3b8' }}>
+                      <p className="text-sm" style={{ color: "#94a3b8" }}>
                         No debts match the current filter.
                       </p>
                     </div>
@@ -569,9 +693,15 @@ export default function DebtTab({
                           border: "1px solid rgba(59,130,246,0.18)",
                         }}
                       >
-                        <Inbox size={26} style={{ color: "#3b82f6", opacity: 0.7 }} />
+                        <Inbox
+                          size={26}
+                          style={{ color: "#3b82f6", opacity: 0.7 }}
+                        />
                       </div>
-                      <p className="font-semibold text-sm mb-1" style={{ color: "#334155" }}>
+                      <p
+                        className="font-semibold text-sm mb-1"
+                        style={{ color: "#334155" }}
+                      >
                         No debts yet
                       </p>
                       <p className="text-xs" style={{ color: "#94a3b8" }}>
@@ -606,12 +736,21 @@ export default function DebtTab({
                       <div
                         key={card.title}
                         className="rounded-xl p-4"
-                        style={{ background: card.bg, border: `1px solid ${card.border}` }}
+                        style={{
+                          background: card.bg,
+                          border: `1px solid ${card.border}`,
+                        }}
                       >
-                        <p className="font-semibold text-xs mb-1" style={{ color: card.color }}>
+                        <p
+                          className="font-semibold text-xs mb-1"
+                          style={{ color: card.color }}
+                        >
                           {card.title}
                         </p>
-                        <p className="text-xs leading-relaxed" style={{ color: '#64748b' }}>
+                        <p
+                          className="text-xs leading-relaxed"
+                          style={{ color: "#64748b" }}
+                        >
                           {card.body}
                         </p>
                       </div>
@@ -626,7 +765,7 @@ export default function DebtTab({
         <aside className="xl:col-span-4 2xl:col-span-4 order-1 xl:order-2 xl:sticky xl:top-24 self-start space-y-4">
           {/* Add Debt Form — the open form is always visible; the trigger button
               is hidden on mobile because the FAB provides that action there */}
-          {showForm ? (
+          {showForm && (
             <div
               className="rounded-2xl p-5 snowball-glow"
               style={{
@@ -640,25 +779,24 @@ export default function DebtTab({
               </h2>
               <DebtForm
                 onSubmit={handleSubmit}
-                onCancel={() => { setShowForm(false); setAddDebtError(null); }}
+                onCancel={() => {
+                  setShowForm(false);
+                  setAddDebtError(null);
+                }}
                 isLoading={createDebt.isPending}
               />
               {addDebtError && (
-                <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px', fontWeight: 500 }}>
+                <p
+                  style={{
+                    color: "#ef4444",
+                    fontSize: "13px",
+                    marginTop: "8px",
+                    fontWeight: 500,
+                  }}
+                >
                   {addDebtError}
                 </p>
               )}
-            </div>
-          ) : (
-            <div className="db-add-debt-btn">
-              <Button
-                variant="outline"
-                onClick={() => setShowForm(true)}
-                className="w-full rounded-2xl h-auto p-5 snowball-glow font-semibold text-[#2563eb] border-[rgba(37,99,235,0.25)] bg-white gap-2 hover:bg-white hover:text-[#2563eb] hover:opacity-80"
-              >
-                <PlusCircle size={18} />
-                Add New Debt
-              </Button>
             </div>
           )}
 
@@ -681,44 +819,92 @@ export default function DebtTab({
                 </span>
               </div>
               <div className="space-y-2">
-                {upcomingPayments.map(({ debt, label, color, bg, border }) => (
-                  <div
-                    key={debt.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      padding: "8px 10px",
-                      borderRadius: "10px",
-                      background: bg,
-                      border: `1px solid ${border}`,
-                    }}
-                  >
-                    <span
+                {upcomingPayments.map(({ debt, label, color, bg, border }) => {
+                  const isMarked = markedPaymentIds.has(debt.id);
+                  return (
+                    <div
+                      key={debt.id}
                       style={{
-                        fontSize: "12px",
-                        color,
-                        fontWeight: 600,
-                        whiteSpace: "nowrap",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        padding: "8px 10px",
+                        borderRadius: "10px",
+                        background: isMarked ? "rgba(16,185,129,0.08)" : bg,
+                        border: `1px solid ${isMarked ? "rgba(16,185,129,0.3)" : border}`,
+                        transition: "all 0.3s ease",
+                        opacity: isMarked ? 0.65 : 1,
                       }}
                     >
-                      {label}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "12px",
-                        color: "#334155",
-                        flex: 1,
-                        minWidth: 0,
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {debt.name} · {formatCurrency(debt.minimumPayment)}
-                    </span>
-                  </div>
-                ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMarkedPaymentIds((prev) => {
+                            const n = new Set(prev);
+                            n.add(debt.id);
+                            return n;
+                          });
+                          setInternalOpenDebtId(debt.id);
+                          setDebtsOpen(true);
+                          setTimeout(
+                            () =>
+                              document
+                                .getElementById("debt-list")
+                                ?.scrollIntoView({
+                                  behavior: "smooth",
+                                  block: "start",
+                                }),
+                            150,
+                          );
+                        }}
+                        title="Mark as paid"
+                        aria-label={`Mark ${debt.name} as paid`}
+                        style={{
+                          flexShrink: 0,
+                          background: "none",
+                          border: "none",
+                          cursor: isMarked ? "default" : "pointer",
+                          padding: "0",
+                          color: isMarked ? "#10b981" : "#94a3b8",
+                          transition: "color 0.2s",
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                        disabled={isMarked}
+                      >
+                        {isMarked ? (
+                          <CheckCircle2 size={15} />
+                        ) : (
+                          <Circle size={15} />
+                        )}
+                      </button>
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          color,
+                          fontWeight: 600,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {label}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "12px",
+                          color: isMarked ? "#94a3b8" : "#334155",
+                          flex: 1,
+                          minWidth: 0,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          textDecoration: isMarked ? "line-through" : "none",
+                        }}
+                      >
+                        {debt.name} · {formatCurrency(debt.minimumPayment)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -763,22 +949,29 @@ export default function DebtTab({
               <Button
                 variant="outline"
                 onClick={handleSendEmail}
-                disabled={emailStatus === 'sending'}
+                disabled={emailStatus === "sending"}
                 className="w-full gap-2 font-medium text-slate-700 hover:text-slate-900"
               >
-                {emailStatus === 'sending' ? (
+                {emailStatus === "sending" ? (
                   <Loader2 size={14} className="animate-spin" />
                 ) : (
                   <Mail size={14} />
                 )}
-                {emailStatus === 'sent'
-                  ? 'Plan Sent!'
-                  : emailStatus === 'error'
-                    ? 'Try Again'
-                    : 'Email My Plan'}
+                {emailStatus === "sent"
+                  ? "Plan Sent!"
+                  : emailStatus === "error"
+                    ? "Try Again"
+                    : "Email My Plan"}
               </Button>
-              {emailStatus === 'error' && (
-                <p style={{ fontSize: '12px', color: '#ef4444', margin: '4px 0 0', textAlign: 'center' }}>
+              {emailStatus === "error" && (
+                <p
+                  style={{
+                    fontSize: "12px",
+                    color: "#ef4444",
+                    margin: "4px 0 0",
+                    textAlign: "center",
+                  }}
+                >
                   Failed to send. Check your email address in Settings.
                 </p>
               )}

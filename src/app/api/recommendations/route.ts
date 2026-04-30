@@ -43,10 +43,15 @@ Return ONLY valid JSON - no markdown fences, no explanation:
       "title": "short headline under 8 words",
       "body": "1-2 specific sentences referencing their actual numbers (max 35 words)",
       "action": "one clear next step under 12 words",
-      "why": "one sentence explaining why this applies to THIS user based on their specific numbers (max 22 words)"
+      "why": "one sentence explaining why this applies to THIS user based on their specific numbers (max 22 words)",
+      "action_payload": {"action_type": "reallocate_funds", "source_amount": 54}
     }
   ]
-}`;
+}
+
+action_payload rules:
+- Include "action_payload" ONLY on the "spending_insight" recommendation, and ONLY when you identify a specific recurring expense the user could cut or reduce. Set "source_amount" to the monthly dollar savings.
+- Omit "action_payload" entirely on all other recommendation types.`;
 
 
 const RawRecommendationTypeSchema = z.enum([
@@ -60,6 +65,10 @@ const RawRecommendationTypeSchema = z.enum([
 
 type RawRecommendationType = z.infer<typeof RawRecommendationTypeSchema>;
 
+const ActionPayloadSchema = z.discriminatedUnion('action_type', [
+  z.object({ action_type: z.literal('reallocate_funds'), source_amount: z.number().positive() }),
+]);
+
 const RecommendationSchema = z.object({
   type: RawRecommendationTypeSchema,
   impact: z.enum(['high', 'medium', 'low']),
@@ -67,6 +76,7 @@ const RecommendationSchema = z.object({
   body: z.string().min(1),
   action: z.string().min(1).max(120),
   why: z.string().optional(),
+  action_payload: ActionPayloadSchema.optional(),
 });
 
 type RawRecommendation = z.infer<typeof RecommendationSchema>;

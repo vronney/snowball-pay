@@ -87,12 +87,14 @@ export function PayoffPlanEmail({
 
   return (
     <Html>
-      <Head />
-      <Body style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', background: '#f1f5f9', margin: 0, padding: '32px 0' }}>
+      <Head>
+        <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&display=swap');`}</style>
+      </Head>
+      <Body style={{ fontFamily: "'DM Sans', system-ui, sans-serif", background: '#f1f5f9', margin: 0, padding: '32px 0' }}>
         <Container style={{ maxWidth: '680px', margin: '0 auto' }}>
 
           {/* ── Hero ───────────────────────────────────────── */}
-          <Section style={{ background: 'linear-gradient(135deg, #1d4ed8 0%, #4f46e5 100%)', borderRadius: '16px 16px 0 0', padding: '40px 48px 36px' }}>
+          <Section style={{ background: 'linear-gradient(135deg, #1d4ed8, #2563eb)', borderRadius: '16px 16px 0 0', padding: '40px 48px 36px' }}>
             {/* Wordmark */}
             <Text style={{ margin: '0 0 28px', fontSize: '18px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.02em' }}>
               SnowballPay
@@ -167,8 +169,8 @@ export function PayoffPlanEmail({
 
           {/* ── Strategy Note ─────────────────────────────── */}
           <Section style={{ background: '#ffffff', padding: '0 48px 28px' }}>
-            <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '16px 20px', border: '1px solid #e2e8f0', borderLeft: '3px solid #4f46e5' }}>
-              <Text style={{ margin: '0 0 2px', fontSize: '12px', fontWeight: 700, color: '#4f46e5' }}>{methodLabel}</Text>
+            <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '16px 20px', border: '1px solid #e2e8f0', borderLeft: '3px solid #2563eb' }}>
+              <Text style={{ margin: '0 0 2px', fontSize: '12px', fontWeight: 700, color: '#2563eb' }}>{methodLabel}</Text>
               <Text style={{ margin: 0, fontSize: '13px', color: '#64748b', lineHeight: '1.5' }}>{methodDesc}</Text>
             </div>
           </Section>
@@ -259,7 +261,7 @@ export function PayoffPlanEmail({
             <Button
               href="https://getsnowballpay.com/dashboard"
               style={{
-                background: 'linear-gradient(135deg, #2563eb, #4f46e5)',
+                background: '#2563eb',
                 color: '#ffffff',
                 borderRadius: '10px',
                 padding: '14px 32px',
@@ -290,3 +292,16 @@ export function PayoffPlanEmail({
     </Html>
   );
 }
+
+PayoffPlanEmail.PreviewProps = {
+  totalDebt: 18450,
+  totalInterestPaid: 3200,
+  monthlyPayment: 640,
+  debtFreeDate: 'March 2027',
+  method: 'snowball',
+  payoffSchedule: [
+    { debtName: 'Caraway Card',  category: 'Credit Card',  originalBalance: 2400, monthPaidOff: 4,  interestPaid: 87,   orderInPayoff: 1 },
+    { debtName: 'Student Loan', category: 'Student Loan', originalBalance: 8200, monthPaidOff: 14, interestPaid: 1100, orderInPayoff: 2 },
+    { debtName: 'Auto Loan',    category: 'Auto Loan',    originalBalance: 7850, monthPaidOff: 22, interestPaid: 2013, orderInPayoff: 3 },
+  ],
+} satisfies Parameters<typeof PayoffPlanEmail>[0];
