@@ -72,11 +72,11 @@ const ActionPayloadSchema = z.discriminatedUnion('action_type', [
 const RecommendationSchema = z.object({
   type: RawRecommendationTypeSchema,
   impact: z.enum(['high', 'medium', 'low']),
-  title: z.string().min(1).max(80),
+  title: z.string().min(1),
   body: z.string().min(1),
-  action: z.string().min(1).max(120),
+  action: z.string().min(1),
   why: z.string().optional(),
-  action_payload: ActionPayloadSchema.optional(),
+  action_payload: ActionPayloadSchema.optional().catch(undefined),
 });
 
 type RawRecommendation = z.infer<typeof RecommendationSchema>;
@@ -403,6 +403,10 @@ IMPORTANT:
       .safeParse(parsedJson);
 
     if (!claudeResponse.success) {
+      console.error('Zod validation failed on Claude response', {
+        issues: claudeResponse.error.issues,
+        preview: JSON.stringify(parsedJson).slice(0, 500),
+      });
       return serverError('Failed to parse AI response');
     }
 
