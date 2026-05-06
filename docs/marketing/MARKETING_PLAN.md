@@ -152,6 +152,7 @@ A debt elimination command center that gives users a confident, step-by-step pay
 ### 6.3 Social & Community
 
 **Why:** Debt-free communities are highly active and emotionally engaged. Value-first participation compounds over time.
+*(See `DISTRIBUTION_PLAYBOOK.md` for the detailed 30-minute daily routine and copy/paste reply templates.)*
 
 **Ideas:**
 
@@ -424,6 +425,8 @@ A debt elimination command center that gives users a confident, step-by-step pay
 ---
 
 ## 11. Governance and Operating Cadence
+
+*(See `DISTRIBUTION_PLAYBOOK.md` for the detailed weekly audit checklist.)*
 
 **Weekly:**
 - Review funnel dashboard

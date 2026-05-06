@@ -1,284 +1,372 @@
-# Debt Snowball Planner
+# SnowballPay
 
-A comprehensive web application for managing and paying off debt using the snowball method. Built with Next.js, React, TanStack Query, PostgreSQL, and Auth0 authentication.
+Know exactly when you will be debt-free.
 
-## Features
+SnowballPay is a personal debt payoff planner that turns scattered balances,
+minimum payments, interest rates, and monthly cash flow into a clear plan users
+can actually follow. Add debts, choose a payoff strategy, see the projected
+debt-free date, and keep momentum with progress tracking, reminders, milestones,
+and personalized planning insights.
 
-✨ **Debt Management**
-- Add and track multiple debts with different interest rates
-- Categorize debts (Credit Card, Student Loan, Auto Loan, Mortgage, Personal Loan, Medical Debt, Other)
-- View credit utilization and debt summaries
-- Real-time debt balance tracking
+It is built for people who are tired of spreadsheets, minimum-payment autopilot,
+and the recurring question: "Which debt should I pay first?"
 
-💰 **Budget Planning**
-- Input monthly income and expenses
-- Track recurring expenses (subscriptions, utilities, etc.)
-- Calculate available cash flow for debt payoff
-- Visual budget breakdown
+## What SnowballPay Does
 
-📊 **Payoff Plans**
-- Automatic snowball method calculation (pay smallest balance first)
-- Alternative avalanche method (highest interest rate first)
-- Visualize payoff timeline and order
-- Calculate total interest saved
-- Project debt-free date
+SnowballPay gives users a debt payoff command center:
 
-📄 **Document Import**
-- Upload bank statements and pay stubs
-- Automatically extract income information
-- Import existing debts from documents
-- Streamlined onboarding process
+- Prioritized payoff order for Snowball, Avalanche, or Custom strategies
+- Month-by-month payoff projections with a debt-free date
+- Cash-flow-aware planning based on income, expenses, and minimum payments
+- Balance charts, payoff timelines, focus-debt guidance, and progress tracking
+- What-if planning for extra payments and strategy changes
+- AI-powered payoff recommendations for Pro users
+- Payment reminders, lifecycle emails, calendar export, and shareable progress
+- No bank connection required; users can add debts manually or import documents
 
-🔐 **Security**
-- Auth0 authentication integration
-- Secure user sessions
-- Protected API endpoints
+## Product Promise
+
+Debt payoff is not just math. It is staying consistent long enough for the math
+to work.
+
+SnowballPay combines payoff calculations with execution support so users know:
+
+- What to pay next
+- Why that debt is the current priority
+- How long the plan will take
+- How extra payments change the timeline
+- Whether the plan still fits their real monthly cash flow
+- How much progress they have already made
+
+## Core Workflows
+
+### 1. Build a Plan
+
+Users add debt balances, APRs, minimum payments, due dates, income, and recurring
+expenses. SnowballPay calculates available payoff cash flow and generates a
+personalized payoff roadmap.
+
+### 2. Choose a Strategy
+
+Users can switch between:
+
+- Snowball: smallest balance first for faster early wins
+- Avalanche: highest APR first to reduce interest
+- Custom: user-defined payoff order for personal priorities
+
+The dashboard updates the payoff order, charts, debt-free date, interest impact,
+and focus debt as the strategy changes.
+
+### 3. Track Progress
+
+Users log payments and update balances over time. SnowballPay shows total paid,
+remaining debt, debts closed, tracking streaks, balance trends, and payoff
+milestones.
+
+### 4. Stay on Course
+
+The app supports due-date reminders, weekly progress emails, monthly reviews,
+win-back emails, payoff plan emails, and personalized recommendations to help
+users keep returning to the plan.
+
+## Feature Highlights
+
+### Payoff Planning
+
+- Snowball, Avalanche, and Custom payoff methods
+- Debt-free date projection
+- Interest paid and interest saved estimates
+- Payoff order list and focus-debt explanation
+- Balance-over-time chart and payoff timeline
+- Minimums-only comparison and strategy comparison
+
+### Cash Flow and Budgeting
+
+- Monthly take-home income tracking
+- Essential expenses and recurring expenses
+- Available cash flow calculation
+- Extra payment and acceleration planning
+- Guardrails for realistic payoff planning
+
+### Debt Tracking
+
+- Track credit cards, student loans, auto loans, mortgages, personal loans,
+  medical debt, and other balances
+- Store APR, balance, original balance, credit limit, minimum payment, due date,
+  category, and custom priority
+- Record payments and monthly balance snapshots
+- View utilization and progress by debt
+
+### AI Insights
+
+Pro users can generate personalized recommendations, including:
+
+- Payoff advice
+- Spending insights
+- Monthly change summaries
+- Behavior nudges
+- Debt-risk alerts
+- Negotiation suggestions
+- Strategy and cash-flow guidance
+
+### Document Import
+
+SnowballPay can analyze uploaded statement, debt, and income documents to help
+extract debts, recurring charges, and income inputs for review before saving.
+
+### Sharing and Exports
+
+- Shareable debt-free date card
+- Calendar export for payments
+- Email payoff plan flow
+- Open Graph image routes for payoff milestones
+
+### Monetization
+
+The current product surface supports a freemium model:
+
+- Free: up to 5 debts, Snowball and Avalanche strategies, monthly payoff
+  calendar, progress visualization, and mobile-friendly planning
+- Pro: $9/month with a 7-day trial, unlimited debts, custom priority order,
+  personalized recommendations, deeper planning tools, and priority support
 
 ## Tech Stack
 
-- **Frontend**: Next.js 14, React 18, TanStack Query, Tailwind CSS, HeroUI, Lucide Icons
-- **Backend**: Next.js API Routes
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: Auth0
-- **Styling**: Tailwind CSS with custom animations
-- **Charts**: Recharts (for future enhancements)
+- Framework: Next.js 14 App Router
+- Language: TypeScript
+- UI: React 18, Tailwind CSS, shadcn/Radix primitives, Lucide icons
+- Data fetching: TanStack Query
+- Charts: Recharts
+- Database: PostgreSQL with Prisma
+- Auth: Auth0
+- Billing: Stripe subscriptions and customer portal
+- Email: Resend and React Email
+- AI: Anthropic Claude API
+- Rate limiting: Upstash Redis with local fallback
+- Analytics: PostHog
+- Tests: Vitest
+- Deployment target: Vercel
 
-## Getting Started
+## App Surfaces
 
-Need Google social sign-in with Auth0? Follow the full setup steps in `docs/security/AUTH0_GOOGLE_CONNECTION_CHECKLIST.md`.
+Key user-facing routes include:
+
+- `/` - product landing page
+- `/dashboard` - authenticated payoff command center
+- `/onboarding` - guided setup flow
+- `/calculator` - public debt payoff calculator
+- `/learn` - educational content
+- `/contact` - support contact flow
+- `/privacy` and `/terms` - legal pages
+
+## Local Development
 
 ### Prerequisites
 
-- Node.js 18+ installed
-- PostgreSQL database
-- Auth0 application created at https://auth0.com
+- Node.js 18+
+- npm
+- PostgreSQL database, or Neon branch connection strings
+- Auth0 application
+- Optional service accounts for Stripe, Resend, Anthropic, Upstash, and PostHog
 
-### Installation
-
-1. **Clone and install dependencies:**
-   ```bash
-   npm install
-   ```
-
-2. **Set up environment variables:**
-   Create a `.env.local` file:
-   ```env
-   DATABASE_URL="postgresql://user:password@localhost:5432/debt_snowball"
-   
-   # Auth0 Configuration
-   AUTH0_DOMAIN="https://your-auth0-domain.auth0.com"
-   AUTH0_CLIENT_ID="your_auth0_client_id"
-   AUTH0_CLIENT_SECRET="your_auth0_client_secret"
-   AUTH0_SECRET="replace-with-32-byte-hex-secret"
-   APP_BASE_URL="http://localhost:3000"
-
-   NEXT_PUBLIC_API_URL="http://localhost:3000"
-   ```
-
-3. **Create and seed the database:**
-   ```bash
-   npx prisma db push
-   npx prisma db seed
-   ```
-
-4. **Run the development server:**
-   ```bash
-   npm run dev
-   ```
-
-5. **Open browser:**
-   Navigate to http://localhost:3000
-
-## Neon Database Workflow
-
-This repository is configured to use Neon with Prisma.
-
-- Neon org: `org-patient-tree-71143752`
-- Neon project: `flat-hill-73561129`
-- Branches:
-  - `development` for local development, schema testing, and validation
-  - `production` for live traffic
-
-### Environment variable mapping
-
-- `DATABASE_URL`: pooled Neon URL (runtime and app queries)
-- `DIRECT_URL`: direct Neon URL (Prisma schema operations)
-
-Both should include `sslmode=require`.
-
-### Branch-based schema workflow (recommended)
-
-1. Work against Neon `development` branch locally.
-2. Apply schema changes and validate behavior.
-3. Promote the same schema changes to Neon `production` branch.
-
-Use the following command pattern to pull branch-specific URLs:
+### Install
 
 ```bash
-# Pooled URL for runtime
-npx neonctl connection-string development --project-id flat-hill-73561129 --pooled
-
-# Direct URL for Prisma schema operations
-npx neonctl connection-string development --project-id flat-hill-73561129
+npm install
 ```
 
-Then run:
+### Configure Environment
+
+Copy the sample environment file and fill in the values you need:
+
+```bash
+cp .env.example .env.local
+```
+
+Core variables:
+
+```env
+DATABASE_URL="postgresql://..."
+DIRECT_URL="postgresql://..."
+
+AUTH0_DOMAIN="your-tenant.us.auth0.com"
+AUTH0_CLIENT_ID="your_client_id"
+AUTH0_CLIENT_SECRET="your_client_secret"
+AUTH0_SECRET="replace_with_64_char_random_hex"
+
+APP_BASE_URL="http://localhost:3000"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+```
+
+Optional integrations are documented in `.env.example`:
+
+- Stripe: subscription checkout, customer portal, webhooks
+- Resend: lifecycle and transactional emails
+- Anthropic: document extraction and AI recommendations
+- Upstash Redis: rate limiting
+- PostHog: product analytics
+- Auth0 Management API: account deletion
+
+### Prepare the Database
 
 ```bash
 npm run db:push
+```
+
+Useful Prisma commands:
+
+```bash
+npm run db:migrate
+npm run db:studio
+```
+
+### Run the App
+
+```bash
 npm run dev
 ```
 
-### Production promotion flow
+Open `http://localhost:3000`.
 
-When a schema change is validated on `development`:
+## Neon Workflow
 
-1. Switch env vars to `production` branch connection strings.
-2. Apply schema to production deliberately:
+This project includes scripts for switching Neon branches:
 
 ```bash
-npm run db:push
+npm run db:use:dev
+npm run db:use:prod
 ```
 
-3. Run a quick smoke test on key flows (auth, debts CRUD, income, payoff plan).
+Recommended flow:
 
-For stricter release control, prefer migration files with `prisma migrate` over repeated direct pushes.
+1. Work against the Neon `development` branch locally.
+2. Apply and validate schema changes with `npm run db:push`.
+3. Promote deliberate schema changes to the `production` branch.
+4. Smoke test auth, debt CRUD, income, expenses, payoff plans, billing, and
+   lifecycle email flows after promotion.
 
-## Usage
+For stricter release control, prefer Prisma migrations over repeated direct
+schema pushes.
 
-### Adding Debts
+## Scripts
 
-1. Navigate to the "My Debts" tab
-2. Click "Add New Debt"
-3. Fill in debt details:
-   - Debt name (e.g., "Chase Visa")
-   - Category (Credit Card, Student Loan, etc.)
-   - Current balance
-   - Interest rate (APR %)
-   - Minimum payment
-   - Credit limit (for credit cards)
-   - Due date (optional)
-4. Click "Add Debt"
-
-### Setting Up Income
-
-1. Go to "Income & Budget" tab
-2. Enter your monthly take-home income
-3. Enter essential monthly expenses
-4. Add any extra amount available for debt payoff
-5. Add recurring expenses (subscriptions, utilities, etc.)
-6. Click "Save Budget"
-
-### Viewing Your Payoff Plan
-
-1. Navigate to "Payoff Plan" tab
-2. The app automatically calculates your debt-free date
-3. View the order you should pay off your debts
-4. See how much interest you'll save
-5. Monitor your progress
-
-### Importing Documents
-
-**Coming soon**: Upload bank statements and pay stubs to auto-populate debt and income information.
+```bash
+npm run dev            # Start the Next.js dev server
+npm run build          # Generate Prisma client and build Next.js
+npm run start          # Start the production build
+npm run lint           # Run Next.js linting
+npm run test           # Run Vitest
+npm run test:watch     # Run Vitest in watch mode
+npm run test:coverage  # Run coverage
+npm run db:push        # Push Prisma schema to the database
+npm run db:migrate     # Create/apply a local Prisma migration
+npm run db:studio      # Open Prisma Studio
+```
 
 ## Project Structure
 
-```
+```text
 src/
-├── app/
-│   ├── api/
-│   │   ├── debts/
-│   │   ├── income/
-│   │   ├── expenses/
-│   │   └── plan/
-│   ├── dashboard/
-│   ├── layout.tsx
-│   ├── page.tsx
-│   ├── globals.css
-│   └── providers.tsx
-├── components/
-│   ├── Header.tsx
-│   ├── TabNavigation.tsx
-│   ├── DebtCard.tsx
-│   ├── DebtForm.tsx
-│   └── tabs/
-│       ├── DebtTab.tsx
-│       ├── IncomeTab.tsx
-│       └── PayoffTab.tsx
-├── lib/
-│   ├── hooks.ts
-│   ├── utils.ts
-│   ├── snowball.ts
-│   ├── auth-server.ts
-│   └── prisma.ts
-├── types/
-│   └── index.ts
-└── styles/
+  app/                 Next.js App Router pages and API routes
+  components/          Landing, dashboard, payoff, billing, document, and UI components
+  emails/              React Email templates for lifecycle messaging
+  lib/                 Auth, Prisma, Stripe, analytics, AI, calculations, utilities
+  types/               Shared TypeScript types
+  __tests__/           Vitest suites
 
 prisma/
-└── schema.prisma
+  schema.prisma        PostgreSQL data model
+
+docs/
+  architecture/        Architecture notes
+  marketing/           Growth and positioning docs
+  product/             Product requirements
+  security/            Security and Auth0 setup notes
+
+public/                Logos, icons, favicon, llms.txt
+scripts/               Neon branch utility scripts
 ```
 
-## API Endpoints
+## Data Model
 
-### Debts
-- `GET /api/debts` - Get all debts
-- `POST /api/debts` - Create new debt
-- `GET /api/debts/[id]` - Get specific debt
-- `PATCH /api/debts/[id]` - Update debt
-- `DELETE /api/debts/[id]` - Delete debt
+The Prisma schema includes models for:
 
-### Income
-- `GET /api/income` - Get income information
-- `POST /api/income` - Create/update income
+- Users and preferences
+- Debts, income, expenses, and payment records
+- Balance snapshots and payoff plans
+- AI recommendation cache
+- Uploaded documents
+- Debt story and milestone events
+- Stripe subscription metadata
 
-### Expenses
-- `GET /api/expenses` - Get recurring expenses
-- `POST /api/expenses` - Add recurring expense
-- `DELETE /api/expenses/[id]` - Delete recurring expense
+## API Coverage
 
-### Plan
-- `POST /api/plan/calculate` - Calculate payoff plan
+The app includes API routes for:
 
-## Snowball Method Explanation
+- Debts, income, expenses, payments, snapshots, and payoff plan calculation
+- Recommendations and AI-generated debt story/celebration content
+- Document upload and extraction
+- Calendar export
+- Stripe checkout, portal, and webhooks
+- User subscription, data export/deletion, and preferences
+- Lifecycle email, unsubscribe, support, and cron jobs
+- Open Graph images for debt payoff sharing
 
-The snowball method is a debt payoff strategy that works as follows:
+## Testing
 
-1. **List debts** from smallest to largest balance
-2. **Pay minimums** on all debts
-3. **Pay extra** on the smallest debt
-4. **Once paid off**, take that payment and add it to the next smallest debt ("snowball effect")
-5. **Repeat** until all debts are paid
+Run the test suite:
 
-This method is psychologically powerful because you see quick wins, which motivates continued action.
+```bash
+npm run test
+```
 
-## Alternative: Avalanche Method
+Coverage:
 
-The avalanche method prioritizes highest interest rates first, which mathematically saves the most money but requires more discipline.
+```bash
+npm run test:coverage
+```
 
-## Future Enhancements
+Note: the current Vitest include pattern targets `src/__tests__/**/*.test.ts`.
+Some colocated tests under feature folders may need config updates if they should
+run as part of the default suite.
 
-- 📄 Document import (bank statements, pay stubs)
-- 📈 Advanced charts and visualizations
-- 🎯 Customizable goals and milestones
-- 📱 Mobile app
-- 🔔 Payment reminders and notifications
-- 📊 Advanced analytics and reporting
-- 🤖 AI-powered recommendations
-- 💳 Integration with banking APIs
+## Deployment
 
-## Contributing
+Vercel is the expected deployment target. Before deploying, configure production
+environment variables for:
 
-Contributions welcome! Please create feature branches and submit pull requests.
+- Database and Prisma direct connection
+- Auth0 app and management credentials
+- Stripe keys, price IDs, and webhook secrets
+- Resend API key
+- Anthropic API key
+- Upstash Redis
+- PostHog
+- Cron and unsubscribe secrets
 
-## License
+Cron jobs are configured in `vercel.json` for lifecycle emails, weekly progress,
+monthly reviews, win-back, weekly digest, and due-date reminders.
 
-MIT License - feel free to use this project for personal or commercial purposes.
+## Security and Privacy Notes
 
-## Support
+- Authenticated routes use Auth0 session checks.
+- API routes scope user data to the authenticated user.
+- Account deletion removes the Auth0 account, local user data, active app data,
+  and cancels a stored active SnowballPay subscription when present.
+- The app is for planning and education, not financial, legal, or credit advice.
 
-For issues or questions, please open an issue on GitHub or contact support.
+## More Documentation
+
+- `QUICKSTART.md` - local setup path
+- `SETUP_GUIDE.md` - environment and service setup
+- `DEPLOYMENT.md` - production deployment notes
+- `DESIGN.md` - product design guidance
+- `docs/architecture/ARCHITECTURE.md` - system architecture
+- `docs/security/AUTH0_GOOGLE_CONNECTION_CHECKLIST.md` - Google social login setup
 
 ## Disclaimer
 
-This application is for informational purposes only and should not be considered financial advice. Always consult with a financial advisor before making debt management decisions.
+SnowballPay provides debt payoff planning tools and educational projections. It
+does not provide financial advice, debt settlement, legal advice, or guaranteed
+results. Users should review their own financial situation and consult qualified
+professionals when needed.

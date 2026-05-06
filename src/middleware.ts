@@ -14,6 +14,7 @@ const SCANNER_PATH_PREFIXES = [
 const PUBLIC_API_PATHS = [
   '/api/support/contact',
   '/api/webhooks/stripe',
+  '/api/unsubscribe',
 ];
 
 function isScannerPath(pathname: string): boolean {
@@ -67,7 +68,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Public API routes handle their own validation/rate limiting.
-  if (PUBLIC_API_PATHS.includes(pathname)) {
+  if (PUBLIC_API_PATHS.includes(pathname) || pathname.startsWith('/api/cron')) {
     return addCorsHeaders(NextResponse.next(), request);
   }
 
