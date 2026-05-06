@@ -2,14 +2,14 @@ import Anthropic from '@anthropic-ai/sdk';
 
 export const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-export function stripCodeFences(raw: string): string {
+function stripCodeFences(raw: string): string {
   return raw
     .replace(/^\s*```(?:json)?\s*/i, '')
     .replace(/\s*```\s*$/i, '')
     .trim();
 }
 
-export function extractJsonBlock(raw: string): string {
+function extractJsonBlock(raw: string): string {
   const firstObjStart = raw.indexOf('{');
   const lastObjEnd = raw.lastIndexOf('}');
   if (firstObjStart !== -1 && lastObjEnd !== -1 && lastObjEnd > firstObjStart) {
@@ -25,7 +25,7 @@ export function extractJsonBlock(raw: string): string {
   return raw.trim();
 }
 
-export function repairLikelyJson(raw: string): string {
+function repairLikelyJson(raw: string): string {
   return raw
     .replace(/[\u201C\u201D]/g, '"')
     .replace(/[\u2018\u2019]/g, "'")

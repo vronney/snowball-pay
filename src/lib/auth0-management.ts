@@ -6,7 +6,7 @@ type TokenResponse = {
   error_description?: string;
 };
 
-export class Auth0ManagementConfigError extends Error {
+class Auth0ManagementConfigError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'Auth0ManagementConfigError';

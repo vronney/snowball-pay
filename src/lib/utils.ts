@@ -36,51 +36,7 @@ export function getCategoryColor(category: string): string {
   return colorMap[category] || '#64748b';
 }
 
-export function getCategoryIcon(category: string): string {
-  const iconMap: Record<string, string> = {
-    'Credit Card': 'credit-card',
-    'Student Loan': 'graduation-cap',
-    'Auto Loan': 'car',
-    'Mortgage': 'home',
-    'Personal Loan': 'user',
-    'Medical Debt': 'heart-pulse',
-    'Other': 'circle-dot',
-  };
-  return iconMap[category] || 'circle-dot';
-}
-
 export function calculateUtilization(balance: number, limit: number): number {
   if (limit <= 0) return 0;
   return (balance / limit) * 100;
-}
-
-export function getUtilizationColor(utilization: number): string {
-  if (utilization > 90) return '#ef4444'; // red
-  if (utilization > 50) return '#f59e0b'; // amber
-  return '#10b981'; // green
-}
-
-export function addMonths(date: Date, months: number): Date {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + months);
-  return d;
-}
-
-export function formatDate(date: Date | string): string {
-  const d = new Date(date);
-  return d.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
-export function parseTimeFormat(timeString: string): { years: number; months: number } {
-  const yearMatch = timeString.match(/(\d+)y/);
-  const monthMatch = timeString.match(/(\d+)m/);
-
-  return {
-    years: yearMatch ? parseInt(yearMatch[1]) : 0,
-    months: monthMatch ? parseInt(monthMatch[1]) : 0,
-  };
 }
