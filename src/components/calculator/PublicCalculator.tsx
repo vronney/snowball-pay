@@ -256,6 +256,14 @@ export default function PublicCalculator({
           </button>
         </div>
 
+        {/* SEO Intro Section */}
+        <section className="max-w-3xl mx-auto mb-12 p-6 rounded-2xl" style={{ background: "rgba(59,130,246,0.04)" }}>
+          <h2 className="text-2xl font-bold mb-3">{config.introTitle}</h2>
+          <p className="text-base leading-relaxed" style={{ color: "#475569" }}>
+            {config.introBody}
+          </p>
+        </section>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {/* Left: Inputs */}
           <div className="space-y-5">
@@ -374,10 +382,55 @@ export default function PublicCalculator({
               <p
                 className="text-sm leading-relaxed"
                 style={{ color: "#475569" }}
-              >
-                {section.body}
+                dangerouslySetInnerHTML={{ __html: section.body }}
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="max-w-3xl mx-auto px-6 py-16">
+        <h2 className="text-2xl font-bold mb-8 text-center">Frequently Asked Questions</h2>
+        <div className="space-y-6">
+          {config.faqItems.map((item) => (
+            <div
+              key={item.question}
+              className="rounded-lg p-5"
+              style={{ background: "#ffffff", border: "1px solid rgba(15,23,42,0.08)" }}
+            >
+              <h3 className="font-semibold text-base mb-2" style={{ color: "#0f172a" }}>
+                {item.question}
+              </h3>
+              <p className="text-sm leading-relaxed" style={{ color: "#475569" }}>
+                {item.answer}
               </p>
             </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Related Calculators */}
+      <section className="max-w-3xl mx-auto px-6 py-16">
+        <h2 className="text-2xl font-bold mb-8 text-center">Related Calculators</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {config.relatedCalculators.map((calc) => (
+            <Link
+              key={calc.slug}
+              href={`/calculators/${calc.slug}`}
+              className="p-4 rounded-lg transition"
+              style={{
+                background: "#ffffff",
+                border: "1px solid rgba(15,23,42,0.08)",
+                textDecoration: "none",
+                color: "#2563eb",
+              }}
+            >
+              <p className="font-semibold">{calc.title}</p>
+              <p className="text-sm mt-1" style={{ color: "#64748b" }}>
+                Calculate your {calc.title.toLowerCase()} →
+              </p>
+            </Link>
           ))}
         </div>
       </section>
