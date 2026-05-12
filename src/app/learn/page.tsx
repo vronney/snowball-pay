@@ -247,34 +247,13 @@ export default async function LearnPage({
           style={{
             position: "relative",
             overflow: "hidden",
-            paddingTop: "140px",
-            paddingBottom: "96px",
+            paddingTop: "112px",
+            paddingBottom: "84px",
             paddingLeft: "24px",
             paddingRight: "24px",
             textAlign: "center",
           }}
         >
-          <div
-            className="lp-orb"
-            style={{
-              width: "700px",
-              height: "700px",
-              background: "rgba(37,99,235,0.06)",
-              top: "-300px",
-              right: "-200px",
-            }}
-          />
-          <div
-            className="lp-orb"
-            style={{
-              width: "480px",
-              height: "480px",
-              background: "rgba(124,58,237,0.05)",
-              bottom: "-200px",
-              left: "-120px",
-              animationDelay: "3s",
-            }}
-          />
           <div className="lp-grid-overlay" />
 
           <div

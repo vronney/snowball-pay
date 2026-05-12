@@ -9,7 +9,7 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['var(--font-inter)', 'var(--font-outfit)', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        sans: ['var(--font-jakarta)', 'var(--font-manrope)', 'sans-serif'],
       },
       colors: {
         bg: '#F8FAFC',
@@ -34,7 +34,7 @@ const config: Config = {
         },
       },
       animation: {
-        slideUp: 'slideUp 0.3s ease-out',
+        slideUp: 'slideUp 0.46s cubic-bezier(0.22,1,0.36,1)',
       },
     },
   },

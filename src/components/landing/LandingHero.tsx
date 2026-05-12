@@ -1,33 +1,41 @@
-﻿"use client";
+"use client";
 
 import { track, Events } from "@/lib/analytics";
 
 const debtRows = [
   {
-    label: "Credit Card",
+    label: "Credit card",
     remaining: "$3,200",
     paid: "$6,800",
     pct: 68,
     color: "#2563eb",
-    track: "rgba(37,99,235,0.1)",
+    track: "rgba(37,99,235,0.12)",
   },
   {
-    label: "Car Loan",
+    label: "Auto loan",
     remaining: "$8,100",
     paid: "$5,900",
     pct: 42,
     color: "#0891b2",
-    track: "rgba(8,145,178,0.1)",
+    track: "rgba(8,145,178,0.12)",
   },
   {
-    label: "Student Loan",
+    label: "Student loan",
     remaining: "$7,120",
     paid: "$2,080",
     pct: 22,
-    color: "#10b981",
-    track: "rgba(16,185,129,0.1)",
+    color: "#0f9f6e",
+    track: "rgba(15,159,110,0.12)",
   },
 ];
+
+function ArrowIsland() {
+  return (
+    <span className="lp-btn-arrow" aria-hidden="true">
+      <span>{">"}</span>
+    </span>
+  );
+}
 
 export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
   return (
@@ -36,15 +44,15 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
       style={{
         position: "relative",
         overflow: "hidden",
-        paddingTop: "132px",
-        paddingBottom: "96px",
+        paddingTop: "150px",
+        paddingBottom: "120px",
         paddingLeft: "24px",
         paddingRight: "24px",
       }}
     >
       <div
         style={{
-          maxWidth: "1160px",
+          maxWidth: "1180px",
           margin: "0 auto",
           position: "relative",
           zIndex: 1,
@@ -52,66 +60,60 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
       >
         <div
           className="lp-hero-cols"
-          style={{ display: "flex", alignItems: "flex-start", gap: "56px" }}
+          style={{ display: "flex", alignItems: "center", gap: "58px" }}
         >
-          {/* Left: Copy */}
-          <div style={{ flex: "1 1 500px", maxWidth: "560px" }}>
-            {/* Eyebrow pill */}
+          <div style={{ flex: "1 1 510px", maxWidth: "590px" }}>
             <div
-              className="lp-f1 lp-glass-blue"
+              className="lp-f1"
               style={{
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "9px",
-                padding: "6px 16px",
+                padding: "7px 16px",
                 borderRadius: "999px",
-                fontSize: "12px",
-                fontWeight: 700,
-                color: "#1e3a8a",
-                background: "#dbeafe",
-                border: "1px solid #93c5fd",
+                fontSize: "11px",
+                fontWeight: 800,
+                color: "#344054",
+                background: "rgba(255,255,255,0.82)",
+                border: "1px solid rgba(15,23,42,0.10)",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.86)",
                 marginBottom: "28px",
+                letterSpacing: "0.13em",
+                textTransform: "uppercase",
               }}
             >
-              <span className="lp-live-dot" style={{ background: "#10b981" }} />
-              Your debt-free date is closer than you think
+              <span className="lp-live-dot" style={{ background: "#0f9f6e" }} />
+              Debt payoff planner
             </div>
 
-            {/* Headline */}
             <h1
               className="lp-f2"
               style={{
-                fontSize: "clamp(2.6rem, 7vw, 4.6rem)",
+                fontSize: "clamp(2.9rem, 7vw, 5.25rem)",
                 fontWeight: 900,
-                lineHeight: 1.06,
-                letterSpacing: "-0.045em",
-                marginBottom: "24px",
-                color: "#0f172a",
+                lineHeight: 0.98,
+                letterSpacing: "-0.04em",
+                marginBottom: "28px",
+                color: "#0b1220",
               }}
             >
-              <span className="lp-text-blue">Know exactly</span>
-              <br />
-              <span>when you&apos;ll be</span>
-              <br />
-              <span>debt-free.</span>
+              A clear debt payoff plan, down to the month.
             </h1>
 
-            {/* Subheading */}
             <p
               className="lp-f3"
               style={{
                 fontSize: "18px",
-                lineHeight: 1.72,
-                color: "#64748b",
-                maxWidth: "500px",
-                marginBottom: "40px",
+                lineHeight: 1.75,
+                color: "#536078",
+                maxWidth: "535px",
+                marginBottom: "38px",
               }}
             >
-              Add your debts. Pick your strategy. Get a clear, month-by-month
-              payoff plan - and the confidence to follow through.
+              SnowballPay turns your balances, minimums, and extra payment into a
+              realistic payoff order, debt-free date, and monthly progress path.
             </p>
 
-            {/* CTA row */}
             <div
               className="lp-f4 lp-cta-btns"
               style={{
@@ -124,227 +126,156 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
               {isLoggedIn ? (
                 <a
                   href="/dashboard"
-                  className="lp-btn lp-btn-primary"
-                  style={{ fontSize: "16px", padding: "15px 34px" }}
+                  className="lp-btn lp-btn-primary lp-btn-with-icon"
+                  style={{ fontSize: "16px", padding: "16px 12px 16px 28px" }}
                 >
                   Open Dashboard
+                  <ArrowIsland />
                 </a>
               ) : (
                 <>
                   <a
                     href="/auth/login?returnTo=/dashboard"
-                    className="lp-btn lp-btn-primary"
-                    style={{ fontSize: "16px", padding: "15px 34px" }}
+                    className="lp-btn lp-btn-primary lp-btn-with-icon"
+                    style={{ fontSize: "16px", padding: "16px 12px 16px 28px" }}
                     onClick={() =>
                       track(Events.SIGNUP_STARTED, { source: "hero_primary" })
                     }
                   >
-                    Start Free - No Card Needed
+                    Start Free
+                    <ArrowIsland />
                   </a>
                   <a
-                    href="#how-it-works"
+                    href="/calculator"
                     className="lp-btn lp-btn-ghost"
                     style={{ fontSize: "15px" }}
                   >
-                    See How It Works
+                    Try the Calculator
                   </a>
                 </>
               )}
             </div>
 
             <div
+              className="lp-f5"
               style={{
-                display: "inline-flex",
+                display: "flex",
                 alignItems: "center",
-                gap: "8px",
-                padding: "8px 12px",
-                borderRadius: "999px",
-                background: "#ffffff",
-                border: "1px solid rgba(37,99,235,0.18)",
-                color: "#1e3a8a",
+                flexWrap: "wrap",
+                gap: "10px",
+                color: "#667085",
                 fontSize: "12px",
                 fontWeight: 700,
-                marginBottom: "28px",
               }}
             >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M8 1.6a3 3 0 00-3 3v1.1H4a1.2 1.2 0 00-1.2 1.2v6A1.2 1.2 0 004 14h8a1.2 1.2 0 001.2-1.2v-6A1.2 1.2 0 0012 5.7h-1V4.6a3 3 0 00-3-3zM6.3 5.7V4.6a1.7 1.7 0 013.4 0v1.1H6.3z"
-                  fill="#2563eb"
-                />
-              </svg>
-              Bank-Level Security | 100% Private
-            </div>
-
-            {/* Animated stats */}
-            <div
-              className="lp-f5"
-              style={{ display: "flex", alignItems: "center" }}
-            >
-              {[
-                { val: "Clear Plan", label: "Prioritized payoff order" },
-                {
-                  val: "Track Progress",
-                  label: "See every payment move the plan",
-                },
-                {
-                  val: "Adjust Anytime",
-                  label: "Update your plan as life changes",
-                },
-              ].map((s, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center" }}>
-                  {i > 0 && (
-                    <div
-                      style={{
-                        width: "1px",
-                        height: "36px",
-                        background: "rgba(15,23,42,0.1)",
-                        margin: "0 24px",
-                      }}
-                    />
-                  )}
-                  <div>
-                    <div
-                      className="lp-stat-num"
-                      style={{
-                        fontSize: "20px",
-                        fontWeight: 900,
-                        color: "#0f172a",
-                        letterSpacing: "-0.03em",
-                        fontVariantNumeric: "tabular-nums",
-                      }}
-                    >
-                      {s.val}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "11px",
-                        color: "#94a3b8",
-                        fontWeight: 500,
-                        marginTop: "2px",
-                      }}
-                    >
-                      {s.label}
-                    </div>
-                  </div>
-                </div>
-              ))}
+              {["No bank connection required", "Free plan available", "Cancel Pro anytime"].map(
+                (item) => (
+                  <span
+                    key={item}
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      borderRadius: "999px",
+                      padding: "8px 12px",
+                      background: "rgba(255,255,255,0.72)",
+                      border: "1px solid rgba(15,23,42,0.09)",
+                    }}
+                  >
+                    {item}
+                  </span>
+                ),
+              )}
             </div>
           </div>
 
-          {/* Right: Dashboard visual */}
           <div
             className="lp-hero-right lp-f6"
             style={{
-              flex: "1 1 440px",
-              maxWidth: "500px",
+              flex: "1 1 470px",
+              maxWidth: "520px",
               position: "relative",
-              paddingBottom: "36px",
-              paddingRight: "32px",
             }}
           >
-            {/* Main dashboard card */}
-            <div
-              className="lp-glass lp-shimmer"
-              style={{
-                borderRadius: "20px",
-                padding: "26px 28px 22px",
-                boxShadow:
-                  "0 24px 64px rgba(15,23,42,0.12), 0 0 0 1px rgba(15,23,42,0.06)",
-              }}
-            >
-              {/* Card header */}
+            <div className="lp-bezel lp-shimmer">
               <div
+                className="lp-core"
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: "18px",
+                  padding: "26px",
+                  overflow: "hidden",
+                  position: "relative",
                 }}
               >
-                <div>
-                  <p
-                    style={{
-                      fontSize: "10px",
-                      fontWeight: 700,
-                      letterSpacing: "0.12em",
-                      color: "#94a3b8",
-                      textTransform: "uppercase",
-                      marginBottom: "5px",
-                    }}
-                  >
-                    Total Remaining
-                  </p>
-                  <p
-                    style={{
-                      fontSize: "32px",
-                      fontWeight: 900,
-                      color: "#0f172a",
-                      letterSpacing: "-0.04em",
-                      lineHeight: 1,
-                    }}
-                  >
-                    $18,420
-                  </p>
-                </div>
                 <div
                   style={{
                     display: "flex",
-                    flexDirection: "column",
-                    alignItems: "flex-end",
-                    gap: "6px",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    marginBottom: "24px",
+                    gap: "18px",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "6px",
-                      padding: "4px 10px",
-                      borderRadius: "999px",
-                      background: "rgba(16,185,129,0.08)",
-                      border: "1px solid rgba(16,185,129,0.2)",
-                    }}
-                  >
-                    <span
-                      className="lp-live-dot"
-                      style={{ width: "5px", height: "5px" }}
-                    />
-                    <span
-                      style={{
-                        fontSize: "10px",
-                        fontWeight: 700,
-                        color: "#059669",
-                        letterSpacing: "0.08em",
-                      }}
-                    >
-                      SAMPLE
-                    </span>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
+                  <div>
                     <p
                       style={{
                         fontSize: "10px",
-                        fontWeight: 600,
-                        color: "#94a3b8",
+                        fontWeight: 800,
+                        letterSpacing: "0.16em",
+                        color: "#667085",
                         textTransform: "uppercase",
-                        letterSpacing: "0.1em",
-                        marginBottom: "2px",
+                        marginBottom: "8px",
                       }}
                     >
-                      Est. Payoff
+                      Focus this month
                     </p>
                     <p
                       style={{
-                        fontSize: "15px",
+                        fontSize: "34px",
+                        fontWeight: 900,
+                        color: "#0b1220",
+                        letterSpacing: "-0.04em",
+                        lineHeight: 1,
+                      }}
+                    >
+                      $18,420
+                    </p>
+                    <p
+                      style={{
+                        marginTop: "8px",
+                        fontSize: "12px",
+                        color: "#667085",
+                        fontWeight: 600,
+                      }}
+                    >
+                      total remaining across 3 debts
+                    </p>
+                  </div>
+
+                  <div
+                    style={{
+                      textAlign: "right",
+                      padding: "10px 12px",
+                      borderRadius: "16px",
+                      background: "#f4f7fb",
+                      border: "1px solid rgba(15,23,42,0.08)",
+                    }}
+                  >
+                    <p
+                      style={{
+                        fontSize: "10px",
+                        color: "#667085",
                         fontWeight: 800,
-                        color: "#0891b2",
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
+                        marginBottom: "4px",
+                      }}
+                    >
+                      Debt-free
+                    </p>
+                    <p
+                      style={{
+                        fontSize: "17px",
+                        fontWeight: 900,
+                        color: "#0f766e",
                         letterSpacing: "-0.02em",
                       }}
                     >
@@ -352,130 +283,14 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                     </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Sparkline chart */}
-              <div
-                style={{
-                  marginBottom: "18px",
-                  padding: "12px 14px",
-                  borderRadius: "12px",
-                  background: "#f8fafc",
-                  border: "1px solid rgba(15,23,42,0.06)",
-                }}
-              >
                 <div
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "8px",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      color: "#94a3b8",
-                      fontWeight: 600,
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    BALANCE OVER 24 MONTHS
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "10px",
-                      color: "#059669",
-                      fontWeight: 700,
-                    }}
-                  >
-                    On track
-                  </span>
-                </div>
-                <svg
-                  viewBox="0 0 300 64"
-                  style={{
-                    width: "100%",
-                    height: "64px",
-                    display: "block",
-                    overflow: "visible",
-                  }}
-                >
-                  <defs>
-                    <linearGradient
-                      id="heroSparkGrad"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop
-                        offset="0%"
-                        stopColor="#2563eb"
-                        stopOpacity="0.18"
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor="#2563eb"
-                        stopOpacity="0.01"
-                      />
-                    </linearGradient>
-                  </defs>
-                  <path
-                    d="M0,8 C50,9 90,18 150,38 C200,53 255,61 300,63 L300,64 L0,64 Z"
-                    fill="url(#heroSparkGrad)"
-                  />
-                  <path
-                    d="M0,8 C50,9 90,18 150,38 C200,53 255,61 300,63"
-                    fill="none"
-                    stroke="#2563eb"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    className="lp-chart-line"
-                  />
-                  <circle cx="150" cy="38" r="4" fill="#2563eb" />
-                  <circle
-                    cx="150"
-                    cy="38"
-                    r="9"
-                    fill="#2563eb"
-                    opacity="0.15"
-                  />
-                  <circle cx="0" cy="8" r="3" fill="rgba(37,99,235,0.4)" />
-                  <circle cx="300" cy="63" r="3" fill="rgba(16,185,129,0.6)" />
-                </svg>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    marginTop: "4px",
-                  }}
-                >
-                  <span style={{ fontSize: "9px", color: "#cbd5e1" }}>
-                    Today
-                  </span>
-                  <span style={{ fontSize: "9px", color: "#cbd5e1" }}>
-                    Mar 2027
-                  </span>
-                </div>
-                <p
-                  style={{
-                    fontSize: "10px",
-                    color: "#64748b",
-                    marginTop: "6px",
-                    marginBottom: 0,
-                  }}
-                >
-                  Illustrative dashboard example
-                </p>
-              </div>
-
-              {/* Debt rows */}
-              {debtRows.map((d, i) => (
-                <div
-                  key={i}
-                  style={{
-                    marginBottom: i < debtRows.length - 1 ? "14px" : "0",
+                    borderRadius: "20px",
+                    padding: "16px",
+                    background: "#f8fafc",
+                    border: "1px solid rgba(15,23,42,0.07)",
+                    marginBottom: "22px",
                   }}
                 >
                   <div
@@ -483,185 +298,173 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
-                      marginBottom: "6px",
+                      marginBottom: "10px",
                     }}
                   >
                     <span
                       style={{
-                        fontSize: "12px",
-                        fontWeight: 600,
-                        color: "#334155",
+                        fontSize: "10px",
+                        color: "#667085",
+                        fontWeight: 800,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase",
                       }}
                     >
-                      {d.label}
+                      Balance trajectory
                     </span>
-                    <div
+                    <span
                       style={{
-                        display: "flex",
-                        gap: "12px",
-                        alignItems: "center",
+                        fontSize: "11px",
+                        color: "#0f9f6e",
+                        fontWeight: 800,
                       }}
                     >
-                      <span style={{ fontSize: "10px", color: "#94a3b8" }}>
-                        Paid {d.paid}
-                      </span>
-                      <span
+                      On track
+                    </span>
+                  </div>
+                  <svg
+                    viewBox="0 0 320 76"
+                    style={{
+                      width: "100%",
+                      height: "76px",
+                      display: "block",
+                      overflow: "visible",
+                    }}
+                    aria-hidden="true"
+                  >
+                    <defs>
+                      <linearGradient id="heroBalanceFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#2563eb" stopOpacity="0.17" />
+                        <stop offset="100%" stopColor="#2563eb" stopOpacity="0.01" />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M0,12 C48,13 88,23 134,34 C188,47 232,62 320,69 L320,76 L0,76 Z"
+                      fill="url(#heroBalanceFill)"
+                    />
+                    <path
+                      d="M0,12 C48,13 88,23 134,34 C188,47 232,62 320,69"
+                      fill="none"
+                      stroke="#2563eb"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      className="lp-chart-line"
+                    />
+                    <circle cx="134" cy="34" r="4" fill="#2563eb" />
+                    <circle cx="134" cy="34" r="10" fill="#2563eb" opacity="0.13" />
+                    <circle cx="320" cy="69" r="4" fill="#0f9f6e" />
+                  </svg>
+                </div>
+
+                <div style={{ display: "grid", gap: "15px" }}>
+                  {debtRows.map((debt) => (
+                    <div key={debt.label}>
+                      <div
                         style={{
-                          fontSize: "12px",
-                          fontWeight: 800,
-                          color: "#0f172a",
-                          fontVariantNumeric: "tabular-nums",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          marginBottom: "7px",
+                          gap: "14px",
                         }}
                       >
-                        {d.remaining}
-                      </span>
+                        <span
+                          style={{
+                            fontSize: "13px",
+                            fontWeight: 800,
+                            color: "#172033",
+                          }}
+                        >
+                          {debt.label}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "12px",
+                            fontWeight: 900,
+                            color: "#0b1220",
+                            fontVariantNumeric: "tabular-nums",
+                          }}
+                        >
+                          {debt.remaining}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          height: "7px",
+                          borderRadius: "999px",
+                          background: debt.track,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div
+                          className="lp-bar"
+                          style={{
+                            width: `${debt.pct}%`,
+                            background: debt.color,
+                            ["--bar-w" as string]: `${debt.pct}%`,
+                          }}
+                        />
+                      </div>
+                      <p
+                        style={{
+                          marginTop: "5px",
+                          marginBottom: 0,
+                          fontSize: "10px",
+                          color: "#98a2b3",
+                        }}
+                      >
+                        Paid {debt.paid}
+                      </p>
                     </div>
-                  </div>
-                  <div
-                    style={{
-                      height: "5px",
-                      borderRadius: "999px",
-                      background: d.track,
-                      overflow: "hidden",
-                    }}
-                  >
-                    <div
-                      className="lp-bar"
-                      style={{
-                        width: `${d.pct}%`,
-                        background: d.color,
-                        ["--bar-w" as string]: `${d.pct}%`,
-                      }}
-                    />
-                  </div>
-                  <p
-                    style={{
-                      fontSize: "10px",
-                      color: "#cbd5e1",
-                      marginTop: "3px",
-                    }}
-                  >
-                    {d.pct}% paid off
-                  </p>
+                  ))}
                 </div>
-              ))}
-
-              {/* Footer */}
-              <div
-                style={{
-                  marginTop: "16px",
-                  paddingTop: "14px",
-                  borderTop: "1px solid rgba(15,23,42,0.07)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <span style={{ fontSize: "11px", color: "#94a3b8" }}>
-                  Next payment due
-                </span>
-                <span
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    padding: "4px 12px",
-                    borderRadius: "999px",
-                    color: "#2563eb",
-                    background: "rgba(37,99,235,0.08)",
-                    border: "1px solid rgba(37,99,235,0.15)",
-                  }}
-                >
-                  $340 monthly target
-                </span>
               </div>
             </div>
 
-            {/* Floating badge - interest impact */}
             <div
               className="lp-float"
               style={{
                 position: "absolute",
-                top: "-22px",
-                right: "-22px",
-                borderRadius: "16px",
-                padding: "14px 18px",
-                background: "#ffffff",
-                border: "1px solid rgba(16,185,129,0.2)",
-                boxShadow: "0 12px 36px rgba(15,23,42,0.1)",
-                animationDelay: "0.8s",
+                top: "-24px",
+                right: "-16px",
+                borderRadius: "22px",
+                padding: "8px",
+                background: "rgba(15,23,42,0.04)",
+                border: "1px solid rgba(15,23,42,0.08)",
+                boxShadow: "0 18px 48px rgba(15,23,42,0.12)",
               }}
             >
-              <p
+              <div
                 style={{
-                  fontSize: "9px",
-                  fontWeight: 700,
-                  letterSpacing: "0.12em",
-                  color: "#059669",
-                  textTransform: "uppercase",
-                  marginBottom: "4px",
+                  borderRadius: "16px",
+                  padding: "14px 16px",
+                  background: "#ffffff",
+                  border: "1px solid rgba(15,23,42,0.08)",
                 }}
               >
-                Interest Impact
-              </p>
-              <p
-                style={{
-                  fontSize: "20px",
-                  fontWeight: 900,
-                  color: "#065f46",
-                  letterSpacing: "-0.03em",
-                }}
-              >
-                Trending Down
-              </p>
-              <p
-                style={{ fontSize: "10px", color: "#6ee7b7", marginTop: "2px" }}
-              >
-                as balances decrease
-              </p>
-            </div>
-
-            {/* Floating badge - payment streak */}
-            <div
-              className="lp-float2"
-              style={{
-                position: "absolute",
-                bottom: "-4px",
-                left: "-28px",
-                borderRadius: "16px",
-                padding: "14px 18px",
-                background: "#ffffff",
-                border: "1px solid rgba(236,72,153,0.2)",
-                boxShadow: "0 12px 36px rgba(15,23,42,0.1)",
-                animationDelay: "2.2s",
-              }}
-            >
-              <p
-                style={{
-                  fontSize: "9px",
-                  fontWeight: 700,
-                  letterSpacing: "0.12em",
-                  color: "#ec4899",
-                  textTransform: "uppercase",
-                  marginBottom: "4px",
-                }}
-              >
-                Payment Streak
-              </p>
-              <p
-                style={{
-                  fontSize: "20px",
-                  fontWeight: 900,
-                  color: "#9d174d",
-                  letterSpacing: "-0.03em",
-                }}
-              >
-                8 months
-              </p>
-              <p
-                style={{ fontSize: "10px", color: "#f9a8d4", marginTop: "2px" }}
-              >
-                on-time payments
-              </p>
+                <p
+                  style={{
+                    fontSize: "9px",
+                    fontWeight: 900,
+                    letterSpacing: "0.14em",
+                    color: "#667085",
+                    textTransform: "uppercase",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Next action
+                </p>
+                <p
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: 900,
+                    color: "#0b1220",
+                    letterSpacing: "-0.03em",
+                  }}
+                >
+                  Pay card first
+                </p>
+              </div>
             </div>
           </div>
         </div>

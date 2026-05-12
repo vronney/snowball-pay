@@ -1,57 +1,54 @@
-﻿const plans = [
+const plans = [
   {
     name: "Free",
-    tagline: "Start your journey",
+    tagline: "Build the first plan",
     price: 0,
     period: "forever",
-    desc: "Build your payoff plan and track progress at no cost.",
-    badge: "Free Forever",
+    desc: "Create a focused payoff plan, compare Snowball and Avalanche, and track up to five debts.",
+    badge: "No card required",
     featured: false,
-    accent: "#2563eb",
-    cta: "Get Started Free",
-    ghost: true,
+    cta: "Start Free",
     href: "/auth/login?returnTo=/dashboard",
     features: [
       "Track up to 5 debts",
       "Snowball and Avalanche strategies",
       "Monthly payoff calendar",
       "Progress visualization",
-      "Mobile-friendly interface",
+      "Mobile-friendly dashboard",
     ],
   },
   {
     name: "Pro",
-    tagline: "Serious about debt-free",
+    tagline: "Stay consistent until zero",
     price: 9,
     period: "per month",
-    desc: "Stay consistent with guidance and deeper planning to reach $0 faster.",
-    badge: "Best Value",
+    desc: "Unlock deeper planning, unlimited debts, and guidance for the months when staying on track gets harder.",
+    badge: "7-day trial",
     featured: true,
-    accent: "#2563eb",
-    cta: "Try Pro Free for 7 Days",
-    ghost: false,
+    cta: "Start Pro Trial",
     href: "/auth/login?returnTo=%2Fdashboard%3Fcheckout%3Dpro",
     features: [
       "Unlimited debts",
-      "Personalized payoff advice",
-      "Spending insights and monthly change summaries",
-      "Behavior nudges and debt-risk alerts",
-      "Negotiation suggestions for selected debts",
+      "Personalized payoff guidance",
+      "Spending insights and monthly summaries",
+      "Debt-risk alerts and behavior nudges",
       "Custom debt priority order",
+      "Negotiation suggestions for selected debts",
       "Priority support",
     ],
   },
 ];
 
 const trustItems = [
-  { text: "Setup in minutes" },
-  { text: "No bank connection required" },
-  { text: "Cancel anytime" },
-  { text: "Snowball and Avalanche support" },
-  { text: "Exportable plan data" },
+  "Setup in minutes",
+  "No bank connection required",
+  "Cancel anytime",
+  "Snowball and Avalanche support",
+  "Exportable plan data",
 ];
 
-function CheckIcon({ color }: { color: string }) {
+function CheckIcon({ active }: { active: boolean }) {
+  const color = active ? "#2563eb" : "#536078";
   return (
     <svg
       width="16"
@@ -59,16 +56,25 @@ function CheckIcon({ color }: { color: string }) {
       viewBox="0 0 16 16"
       fill="none"
       style={{ flexShrink: 0, marginTop: "1px" }}
+      aria-hidden="true"
     >
-      <circle cx="8" cy="8" r="7" fill={color} fillOpacity="0.12" />
+      <circle cx="8" cy="8" r="7" fill={color} fillOpacity="0.09" />
       <path
-        d="M5 8l2.5 2.5L11 5.5"
+        d="M5 8.1 7.2 10.3 11.2 5.9"
         stroke={color}
-        strokeWidth="1.6"
+        strokeWidth="1.35"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+function ArrowIsland() {
+  return (
+    <span className="lp-btn-arrow" aria-hidden="true">
+      <span>{">"}</span>
+    </span>
   );
 }
 
@@ -77,7 +83,7 @@ export default function Pricing() {
     <section
       id="pricing"
       style={{
-        padding: "112px 24px",
+        padding: "128px 24px",
         position: "relative",
         overflow: "hidden",
         background: "#ffffff",
@@ -91,289 +97,212 @@ export default function Pricing() {
           zIndex: 1,
         }}
       >
-        <div style={{ textAlign: "center", marginBottom: "72px" }}>
-          <div className="lp-section-tag">
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-              <circle cx="5" cy="5" r="5" />
-            </svg>
-            Simple Pricing
-          </div>
-          <h2
-            style={{
-              fontSize: "clamp(2rem, 5vw, 3rem)",
-              fontWeight: 900,
-              letterSpacing: "-0.04em",
-              color: "#0f172a",
-              margin: "0 0 18px",
-              lineHeight: 1.1,
-            }}
-          >
-            Transparent pricing.{" "}
-            <span className="lp-text-blue">No surprises.</span>
-          </h2>
-          <p
-            style={{
-              fontSize: "17px",
-              color: "#64748b",
-              maxWidth: "440px",
-              margin: "0 auto",
-              lineHeight: 1.7,
-            }}
-          >
-            Start on Free with no card required. Upgrade when you are ready. Pro
-            includes a 7-day trial at checkout.
-          </p>
-        </div>
-
-        <div
-          className="lp-pricing-grid"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: "20px",
-            alignItems: "start",
-          }}
-        >
-          {plans.map((plan) => (
-            <div
-              key={plan.name}
-              className={`lp-pricing-card ${plan.featured ? "lp-pricing-featured" : ""}`}
+        <div style={{ display: "grid", gridTemplateColumns: "0.82fr 1.18fr", gap: "48px", alignItems: "start" }} className="lp-grid-sm1">
+          <div>
+            <div className="lp-section-tag">
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#0f9f6e" }} />
+              Pricing
+            </div>
+            <h2
               style={{
-                marginTop: plan.featured ? "0" : "16px",
-                background: plan.featured ? "#ffffff" : "#f8fafc",
-                borderColor: plan.featured
-                  ? "rgba(37,99,235,0.3)"
-                  : "rgba(15,23,42,0.1)",
+                fontSize: "clamp(2.15rem, 5vw, 3.35rem)",
+                fontWeight: 900,
+                letterSpacing: "-0.04em",
+                color: "#0b1220",
+                margin: "0 0 18px",
+                lineHeight: 1.04,
               }}
             >
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: "3px",
-                  borderRadius: "20px 20px 0 0",
-                  background: plan.featured
-                    ? "#2563eb"
-                    : `linear-gradient(to right, ${plan.accent}66, transparent)`,
-                }}
-              />
+              Start free. Upgrade when the plan becomes your routine.
+            </h2>
+            <p
+              style={{
+                fontSize: "16.5px",
+                color: "#536078",
+                maxWidth: "430px",
+                lineHeight: 1.74,
+                margin: "0 0 26px",
+              }}
+            >
+              Free is enough to see your path. Pro is built for people managing more debts, more changes, and more monthly follow-through.
+            </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+              {trustItems.map((item) => (
+                <div key={item} className="lp-trust-badge">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
 
-              <div
-                style={{
-                  height: "32px",
-                  marginBottom: "16px",
-                  display: "flex",
-                  alignItems: "center",
-                }}
-              >
-                {plan.badge && (
+          <div
+            className="lp-pricing-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+              gap: "18px",
+              alignItems: "stretch",
+            }}
+          >
+            {plans.map((plan) => (
+              <div key={plan.name} className="lp-bezel">
+                <div
+                  className={`lp-pricing-card ${plan.featured ? "lp-pricing-featured" : ""}`}
+                  style={{
+                    height: "100%",
+                    background: plan.featured ? "#ffffff" : "#fbfdff",
+                  }}
+                >
                   <div
                     style={{
-                      display: "inline-flex",
+                      height: "32px",
+                      marginBottom: "18px",
+                      display: "flex",
                       alignItems: "center",
-                      gap: "6px",
-                      padding: "4px 12px",
-                      borderRadius: "999px",
-                      fontSize: "10px",
-                      fontWeight: 800,
-                      letterSpacing: "0.07em",
-                      background: plan.featured
-                        ? "rgba(37,99,235,0.08)"
-                        : "rgba(15,23,42,0.06)",
-                      border: `1px solid ${
-                        plan.featured
-                          ? "rgba(37,99,235,0.2)"
-                          : "rgba(15,23,42,0.14)"
-                      }`,
-                      color: plan.featured ? "#2563eb" : "#334155",
                     }}
                   >
-                    {plan.badge}
-                  </div>
-                )}
-              </div>
-
-              <p
-                style={{
-                  fontSize: "20px",
-                  fontWeight: 800,
-                  color: "#0f172a",
-                  letterSpacing: "-0.02em",
-                  marginBottom: "4px",
-                }}
-              >
-                {plan.name}
-              </p>
-              <p
-                style={{
-                  fontSize: "12px",
-                  color: "#94a3b8",
-                  fontWeight: 500,
-                  marginBottom: "22px",
-                }}
-              >
-                {plan.tagline}
-              </p>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "baseline",
-                  gap: "4px",
-                  marginBottom: "6px",
-                }}
-              >
-                {plan.price === 0 ? (
-                  <span
-                    style={{
-                      fontSize: "38px",
-                      fontWeight: 900,
-                      color: "#0f172a",
-                      letterSpacing: "-0.04em",
-                      lineHeight: 1,
-                    }}
-                  >
-                    Free
-                  </span>
-                ) : (
-                  <>
-                    <span
+                    <div
                       style={{
-                        fontSize: "15px",
-                        fontWeight: 700,
-                        color: "#94a3b8",
-                        alignSelf: "flex-start",
-                        marginTop: "8px",
-                      }}
-                    >
-                      $
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "42px",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px",
+                        padding: "5px 12px",
+                        borderRadius: "999px",
+                        fontSize: "10px",
                         fontWeight: 900,
-                        color: "#0f172a",
-                        letterSpacing: "-0.04em",
-                        lineHeight: 1,
+                        letterSpacing: "0.11em",
+                        textTransform: "uppercase",
+                        background: plan.featured
+                          ? "rgba(37,99,235,0.08)"
+                          : "rgba(15,23,42,0.04)",
+                        border: `1px solid ${
+                          plan.featured
+                            ? "rgba(37,99,235,0.22)"
+                            : "rgba(15,23,42,0.10)"
+                        }`,
+                        color: plan.featured ? "#1d4ed8" : "#536078",
                       }}
                     >
-                      {plan.price}
-                    </span>
-                  </>
-                )}
-              </div>
-              <p
-                style={{
-                  fontSize: "12px",
-                  color: "#94a3b8",
-                  fontWeight: 500,
-                  marginBottom: "14px",
-                }}
-              >
-                {plan.period}
-              </p>
-
-              {plan.featured ? (
-                <p
-                  style={{
-                    fontSize: "11px",
-                    color: "#2563eb",
-                    fontWeight: 700,
-                    marginBottom: "16px",
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  7-day trial first, then ${plan.price}/month
-                </p>
-              ) : (
-                <p
-                  style={{
-                    fontSize: "11px",
-                    color: "#475569",
-                    fontWeight: 700,
-                    marginBottom: "16px",
-                    letterSpacing: "0.02em",
-                  }}
-                >
-                  Keep this plan forever with no card required
-                </p>
-              )}
-
-              <p
-                style={{
-                  fontSize: "13.5px",
-                  lineHeight: 1.65,
-                  color: "#64748b",
-                  marginBottom: "26px",
-                  minHeight: "44px",
-                }}
-              >
-                {plan.desc}
-              </p>
-
-              <a
-                href={plan.href}
-                className={`lp-btn ${plan.ghost ? "lp-btn-ghost" : "lp-btn-primary"}`}
-                style={{
-                  width: "100%",
-                  justifyContent: "center",
-                  fontSize: "14px",
-                  padding: "13px 20px",
-                  marginBottom: "24px",
-                }}
-              >
-                {plan.cta}
-              </a>
-
-              <div
-                style={{
-                  height: "1px",
-                  background: "rgba(15,23,42,0.07)",
-                  marginBottom: "22px",
-                }}
-              />
-
-              <div
-                style={{ display: "flex", flexDirection: "column", gap: "2px" }}
-              >
-                {plan.features.map((feat, fi) => (
-                  <div key={fi} className="lp-check-item">
-                    <CheckIcon color={plan.accent} />
-                    <span>{feat}</span>
+                      {plan.badge}
+                    </div>
                   </div>
-                ))}
+
+                  <p
+                    style={{
+                      fontSize: "21px",
+                      fontWeight: 900,
+                      color: "#0b1220",
+                      letterSpacing: "-0.03em",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    {plan.name}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: "12px",
+                      color: "#667085",
+                      fontWeight: 700,
+                      marginBottom: "24px",
+                    }}
+                  >
+                    {plan.tagline}
+                  </p>
+
+                  <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "8px" }}>
+                    {plan.price === 0 ? (
+                      <span
+                        style={{
+                          fontSize: "38px",
+                          fontWeight: 900,
+                          color: "#0b1220",
+                          letterSpacing: "-0.045em",
+                          lineHeight: 1,
+                        }}
+                      >
+                        Free
+                      </span>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: "15px", fontWeight: 800, color: "#667085", alignSelf: "flex-start", marginTop: "8px" }}>
+                          $
+                        </span>
+                        <span
+                          style={{
+                            fontSize: "44px",
+                            fontWeight: 900,
+                            color: "#0b1220",
+                            letterSpacing: "-0.045em",
+                            lineHeight: 1,
+                          }}
+                        >
+                          {plan.price}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  <p style={{ fontSize: "12px", color: "#667085", fontWeight: 700, marginBottom: "18px" }}>
+                    {plan.period}
+                  </p>
+
+                  <p
+                    style={{
+                      fontSize: "13.5px",
+                      lineHeight: 1.68,
+                      color: "#536078",
+                      marginBottom: "28px",
+                      minHeight: "68px",
+                    }}
+                  >
+                    {plan.desc}
+                  </p>
+
+                  <a
+                    href={plan.href}
+                    className={`lp-btn ${plan.featured ? "lp-btn-primary lp-btn-with-icon" : "lp-btn-ghost"}`}
+                    style={{
+                      width: "100%",
+                      justifyContent: "center",
+                      fontSize: "14px",
+                      padding: plan.featured ? "12px 8px 12px 22px" : "14px 20px",
+                      marginBottom: "26px",
+                    }}
+                  >
+                    {plan.cta}
+                    {plan.featured && <ArrowIsland />}
+                  </a>
+
+                  <div
+                    style={{
+                      height: "1px",
+                      background: "rgba(15,23,42,0.08)",
+                      marginBottom: "22px",
+                    }}
+                  />
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: "7px" }}>
+                    {plan.features.map((feat) => (
+                      <div key={feat} className="lp-check-item">
+                        <CheckIcon active={plan.featured} />
+                        <span>{feat}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
 
-        <div
-          style={{
-            marginTop: "52px",
-            display: "flex",
-            flexWrap: "wrap",
-            justifyContent: "center",
-            gap: "10px",
-          }}
-        >
-          {trustItems.map((item, i) => (
-            <div key={i} className="lp-trust-badge">
-              {item.text}
-            </div>
-          ))}
-        </div>
         <p
           style={{
             textAlign: "center",
             fontSize: "13px",
-            color: "#94a3b8",
-            marginTop: "20px",
+            color: "#98a2b3",
+            marginTop: "34px",
           }}
         >
-          Free plan requires no card. Pro trial lasts 7 days and can be canceled
-          before billing.
+          Free plan requires no card. Pro trial lasts 7 days and can be canceled before billing.
         </p>
       </div>
     </section>

@@ -102,7 +102,7 @@ export default async function Home() {
       />
       <div
         className="lp"
-        style={{ backgroundColor: "#f8fafc", color: "#0f172a" }}
+        style={{ backgroundColor: "#eef3f8", color: "#0b1220" }}
       >
         <LandingNav isLoggedIn={isLoggedIn} />
         <LandingHero isLoggedIn={isLoggedIn} />

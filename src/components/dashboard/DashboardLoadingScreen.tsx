@@ -36,7 +36,7 @@ export default function DashboardLoadingScreen({
         style={{
           minHeight: "100vh",
           background:
-            "radial-gradient(ellipse 70% 52% at 50% -10%, rgba(37,99,235,0.12) 0%, transparent 72%), #f5f7fa",
+            "linear-gradient(180deg, #fbfdff 0%, #f4f7fb 48%, #eef3f8 100%)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -45,35 +45,6 @@ export default function DashboardLoadingScreen({
           overflow: "hidden",
         }}
       >
-        <div
-          style={{
-            position: "absolute",
-            width: "520px",
-            height: "520px",
-            borderRadius: "999px",
-            top: "-280px",
-            right: "-120px",
-            background: "rgba(37,99,235,0.12)",
-            filter: "blur(80px)",
-            animation: "db-pulse-soft 6.8s cubic-bezier(0.32,0.72,0,1) infinite",
-            pointerEvents: "none",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            width: "420px",
-            height: "420px",
-            borderRadius: "999px",
-            bottom: "-220px",
-            left: "-140px",
-            background: "rgba(124,58,237,0.1)",
-            filter: "blur(70px)",
-            animation: "db-pulse-soft 7.6s cubic-bezier(0.32,0.72,0,1) 1.1s infinite",
-            pointerEvents: "none",
-          }}
-        />
-
         <div
           style={{
             width: "100%",

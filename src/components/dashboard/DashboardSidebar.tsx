@@ -45,10 +45,13 @@ export default function DashboardSidebar({
       {/* Sidebar */}
       <aside
         style={{
-          width: "240px",
+          width: "252px",
           flexShrink: 0,
-          background: "#ffffff",
-          borderRight: "1px solid rgba(15,23,42,0.07)",
+          background: "rgba(255,255,255,0.88)",
+          borderRight: "1px solid rgba(15,23,42,0.08)",
+          boxShadow: "18px 0 54px rgba(15,23,42,0.055)",
+          backdropFilter: "blur(18px) saturate(135%)",
+          WebkitBackdropFilter: "blur(18px) saturate(135%)",
           display: "flex",
           flexDirection: "column",
           position: "fixed",
@@ -56,7 +59,7 @@ export default function DashboardSidebar({
           left: 0,
           bottom: 0,
           zIndex: 40,
-          transition: "transform 0.25s ease",
+          transition: "transform 0.58s cubic-bezier(0.32,0.72,0,1)",
           transform: sidebarOpen ? "translateX(0)" : undefined,
         }}
         className="db-sidebar"
@@ -64,8 +67,8 @@ export default function DashboardSidebar({
         {/* Logo */}
         <div
           style={{
-            padding: "20px 20px 16px",
-            borderBottom: "1px solid rgba(15,23,42,0.06)",
+            padding: "24px 22px 18px",
+            borderBottom: "1px solid rgba(15,23,42,0.07)",
           }}
         >
           <a
@@ -87,16 +90,16 @@ export default function DashboardSidebar({
         </div>
 
         {/* Nav */}
-        <nav style={{ flex: 1, padding: "16px 12px", overflowY: "auto" }}>
+        <nav style={{ flex: 1, padding: "18px 12px", overflowY: "auto" }}>
           <p
             style={{
               fontSize: "10px",
               fontWeight: 700,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
-              color: "#94a3b8",
+              color: "#667085",
               padding: "0 8px",
-              marginBottom: "8px",
+              marginBottom: "10px",
             }}
           >
             Main Menu
@@ -116,18 +119,21 @@ export default function DashboardSidebar({
                     display: "flex",
                     alignItems: "center",
                     gap: "10px",
-                    padding: "10px 12px",
-                    borderRadius: "10px",
+                    padding: "11px 12px",
+                    borderRadius: "14px",
                     border: "none",
                     cursor: "pointer",
                     fontFamily: "inherit",
                     fontSize: "13.5px",
-                    fontWeight: isActive ? 600 : 400,
+                    fontWeight: isActive ? 800 : 600,
                     textAlign: "left",
                     width: "100%",
-                    transition: "all 0.15s ease",
-                    background: isActive ? "#eff6ff" : "transparent",
-                    color: isActive ? "#2563eb" : "#64748b",
+                    transition: "transform 0.44s cubic-bezier(0.32,0.72,0,1), background-color 0.44s cubic-bezier(0.32,0.72,0,1), color 0.44s cubic-bezier(0.32,0.72,0,1), box-shadow 0.44s cubic-bezier(0.32,0.72,0,1)",
+                    background: isActive ? "#ffffff" : "transparent",
+                    color: isActive ? "#0b1220" : "#536078",
+                    boxShadow: isActive
+                      ? "0 12px 28px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.88)"
+                      : "none",
                     position: "relative",
                   }}
                 >
@@ -144,7 +150,7 @@ export default function DashboardSidebar({
                       }}
                     />
                   )}
-                  <Icon size={16} strokeWidth={isActive ? 2.5 : 2} />
+                  <Icon size={16} strokeWidth={isActive ? 2.15 : 1.8} />
                   {item.label}
                 </button>
               );
@@ -154,7 +160,7 @@ export default function DashboardSidebar({
           <div
             style={{
               height: "1px",
-              background: "rgba(15,23,42,0.06)",
+              background: "rgba(15,23,42,0.07)",
               margin: "16px 8px",
             }}
           />
@@ -164,7 +170,7 @@ export default function DashboardSidebar({
               fontWeight: 700,
               letterSpacing: "0.1em",
               textTransform: "uppercase",
-              color: "#94a3b8",
+              color: "#667085",
               padding: "0 8px",
               marginBottom: "8px",
             }}
@@ -181,20 +187,23 @@ export default function DashboardSidebar({
                 display: "flex",
                 alignItems: "center",
                 gap: "10px",
-                padding: "10px 12px",
-                borderRadius: "10px",
+                padding: "11px 12px",
+                borderRadius: "14px",
                 border: "none",
                 fontSize: "13.5px",
-                fontWeight: activeTab === "settings" ? 600 : 400,
-                color: activeTab === "settings" ? "#2563eb" : "#64748b",
+                fontWeight: activeTab === "settings" ? 800 : 600,
+                color: activeTab === "settings" ? "#0b1220" : "#536078",
                 background:
-                  activeTab === "settings" ? "#eff6ff" : "transparent",
+                  activeTab === "settings" ? "#ffffff" : "transparent",
                 cursor: "pointer",
                 fontFamily: "inherit",
                 textAlign: "left",
                 width: "100%",
-                transition: "all 0.15s",
+                transition: "transform 0.44s cubic-bezier(0.32,0.72,0,1), background-color 0.44s cubic-bezier(0.32,0.72,0,1), color 0.44s cubic-bezier(0.32,0.72,0,1), box-shadow 0.44s cubic-bezier(0.32,0.72,0,1)",
                 position: "relative",
+                boxShadow: activeTab === "settings"
+                  ? "0 12px 28px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.88)"
+                  : "none",
               }}
             >
               {activeTab === "settings" && (
@@ -212,7 +221,7 @@ export default function DashboardSidebar({
               )}
               <Settings
                 size={16}
-                strokeWidth={activeTab === "settings" ? 2.5 : 2}
+                strokeWidth={activeTab === "settings" ? 2.15 : 1.8}
               />
               Settings
             </button>
@@ -222,8 +231,8 @@ export default function DashboardSidebar({
         {/* User + Logout */}
         <div
           style={{
-            padding: "12px",
-            borderTop: "1px solid rgba(15,23,42,0.06)",
+            padding: "14px 12px",
+            borderTop: "1px solid rgba(15,23,42,0.07)",
           }}
         >
           <a
@@ -233,18 +242,19 @@ export default function DashboardSidebar({
               display: "flex",
               alignItems: "center",
               gap: "8px",
-              padding: "9px 12px",
-              borderRadius: "9px",
+              padding: "10px 12px",
+              borderRadius: "14px",
               fontSize: "13px",
-              fontWeight: 500,
-              color: "#ef4444",
+              fontWeight: 700,
+              color: "#b42318",
               textDecoration: "none",
-              background: "rgba(239,68,68,0.06)",
-              border: "1px solid rgba(239,68,68,0.1)",
+              background: "rgba(244,63,94,0.07)",
+              border: "1px solid rgba(244,63,94,0.13)",
               width: "100%",
+              transition: "transform 0.44s cubic-bezier(0.32,0.72,0,1), border-color 0.44s cubic-bezier(0.32,0.72,0,1)",
             }}
           >
-            <LogOut size={14} />
+            <LogOut size={14} strokeWidth={1.8} />
             Sign Out
           </a>
         </div>

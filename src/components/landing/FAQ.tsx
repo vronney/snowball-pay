@@ -56,14 +56,19 @@ export default function FAQ() {
 
         <div className="lp-faq-shell">
           <div className="lp-faq-core">
-            {faqs.map((item, index) => (
-              <details
+            {faqs.map((item, index) => {
+              const isOpen = openIndex === index;
+
+              return (
+              <div
                 key={item.q}
-                className="lp-faq-item"
-                open={openIndex === index}
+                className={`lp-faq-item ${isOpen ? "is-open" : ""}`}
               >
-                <summary
+                <button
+                  type="button"
                   className="lp-faq-trigger"
+                  aria-expanded={isOpen}
+                  aria-controls={`faq-answer-${index}`}
                   onClick={(event) => {
                     event.preventDefault();
                     setOpenIndex((current) => (current === index ? -1 : index));
@@ -73,12 +78,13 @@ export default function FAQ() {
                   <span className="lp-faq-plus-wrap" aria-hidden="true">
                     <span className="lp-faq-plus">+</span>
                   </span>
-                </summary>
-                <div className="lp-faq-answer">
+                </button>
+                <div className="lp-faq-answer" id={`faq-answer-${index}`}>
                   <p>{item.a}</p>
                 </div>
-              </details>
-            ))}
+              </div>
+              );
+            })}
           </div>
         </div>
 

@@ -261,7 +261,14 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f5f7fa" }}>
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100dvh",
+        background:
+          "linear-gradient(180deg, #fbfdff 0%, #f4f7fb 42%, #eef3f8 100%)",
+      }}
+    >
       <DashboardSidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -299,7 +306,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
 
         {/* Content */}
         <main
-          style={{ flex: 1, padding: "28px", width: "100%" }}
+          style={{ flex: 1, padding: "32px", width: "100%" }}
           className="db-content"
         >
           {activeTab !== "home" &&
@@ -399,10 +406,10 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
       )}
 
       <style>{`
-        .db-main { margin-left: 240px; }
+        .db-main { margin-left: 252px; }
         @media (max-width: 768px) {
           .db-main { margin-left: 0 !important; }
-          .db-sidebar { transform: translateX(-100%); box-shadow: 4px 0 24px rgba(15,23,42,0.12); }
+          .db-sidebar { transform: translateX(-100%); box-shadow: 24px 0 64px rgba(15,23,42,0.16); }
           .db-hamburger { display: flex !important; }
           .db-mobile-logo { display: block !important; }
           .db-page-title { display: none !important; }

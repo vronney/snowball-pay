@@ -38,10 +38,13 @@ export default function DashboardHeader({
   return (
     <header
       style={{
-        background: "#ffffff",
-        borderBottom: "1px solid rgba(15,23,42,0.07)",
-        padding: "0 24px",
-        height: "64px",
+        background: "rgba(255,255,255,0.78)",
+        borderBottom: "1px solid rgba(15,23,42,0.08)",
+        boxShadow: "0 18px 48px rgba(15,23,42,0.06)",
+        backdropFilter: "blur(18px) saturate(140%)",
+        WebkitBackdropFilter: "blur(18px) saturate(140%)",
+        padding: "0 28px",
+        height: "76px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -57,15 +60,17 @@ export default function DashboardHeader({
         onClick={() => setSidebarOpen(!sidebarOpen)}
         style={{
           display: "none",
-          background: "transparent",
-          border: "1px solid rgba(15,23,42,0.1)",
-          borderRadius: "8px",
-          padding: "7px",
+          background: "rgba(255,255,255,0.82)",
+          border: "1px solid rgba(15,23,42,0.11)",
+          borderRadius: "999px",
+          padding: "9px",
           cursor: "pointer",
-          color: "#64748b",
+          color: "#536078",
           alignItems: "center",
           justifyContent: "center",
           flexShrink: 0,
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.86)",
+          transition: "transform 0.44s cubic-bezier(0.32,0.72,0,1), border-color 0.44s cubic-bezier(0.32,0.72,0,1)",
         }}
       >
         {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
@@ -82,7 +87,7 @@ export default function DashboardHeader({
 
       {/* Page title */}
       <div className="db-page-title" style={{ flex: 1 }}>
-        <h1 style={{ fontSize: "17px", fontWeight: 700, color: "#0f172a", margin: 0 }}>
+        <h1 style={{ fontSize: "18px", fontWeight: 900, color: "#0b1220", margin: 0, letterSpacing: "-0.025em" }}>
           {tabLabels[activeTab]}
         </h1>
       </div>
@@ -102,11 +107,12 @@ export default function DashboardHeader({
               display: "flex",
               alignItems: "center",
               gap: "8px",
-              padding: "6px 10px",
-              background: "#f8fafc",
-              border: "1px solid rgba(15,23,42,0.08)",
-              borderRadius: "10px",
+              padding: "7px 11px",
+              background: "rgba(255,255,255,0.86)",
+              border: "1px solid rgba(15,23,42,0.09)",
+              borderRadius: "999px",
               cursor: "default",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.86)",
             }}
           >
             {user.picture ? (
@@ -124,12 +130,12 @@ export default function DashboardHeader({
                   width: "26px",
                   height: "26px",
                   borderRadius: "50%",
-                  background: "#eff6ff",
+                  background: "#eef4ff",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   fontSize: "10px",
-                  fontWeight: 700,
+                  fontWeight: 900,
                   color: "#2563eb",
                 }}
               >
@@ -137,7 +143,7 @@ export default function DashboardHeader({
               </div>
             )}
             <span
-              style={{ fontSize: "13px", fontWeight: 500, color: "#0f172a" }}
+              style={{ fontSize: "13px", fontWeight: 700, color: "#172033" }}
               className="db-username"
             >
               {user.name?.split(" ")[0] || user.email?.split("@")[0] || "User"}
