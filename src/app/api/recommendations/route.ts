@@ -119,6 +119,122 @@ function normalizeRecommendations(input: RawRecommendation[]): NormalizedRecomme
     .filter((rec): rec is NormalizedRecommendation => Boolean(rec));
 }
 
+function dollars(value: number): string {
+  return `$${Math.round(value).toLocaleString('en-US')}`;
+}
+
+function monthsLabel(planMonths: number): string {
+  const years = Math.floor(planMonths / 12);
+  const months = planMonths % 12;
+  if (years > 0 && months > 0) return `${years}y ${months}m`;
+  if (years > 0) return `${years}y`;
+  return `${months}m`;
+}
+
+function buildFallbackRecommendations(
+  body: RecommendationPayload,
+  totalDebt: number,
+  totalMin: number,
+  monthChangeContext: string,
+): NormalizedRecommendation[] {
+  const highestAprDebt = [...body.debts].sort(
+    (a, b) => b.interestRate - a.interestRate || b.balance - a.balance,
+  )[0];
+  const smallestDebt = [...body.debts].sort((a, b) => a.balance - b.balance)[0];
+  const topExpense = [...body.expenseItems]
+    .filter((expense) => expense.amount > 0)
+    .sort((a, b) => b.amount - a.amount)[0];
+  const availableAcceleration = Math.max(0, body.availableCashFlow);
+  const debtLoadPct = body.monthlyTakeHome > 0
+    ? ((totalMin + body.extraPayment) / body.monthlyTakeHome) * 100
+    : 0;
+  const highUtilDebt = body.debts.find(
+    (debt) =>
+      debt.category === 'Credit Card' &&
+      (debt.creditLimit ?? 0) > 0 &&
+      debt.balance / (debt.creditLimit ?? 1) >= 0.8,
+  );
+
+  return [
+    {
+      type: 'payoff_advice',
+      impact: highestAprDebt?.interestRate >= 15 ? 'high' : 'medium',
+      title: highestAprDebt ? `Prioritize ${highestAprDebt.name}` : 'Pick one focus debt',
+      body: highestAprDebt
+        ? `${highestAprDebt.name} carries ${highestAprDebt.interestRate}% APR on ${dollars(highestAprDebt.balance)}. Direct extra payments there unless you need smaller Snowball wins first.`
+        : `Your combined debt is ${dollars(totalDebt)}. Choose one focus balance for all extra payments this month.`,
+      action: highestAprDebt ? `Focus extra cash there` : 'Choose a focus debt',
+      why: highestAprDebt
+        ? `It is the most expensive debt in the current list.`
+        : `Focused payments reduce decision fatigue.`,
+    },
+    {
+      type: 'spending_insight',
+      impact: topExpense && topExpense.amount >= 100 ? 'medium' : 'low',
+      title: topExpense ? `Review ${topExpense.name}` : 'Find one small cut',
+      body: topExpense
+        ? `${topExpense.name} is your largest listed recurring expense at ${dollars(topExpense.amount)}/mo. Even a partial cut can increase acceleration.`
+        : `No recurring expense detail was supplied. Look for one repeat expense to redirect toward debt this month.`,
+      action: topExpense ? 'Test a one-month reduction' : 'Review recurring expenses',
+      why: topExpense
+        ? `It is the largest expense item included in the request.`
+        : `More acceleration shortens the payoff timeline.`,
+      ...(topExpense
+        ? {
+            action_payload: {
+              action_type: 'reallocate_funds' as const,
+              source_amount: Math.max(1, Math.round(topExpense.amount * 0.1)),
+            },
+          }
+        : {}),
+    },
+    {
+      type: 'month_change',
+      impact: 'medium',
+      title: 'Update this month',
+      body: monthChangeContext.includes('No monthly snapshot')
+        ? `No snapshot history exists yet. Add this month’s balances so future recommendations can track movement over time.`
+        : monthChangeContext.replace(/^- /gm, '').replace(/\n/g, ' '),
+      action: 'Record current balances',
+      why: `Month-over-month balance history improves plan accuracy.`,
+    },
+    {
+      type: 'behavior_nudge',
+      impact: availableAcceleration > 0 ? 'medium' : 'high',
+      title: 'Schedule payment review',
+      body: availableAcceleration > 0
+        ? `You show ${dollars(availableAcceleration)} available for acceleration. Pick a payday review time before that money gets absorbed elsewhere.`
+        : `Available acceleration is tight. Review the plan weekly so minimums stay current and no extra payment is forced.`,
+      action: 'Set a payday reminder',
+      why: `A recurring review makes the payoff plan easier to maintain.`,
+    },
+    {
+      type: 'debt_risk_alert',
+      impact: debtLoadPct >= 35 || highUtilDebt ? 'high' : 'medium',
+      title: highUtilDebt ? 'High utilization risk' : 'Watch debt load',
+      body: highUtilDebt
+        ? `${highUtilDebt.name} appears above 80% utilization. Avoid adding new charges while paying it down.`
+        : `Debt payments are ${debtLoadPct.toFixed(1)}% of take-home pay with a ${monthsLabel(body.planMonths)} timeline. Keep a cash buffer before accelerating more.`,
+      action: highUtilDebt ? 'Pause new card charges' : 'Protect cash buffer',
+      why: highUtilDebt
+        ? `High utilization can increase financial pressure.`
+        : `Debt payment load affects plan sustainability.`,
+    },
+    {
+      type: 'negotiation_suggestion',
+      impact: highestAprDebt?.interestRate >= 20 ? 'high' : 'medium',
+      title: 'Ask for APR relief',
+      body: highestAprDebt
+        ? `Call ${highestAprDebt.name} and ask for a lower APR or hardship option. A lower rate helps more of each payment hit principal.`
+        : `Ask your highest-rate lender about APR reduction, fee waiver, or hardship options before the next billing cycle.`,
+      action: 'Call highest-rate lender',
+      why: highestAprDebt
+        ? `${highestAprDebt.interestRate}% APR makes this a strong negotiation target.`
+        : `Lower rates can reduce total interest paid.`,
+    },
+  ];
+}
+
 const DebtItemSchema = z.object({
   name: z.string(),
   balance: z.number(),
@@ -369,8 +485,10 @@ Current plan:
     let rawText = extractTextBlocks(msg.content);
     let parsedJson = parseClaudeJson(rawText);
 
-    // Claude responses can truncate mid-JSON when max_tokens is hit.
-    if (!parsedJson && msg.stop_reason === 'max_tokens') {
+    // Claude responses can truncate or occasionally return malformed JSON.
+    // Retry once with a stricter compact-output prompt before falling back.
+    if (!parsedJson) {
+      const retryReason = msg.stop_reason === 'max_tokens' ? 'truncated' : 'malformed';
       msg = await client.messages.create({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 2000,
@@ -381,8 +499,10 @@ Current plan:
             content: `${userContext}
 
 IMPORTANT:
-- Your previous response was truncated.
+- Your previous response was ${retryReason === 'truncated' ? 'truncated' : 'not valid JSON'}.
 - Return compact JSON only.
+- Escape all quotes inside string values.
+- Do not wrap the response in markdown fences.
 - No prose before or after the JSON object.`,
           },
         ],
@@ -396,23 +516,27 @@ IMPORTANT:
         stopReason: msg.stop_reason,
         preview: rawText.slice(0, 300),
       });
-      return serverError('Failed to parse AI response');
     }
 
-    const claudeResponse = z.object({ recommendations: z.array(RecommendationSchema).min(4).max(10) })
-      .safeParse(parsedJson);
+    const claudeResponse = parsedJson
+      ? z.object({ recommendations: z.array(RecommendationSchema).min(4).max(10) }).safeParse(parsedJson)
+      : null;
 
-    if (!claudeResponse.success) {
+    if (claudeResponse && !claudeResponse.success) {
       console.error('Zod validation failed on Claude response', {
         issues: claudeResponse.error.issues,
         preview: JSON.stringify(parsedJson).slice(0, 500),
       });
-      return serverError('Failed to parse AI response');
     }
 
-    const normalizedRecommendations = normalizeRecommendations(claudeResponse.data.recommendations);
+    const normalizedRecommendations =
+      claudeResponse?.success
+        ? normalizeRecommendations(claudeResponse.data.recommendations)
+        : buildFallbackRecommendations(body, totalDebt, totalMin, monthChangeContext);
+
     if (normalizedRecommendations.length === 0) {
-      return serverError('AI did not return valid recommendations');
+      const fallbackRecommendations = buildFallbackRecommendations(body, totalDebt, totalMin, monthChangeContext);
+      normalizedRecommendations.push(...fallbackRecommendations);
     }
 
     const dataHash = buildDataHash(body);
