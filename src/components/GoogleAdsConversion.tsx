@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react';
 
-const GOOGLE_ADS_CONVERSION_SEND_TO = 'AW-18159208162/vtzzCKnrx6wcEOKN_tJD';
+const GOOGLE_ADS_CLICK_CONVERSION_SEND_TO = 'AW-18159208162/vtzzCKnrx6wcEOKN_tJD';
+const GOOGLE_ADS_PAGE_VIEW_CONVERSION_SEND_TO = 'AW-18159208162/2rOYCKS8lqwcEOKN_tJD';
 
 const CALCULATOR_NAMES: Record<string, string> = {
   default: 'Free Debt Payoff Calculator',
@@ -17,6 +18,11 @@ interface CalculatorClickTarget {
   name: string;
   path: string;
   slug: string;
+}
+
+interface GoogleAdsPageViewConversionProps {
+  calculatorName: string;
+  calculatorSlug: string;
 }
 
 function getCalculatorClickTarget(href: string): CalculatorClickTarget | null {
@@ -74,7 +80,7 @@ function reportCalculatorClickConversion(target: CalculatorClickTarget) {
   window.setTimeout(navigate, 1000);
 
   gtag('event', 'conversion', {
-    send_to: GOOGLE_ADS_CONVERSION_SEND_TO,
+    send_to: GOOGLE_ADS_CLICK_CONVERSION_SEND_TO,
     event_callback: navigate,
     event_timeout: 1000,
     event_category: 'calculator',
@@ -85,6 +91,32 @@ function reportCalculatorClickConversion(target: CalculatorClickTarget) {
     page_path: window.location.pathname,
     target_page_path: target.path,
   });
+}
+
+export function GoogleAdsPageViewConversion({
+  calculatorName,
+  calculatorSlug,
+}: GoogleAdsPageViewConversionProps) {
+  useEffect(() => {
+    const gtag = (window as any).gtag;
+
+    if (typeof gtag !== 'function') {
+      return;
+    }
+
+    gtag('event', 'conversion', {
+      send_to: GOOGLE_ADS_PAGE_VIEW_CONVERSION_SEND_TO,
+      value: 1.0,
+      currency: 'USD',
+      event_category: 'calculator',
+      event_label: calculatorName,
+      calculator_name: calculatorName,
+      calculator_slug: calculatorSlug,
+      page_path: window.location.pathname,
+    });
+  }, [calculatorName, calculatorSlug]);
+
+  return null;
 }
 
 export function GoogleAdsConversion() {
