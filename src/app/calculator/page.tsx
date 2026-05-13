@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import PublicCalculator from "@/components/calculator/PublicCalculator";
 import { defaultCalculatorConfig } from "@/components/calculator/configs";
+import { GoogleAdsConversion } from "@/components/GoogleAdsConversion";
 
 export const metadata: Metadata = {
   title: "Free Debt Payoff Calculator — Snowball & Avalanche",
@@ -106,6 +107,7 @@ export default function CalculatorPage() {
 
   return (
     <>
+      <GoogleAdsConversion />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(calcJsonLd) }}
