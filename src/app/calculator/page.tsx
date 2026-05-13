@@ -107,7 +107,10 @@ export default function CalculatorPage() {
 
   return (
     <>
-      <GoogleAdsConversion />
+      <GoogleAdsConversion
+        calculatorName={defaultCalculatorConfig.pageTitle}
+        calculatorSlug={defaultCalculatorConfig.slug}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(calcJsonLd) }}
