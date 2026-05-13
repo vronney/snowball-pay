@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Manrope, Plus_Jakarta_Sans } from 'next/font/google';
 import { Providers } from '@/app/providers';
+import { GoogleAdsConversion } from '@/components/GoogleAdsConversion';
 import './globals.css';
 
 const manrope = Manrope({
@@ -143,6 +144,7 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <GoogleAdsConversion />
         <Providers>
           {children}
         </Providers>
