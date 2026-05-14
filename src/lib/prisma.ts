@@ -1,10 +1,11 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaNeon } from '@prisma/adapter-neon';
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 function getDatabaseUrl() {
   let url = process.env.DATABASE_URL;
-  if (!url) return undefined;
+  if (!url) return '';
   
   try {
     const parsed = new URL(url);
@@ -26,15 +27,25 @@ function getDatabaseUrl() {
   }
 }
 
+const connectionString = getDatabaseUrl();
+const adapter = connectionString ? new PrismaNeon({ connectionString }) : null;
+
+const prismaOptions: any = {
+  log: process.env.NODE_ENV === 'development' ? ['query'] : [],
+};
+
+if (adapter) {
+  prismaOptions.adapter = adapter;
+} else if (connectionString) {
+  prismaOptions.datasources = {
+    db: {
+      url: connectionString,
+    },
+  };
+}
+
 export const prisma =
   globalForPrisma.prisma ||
-  new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query'] : [],
-    datasources: {
-      db: {
-        url: getDatabaseUrl(),
-      },
-    },
-  });
+  new PrismaClient(prismaOptions);
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
