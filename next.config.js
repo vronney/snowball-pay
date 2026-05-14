@@ -14,6 +14,16 @@ const nextConfig = {
       },
     ];
   },
+
+  async redirects() {
+    return [
+      {
+        source: '/sitemap.txt',
+        destination: '/sitemap.xml',
+        permanent: true,
+      },
+    ];
+  },
   
   images: {
     // Restrict to known profile picture CDNs used by Auth0 social providers.
