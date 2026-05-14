@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 
 const GOOGLE_ADS_CLICK_CONVERSION_SEND_TO = 'AW-18159208162/vtzzCKnrx6wcEOKN_tJD';
-const GOOGLE_ADS_PAGE_VIEW_CONVERSION_SEND_TO = 'AW-18159208162/2rOYCKS8lqwcEOKN_tJD';
+const GOOGLE_ADS_PAGE_VIEW_CONVERSION_SEND_TO = 'AW-18159208162/B2GpCOy7y6wcEOKN_tJD';
 
 const CALCULATOR_NAMES: Record<string, string> = {
   default: 'Free Debt Payoff Calculator',

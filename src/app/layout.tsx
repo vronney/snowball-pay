@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Manrope, Plus_Jakarta_Sans } from 'next/font/google';
 import { Providers } from '@/app/providers';
 import { GoogleAdsConversion } from '@/components/GoogleAdsConversion';
+import Script from 'next/script';
 import './globals.css';
 
 const manrope = Manrope({
