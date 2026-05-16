@@ -9,7 +9,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: ['/', '/learn', '/calculator', '/privacy', '/terms'],
-        disallow: ['/dashboard', '/api/', '/auth/'],
+        disallow: ['/dashboard', '/api/', '/auth', '/auth/'],
       },
       // AI search crawlers — explicitly allowed on public content pages
       {
@@ -27,7 +27,7 @@ export default function robots(): MetadataRoute.Robots {
           'YouBot',           // You.com
         ],
         allow: ['/', '/learn', '/calculator'],
-        disallow: ['/dashboard', '/api/', '/auth/'],
+        disallow: ['/dashboard', '/api/', '/auth', '/auth/'],
       },
     ],
     sitemap: `${BASE_URL}/sitemap.xml`,

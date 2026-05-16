@@ -2,9 +2,22 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth0 } from './lib/auth0';
 import { getAllowedOrigin } from '@/lib/corsOrigin';
 
-// Paths probed by automated WordPress/CMS scanners — return 404 immediately.
+// Paths probed by automated scanners for CMS/admin or sensitive config files.
+// Return 404 immediately so these never hit application routes.
 const SCANNER_PATH_PREFIXES = [
+  '/.env',
+  '/.git',
+  '/.hg',
+  '/.svn',
+  '/.DS_Store',
+  '/.aws',
+  '/.ssh',
+  '/config.php',
+  '/id_rsa',
+  '/phpinfo',
+  '/server-status',
   '/wp-admin',
+  '/wp-config.php',
   '/wp-content',
   '/wp-includes',
   '/wordpress',
@@ -80,6 +93,14 @@ export async function middleware(request: NextRequest) {
   if (requiresApiAuth && request.method === 'OPTIONS') {
     const preflight = new NextResponse(null, { status: 204 });
     return addCorsHeaders(preflight, request);
+  }
+
+  // Auth0 mounts /auth/* handlers, but /auth itself is not a handler.
+  // Redirect the bare auth root so it does not fall through to Next's 404.
+  if (pathname === '/auth' || pathname === '/auth/') {
+    const loginUrl = new URL('/auth/login', request.nextUrl.origin);
+    loginUrl.searchParams.set('returnTo', '/dashboard');
+    return NextResponse.redirect(loginUrl);
   }
 
   const authResponse = await auth0.middleware(request);
