@@ -32,6 +32,7 @@ import { MobileFAB } from "@/components/dashboard/MobileFAB";
 import DashboardLoadingScreen from "@/components/dashboard/DashboardLoadingScreen";
 import { type Tab } from "@/components/dashboard/types";
 import { upgradeEvents } from "@/lib/upgradeEvents";
+import { track, Events } from "@/lib/analytics";
 
 type UserInfo = {
   name?: string | null;
@@ -100,6 +101,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
   // Auto-trigger checkout when landing from pricing page
   useEffect(() => {
     if (searchParams.get("checkout") === "pro") {
+      track(Events.CHECKOUT_STARTED, { source: "pricing_page" });
       startCheckout.mutate();
       const url = new URL(window.location.href);
       url.searchParams.delete("checkout");
@@ -362,6 +364,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
               <ProgressTab
                 debts={debts}
                 income={income}
+                expenses={expenses}
                 isLoading={debtsLoading || incomeLoading}
                 onNavigate={(tab) => setActiveTab(tab)}
               />

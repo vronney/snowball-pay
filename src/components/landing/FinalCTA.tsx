@@ -89,7 +89,7 @@ export default function FinalCTA({ isLoggedIn }: { isLoggedIn: boolean }) {
               lineHeight: 1.1,
             }}
           >
-            Your debt-free life <span className="lp-text-blue">starts today.</span>
+            Build the plan, then keep it moving.
           </h2>
 
           <p
@@ -101,8 +101,8 @@ export default function FinalCTA({ isLoggedIn }: { isLoggedIn: boolean }) {
               margin: "0 auto 40px",
             }}
           >
-            Build a clear debt payoff plan in minutes and keep momentum with every
-            payment.
+            Start with the free calculator, save the payoff order, and use Pro when
+            you want chart-based coach notes for the next safe monthly move.
           </p>
 
           <div

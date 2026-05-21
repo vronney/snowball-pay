@@ -43,12 +43,12 @@ interface PlannerIntelligenceProps {
 }
 
 const ACTIONS = [
-  "Review next 14 days due dates",
-  "Apply this month extra payment",
-  "Check refinance opportunities",
-  "Confirm strategy and shock mode",
-  "Schedule weekly plan review",
   "Record latest statement balances",
+  "Confirm the next focus debt",
+  "Schedule this payday's extra payment",
+  "Check the next 14 days of due dates",
+  "Review refinance options for high APR debt",
+  "Re-run the plan after income or expense changes",
 ];
 
 export default function PlannerIntelligence({
@@ -281,12 +281,12 @@ export default function PlannerIntelligence({
         <div className="flex items-center gap-2 mb-1">
           <Sparkles size={16} style={{ color: "#2563eb" }} />
           <h2 className="font-semibold text-base" style={{ color: "#0f172a" }}>
-            Planner Intelligence
+            Charts and Payoff Coach
           </h2>
         </div>
         <p className="text-xs" style={{ color: "#64748b" }}>
-          Forecast, compare strategies, and run an execution playbook from one
-          planning workspace.
+          Keep the analytical charts, then use the coach reads to decide the
+          next payment, guardrail, or balance update.
         </p>
       </div>
 

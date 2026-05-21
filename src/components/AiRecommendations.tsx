@@ -331,7 +331,7 @@ function RecommendationCard({
           }}
         >
           <ArrowRight size={11} />
-          {applied ? "Applied!" : "Apply this Tip"}
+          {applied ? "Applied" : "Apply this move"}
         </button>
       )}
 
@@ -364,7 +364,7 @@ function RecommendationCard({
                 transition: "transform 0.2s",
               }}
             />
-            Why this recommendation?
+            Why this move?
           </button>
           {whyOpen && (
             <p
@@ -440,7 +440,7 @@ export default function AiRecommendations({
 
   const handleGenerate = () => {
     if (!subscriptionLoading && !isPro) {
-      upgradeEvents.dispatch("AI recommendations");
+      upgradeEvents.dispatch("Payoff Coach");
       return;
     }
     generate.mutate(payload);
@@ -477,8 +477,10 @@ export default function AiRecommendations({
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Lightbulb size={16} style={{ color: "#8b5cf6" }} />
-          <span style={{ fontSize: "15px", fontWeight: 600 }}>AI Insights</span>
+          <Lightbulb size={16} style={{ color: "#2563eb" }} />
+          <span style={{ fontSize: "15px", fontWeight: 600 }}>
+            Payoff Coach
+          </span>
           {generatedAt && !isGenerating && (
             <span
               style={{
@@ -538,8 +540,8 @@ export default function AiRecommendations({
               >
                 <Sparkles size={13} />
                 {!subscriptionLoading && !isPro
-                  ? "Upgrade to unlock AI insights"
-                  : "Get personalized monthly insights"}
+                  ? "Upgrade to unlock payoff coach"
+                  : "Run payoff coach"}
               </button>
             )}
         </div>
@@ -591,7 +593,7 @@ export default function AiRecommendations({
               whiteSpace: "nowrap",
             }}
           >
-            Run Strategy Audit
+            Run payoff audit
           </button>
         </div>
       )}

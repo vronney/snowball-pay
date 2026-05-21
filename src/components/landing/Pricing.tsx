@@ -1,40 +1,47 @@
+"use client";
+
+import { track, Events } from "@/lib/analytics";
+
 const plans = [
   {
     name: "Free",
     tagline: "Build the first plan",
     price: 0,
     period: "forever",
-    desc: "Create a focused payoff plan, compare Snowball and Avalanche, and track up to five debts.",
+    desc: "Run the payoff math, compare strategies, and save a starter plan without putting the calculator behind a signup wall.",
     badge: "No card required",
     featured: false,
     cta: "Start Free",
     href: "/auth/login?returnTo=/dashboard",
+    analyticsSource: "pricing_free",
     features: [
+      "Free calculators before signup",
       "Track up to 5 debts",
       "Snowball and Avalanche strategies",
-      "Monthly payoff calendar",
-      "Progress visualization",
-      "Mobile-friendly dashboard",
+      "Debt-free date and payoff order",
+      "Basic debt-free progress view",
     ],
   },
   {
     name: "Pro",
-    tagline: "Stay consistent until zero",
+    tagline: "Monthly payoff coach",
     price: 9,
-    period: "per month",
-    desc: "Unlock deeper planning, unlimited debts, and guidance for the months when staying on track gets harder.",
+    period: "per month after trial",
+    desc: "Use debt-free progress charts plus coach notes to see what changed, what it means, and which safe payment move to make next.",
     badge: "7-day trial",
     featured: true,
     cta: "Start Pro Trial",
     href: "/auth/login?returnTo=%2Fdashboard%3Fcheckout%3Dpro",
+    analyticsSource: "pricing_pro",
     features: [
       "Unlimited debts",
-      "Personalized payoff guidance",
-      "Spending insights and monthly summaries",
-      "Debt-risk alerts and behavior nudges",
+      "Monthly payoff audit",
+      "Chart coach notes with Signal, Evidence, Action",
+      "Debt-free lever chart for +$25, +$50, +$100 moves",
+      "Payment calendar risk and buffer guardrails",
       "Custom debt priority order",
-      "Negotiation suggestions for selected debts",
-      "Priority support",
+      "APR negotiation scripts with dollar context",
+      "Exportable payoff plan data",
     ],
   },
 ];
@@ -44,7 +51,23 @@ const trustItems = [
   "No bank connection required",
   "Cancel anytime",
   "Snowball and Avalanche support",
+  "Debt-free progress coach",
   "Exportable plan data",
+];
+
+const coachPreview = [
+  {
+    label: "Signal",
+    text: "Your highest-rate credit card is still the costly focus.",
+  },
+  {
+    label: "Evidence",
+    text: "At 24.99% APR, spreading the extra payment delays the forecast by about 2 months.",
+  },
+  {
+    label: "Action",
+    text: "Keep this month's extra payment on that card, then rerun the plan after the payment posts.",
+  },
 ];
 
 function CheckIcon({ active }: { active: boolean }) {
@@ -113,7 +136,7 @@ export default function Pricing() {
                 lineHeight: 1.04,
               }}
             >
-              Start free. Upgrade when the plan becomes your routine.
+              Start free. Upgrade when you need the coach to keep the plan moving.
             </h2>
             <p
               style={{
@@ -124,7 +147,7 @@ export default function Pricing() {
                 margin: "0 0 26px",
               }}
             >
-              Free is enough to see your path. Pro is built for people managing more debts, more changes, and more monthly follow-through.
+              Free is enough to see the first path. Pro is for the months after that, when balances change, motivation dips, and the next safe payment move needs to stay obvious.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
               {trustItems.map((item) => (
@@ -132,6 +155,68 @@ export default function Pricing() {
                   {item}
                 </div>
               ))}
+            </div>
+
+            <div
+              className="lp-bezel"
+              style={{
+                marginTop: "28px",
+                maxWidth: "455px",
+              }}
+            >
+              <div
+                className="lp-core"
+                style={{
+                  padding: "20px",
+                  background:
+                    "linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.94))",
+                }}
+              >
+                <p
+                  style={{
+                    margin: "0 0 12px",
+                    fontSize: "11px",
+                    fontWeight: 900,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    color: "#1d4ed8",
+                  }}
+                >
+                  Sample Pro coach output
+                </p>
+                <div style={{ display: "grid", gap: "10px" }}>
+                  {coachPreview.map((item) => (
+                    <div
+                      key={item.label}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "74px 1fr",
+                        gap: "10px",
+                        alignItems: "start",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: "11px",
+                          fontWeight: 900,
+                          color: "#0b1220",
+                        }}
+                      >
+                        {item.label}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: "12.5px",
+                          lineHeight: 1.55,
+                          color: "#536078",
+                        }}
+                      >
+                        {item.text}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -260,6 +345,17 @@ export default function Pricing() {
                   <a
                     href={plan.href}
                     className={`lp-btn ${plan.featured ? "lp-btn-primary lp-btn-with-icon" : "lp-btn-ghost"}`}
+                    onClick={() => {
+                      if (plan.featured) {
+                        track(Events.PRICING_PRO_CLICKED, {
+                          source: plan.analyticsSource,
+                        });
+                      } else {
+                        track(Events.SIGNUP_STARTED, {
+                          source: plan.analyticsSource,
+                        });
+                      }
+                    }}
                     style={{
                       width: "100%",
                       justifyContent: "center",
@@ -288,6 +384,19 @@ export default function Pricing() {
                       </div>
                     ))}
                   </div>
+                  {plan.featured && (
+                    <p
+                      style={{
+                        fontSize: "11px",
+                        color: "#667085",
+                        lineHeight: 1.55,
+                        margin: "16px 0 0",
+                      }}
+                    >
+                      Best fit when you want the plan reviewed every month, not
+                      just calculated once.
+                    </p>
+                  )}
                 </div>
               </div>
             ))}

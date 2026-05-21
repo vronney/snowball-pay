@@ -53,27 +53,43 @@ const faqJsonLd = {
         text: "Yes. You can switch between Snowball and Avalanche or define a custom order. Your projected timeline updates automatically.",
       },
     },
+    {
+      "@type": "Question",
+      name: "What does Pro add beyond the free plan?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Free helps you build the first payoff plan. Pro is for follow-through: unlimited debts, custom priority order, debt-free lever charts, monthly payoff coach notes, and buffer guardrails when the plan needs attention.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Is SnowballPay a debt settlement or debt relief service?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No. SnowballPay is a planning and tracking tool. It does not negotiate, settle, or reduce debts for you. It helps you understand payoff order, monthly progress, and possible next steps.",
+      },
+    },
   ],
 };
 
 export const metadata: Metadata = {
-  title: "SnowballPay - Debt Snowball and Avalanche Planner",
+  title: "SnowballPay - Debt Payoff Planner with Progress Coach",
   description:
-    "Use the Debt Snowball or Avalanche method to eliminate debt. Track balances, build momentum, and move toward a debt-free timeline.",
+    "Use SnowballPay to compare Debt Snowball and Avalanche plans, see your projected debt-free date, track balances, and get coach notes for the next safe payoff move.",
   alternates: {
     canonical: "https://getsnowballpay.com",
   },
   openGraph: {
-    title: "SnowballPay - Debt Snowball and Avalanche Planner",
+    title: "SnowballPay - Debt Payoff Planner with Progress Coach",
     description:
-      "Use Debt Snowball or Avalanche planning to pay down balances with a clear month-by-month timeline.",
+      "Compare Snowball and Avalanche plans, see your projected debt-free date, and turn payoff charts into a clear next move.",
     url: "https://getsnowballpay.com",
   },
   twitter: {
     card: "summary_large_image",
-    title: "SnowballPay - Debt Snowball and Avalanche Planner",
+    title: "SnowballPay - Debt Payoff Planner with Progress Coach",
     description:
-      "Build a clear debt payoff plan with Snowball or Avalanche strategies.",
+      "Build a clear debt payoff plan with Snowball or Avalanche strategies, useful charts, and payoff coach notes.",
   },
 };
 

@@ -163,7 +163,7 @@ function getSections(onNavigate: (tab: Tab) => void): AccordionItem[] {
           <div className="grid gap-3 sm:grid-cols-2">
             {[
               {
-                name: "❄️ Snowball",
+                name: "Snowball",
                 rule: "Target the smallest balance first.",
                 pro: "Quick wins keep you motivated. Great if you need momentum.",
                 con: "May pay slightly more total interest.",
@@ -172,7 +172,7 @@ function getSections(onNavigate: (tab: Tab) => void): AccordionItem[] {
                 border: "rgba(37,99,235,0.14)",
               },
               {
-                name: "🏔 Avalanche",
+                name: "Avalanche",
                 rule: "Target the highest APR first.",
                 pro: "Minimizes total interest paid. Mathematically optimal.",
                 con: "First payoff may take longer if that debt has a large balance.",
@@ -196,10 +196,10 @@ function getSections(onNavigate: (tab: Tab) => void): AccordionItem[] {
                   <strong>Rule:</strong> {s.rule}
                 </p>
                 <p className="text-xs mb-1" style={{ color: "#27AE60" }}>
-                  ✓ {s.pro}
+                  Best for: {s.pro}
                 </p>
                 <p className="text-xs" style={{ color: "#6B7280" }}>
-                  ⚠ {s.con}
+                  Tradeoff: {s.con}
                 </p>
               </div>
             ))}
@@ -208,6 +208,75 @@ function getSections(onNavigate: (tab: Tab) => void): AccordionItem[] {
             The best strategy is the one you&apos;ll stick to. You can switch
             between them at any time from the Payoff Plan tab — your data is
             never lost.
+          </p>
+        </>
+      ),
+    },
+    {
+      id: "outside-help",
+      title: "When should I look for outside debt help?",
+      content: (
+        <>
+          <p>
+            SnowballPay works best when you can make minimum payments and still
+            keep a small cash buffer. If minimums are slipping, debt payments
+            are crowding out essentials, or collections have started, use the
+            plan as a snapshot and talk with a reputable counselor before
+            pushing harder on extra payments.
+          </p>
+          <ul className="list-disc pl-5 space-y-1 text-xs">
+            <li>
+              Start with a nonprofit credit counselor if you need help building
+              a repayment budget or reviewing a debt management plan.
+            </li>
+            <li>
+              Ask lenders about hardship, fee waiver, or APR reduction options
+              before missing a payment.
+            </li>
+            <li>
+              For income pressure, test one realistic move at a time: extra
+              shifts, temporary work, selling unused items, or checking public
+              benefit eligibility.
+            </li>
+          </ul>
+          <p>
+            Helpful starting points:{" "}
+            <a
+              href="https://consumer.ftc.gov/articles/how-get-out-debt"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "#2563eb", textDecoration: "underline" }}
+            >
+              FTC debt help guide
+            </a>
+            {", "}
+            <a
+              href="https://www.consumerfinance.gov/ask-cfpb/what-is-the-difference-between-credit-counseling-and-debt-settlement-debt-consolidation-or-credit-repair-en-1449/"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "#2563eb", textDecoration: "underline" }}
+            >
+              CFPB credit counseling guide
+            </a>
+            {", "}
+            <a
+              href="https://www.justice.gov/ust/list-credit-counseling-agencies-approved-pursuant-11-usc-111"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "#2563eb", textDecoration: "underline" }}
+            >
+              DOJ approved counseling list
+            </a>
+            {", and "}
+            <a
+              href="https://www.benefits.gov/benefit-finder"
+              target="_blank"
+              rel="noreferrer"
+              style={{ color: "#2563eb", textDecoration: "underline" }}
+            >
+              Benefits.gov
+            </a>
+            .
           </p>
         </>
       ),

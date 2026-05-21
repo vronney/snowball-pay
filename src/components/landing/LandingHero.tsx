@@ -83,7 +83,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
               }}
             >
               <span className="lp-live-dot" style={{ background: "#0f9f6e" }} />
-              Debt payoff planner
+              Debt-free progress coach
             </div>
 
             <h1
@@ -97,7 +97,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                 color: "#0b1220",
               }}
             >
-              A clear debt payoff plan, down to the month.
+              Know what to pay next and when you will be debt-free.
             </h1>
 
             <p
@@ -111,7 +111,8 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
               }}
             >
               SnowballPay turns your balances, minimums, and extra payment into a
-              realistic payoff order, debt-free date, and monthly progress path.
+              realistic payoff order, debt-free date, visual charts, and coach notes
+              for the next safe monthly move.
             </p>
 
             <div
@@ -142,15 +143,20 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                       track(Events.SIGNUP_STARTED, { source: "hero_primary" })
                     }
                   >
-                    Start Free
+                    Build My Free Plan
                     <ArrowIsland />
                   </a>
                   <a
                     href="/calculator"
                     className="lp-btn lp-btn-ghost"
                     style={{ fontSize: "15px" }}
+                    onClick={() =>
+                      track(Events.CALCULATOR_STARTED, {
+                        source: "hero_secondary",
+                      })
+                    }
                   >
-                    Try the Calculator
+                    Run Free Calculator
                   </a>
                 </>
               )}
@@ -168,7 +174,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                 fontWeight: 700,
               }}
             >
-              {["No bank connection required", "Free plan available", "Cancel Pro anytime"].map(
+              {["No bank connection required", "Free calculator", "Cancel Pro anytime"].map(
                 (item) => (
                   <span
                     key={item}
@@ -310,7 +316,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                         textTransform: "uppercase",
                       }}
                     >
-                      Balance trajectory
+                      Debt chart
                     </span>
                     <span
                       style={{
@@ -354,6 +360,41 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                     <circle cx="134" cy="34" r="10" fill="#2563eb" opacity="0.13" />
                     <circle cx="320" cy="69" r="4" fill="#0f9f6e" />
                   </svg>
+                </div>
+
+                <div
+                  style={{
+                    borderRadius: "18px",
+                    padding: "14px",
+                    background: "rgba(37,99,235,0.06)",
+                    border: "1px solid rgba(37,99,235,0.14)",
+                    marginBottom: "20px",
+                  }}
+                >
+                  <p
+                    style={{
+                      margin: "0 0 5px",
+                      fontSize: "10px",
+                      color: "#1d4ed8",
+                      fontWeight: 900,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Coach read
+                  </p>
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "12px",
+                      lineHeight: 1.55,
+                      color: "#344054",
+                      fontWeight: 650,
+                    }}
+                  >
+                    Your March 2027 forecast holds if the extra $200 stays on the
+                    credit card and the cash buffer stays healthy.
+                  </p>
                 </div>
 
                 <div style={{ display: "grid", gap: "15px" }}>
@@ -452,7 +493,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                     marginBottom: "4px",
                   }}
                 >
-                  Next action
+                  Coach action
                 </p>
                 <p
                   style={{

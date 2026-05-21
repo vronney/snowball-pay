@@ -16,7 +16,7 @@ const solutions = [
   },
   {
     color: "#7c3aed",
-    text: "AI recommendations that adapt as your finances change",
+    text: "Payoff coach notes that explain the chart and the next move",
   },
   {
     color: "#d97706",

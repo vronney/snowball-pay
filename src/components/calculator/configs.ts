@@ -47,7 +47,7 @@ export const defaultCalculatorConfig: CalculatorConfig = {
   pageTitle: 'Free Debt Payoff Calculator',
   heroTitle: 'When will you be debt-free?',
   heroDescription:
-    'Enter your debts and income below. See your exact payoff date, total interest, and how much faster snowball beats paying minimums - free, no account needed.',
+    'Enter your debts and income below. See your projected payoff date, total interest, and how much faster snowball beats paying minimums - free, no account needed.',
   loadExampleLabel: 'Load Example Scenario',
   debtCategory: 'Credit Card',
   defaultMethod: 'snowball',
@@ -59,11 +59,11 @@ export const defaultCalculatorConfig: CalculatorConfig = {
   defaultTakeHome: '5200',
   defaultEssential: '2400',
   defaultExtra: '200',
-  ctaLabel: 'Save My Plan - It\'s Free',
-  ctaHelperText: 'No credit card - Takes 30 seconds',
+  ctaLabel: 'Save This Plan and Track Progress',
+  ctaHelperText: 'Free account - no card required',
   introTitle: 'Free Debt Payoff Calculator for Any Debt Type',
   introBody:
-    'Carrying multiple types of debt? This free calculator shows you exactly when you\'ll be debt-free—whether you have credit cards, student loans, car loans, or personal loans. Enter your balances and monthly budget, then compare the Snowball vs Avalanche strategies to see which gets you to zero fastest. The U.S. household debt average exceeds $145,000, but most people have no idea how long they\'ll carry it or how much interest they\'ll pay. This calculator changes that. See your personalized debt-free date in seconds, no account required.',
+    'Carrying multiple types of debt? This free calculator shows your projected debt-free date—whether you have credit cards, student loans, car loans, or personal loans. Enter your balances and monthly budget, then compare the Snowball vs Avalanche strategies to see which plan fits your goals and cash flow. The U.S. household debt average exceeds $145,000, but most people have no idea how long they\'ll carry it or how much interest they\'ll pay. This calculator changes that. See your personalized debt-free forecast in seconds, no account required.',
   contentIntroTitle: 'How to use this debt payoff calculator',
   contentIntroBody:
     'Everything you need to know about calculating your debt-free date and picking the right strategy.',
@@ -81,7 +81,7 @@ export const defaultCalculatorConfig: CalculatorConfig = {
     {
       title: 'Why calculate your debt payoff date?',
       body:
-        'Knowing your exact debt-free date transforms an abstract problem into a concrete goal. Seeing the date also helps you compare strategies - two months earlier might justify choosing avalanche over snowball, or vice versa.',
+        'Knowing your projected debt-free date transforms an abstract problem into a concrete goal. Seeing the date also helps you compare strategies - two months earlier might justify choosing avalanche over snowball, or vice versa.',
     },
     {
       title: 'What is the vs Minimums comparison?',
@@ -98,7 +98,7 @@ export const defaultCalculatorConfig: CalculatorConfig = {
     {
       question: 'How long will it take to pay off my debt?',
       answer:
-        'Enter your balances, interest rates, and monthly income into this calculator to get your exact payoff date. The result depends on how much extra you can pay beyond minimums—even $50 extra per month can shorten your timeline by years.',
+        'Enter your balances, interest rates, and monthly income into this calculator to get your projected payoff date. The result depends on how much extra you can pay beyond minimums—even $50 extra per month can shorten your timeline by years.',
     },
     {
       question: 'What is the difference between Snowball and Avalanche?',
@@ -113,7 +113,7 @@ export const defaultCalculatorConfig: CalculatorConfig = {
     {
       question: 'How much interest will I pay if I only make minimum payments?',
       answer:
-        'This calculator shows the difference between your payoff plan and paying only minimums. The difference is often shocking—which is why extra payments, even small ones, matter so much.',
+        'This calculator shows the difference between your payoff plan and paying only minimums. The gap can be large, which is why sustainable extra payments, even small ones, matter so much.',
     },
     {
       question: 'Can I change my strategy mid-way through my payoff plan?',
@@ -140,7 +140,7 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
     pageTitle: 'Student Loan Payoff Calculator | Know Your Graduation Date',
     heroTitle: 'Student Loan Payoff Calculator',
     heroDescription:
-      'Calculate your exact student loan payoff date and see how extra payments accelerate freedom. Compare federal vs private loan strategies and discover your fastest path to zero.',
+      'Calculate your projected student loan payoff date and see how extra payments may change the timeline. Compare federal vs private loan strategies and discover a realistic path to zero.',
     loadExampleLabel: 'Load Student Loan Example',
     debtCategory: 'Student Loan',
     defaultMethod: 'avalanche',
@@ -151,14 +151,14 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
     defaultTakeHome: '4800',
     defaultEssential: '2200',
     defaultExtra: '100',
-    ctaLabel: 'Save My Student Loan Plan',
-    ctaHelperText: 'Free account - track every payment and stay on plan',
+    ctaLabel: 'Save This Student Loan Plan',
+    ctaHelperText: 'Free account - track payments and payoff changes',
     introTitle: 'How to Pay Off Student Loans Faster',
     introBody:
-      'U.S. student loan debt exceeds $1.7 trillion, with the average graduate owing $28,000. Whether you have federal or private loans, this free calculator shows you exactly when you\'ll be loan-free—and how much interest you\'ll pay along the way. Many borrowers don\'t realize they could be free years earlier by directing extra payments strategically. This student loan payoff calculator models both federal and private loans, compares repayment strategies, and shows you exactly how extra payments compound. Enter your loan details and monthly budget to discover your debt-free date.',
+      'U.S. student loan debt exceeds $1.7 trillion, with the average graduate owing $28,000. Whether you have federal or private loans, this free calculator shows your projected loan-free date—and how much interest you\'ll pay along the way. Many borrowers don\'t realize they could be free years earlier by directing extra payments strategically. This student loan payoff calculator models both federal and private loans, compares repayment strategies, and shows how extra payments may compound. Enter your loan details and monthly budget to discover your projected debt-free date.',
     contentIntroTitle: 'How to use this student loan payoff calculator',
     contentIntroBody:
-      'Enter your federal and private loan balances, interest rates, and monthly income to see your exact payoff date and compare strategies. This calculator works for any combination of loan types.',
+      'Enter your federal and private loan balances, interest rates, and monthly income to see your projected payoff date and compare strategies. This calculator works for any combination of loan types.',
     contentSections: [
       {
         title: 'Federal vs private student loans—key differences',
@@ -264,7 +264,7 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
     pageTitle: 'Auto Loan Payoff Calculator | Pay Off Your Car Loan Early',
     heroTitle: 'Auto Loan Payoff Calculator',
     heroDescription:
-      'See how quickly you can pay off your car loan and how much interest you save with extra payments. Enter your balance, rate, and payment to get an exact payoff date.',
+      'See how quickly you can pay off your car loan and how much interest you save with extra payments. Enter your balance, rate, and payment to get a projected payoff date.',
     loadExampleLabel: 'Load Auto Loan Example',
     debtCategory: 'Auto Loan',
     defaultMethod: 'snowball',
@@ -275,11 +275,11 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
     defaultTakeHome: '5000',
     defaultEssential: '2600',
     defaultExtra: '100',
-    ctaLabel: 'Save My Car Loan Plan',
+    ctaLabel: 'Save This Car Loan Plan',
     ctaHelperText: 'Free account - track real payoff progress',
     introTitle: 'How to Pay Off Your Car Loan Early',
     introBody:
-      'The average auto loan runs 60–84 months at 5%–8% interest, meaning most drivers spend 5–7 years paying for their car. Many don\'t realize how much interest they\'re paying or how quickly extra payments can cut years off the loan. This free auto loan payoff calculator shows you exactly when you\'ll own your car outright—and how much interest you\'ll save by paying extra. Whether you\'re carrying negative equity or want to eliminate a car payment faster, this calculator helps you model the fastest path to ownership.',
+      'The average auto loan runs 60–84 months at 5%–8% interest, meaning most drivers spend 5–7 years paying for their car. Many don\'t realize how much interest they\'re paying or how quickly extra payments can cut years off the loan. This free auto loan payoff calculator shows your projected payoff month—and how much interest you may save by paying extra. Whether you\'re carrying negative equity or want to eliminate a car payment faster, this calculator helps you model a realistic path to ownership.',
     contentIntroTitle: 'How to use this auto loan payoff calculator',
     contentIntroBody:
       'Enter your current car loan balance, APR, and monthly payment to see your debt-free date and how extra payments shorten the loan.',
@@ -314,12 +314,12 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
       {
         question: 'How long will it take to pay off my car loan?',
         answer:
-          'Standard auto loans run 60–84 months. Adding extra payments can cut this significantly. Use this calculator to enter your balance, APR, and planned payment to see your exact payoff date.',
+          'Standard auto loans run 60–84 months. Adding extra payments can cut this significantly. Use this calculator to enter your balance, APR, and planned payment to see your projected payoff date.',
       },
       {
         question: 'How much interest will I pay on an auto loan?',
         answer:
-          'Interest depends on your principal, APR, and loan term. A $20,000 loan at 6% over 60 months costs about $3,150 in interest. This calculator shows the exact amount plus how much you save with extra payments.',
+          'Interest depends on your principal, APR, and loan term. A $20,000 loan at 6% over 60 months costs about $3,150 in interest. This calculator shows the estimated amount plus how much you save with extra payments.',
       },
       {
         question: 'Can I pay off my car loan early without penalty?',
@@ -364,11 +364,11 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
     defaultTakeHome: '4800',
     defaultEssential: '2300',
     defaultExtra: '100',
-    ctaLabel: 'Save My Loan Plan',
-    ctaHelperText: 'Free account - track payments and stay on schedule',
+    ctaLabel: 'Save This Loan Plan',
+    ctaHelperText: 'Free account - track payments and payoff changes',
     introTitle: 'Calculate Your Personal Loan Payoff Date',
     introBody:
-      'Personal loans offer fixed rates and predictable payment schedules, making them popular for consolidating debt or funding large expenses. But many borrowers never calculate whether they could pay off faster with extra payments—or how much interest that would save. This free personal loan payoff calculator shows your exact debt-free date and reveals how much early payoff costs vs. keeping your current schedule. Whether you received a bonus, windfall, or simply want to understand your financial timeline, this tool helps you model the impact of extra payments.',
+      'Personal loans offer fixed rates and predictable payment schedules, making them popular for consolidating debt or funding large expenses. But many borrowers never calculate whether they could pay off faster with extra payments—or how much interest that would save. This free personal loan payoff calculator shows your projected debt-free date and reveals how much early payoff costs vs. keeping your current schedule. Whether you received a bonus, windfall, or simply want to understand your financial timeline, this tool helps you model the impact of extra payments.',
     contentIntroTitle: 'How to use this personal loan payoff calculator',
     contentIntroBody:
       'Enter your loan balance, interest rate, and monthly payment to calculate your payoff timeline and see how extra payments reduce total interest.',
@@ -403,12 +403,12 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
       {
         question: 'How to pay off personal loan early',
         answer:
-          'Make extra payments toward principal whenever possible. Even $25–50 extra per month shortens your timeline and saves interest. This calculator shows the exact impact of different payment amounts.',
+          'Make extra payments toward principal whenever possible. Even $25–50 extra per month shortens your timeline and saves interest. This calculator shows the projected impact of different payment amounts.',
       },
       {
         question: 'How long will it take to pay off a personal loan',
         answer:
-          'Personal loans typically run 2–7 years. Enter your specific balance, rate, and payment into this calculator to see your exact payoff date. Extra payments can cut this significantly.',
+          'Personal loans typically run 2–7 years. Enter your specific balance, rate, and payment into this calculator to see your projected payoff date. Extra payments can cut this significantly.',
       },
       {
         question: 'Can I pay off my personal loan early without penalty',
@@ -418,7 +418,7 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
       {
         question: 'How much interest will I pay on a personal loan',
         answer:
-          'Interest depends on your principal, rate, and term. A $10,000 loan at 10% over 5 years costs roughly $2,748 in interest. This calculator shows your exact amount and savings from early payoff.',
+          'Interest depends on your principal, rate, and term. A $10,000 loan at 10% over 5 years costs roughly $2,748 in interest. This calculator shows your estimated amount and savings from early payoff.',
       },
       {
         question: 'Should I consolidate multiple debts into one personal loan',
@@ -442,7 +442,7 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
     pageTitle: 'Credit Card Payoff Calculator | Find Your Debt-Free Date',
     heroTitle: 'Credit Card Payoff Calculator',
     heroDescription:
-      'Discover your exact debt-free date and see how much interest you\'ll pay. Compare Snowball vs Avalanche strategies and find the fastest path to freedom.',
+      'Discover your projected debt-free date and see how much interest you\'ll pay. Compare Snowball vs Avalanche strategies and find a realistic path to zero.',
     loadExampleLabel: 'Load Credit Card Example',
     debtCategory: 'Credit Card',
     defaultMethod: 'snowball',
@@ -453,14 +453,14 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
     defaultTakeHome: '5200',
     defaultEssential: '2400',
     defaultExtra: '150',
-    ctaLabel: 'Save My Credit Card Plan',
+    ctaLabel: 'Save This Credit Card Plan',
     ctaHelperText: 'Free account - track real balances and payments',
     introTitle: 'How Long Will It Take to Pay Off Credit Card Debt?',
     introBody:
-      'The average American household carries $38,000 in credit card debt across multiple cards. At 24% APR, many people spend years paying off balances while more than half their payment goes to interest. This free credit card payoff calculator shows you exactly when you\'ll be debt-free—and how much interest you\'ll save by paying extra. Enter your card balance, APR, and monthly budget to see your debt-free date, compare the Snowball vs Avalanche methods, and discover how extra payments compound to accelerate your freedom.',
+      'The average American household carries $38,000 in credit card debt across multiple cards. At 24% APR, many people spend years paying off balances while more than half their payment goes to interest. This free credit card payoff calculator shows your projected debt-free date—and how much interest you may save by paying extra. Enter your card balance, APR, and monthly budget to see your debt-free date, compare the Snowball vs Avalanche methods, and discover how extra payments can move the plan forward.',
     contentIntroTitle: 'How to use this credit card payoff calculator',
     contentIntroBody:
-      'Use this calculator to estimate your debt-free date, compare minimum payments against extra payments, and see exactly how much credit card interest is costing you. Enter your card details and monthly budget to get started.',
+      'Use this calculator to estimate your debt-free date, compare minimum payments against extra payments, and see how much credit card interest may cost you. Enter your card details and monthly budget to get started.',
     contentSections: [
       {
         title: 'How credit card interest slows payoff',
@@ -475,7 +475,7 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
       {
         title: 'How much faster extra payments work',
         body:
-          'Every dollar above the minimum goes straight to principal. That reduces next month\'s interest charge, which accelerates the payoff curve and compounds over time. Even $50 extra per month makes a dramatic difference. Using the same $10,000 example at 25% APR: paying $350/month instead of $300/month shortens your payoff from 60+ months to roughly 38 months, saving you nearly $2,000 in interest. The earlier you make extra payments, the more you save, because you\'re reducing the principal that future interest is calculated on. This is why paying down debt aggressively early is so powerful—your interest savings compound faster than you might expect.',
+          'Every dollar above the minimum goes straight to principal. That reduces next month\'s interest charge, which accelerates the payoff curve and compounds over time. Even $50 extra per month can make a meaningful difference when the cash buffer supports it. Using the same $10,000 example at 25% APR: paying $350/month instead of $300/month shortens your payoff from 60+ months to roughly 38 months, saving you nearly $2,000 in interest. The earlier you make extra payments, the more you save, because you\'re reducing the principal that future interest is calculated on.',
       },
       {
         title: 'Snowball vs avalanche for credit cards',
@@ -495,7 +495,7 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
       {
         title: 'How to find room in your budget for extra payments',
         body:
-          'If minimum payments are all you can afford right now, that\'s okay—but this calculator can help you find even small amounts of extra cash. Look for subscriptions you\'ve forgotten about, dining-out costs, or entertainment spending. Even $25 extra per month cuts years off your payoff date. Some people use windfalls (tax refunds, bonuses, gifts) to make one large extra payment per year, which also compounds dramatically. The key is finding a sustainable extra amount you can maintain consistently.',
+          'If minimum payments are all you can afford right now, that\'s okay—but this calculator can help you find even small amounts of extra cash. Look for subscriptions you\'ve forgotten about, dining-out costs, or entertainment spending. Even $25 extra per month can move your payoff date when it fits your budget. Some people use windfalls (tax refunds, bonuses, gifts) to make one large extra payment per year, which can also reduce future interest. The key is finding a sustainable extra amount you can maintain consistently.',
       },
       {
         title: 'Should you consolidate multiple credit cards',
@@ -527,12 +527,12 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
       {
         question: 'How long will it take to pay off my credit card?',
         answer:
-          'It depends on your balance, APR, and monthly payment. Enter your details into this calculator to see your exact debt-free date. Paying the minimum could take 5+ years; adding extra payments can cut that in half.',
+          'It depends on your balance, APR, and monthly payment. Enter your details into this calculator to see your projected debt-free date. Paying the minimum could take 5+ years; adding extra payments can cut that in half.',
       },
       {
         question: 'How much interest will I pay on my credit card balance?',
         answer:
-          'Interest owed = (balance × APR / 12) per month, applied to the remaining balance. Higher APRs mean more interest. This calculator shows you the exact total, plus how much you save by paying extra.',
+          'Interest owed = (balance × APR / 12) per month, applied to the remaining balance. Higher APRs mean more interest. This calculator estimates the total, plus how much you may save by paying extra.',
       },
       {
         question: 'Should I use the Snowball or Avalanche method on credit card debt?',
@@ -545,9 +545,9 @@ export const calculatorConfigs: Record<string, CalculatorConfig> = {
           'High-interest credit card debt (20%+ APR) usually warrants aggressive payoff over saving, since the interest you save exceeds typical investment returns. Balance emergency savings ($1,000–2,000) with debt payoff.',
       },
       {
-        question: 'What is the fastest way to pay off credit card debt?',
+        question: 'What is a realistic way to pay off credit card debt faster?',
         answer:
-          'The fastest method is the Avalanche (pay highest APR first) combined with the largest extra payments you can afford. Even $100 extra per month dramatically shortens your timeline.',
+          'Avalanche targets the highest APR first, which usually lowers interest cost. Pair it with the largest sustainable extra payment your budget can handle after essentials, minimums, and a cash buffer.',
       },
       {
         question: 'Will paying off credit cards improve my credit score?',

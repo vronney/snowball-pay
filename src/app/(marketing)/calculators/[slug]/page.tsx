@@ -115,7 +115,7 @@ export default function CalculatorSlugPage({
       {
         "@type": "HowToStep",
         name: "See your results",
-        text: "View your exact debt-free date, total interest paid, and comparison to minimum payments",
+        text: "View your projected debt-free date, total interest paid, and comparison to minimum payments",
       },
     ],
   };

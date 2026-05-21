@@ -29,6 +29,14 @@ const faqs = [
     q: "Can I change my payoff strategy after I start?",
     a: "Yes. You can switch between Snowball and Avalanche or define a custom order. Your projected timeline updates automatically.",
   },
+  {
+    q: "What does Pro add beyond the free plan?",
+    a: "Free helps you build the first payoff plan. Pro is for follow-through: unlimited debts, custom priority order, debt-free lever charts, monthly payoff coach notes, and buffer guardrails when the plan needs attention.",
+  },
+  {
+    q: "Is SnowballPay a debt settlement or debt relief service?",
+    a: "No. SnowballPay is a planning and tracking tool. It does not negotiate, settle, or reduce debts for you. It helps you understand payoff order, monthly progress, and possible next steps.",
+  },
 ];
 
 export default function FAQ() {

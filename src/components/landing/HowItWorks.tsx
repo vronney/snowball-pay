@@ -331,7 +331,7 @@ export default function HowItWorks() {
             See the plan take shape before you commit.
           </h2>
           <p style={{ fontSize: "17px", color: "#536078", maxWidth: "520px", margin: "0 auto", lineHeight: 1.72 }}>
-            A visual walkthrough helps new users understand exactly what they enter, what SnowballPay calculates, and what they track after the first plan is built.
+            A visual walkthrough helps new users understand what they enter, what SnowballPay calculates, and what they track after the first plan is built.
           </p>
         </div>
 

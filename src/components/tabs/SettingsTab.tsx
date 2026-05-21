@@ -416,8 +416,8 @@ export default function SettingsTab({ user }: SettingsTabProps) {
               </p>
             ) : (
               <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
-                Upgrade to unlock AI recommendations, unlimited debts, advanced
-                analytics, and more.
+                Upgrade to unlock Payoff Coach reviews, unlimited debts,
+                custom priority order, and deeper payoff charts.
               </p>
             )}
           </div>

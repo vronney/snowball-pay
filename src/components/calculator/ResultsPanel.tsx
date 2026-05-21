@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Calculator, ArrowRight } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import BalanceOverTimeChart, {
@@ -41,11 +41,21 @@ export default function ResultsPanel({
   effectiveAccel,
   showMinimumsLine,
   timeStr,
-  savePlanLabel = "Save My Plan - It\'s Free",
-  savePlanHelperText = "No credit card - Takes 30 seconds",
+  savePlanLabel = "Save This Plan and Track Progress",
+  savePlanHelperText = "Free account - no card required",
   onboardingPrefill,
 }: ResultsPanelProps) {
   const [modalOpen, setModalOpen] = useState(false);
+  const resultTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (!planResult || resultTrackedRef.current) return;
+    resultTrackedRef.current = true;
+    track(Events.CALCULATOR_RESULT_VIEWED, {
+      months: planResult.months,
+      debts: planResult.payoffSchedule.length,
+    });
+  }, [planResult]);
 
   if (!planResult) {
     return (
@@ -149,6 +159,10 @@ export default function ResultsPanel({
         <button
           onClick={() => {
             track(Events.CALCULATOR_USED, { months: planResult.months });
+            track(Events.CALCULATOR_SAVE_CLICKED, {
+              source: "results_primary",
+              months: planResult.months,
+            });
             setModalOpen(true);
           }}
           className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition"
@@ -222,15 +236,19 @@ export default function ResultsPanel({
         }}
       >
         <div className="text-lg font-semibold mb-1">
-          Ready to follow your plan?
+          Ready to turn this result into a monthly plan?
         </div>
         <p className="text-sm mb-5" style={{ color: "#475569" }}>
           Create a free account to track payments, log your actual balance each
-          month, and watch your real progress vs the plan.
+          month, and see how every payment changes the forecast.
         </p>
         <button
           onClick={() => {
             track(Events.CALCULATOR_USED, { months: planResult.months });
+            track(Events.CALCULATOR_SAVE_CLICKED, {
+              source: "results_secondary",
+              months: planResult.months,
+            });
             setModalOpen(true);
           }}
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition"

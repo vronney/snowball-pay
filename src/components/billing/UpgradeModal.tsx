@@ -4,17 +4,33 @@ import { useEffect } from 'react';
 import { Sparkles, X, Check, Zap } from 'lucide-react';
 import { getErrorMessage, useStartCheckout } from '@/lib/hooks';
 import { PLANS } from '@/lib/stripe';
+import { track, Events } from '@/lib/analytics';
 
 interface UpgradeModalProps {
   feature?: string;
   onClose: () => void;
 }
 
+const proBenefits = [
+  'Unlimited debts and custom priority order',
+  'Monthly payoff audit with chart coach notes',
+  'Payment calendar risk and cash-flow guardrails',
+  'APR negotiation scripts with dollar context',
+  'Exportable payoff plan data',
+];
+
 export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
   const checkout = useStartCheckout();
   const checkoutError = checkout.isError
     ? getErrorMessage(checkout.error, 'Could not start checkout. Please try again.')
     : null;
+
+  useEffect(() => {
+    track(Events.UPGRADE_MODAL_VIEWED, {
+      feature: feature ?? 'general',
+      source: 'dashboard_upgrade_modal',
+    });
+  }, [feature]);
 
   // Close on Escape
   useEffect(() => {
@@ -63,13 +79,13 @@ export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
 
         {/* Heading */}
         <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', margin: '0 0 8px' }}>
-          Upgrade to Pro
+          Unlock the Payoff Coach
         </h2>
         <p style={{ fontSize: '14px', color: '#64748b', margin: '0 0 24px', lineHeight: 1.5 }}>
           {feature
             ? `${feature} is a Pro feature.`
-            : 'Unlock all premium features.'}{' '}
-          Start your 7-day free trial — no card required until after the trial.
+            : 'Pro turns your charts into a monthly review with a clear next move.'}{' '}
+          Start your 7-day free trial. Cancel before billing if it does not help you stay on plan.
         </p>
 
         {/* Features */}
@@ -78,7 +94,7 @@ export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
           padding: '16px', marginBottom: '24px',
           display: 'flex', flexDirection: 'column', gap: '10px',
         }}>
-          {PLANS.pro.features.map((f) => (
+          {proBenefits.map((f) => (
             <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <div style={{
                 width: '18px', height: '18px', borderRadius: '50%',
@@ -100,7 +116,13 @@ export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
 
         {/* CTA */}
         <button
-          onClick={() => checkout.mutate()}
+          onClick={() => {
+            track(Events.CHECKOUT_STARTED, {
+              source: 'upgrade_modal',
+              feature: feature ?? 'general',
+            });
+            checkout.mutate();
+          }}
           disabled={checkout.isPending}
           style={{
             width: '100%', padding: '13px',

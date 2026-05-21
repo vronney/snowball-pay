@@ -17,7 +17,7 @@
   },
   {
     quote:
-      "I changed my payment amount after a job switch and my whole plan adjusted instantly.",
+      "I changed my payment amount after a job switch and my plan updated around the new budget.",
     name: "Nina S.",
     context: "Beta user - life change",
     tag: "Flexibility",

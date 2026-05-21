@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, ArrowRight, Loader2 } from "lucide-react";
 import { track, Events } from "@/lib/analytics";
 
@@ -31,6 +31,10 @@ export default function SavePlanModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    track(Events.SAVE_PLAN_MODAL_VIEWED, { source: "calculator_result" });
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -43,6 +47,7 @@ export default function SavePlanModal({
 
     setLoading(true);
     track(Events.PLAN_SAVED_EMAIL, { email_domain: trimmed.split("@")[1] });
+    track(Events.SIGNUP_STARTED, { source: "save_plan_modal" });
 
     const returnToParams = new URLSearchParams({
       source: "calculator",
@@ -146,7 +151,7 @@ export default function SavePlanModal({
               marginBottom: "8px",
             }}
           >
-            Save your debt-free plan
+            Save this payoff plan
           </h2>
           <p style={{ fontSize: "14px", color: "#64748b", lineHeight: 1.6 }}>
             You&apos;re on track to be debt-free by{" "}
@@ -161,7 +166,8 @@ export default function SavePlanModal({
                 in interest
               </>
             )}
-            . Create a free account to track your real progress.
+            . Create a free account to track real balances and keep this
+            forecast updated.
           </p>
         </div>
 
@@ -238,7 +244,7 @@ export default function SavePlanModal({
               </>
             ) : (
               <>
-                Save My Plan — It&apos;s Free <ArrowRight size={15} />
+                Save Plan and Continue <ArrowRight size={15} />
               </>
             )}
           </button>

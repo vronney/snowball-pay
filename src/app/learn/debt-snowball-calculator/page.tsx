@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Free Debt Snowball Calculator — See Your Exact Payoff Date',
+  title: 'Free Debt Snowball Calculator — See Your Projected Payoff Date',
   description:
-    'Use our free debt snowball calculator to see exactly when you\'ll be debt-free, how much interest you\'ll save, and your month-by-month payoff plan. No signup required.',
+    'Use our free debt snowball calculator to see your projected debt-free date, how much interest you\'ll save, and your month-by-month payoff plan. No signup required.',
   keywords: [
     'debt snowball calculator',
     'debt payoff calculator',
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Free Debt Snowball Calculator',
-    description: 'See exactly when you\'ll be debt-free and how much interest you\'ll save.',
+    description: 'See your projected debt-free date and how much interest you may save.',
     url: 'https://getsnowballpay.com/learn/debt-snowball-calculator',
   },
 };
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Article',
-  headline: 'Free Debt Snowball Calculator — See Your Exact Payoff Date',
+    headline: 'Free Debt Snowball Calculator — See Your Projected Payoff Date',
   description: 'Comprehensive guide to using the debt snowball method with a free interactive calculator.',
   author: { '@type': 'Organization', name: 'SnowballPay' },
   publisher: { '@type': 'Organization', name: 'SnowballPay', url: 'https://getsnowballpay.com' },
@@ -76,7 +76,7 @@ export default function DebtSnowballCalculatorPage() {
             Free Debt Snowball Calculator
           </h1>
           <p style={{ fontSize: '18px', color: '#475569', lineHeight: 1.7, marginBottom: '32px', maxWidth: '640px' }}>
-            See exactly when you&apos;ll be debt-free, how much interest you&apos;ll save, and get a
+            See your projected debt-free date, how much interest you&apos;ll save, and get a
             month-by-month payoff plan — in under 2 minutes. No account required.
           </p>
 

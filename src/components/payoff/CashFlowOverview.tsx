@@ -37,15 +37,15 @@ export default function CashFlowOverview({
           <span className="mono font-semibold">{formatCurrency(income.monthlyTakeHome)}</span>
         </div>
         <div className="flex items-center justify-between" style={{ color: '#64748b' }}>
-          <span className="ml-2">− Essential Expenses</span>
+          <span className="ml-2">- Essential Expenses</span>
           <span className="mono">{formatCurrency(income.essentialExpenses)}</span>
         </div>
         <div className="flex items-center justify-between" style={{ color: '#64748b' }}>
-          <span className="ml-2">− Recurring Expenses</span>
+          <span className="ml-2">- Recurring Expenses</span>
           <span className="mono">{formatCurrency(recurringTotal)}</span>
         </div>
         <div className="flex items-center justify-between" style={{ color: '#64748b' }}>
-          <span className="ml-2">− Minimum Debt Payments</span>
+          <span className="ml-2">- Minimum Debt Payments</span>
           <span className="mono">{formatCurrency(totalMinPayments)}</span>
         </div>
         <div className="flex items-center justify-between p-2 rounded-lg mt-2" style={{ background: 'rgba(37,99,235,0.08)' }}>
@@ -62,7 +62,7 @@ export default function CashFlowOverview({
               <span className="text-xs" style={{ color: '#64748b' }}>Apply to Acceleration</span>
               <div className="flex items-center gap-2">
                 {saveIsPending && (
-                  <span style={{ fontSize: '10px', color: '#64748b' }}>saving…</span>
+                  <span style={{ fontSize: '10px', color: '#64748b' }}>saving...</span>
                 )}
                 {saveIsSuccess && !saveIsPending && (
                   <span style={{ fontSize: '10px', color: '#22c55e' }}>saved</span>

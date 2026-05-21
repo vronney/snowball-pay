@@ -43,6 +43,73 @@ const INNER_STYLE = {
   border: "1px solid rgba(15,23,42,0.08)",
 };
 
+function CoachStrip({
+  tone,
+  title,
+  evidence,
+  action,
+}: {
+  tone: "good" | "warn" | "neutral";
+  title: string;
+  evidence: string;
+  action: string;
+}) {
+  const palette =
+    tone === "good"
+      ? {
+          bg: "rgba(5,150,105,0.08)",
+          border: "rgba(5,150,105,0.18)",
+          color: "#047857",
+          label: "Keep",
+        }
+      : tone === "warn"
+        ? {
+            bg: "rgba(217,119,6,0.10)",
+            border: "rgba(217,119,6,0.22)",
+            color: "#a16207",
+            label: "Watch",
+          }
+        : {
+            bg: "#f8fafc",
+            border: "rgba(15,23,42,0.10)",
+            color: "#334155",
+            label: "Read",
+          };
+
+  return (
+    <div
+      className="rounded-xl p-3"
+      style={{ background: palette.bg, border: `1px solid ${palette.border}` }}
+    >
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <span
+          className="rounded-md bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+          style={{ color: palette.color, border: `1px solid ${palette.border}` }}
+        >
+          Coach {palette.label}
+        </span>
+        <p className="text-xs font-semibold" style={{ color: "#0f172a" }}>
+          {title}
+        </p>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        <p className="text-xs leading-relaxed" style={{ color: "#475569" }}>
+          <span className="font-semibold" style={{ color: palette.color }}>
+            Evidence:{" "}
+          </span>
+          {evidence}
+        </p>
+        <p className="text-xs leading-relaxed" style={{ color: "#475569" }}>
+          <span className="font-semibold" style={{ color: palette.color }}>
+            Action:{" "}
+          </span>
+          {action}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 interface IntelligenceOverviewCardProps {
   planResult: PayoffResult;
   minimumsOnlyResult: PayoffResult;
@@ -75,6 +142,27 @@ export function IntelligenceOverviewCard({
     border: "1px solid #bfdbfe",
     boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
   };
+  const coach =
+    debtCoveragePct >= 35
+      ? {
+          tone: "warn" as const,
+          title: "Debt payments are taking a large share of income",
+          evidence: `${formatCurrency(monthlyDebtSpend)}/mo is ${debtCoveragePct.toFixed(1)}% of take-home pay.`,
+          action: "Keep acceleration below the point where the cash buffer breaks.",
+        }
+      : monthsSaved > 0
+        ? {
+            tone: "good" as const,
+            title: "This plan is doing measurable work",
+            evidence: `${formatCurrency(effectiveAcceleration)}/mo extra saves ${monthsSaved} months and ${formatCurrency(interestSaved)} in projected interest.`,
+            action: `Keep the next payment focused until ${nextDebtLabel} is cleared.`,
+          }
+        : {
+            tone: "neutral" as const,
+            title: "This is the baseline pace",
+            evidence: "The current plan does not yet show a timeline gain against minimum payments.",
+            action: "Use Strategy Lab to test the first extra payment amount.",
+          };
 
   return (
     <div
@@ -83,8 +171,12 @@ export function IntelligenceOverviewCard({
     >
       <div className="flex items-center gap-2">
         <Gauge size={16} style={{ color: "#2563eb" }} />
-        <h3 className="text-sm font-semibold">Plan Command Center</h3>
+        <h3 className="text-sm font-semibold">
+          Payoff coach and plan metrics
+        </h3>
       </div>
+
+      <CoachStrip {...coach} />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="rounded-xl p-3" style={INNER_STYLE}>
@@ -139,8 +231,8 @@ export function IntelligenceOverviewCard({
       </div>
 
       <p className="text-xs" style={{ color: "#64748b" }}>
-        Acceleration is set to {formatCurrency(effectiveAcceleration)}/mo.
-        Adjust in Strategy Lab to tune speed vs buffer.
+        Charts stay available for the deeper read. The coach layer turns those
+        numbers into the next payment decision.
       </p>
     </div>
   );
@@ -167,7 +259,7 @@ export function ForecastCard({
       <div className="flex items-center gap-2 mb-3">
         <Target size={16} style={{ color: "#2563eb" }} />
         <h3 className="text-sm font-semibold">
-          Debt-Free Forecast and Plan Tracking
+          Forecast: date, confidence, and drift
         </h3>
       </div>
       <div className="grid grid-cols-2 gap-3 mb-3">
@@ -242,7 +334,7 @@ export function StrategyLabCard({
       <div className="flex items-center gap-2 mb-3">
         <TrendingUp size={16} style={{ color: "#2563eb" }} />
         <h3 className="text-sm font-semibold">
-          Strategy Lab and What-If Simulator
+          Strategy Lab: test the next dollar
         </h3>
       </div>
       <div className="grid grid-cols-3 gap-2 mb-3">
@@ -328,7 +420,9 @@ export function MethodMatrixCard({ strategyMatrix }: MethodMatrixCardProps) {
     >
       <div className="flex items-center gap-2 mb-3">
         <LayoutGrid size={16} style={{ color: "#2563eb" }} />
-        <h3 className="text-sm font-semibold">Method Comparison Matrix</h3>
+        <h3 className="text-sm font-semibold">
+          Method comparison: which plan wins?
+        </h3>
       </div>
       <div className="space-y-2 flex-1">
         {strategyMatrix.map((row) => (
@@ -386,7 +480,7 @@ export function MethodMatrixCard({ strategyMatrix }: MethodMatrixCardProps) {
         ))}
       </div>
       <p className="text-xs mt-3" style={{ color: "#64748b" }}>
-        Comparison reflects your current what-if extra amount.
+        Recommended means the shortest projected timeline at this extra amount.
       </p>
     </div>
   );
@@ -426,7 +520,9 @@ export function CashFlowMixCard({
     >
       <div className="flex items-center gap-2 mb-3">
         <PiggyBank size={16} style={{ color: "#2563eb" }} />
-        <h3 className="text-sm font-semibold">Cash Flow Mix</h3>
+        <h3 className="text-sm font-semibold">
+          Buffer after debt payments
+        </h3>
       </div>
 
       <div className="rounded-lg p-3 mb-3" style={INNER_STYLE}>
@@ -516,7 +612,7 @@ export function SmartCalendarCard({
     >
       <div className="flex items-center gap-2 mb-3">
         <CalendarClock size={16} style={{ color: "#2563eb" }} />
-        <h3 className="text-sm font-semibold">Smart Payment Calendar</h3>
+        <h3 className="text-sm font-semibold">Payment calendar risk</h3>
       </div>
       <div
         className="rounded-lg p-3 mb-3"
@@ -598,7 +694,9 @@ export function GuardrailsCard({
     >
       <div className="flex items-center gap-2 mb-3">
         <Shield size={16} style={{ color: "#2563eb" }} />
-        <h3 className="text-sm font-semibold">Interest Leak and Guardrails</h3>
+        <h3 className="text-sm font-semibold">
+          Interest leak and buffer guardrail
+        </h3>
       </div>
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div className="rounded-xl p-3" style={INNER_STYLE}>
@@ -657,7 +755,7 @@ export function PriorityQueueCard({
       <div className="flex items-center gap-2 mb-3">
         <ListChecks size={16} style={{ color: "#2563eb" }} />
         <h3 className="text-sm font-semibold">
-          Priority Queue and Action Center
+          Payment order and action checklist
         </h3>
       </div>
       <div className="space-y-2 mb-3 flex-1">
@@ -718,7 +816,7 @@ export function MilestonesCard({
       <div className="flex items-center gap-2 mb-3">
         <BadgeCheck size={16} style={{ color: "#2563eb" }} />
         <h3 className="text-sm font-semibold">
-          Milestones and Refinance Opportunities
+          Progress milestones and rate opportunities
         </h3>
       </div>
       <div className="rounded-lg p-3 mb-3" style={INNER_STYLE}>
@@ -771,7 +869,9 @@ export function ExplainableInsightsCard({ insights }: { insights: Insight[] }) {
     >
       <div className="flex items-center gap-2 mb-3">
         <Wrench size={16} style={{ color: "#2563eb" }} />
-        <h3 className="text-sm font-semibold">Explainable Insights</h3>
+        <h3 className="text-sm font-semibold">
+          Why these moves matter
+        </h3>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {insights.map((insight) => (

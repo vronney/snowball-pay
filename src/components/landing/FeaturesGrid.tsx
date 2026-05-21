@@ -64,14 +64,14 @@ const supportFeatures = [
     Icon: IconGuardrail,
   },
   {
-    title: "What-if simulations",
-    desc: "Test an extra payment, a strategy switch, or a custom priority queue before changing the plan.",
+    title: "Debt-free lever chart",
+    desc: "See whether +$25, +$50, +$100, or +$200 a month changes your payoff date, interest cost, and cash buffer.",
     accent: "#d97706",
     Icon: IconScenario,
   },
   {
     title: "Planner intelligence",
-    desc: "Use guidance, risk flags, and monthly change summaries when you need help staying consistent.",
+    desc: "Turn the charts into a simple coach read: what changed, why it matters, and what payment move to make next.",
     accent: "#7c3aed",
     Icon: IconTarget,
   },
@@ -91,7 +91,7 @@ export default function FeaturesGrid() {
         <div style={{ maxWidth: "680px", marginBottom: "64px" }}>
           <div className="lp-section-tag">
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#2563eb" }} />
-            Planner system
+            Debt-free progress coach
           </div>
           <h2
             style={{
@@ -103,10 +103,10 @@ export default function FeaturesGrid() {
               lineHeight: 1.04,
             }}
           >
-            Built around the decision people avoid every month.
+            Built around the money decision people avoid every month.
           </h2>
           <p style={{ fontSize: "17px", color: "#536078", maxWidth: "560px", lineHeight: 1.72, margin: 0 }}>
-            SnowballPay keeps the plan specific: what to pay first, how much progress you made, and when your current path reaches zero.
+            SnowballPay keeps the plan specific: what to pay first, how much progress you made, what the chart is saying, and when your current path reaches zero.
           </p>
         </div>
 

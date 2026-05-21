@@ -6,21 +6,21 @@ import { GoogleAdsPageViewConversion } from "@/components/GoogleAdsConversion";
 export const metadata: Metadata = {
   title: "Free Debt Payoff Calculator — Snowball & Avalanche",
   description:
-    "Discover your exact debt-free date and see how much interest you'll pay. Compare Snowball vs Avalanche strategies—free, no account required.",
+    "Discover your projected debt-free date and see how much interest you'll pay. Compare Snowball vs Avalanche strategies - free, no account required.",
   alternates: {
     canonical: "https://getsnowballpay.com/calculator",
   },
   openGraph: {
     title: "Free Debt Payoff Calculator — Snowball & Avalanche",
     description:
-      "See exactly when you'll be debt-free. Compare Snowball vs Avalanche. No signup required.",
+      "See your projected debt-free date. Compare Snowball vs Avalanche. No signup required.",
     url: "https://getsnowballpay.com/calculator",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: "Free Debt Payoff Calculator — Snowball & Avalanche",
-    description: "See exactly when you'll be debt-free. No signup required.",
+    description: "See your projected debt-free date. No signup required.",
   },
 };
 
@@ -34,7 +34,7 @@ export default function CalculatorPage() {
     operatingSystem: "Web",
     offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
     description:
-      "Calculate your exact debt-free date in seconds. Compare the Debt Snowball vs Avalanche method, see total interest saved, and get a personalized payoff plan — free, no account required.",
+      "Calculate your projected debt-free date in seconds. Compare the Debt Snowball vs Avalanche method, see total interest saved, and get a personalized payoff plan - free, no account required.",
     featureList: [
       "Debt Snowball payoff calculation",
       "Debt Avalanche payoff calculation",
@@ -81,7 +81,7 @@ export default function CalculatorPage() {
       {
         "@type": "HowToStep",
         name: "See your results",
-        text: "View your exact debt-free date, total interest paid, and comparison to minimum payments",
+        text: "View your projected debt-free date, total interest paid, and comparison to minimum payments",
       },
     ],
   };

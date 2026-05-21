@@ -1,32 +1,41 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Debt, Income, BalanceSnapshot } from "@/types";
+import { BalanceSnapshot, Debt, Expense, Income } from "@/types";
 import { type Tab } from "@/components/dashboard/types";
 import { useAllSnapshots } from "@/lib/hooks";
 import { formatCurrency } from "@/lib/utils";
 import {
-  TrendingDown,
-  CheckCircle2,
-  Flame,
+  BadgeCheck,
+  BadgeDollarSign,
   Calendar,
+  CheckCircle2,
   ChevronRight,
+  Flame,
+  Percent,
+  Target,
+  TrendingDown,
   TrendingUp,
+  Trophy,
+  Zap,
+  type LucideIcon,
 } from "lucide-react";
 import {
-  ResponsiveContainer,
-  LineChart,
+  CartesianGrid,
   Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  Tooltip,
-  CartesianGrid,
 } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
+import DataInsights from "@/components/progress/DataInsights";
 
 interface ProgressTabProps {
   debts: Debt[];
   income: Income | null | undefined;
+  expenses: Expense[];
   isLoading: boolean;
   onNavigate: (tab: Tab) => void;
 }
@@ -72,26 +81,28 @@ interface ChartPoint {
 }
 
 function buildChartData(snapshots: BalanceSnapshot[]): ChartPoint[] {
-  // Aggregate total balance per month across all debts
   const byMonth = new Map<string, number>();
-  for (const s of snapshots) {
-    const key = s.recordedAt.slice(0, 7); // "YYYY-MM"
-    byMonth.set(key, (byMonth.get(key) ?? 0) + s.balance);
+
+  for (const snapshot of snapshots) {
+    const key = snapshot.recordedAt.slice(0, 7);
+    byMonth.set(key, (byMonth.get(key) ?? 0) + snapshot.balance);
   }
+
   const sorted = Array.from(byMonth.entries())
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, balance]) => ({
-      month: new Date(key + "-01").toLocaleDateString("en-US", {
+      month: new Date(`${key}-01`).toLocaleDateString("en-US", {
         month: "short",
         year: "2-digit",
       }),
       balance,
       paid: 0,
     }));
+
   const startBalance = sorted[0]?.balance ?? 0;
-  return sorted.map((p) => ({
-    ...p,
-    paid: Math.max(0, startBalance - p.balance),
+  return sorted.map((point) => ({
+    ...point,
+    paid: Math.max(0, startBalance - point.balance),
   }));
 }
 
@@ -115,6 +126,7 @@ function ChartTooltip({
   label?: string;
 }) {
   if (!active || !payload?.length) return null;
+
   return (
     <div
       className="rounded-xl px-3 py-2 text-sm"
@@ -133,11 +145,11 @@ function ChartTooltip({
 }
 
 function MilestoneRow({
-  emoji,
+  icon: Icon,
   label,
   achieved,
 }: {
-  emoji: string;
+  icon: LucideIcon;
   label: string;
   achieved: boolean;
 }) {
@@ -152,7 +164,17 @@ function MilestoneRow({
         opacity: achieved ? 1 : 0.55,
       }}
     >
-      <span style={{ fontSize: 20 }}>{emoji}</span>
+      <span
+        className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg"
+        style={{
+          background: achieved
+            ? "rgba(39,174,96,0.10)"
+            : "rgba(15,23,42,0.04)",
+          color: achieved ? "#27AE60" : "#94a3b8",
+        }}
+      >
+        <Icon size={16} />
+      </span>
       <span
         className="text-sm flex-1"
         style={{
@@ -172,6 +194,7 @@ function MilestoneRow({
 export default function ProgressTab({
   debts,
   income,
+  expenses,
   isLoading,
   onNavigate,
 }: ProgressTabProps) {
@@ -184,10 +207,10 @@ export default function ProgressTab({
   const chartData = useMemo(() => buildChartData(snapshots), [snapshots]);
   const [chartView, setChartView] = useState<"balance" | "paid">("balance");
 
-  // Stats derived from snapshots and current state
   const yDomain = useMemo((): [number, number] | [number, string] => {
     if (chartView === "paid" || chartData.length === 0) return [0, "auto"];
-    const balances = chartData.map((p) => p.balance);
+
+    const balances = chartData.map((point) => point.balance);
     const lo = Math.min(...balances);
     const hi = Math.max(...balances);
     const spread = hi - lo;
@@ -198,51 +221,33 @@ export default function ProgressTab({
       Math.floor((center - halfRange) / 1000) * 1000,
     );
     const domainMax = Math.ceil((center + halfRange) / 1000) * 1000;
+
     return [domainMin, domainMax];
   }, [chartData, chartView]);
 
-  // Stats derived from snapshots and current state
   const stats = useMemo(() => {
-    const startingBalance = snapshots.length
-      ? Math.max(...snapshots.map((s) => s.balance))
-      : 0;
-    // Sum all-time balance reductions per debt
-    const paidByDebt = new Map<string, { earliest: number; latest: number }>();
-    for (const s of snapshots) {
-      const existing = paidByDebt.get(s.debtId);
-      const bal = s.balance;
-      const ts = s.recordedAt;
-      if (!existing) {
-        paidByDebt.set(s.debtId, { earliest: bal, latest: bal });
-      } else {
-        if (ts < s.recordedAt) existing.earliest = bal;
-        if (ts > s.recordedAt) existing.latest = bal;
-      }
-    }
-
-    const currentTotal = debts.reduce((s, d) => s + d.balance, 0);
+    const currentTotal = debts.reduce((sum, debt) => sum + debt.balance, 0);
     const originalTotal = debts.reduce(
-      (s, d) => s + (d.originalBalance || d.balance),
+      (sum, debt) => sum + (debt.originalBalance || debt.balance),
       0,
     );
     const totalPaid = Math.max(0, originalTotal - currentTotal);
-    const paidOffCount = debts.filter((d) => d.balance <= 0).length;
+    const paidOffCount = debts.filter((debt) => debt.balance <= 0).length;
 
-    // Consecutive months with snapshots recorded
     const monthKeys = Array.from(
-      new Set(snapshots.map((s) => s.recordedAt.slice(0, 7))),
+      new Set(snapshots.map((snapshot) => snapshot.recordedAt.slice(0, 7))),
     ).sort();
     let streak = 0;
     if (monthKeys.length) {
       streak = 1;
-      for (let i = monthKeys.length - 1; i > 0; i--) {
-        const cur = new Date(monthKeys[i] + "-01");
-        const prev = new Date(monthKeys[i - 1] + "-01");
+      for (let i = monthKeys.length - 1; i > 0; i -= 1) {
+        const cur = new Date(`${monthKeys[i]}-01`);
+        const prev = new Date(`${monthKeys[i - 1]}-01`);
         const diffMonths =
           (cur.getFullYear() - prev.getFullYear()) * 12 +
           cur.getMonth() -
           prev.getMonth();
-        if (diffMonths === 1) streak++;
+        if (diffMonths === 1) streak += 1;
         else break;
       }
     }
@@ -250,41 +255,53 @@ export default function ProgressTab({
     return { currentTotal, totalPaid, paidOffCount, streak, originalTotal };
   }, [snapshots, debts]);
 
-  // Milestone achievements
   const milestones = useMemo(() => {
-    const { currentTotal, originalTotal } = stats;
     const pctPaid =
-      originalTotal > 0 ? (stats.totalPaid / originalTotal) * 100 : 0;
+      stats.originalTotal > 0 ? (stats.totalPaid / stats.originalTotal) * 100 : 0;
+
     return [
       {
-        emoji: "🎯",
+        icon: Target,
         label: "First payment recorded",
         achieved: snapshots.length > 0,
       },
       {
-        emoji: "💸",
+        icon: BadgeDollarSign,
         label: "First $1,000 paid",
         achieved: stats.totalPaid >= 1_000,
       },
       {
-        emoji: "📉",
+        icon: Percent,
         label: "First debt under 30% utilization",
         achieved: debts.some(
-          (d) => d.originalBalance > 0 && d.balance / d.originalBalance <= 0.3,
+          (debt) =>
+            debt.originalBalance > 0 && debt.balance / debt.originalBalance <= 0.3,
         ),
       },
       {
-        emoji: "⚡",
+        icon: Zap,
         label: "3-month payment streak",
         achieved: stats.streak >= 3,
       },
-      { emoji: "💪", label: "25% of total debt paid", achieved: pctPaid >= 25 },
-      { emoji: "🔥", label: "50% of total debt paid", achieved: pctPaid >= 50 },
-      { emoji: "🚀", label: "75% of total debt paid", achieved: pctPaid >= 75 },
       {
-        emoji: "🏆",
-        label: "Debt Free!",
-        achieved: currentTotal <= 0 && debts.length > 0,
+        icon: BadgeCheck,
+        label: "25% of total debt paid",
+        achieved: pctPaid >= 25,
+      },
+      {
+        icon: Flame,
+        label: "50% of total debt paid",
+        achieved: pctPaid >= 50,
+      },
+      {
+        icon: TrendingUp,
+        label: "75% of total debt paid",
+        achieved: pctPaid >= 75,
+      },
+      {
+        icon: Trophy,
+        label: "Debt Free",
+        achieved: stats.currentTotal <= 0 && debts.length > 0,
       },
     ];
   }, [stats, snapshots.length, debts]);
@@ -293,11 +310,15 @@ export default function ProgressTab({
     return (
       <section className="space-y-5">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[0, 1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 rounded-xl" />
+          {[0, 1, 2, 3].map((index) => (
+            <Skeleton key={index} className="h-20 rounded-xl" />
           ))}
         </div>
         <Skeleton className="h-64 rounded-xl" />
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <Skeleton className="h-80 rounded-2xl" />
+          <Skeleton className="h-80 rounded-2xl" />
+        </div>
       </section>
     );
   }
@@ -323,7 +344,7 @@ export default function ProgressTab({
         </p>
         <p className="text-sm mb-4" style={{ color: "#64748b" }}>
           Add your debts to see milestones, balance trends, and a running total
-          of how much you&apos;ve paid off over time.
+          of how much you have paid off over time.
         </p>
         <button
           onClick={() => onNavigate("debts")}
@@ -346,7 +367,6 @@ export default function ProgressTab({
 
   return (
     <section className="space-y-5">
-      {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard
           label="Total Paid"
@@ -375,13 +395,12 @@ export default function ProgressTab({
                 ? "Next reward at 6 months"
                 : stats.streak < 12
                   ? "Next reward at 12 months"
-                  : "Incredible consistency! 🏆"
+                  : "Consistent for a full year"
           }
           color="#7c3aed"
         />
       </div>
 
-      {/* Balance over time chart */}
       <div
         className="rounded-xl p-5"
         style={{
@@ -422,7 +441,7 @@ export default function ProgressTab({
                   cursor: "pointer",
                 }}
               >
-                Balance ↓
+                Balance
               </button>
               <button
                 onClick={() => setChartView("paid")}
@@ -437,7 +456,7 @@ export default function ProgressTab({
                   cursor: "pointer",
                 }}
               >
-                Paid Off ↑
+                Paid Off
               </button>
             </div>
           )}
@@ -498,7 +517,13 @@ export default function ProgressTab({
         )}
       </div>
 
-      {/* Milestones */}
+      <DataInsights
+        debts={debts}
+        income={income}
+        expenses={expenses}
+        snapshots={snapshots}
+      />
+
       <div
         className="rounded-xl p-5"
         style={{
@@ -513,8 +538,8 @@ export default function ProgressTab({
           </span>
         </div>
         <div className="space-y-2">
-          {milestones.map((m) => (
-            <MilestoneRow key={m.label} {...m} />
+          {milestones.map((milestone) => (
+            <MilestoneRow key={milestone.label} {...milestone} />
           ))}
         </div>
       </div>

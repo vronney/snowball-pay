@@ -183,11 +183,6 @@ export default function IncomeTab({
                     <>
                       {pctExp > 0 && (
                         <div
-                          style={{ width: `${pctExp}%`, background: "#64748b" }}
-                        />
-                      )}
-                      {pctExp > 0 && (
-                        <div
                           style={{
                             width: `${pctExp}%`,
                             background: "#64748b",

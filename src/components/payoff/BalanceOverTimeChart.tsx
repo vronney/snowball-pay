@@ -1,15 +1,15 @@
 'use client';
 
 import {
-  LineChart,
+  Area,
+  CartesianGrid,
+  ComposedChart,
   Line,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  ReferenceLine,
 } from 'recharts';
 import { formatCurrency } from '@/lib/utils';
 
@@ -33,6 +33,346 @@ interface BalanceOverTimeChartProps {
   comparisonLabel?: string;
 }
 
+type ChartValueKey =
+  | 'totalBalance'
+  | 'minimumsBalance'
+  | 'actualBalance'
+  | 'avalancheBalance';
+
+const PLAN_COLOR = '#2563eb';
+const ACTUAL_COLOR = '#059669';
+const MINIMUMS_COLOR = '#d97706';
+const COMPARISON_COLOR = '#0891b2';
+
+const lineMeta: Record<
+  ChartValueKey,
+  { color: string; label: string; description: string }
+> = {
+  totalBalance: {
+    color: PLAN_COLOR,
+    label: 'Selected plan',
+    description: 'Projected balance if you follow the current strategy.',
+  },
+  actualBalance: {
+    color: ACTUAL_COLOR,
+    label: 'Actual balance',
+    description: 'Recorded balance snapshots from payments or updates.',
+  },
+  minimumsBalance: {
+    color: MINIMUMS_COLOR,
+    label: 'Minimums only',
+    description: 'What happens if you stop at required payments.',
+  },
+  avalancheBalance: {
+    color: COMPARISON_COLOR,
+    label: 'Comparison',
+    description: 'The alternate strategy plotted against the selected plan.',
+  },
+};
+
+function getValue(entry: ChartEntry | undefined, key: ChartValueKey) {
+  const value = entry?.[key];
+  return typeof value === 'number' ? value : null;
+}
+
+function findFirstValue(data: ChartEntry[], key: ChartValueKey) {
+  return data.find((point) => getValue(point, key) != null)?.[key] ?? 0;
+}
+
+function findPayoffPoint(data: ChartEntry[], key: ChartValueKey) {
+  return (
+    data.find((point) => {
+      const value = getValue(point, key);
+      return value != null && value <= 1;
+    }) ?? data.filter((point) => getValue(point, key) != null).at(-1)
+  );
+}
+
+function formatCompactCurrency(value: number) {
+  if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(value) >= 1_000) return `$${Math.round(value / 1_000)}k`;
+  return formatCurrency(value);
+}
+
+function timeLabel(months: number | undefined) {
+  if (months == null) return 'Not available';
+  const years = Math.floor(months / 12);
+  const rem = months % 12;
+  return years > 0 ? `${years}y ${rem}m` : `${rem}m`;
+}
+
+function comparisonText(diff: number | null) {
+  if (diff == null) return 'No recorded balance yet';
+  if (Math.abs(diff) < 50) return 'On track';
+  return diff > 0
+    ? `${formatCurrency(diff)} ahead`
+    : `${formatCurrency(Math.abs(diff))} behind`;
+}
+
+function ChartCoach({
+  title,
+  evidence,
+  action,
+  tone,
+}: {
+  title: string;
+  evidence: string;
+  action: string;
+  tone: 'neutral' | 'good' | 'warn';
+}) {
+  const style =
+    tone === 'good'
+      ? {
+          background: 'rgba(5,150,105,0.08)',
+          border: 'rgba(5,150,105,0.18)',
+          color: '#047857',
+          label: 'Keep',
+        }
+      : tone === 'warn'
+        ? {
+            background: 'rgba(220,38,38,0.08)',
+            border: 'rgba(220,38,38,0.18)',
+            color: '#b91c1c',
+            label: 'Adjust',
+          }
+        : {
+            background: '#f8fafc',
+            border: 'rgba(15,23,42,0.10)',
+            color: '#334155',
+            label: 'Read',
+          };
+
+  return (
+    <div
+      className="mb-4 rounded-xl p-3"
+      style={{
+        background: style.background,
+        border: `1px solid ${style.border}`,
+      }}
+    >
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <span
+          className="rounded-md bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+          style={{ color: style.color, border: `1px solid ${style.border}` }}
+        >
+          Coach {style.label}
+        </span>
+        <p className="text-xs font-semibold" style={{ color: '#0f172a' }}>
+          {title}
+        </p>
+      </div>
+      <div className="grid gap-2 md:grid-cols-2">
+        <p className="text-xs leading-relaxed" style={{ color: '#475569' }}>
+          <span className="font-semibold" style={{ color: style.color }}>
+            Evidence:{' '}
+          </span>
+          {evidence}
+        </p>
+        <p className="text-xs leading-relaxed" style={{ color: '#475569' }}>
+          <span className="font-semibold" style={{ color: style.color }}>
+            Action:{' '}
+          </span>
+          {action}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function MetricPill({
+  label,
+  value,
+  tone = '#0f172a',
+  helper,
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+  helper?: string;
+}) {
+  return (
+    <div
+      className="rounded-xl p-3"
+      style={{
+        background: '#f8fafc',
+        border: '1px solid rgba(15,23,42,0.08)',
+        minHeight: 82,
+      }}
+    >
+      <p className="text-xs mb-1" style={{ color: '#64748b' }}>
+        {label}
+      </p>
+      <p className="text-sm font-semibold" style={{ color: tone }}>
+        {value}
+      </p>
+      {helper && (
+        <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
+          {helper}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function LegendPill({
+  color,
+  label,
+  description,
+}: {
+  color: string;
+  label: string;
+  description: string;
+}) {
+  return (
+    <div
+      className="rounded-lg px-3 py-2"
+      style={{
+        background: '#ffffff',
+        border: '1px solid rgba(15,23,42,0.08)',
+      }}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className="inline-block h-2.5 w-2.5 rounded-full"
+          style={{ background: color }}
+        />
+        <span className="text-xs font-semibold" style={{ color: '#0f172a' }}>
+          {label}
+        </span>
+      </div>
+      <p className="text-xs mt-1" style={{ color: '#64748b' }}>
+        {description}
+      </p>
+    </div>
+  );
+}
+
+interface TooltipPayload {
+  payload?: ChartEntry;
+}
+
+function DebtChartTooltip({
+  active,
+  payload,
+  label,
+  effectiveAcceleration,
+  totalPlanMonths,
+  strategyLabel,
+  comparisonLabel,
+  hasRealSnapshots,
+  showMinimumsLine,
+  showAvalancheLine,
+}: {
+  active?: boolean;
+  payload?: TooltipPayload[];
+  label?: string;
+  effectiveAcceleration: number;
+  totalPlanMonths?: number;
+  strategyLabel: string;
+  comparisonLabel: string;
+  hasRealSnapshots: boolean;
+  showMinimumsLine: boolean;
+  showAvalancheLine: boolean;
+}) {
+  const entry = payload?.[0]?.payload;
+  if (!active || !entry) return null;
+
+  const projected = getValue(entry, 'totalBalance');
+  const actual = getValue(entry, 'actualBalance');
+  const diff = projected != null && actual != null ? projected - actual : null;
+  const remaining = totalPlanMonths != null ? Math.max(0, totalPlanMonths - entry.month) : null;
+  const pct =
+    totalPlanMonths && totalPlanMonths > 0
+      ? Math.min(100, Math.round((entry.month / totalPlanMonths) * 100))
+      : null;
+  const rows: {
+    key: ChartValueKey;
+    label: string;
+    value: number | null;
+    color: string;
+  }[] = [
+    {
+      key: 'totalBalance',
+      label: `${strategyLabel} plan`,
+      value: projected,
+      color: PLAN_COLOR,
+    },
+    {
+      key: 'actualBalance',
+      label: hasRealSnapshots ? 'Actual recorded' : 'Actual starting point',
+      value: actual,
+      color: ACTUAL_COLOR,
+    },
+    {
+      key: 'minimumsBalance',
+      label: 'Minimums only',
+      value: showMinimumsLine ? getValue(entry, 'minimumsBalance') : null,
+      color: MINIMUMS_COLOR,
+    },
+    {
+      key: 'avalancheBalance',
+      label: comparisonLabel,
+      value: showAvalancheLine ? getValue(entry, 'avalancheBalance') : null,
+      color: COMPARISON_COLOR,
+    },
+  ];
+
+  return (
+    <div
+      className="rounded-xl p-3"
+      style={{
+        background: '#ffffff',
+        border: '1px solid rgba(15,23,42,0.12)',
+        boxShadow: '0 12px 30px rgba(15,23,42,0.12)',
+        minWidth: 230,
+      }}
+    >
+      <p className="text-xs font-semibold mb-1" style={{ color: '#0f172a' }}>
+        {label}
+      </p>
+      <p className="text-xs mb-2" style={{ color: '#64748b' }}>
+        Month {entry.month}
+        {pct != null ? ` - ${pct}% through plan` : ''}
+        {remaining != null ? ` - ${remaining}m left` : ''}
+      </p>
+      <div className="space-y-1.5">
+        {rows
+          .filter((row) => row.value != null)
+          .map((row) => (
+            <div key={row.key} className="flex items-center justify-between gap-4">
+              <span className="flex items-center gap-2 text-xs" style={{ color: '#64748b' }}>
+                <span
+                  className="inline-block h-2 w-2 rounded-full"
+                  style={{ background: row.color }}
+                />
+                {row.label}
+              </span>
+              <span className="text-xs font-semibold" style={{ color: '#0f172a' }}>
+                {formatCurrency(row.value as number)}
+              </span>
+            </div>
+          ))}
+      </div>
+      {diff != null && hasRealSnapshots && (
+        <div
+          className="mt-2 pt-2 text-xs font-semibold"
+          style={{
+            borderTop: '1px solid rgba(15,23,42,0.08)',
+            color: Math.abs(diff) < 50 ? '#65a30d' : diff > 0 ? '#059669' : '#dc2626',
+          }}
+        >
+          {comparisonText(diff)} vs plan
+        </div>
+      )}
+      {effectiveAcceleration > 0 && (
+        <p className="text-xs mt-2" style={{ color: '#64748b' }}>
+          Extra payoff pace: {formatCurrency(effectiveAcceleration)}/mo
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function BalanceOverTimeChart({
   data,
   effectiveAcceleration,
@@ -43,105 +383,198 @@ export default function BalanceOverTimeChart({
   strategyLabel = 'Snowball',
   comparisonLabel = 'Avalanche',
 }: BalanceOverTimeChartProps) {
-  const hasAnyActual = true; // always render — starts at current debt, extends as payments are logged
+  const startingBalance = findFirstValue(data, 'totalBalance');
+  const planFinish = findPayoffPoint(data, 'totalBalance');
+  const minimumsFinish = findPayoffPoint(data, 'minimumsBalance');
+  const comparisonFinish = findPayoffPoint(data, 'avalancheBalance');
+  const latestActual = hasRealSnapshots
+    ? [...data].reverse().find((point) => getValue(point, 'actualBalance') != null)
+    : undefined;
+  const latestActualValue = getValue(latestActual, 'actualBalance');
+  const latestProjectedValue = getValue(latestActual, 'totalBalance');
+  const latestDiff =
+    latestActualValue != null && latestProjectedValue != null
+      ? latestProjectedValue - latestActualValue
+      : null;
+  const hasActualSeries = data.some((point) => getValue(point, 'actualBalance') != null);
+  const projectedPaydown =
+    startingBalance > 0 && planFinish?.totalBalance != null
+      ? Math.max(0, startingBalance - planFinish.totalBalance)
+      : 0;
+  const selectedPayoffMonth = planFinish?.month ?? totalPlanMonths;
+  const minimumsPayoffMonth = minimumsFinish?.month;
+  const monthsSaved =
+    selectedPayoffMonth != null && minimumsPayoffMonth != null
+      ? Math.max(0, minimumsPayoffMonth - selectedPayoffMonth)
+      : 0;
+  const coach =
+    latestDiff != null && latestDiff < -50
+      ? {
+          tone: 'warn' as const,
+          title: 'Actual balances are behind the plan line',
+          evidence: `${latestActual?.date ?? 'Latest update'} is ${formatCurrency(Math.abs(latestDiff))} above the projected balance.`,
+          action: 'Update balances, then adjust the forecast or add a catch-up payment only if the buffer allows.',
+        }
+      : latestDiff != null && latestDiff > 50
+        ? {
+            tone: 'good' as const,
+            title: 'Actual balances are beating the plan line',
+            evidence: `${latestActual?.date ?? 'Latest update'} is ${formatCurrency(latestDiff)} below the projected balance.`,
+            action: 'Keep this pace unless the cash buffer gets tight.',
+          }
+        : monthsSaved > 0
+          ? {
+              tone: 'good' as const,
+              title: `${strategyLabel} is buying back ${monthsSaved} months`,
+              evidence: `The selected plan reaches zero in ${timeLabel(selectedPayoffMonth)} vs ${timeLabel(minimumsPayoffMonth)} with minimums only.`,
+              action: `Keep ${formatCurrency(effectiveAcceleration)}/mo pointed at the focus debt.`,
+            }
+          : {
+              tone: 'neutral' as const,
+              title: 'This chart is your payoff baseline',
+              evidence: hasRealSnapshots
+                ? 'Actual balances are close enough to the plan line to treat the forecast as current.'
+                : 'No recorded balance history exists yet, so the chart is still a projection.',
+              action: hasRealSnapshots
+                ? 'Keep recording statement balances monthly.'
+                : 'Record the next statement balance to turn this into actual tracking.',
+            };
 
   return (
-    <div className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
-      <div className="mb-4">
-        <h2 className="font-semibold text-base mb-1">Balance Over Time</h2>
-        <p className="text-xs" style={{ color: '#64748b' }}>
-          Shows your total debt balance across all debts over time.{' '}
-          {showAvalancheLine
-            ? 'Blue = your selected strategy. Purple dashed = comparison strategy. See which method pays off debt faster for your situation.'
-            : hasRealSnapshots
-            ? "Green dashed = what you actually owe each month (recorded when you log a payment). Blue = your plan. Below the blue line means you're ahead of schedule."
-            : 'Green dashed starts at your current balance. Log a payment on any debt card to see how your actual progress tracks against the plan.'}
-        </p>
+    <div
+      className="rounded-2xl p-5"
+      style={{
+        background: '#ffffff',
+        border: '1px solid rgba(15,23,42,0.08)',
+        boxShadow: '0 1px 4px rgba(15,23,42,0.06)',
+      }}
+    >
+      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <h2 className="font-semibold text-base mb-1">
+            Payoff chart and coach read
+          </h2>
+          <p className="text-xs max-w-3xl" style={{ color: '#64748b' }}>
+            Compares your selected plan against minimum payments, the alternate
+            strategy, and any recorded actual balances. Lower actual balances
+            than the plan line mean you are ahead.
+          </p>
+        </div>
+        <div
+          className="rounded-xl px-3 py-2 text-xs font-semibold"
+          style={{
+            background:
+              latestDiff == null
+                ? '#f8fafc'
+                : Math.abs(latestDiff) < 50
+                  ? 'rgba(101,163,13,0.10)'
+                  : latestDiff > 0
+                    ? 'rgba(5,150,105,0.10)'
+                    : 'rgba(220,38,38,0.08)',
+            border: '1px solid rgba(15,23,42,0.08)',
+            color:
+              latestDiff == null
+                ? '#64748b'
+                : Math.abs(latestDiff) < 50
+                  ? '#65a30d'
+                  : latestDiff > 0
+                    ? '#059669'
+                    : '#dc2626',
+          }}
+        >
+          {comparisonText(latestDiff)}
+        </div>
       </div>
-      <div className="h-64">
+
+      <ChartCoach {...coach} />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <MetricPill
+          label="Starting balance"
+          value={formatCurrency(startingBalance)}
+          helper="All active debts combined"
+        />
+        <MetricPill
+          label={`${strategyLabel} payoff`}
+          value={planFinish ? timeLabel(planFinish.month) : timeLabel(totalPlanMonths)}
+          tone={PLAN_COLOR}
+          helper={planFinish?.date ?? 'Projected timeline'}
+        />
+        <MetricPill
+          label="Plan paydown"
+          value={formatCurrency(projectedPaydown)}
+          tone={ACTUAL_COLOR}
+          helper={`${formatCurrency(effectiveAcceleration)}/mo acceleration`}
+        />
+        <MetricPill
+          label={showAvalancheLine ? comparisonLabel : 'Minimums only'}
+          value={
+            showAvalancheLine
+              ? timeLabel(comparisonFinish?.month)
+              : timeLabel(minimumsFinish?.month)
+          }
+          tone={showAvalancheLine ? COMPARISON_COLOR : MINIMUMS_COLOR}
+          helper="Scenario benchmark"
+        />
+      </div>
+
+      <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 10, right: 18, left: 10, bottom: 10 }}>
-            <CartesianGrid stroke="rgba(15,23,42,0.08)" strokeDasharray="4 4" />
+          <ComposedChart data={data} margin={{ top: 10, right: 18, left: 0, bottom: 8 }}>
+            <defs>
+              <linearGradient id="payoffPlanFill" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={PLAN_COLOR} stopOpacity={0.16} />
+                <stop offset="70%" stopColor={PLAN_COLOR} stopOpacity={0.04} />
+                <stop offset="100%" stopColor={PLAN_COLOR} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke="rgba(15,23,42,0.07)" strokeDasharray="4 4" vertical={false} />
             <XAxis
               dataKey="date"
               tick={{ fill: '#64748b', fontSize: 11 }}
               tickLine={false}
               axisLine={{ stroke: 'rgba(15,23,42,0.12)' }}
-              minTickGap={24}
+              minTickGap={34}
             />
             <YAxis
               tick={{ fill: '#64748b', fontSize: 11 }}
               tickLine={false}
-              axisLine={{ stroke: 'rgba(15,23,42,0.12)' }}
-              tickFormatter={(value: number) => formatCurrency(value)}
+              axisLine={false}
+              width={70}
+              tickFormatter={(value: number) => formatCompactCurrency(value)}
             />
             <Tooltip
-              formatter={(value: number, name: string, props: { payload?: { totalBalance?: number; month?: number } }) => {
-                if (name === 'actualBalance') {
-                  const projected = props.payload?.totalBalance;
-                  const diff = projected != null ? projected - value : null;
-                  const diffLabel = diff != null
-                    ? diff > 0 ? ` (${formatCurrency(diff)} ahead)` : diff < 0 ? ` (${formatCurrency(Math.abs(diff))} behind)` : ' (on track)'
-                    : '';
-                  return [`${formatCurrency(value)}${diffLabel}`, 'Actual Balance'];
-                }
-                if (name === 'totalBalance') return [formatCurrency(value), `${strategyLabel} (+${formatCurrency(effectiveAcceleration)}/mo)`];
-                if (name === 'minimumsBalance') return [formatCurrency(value), 'Minimums Only'];
-                if (name === 'avalancheBalance') return [formatCurrency(value), comparisonLabel];
-                return [formatCurrency(value), name];
-              }}
-              labelFormatter={(label, payload) => {
-                const entry = payload?.[0]?.payload as (ChartEntry | undefined);
-                const month = entry?.month ?? 0;
-                const pct = totalPlanMonths ? Math.round((month / totalPlanMonths) * 100) : null;
-                const remaining = totalPlanMonths != null ? totalPlanMonths - month : null;
-                const parts: string[] = [`${String(label)}`];
-                if (pct !== null) parts.push(`${pct}% complete`);
-                if (remaining !== null && remaining > 0) parts.push(`${remaining} months left`);
-                return parts.join('  ·  ');
-              }}
-              contentStyle={{
-                background: '#ffffff',
-                border: '1px solid rgba(15,23,42,0.12)',
-                borderRadius: 10,
-                color: '#0f172a',
-                fontSize: 12,
-              }}
+              cursor={{ stroke: 'rgba(37,99,235,0.18)', strokeWidth: 1 }}
+              content={
+                <DebtChartTooltip
+                  effectiveAcceleration={effectiveAcceleration}
+                  totalPlanMonths={totalPlanMonths}
+                  strategyLabel={strategyLabel}
+                  comparisonLabel={comparisonLabel}
+                  hasRealSnapshots={hasRealSnapshots}
+                  showMinimumsLine={showMinimumsLine}
+                  showAvalancheLine={showAvalancheLine}
+                />
+              }
             />
-            {(hasAnyActual || showMinimumsLine || showAvalancheLine) && (
-              <Legend
-                formatter={(value) => (
-                  <span style={{ color: '#64748b', fontSize: 11 }}>
-                    {value === 'totalBalance'
-                      ? `${strategyLabel} (+${formatCurrency(effectiveAcceleration)}/mo)`
-                      : value === 'minimumsBalance'
-                      ? 'Minimums Only'
-                      : value === 'avalancheBalance'
-                      ? comparisonLabel
-                      : 'Actual'}
-                  </span>
-                )}
-              />
-            )}
-            <ReferenceLine y={0} stroke="rgba(34,197,94,0.6)" strokeDasharray="6 4" />
-            <Line
+            <ReferenceLine y={0} stroke="rgba(15,23,42,0.18)" strokeDasharray="6 4" />
+            <Area
               type="monotone"
               dataKey="totalBalance"
-              stroke="#2563eb"
-              strokeWidth={2.5}
-              dot={false}
-              activeDot={{ r: 5, fill: '#2563eb' }}
+              fill="url(#payoffPlanFill)"
+              stroke="none"
               connectNulls={false}
+              isAnimationActive={false}
             />
             {showMinimumsLine && (
               <Line
                 type="monotone"
                 dataKey="minimumsBalance"
-                stroke="#f59e0b"
-                strokeWidth={1.5}
+                stroke={MINIMUMS_COLOR}
+                strokeWidth={1.8}
                 strokeDasharray="5 4"
                 dot={false}
-                activeDot={{ r: 4, fill: '#fbbf24' }}
+                activeDot={{ r: 4, fill: MINIMUMS_COLOR, strokeWidth: 0 }}
                 connectNulls={false}
               />
             )}
@@ -149,48 +582,94 @@ export default function BalanceOverTimeChart({
               <Line
                 type="monotone"
                 dataKey="avalancheBalance"
-                stroke="#7c3aed"
+                stroke={COMPARISON_COLOR}
                 strokeWidth={2}
                 strokeDasharray="7 3"
                 dot={false}
-                activeDot={{ r: 5, fill: '#8b5cf6' }}
+                activeDot={{ r: 5, fill: COMPARISON_COLOR, strokeWidth: 0 }}
                 connectNulls={false}
               />
             )}
-            {hasAnyActual && (
+            <Line
+              type="monotone"
+              dataKey="totalBalance"
+              stroke={PLAN_COLOR}
+              strokeWidth={2.8}
+              dot={false}
+              activeDot={{ r: 5, fill: PLAN_COLOR, strokeWidth: 0 }}
+              connectNulls={false}
+            />
+            {hasActualSeries && (
               <Line
                 type="monotone"
                 dataKey="actualBalance"
-                stroke="#22c55e"
-                strokeWidth={2.5}
-                strokeDasharray="6 3"
-                dot={{ r: 4, fill: '#22c55e', strokeWidth: 0 }}
-                activeDot={{ r: 6, fill: '#4ade80' }}
+                stroke={ACTUAL_COLOR}
+                strokeWidth={2.6}
+                strokeDasharray={hasRealSnapshots ? undefined : '4 4'}
+                dot={{ r: hasRealSnapshots ? 4 : 3, fill: ACTUAL_COLOR, strokeWidth: 0 }}
+                activeDot={{ r: 6, fill: ACTUAL_COLOR, strokeWidth: 0 }}
                 connectNulls={false}
               />
             )}
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
-      {hasRealSnapshots && (() => {
-        const lastActual = [...data].reverse().find((d) => d.actualBalance != null);
-        const lastProjected = lastActual?.totalBalance;
-        const diff = lastProjected != null && lastActual?.actualBalance != null
-          ? lastProjected - lastActual.actualBalance
-          : null;
-        if (diff == null || !lastActual) return null;
-        const ahead = diff > 0;
-        const onTrack = Math.abs(diff) < 50;
-        return (
-          <div className="mt-3 pt-3 flex items-center gap-2 text-xs" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
-            <span style={{ color: '#64748b' }}>Latest recorded vs plan:</span>
-            <span className="font-semibold" style={{ color: onTrack ? '#65a30d' : ahead ? '#059669' : '#f87171' }}>
-              {onTrack ? 'On track' : ahead ? `${formatCurrency(diff)} ahead of plan` : `${formatCurrency(Math.abs(diff))} behind plan`}
-            </span>
-            <span style={{ color: '#94a3b8' }}>({lastActual.date})</span>
-          </div>
-        );
-      })()}
+
+      <div className="grid gap-2 mt-4 md:grid-cols-2 xl:grid-cols-4">
+        <LegendPill
+          color={lineMeta.totalBalance.color}
+          label={`${strategyLabel} plan`}
+          description={lineMeta.totalBalance.description}
+        />
+        {hasActualSeries && (
+          <LegendPill
+            color={lineMeta.actualBalance.color}
+            label={hasRealSnapshots ? 'Actual balances' : 'Actual starting point'}
+            description={
+              hasRealSnapshots
+                ? lineMeta.actualBalance.description
+                : 'Log payments or update balances to add more real points.'
+            }
+          />
+        )}
+        {showMinimumsLine && (
+          <LegendPill
+            color={lineMeta.minimumsBalance.color}
+            label="Minimums only"
+            description={lineMeta.minimumsBalance.description}
+          />
+        )}
+        {showAvalancheLine && (
+          <LegendPill
+            color={lineMeta.avalancheBalance.color}
+            label={comparisonLabel}
+            description={lineMeta.avalancheBalance.description}
+          />
+        )}
+      </div>
+
+      {hasRealSnapshots && latestActual && (
+        <div
+          className="mt-3 pt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+          style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}
+        >
+          <span style={{ color: '#64748b' }}>Latest recorded vs plan:</span>
+          <span
+            className="font-semibold"
+            style={{
+              color:
+                latestDiff == null || Math.abs(latestDiff) < 50
+                  ? '#65a30d'
+                  : latestDiff > 0
+                    ? '#059669'
+                    : '#dc2626',
+            }}
+          >
+            {comparisonText(latestDiff)}
+          </span>
+          <span style={{ color: '#94a3b8' }}>({latestActual.date})</span>
+        </div>
+      )}
     </div>
   );
 }

@@ -24,7 +24,10 @@ const SYSTEM_PROMPT = `You are a personal debt payoff advisor. Analyze the user'
 Rules:
 - Reference actual dollar amounts from their data whenever possible
 - Prioritize the highest-impact changes
-- Be direct and specific - never generic
+- Use the structure Signal -> Evidence -> Action. The title is the signal, the body is the evidence, and the action is the next move.
+- Be direct and specific - never generic. Do not recommend a habit, reminder, or review unless the user's numbers explain why.
+- Prefer advice that changes the next dollar: payoff order, payment amount, due-date risk, APR/fee negotiation, or one concrete expense tradeoff.
+- Keep the tone calm and practical. No shame, hype, or vague encouragement.
 - Never use the words: "elevate", "seamless", "game-changer", "unleash", "journey", "delve"
 - Include one recommendation for each type and do not repeat types:
   - "payoff_advice" = payoff method or ordering advice
@@ -161,7 +164,7 @@ function buildFallbackRecommendations(
       impact: highestAprDebt?.interestRate >= 15 ? 'high' : 'medium',
       title: highestAprDebt ? `Prioritize ${highestAprDebt.name}` : 'Pick one focus debt',
       body: highestAprDebt
-        ? `${highestAprDebt.name} carries ${highestAprDebt.interestRate}% APR on ${dollars(highestAprDebt.balance)}. Direct extra payments there unless you need smaller Snowball wins first.`
+        ? `${highestAprDebt.name} carries ${highestAprDebt.interestRate}% APR on ${dollars(highestAprDebt.balance)}. That is the strongest interest drag in the current list.`
         : `Your combined debt is ${dollars(totalDebt)}. Choose one focus balance for all extra payments this month.`,
       action: highestAprDebt ? `Focus extra cash there` : 'Choose a focus debt',
       why: highestAprDebt
@@ -173,7 +176,7 @@ function buildFallbackRecommendations(
       impact: topExpense && topExpense.amount >= 100 ? 'medium' : 'low',
       title: topExpense ? `Review ${topExpense.name}` : 'Find one small cut',
       body: topExpense
-        ? `${topExpense.name} is your largest listed recurring expense at ${dollars(topExpense.amount)}/mo. Even a partial cut can increase acceleration.`
+        ? `${topExpense.name} is your largest listed recurring expense at ${dollars(topExpense.amount)}/mo. A 10% trim would free about ${dollars(Math.max(1, Math.round(topExpense.amount * 0.1)))}/mo.`
         : `No recurring expense detail was supplied. Look for one repeat expense to redirect toward debt this month.`,
       action: topExpense ? 'Test a one-month reduction' : 'Review recurring expenses',
       why: topExpense
@@ -203,8 +206,8 @@ function buildFallbackRecommendations(
       impact: availableAcceleration > 0 ? 'medium' : 'high',
       title: 'Schedule payment review',
       body: availableAcceleration > 0
-        ? `You show ${dollars(availableAcceleration)} available for acceleration. Pick a payday review time before that money gets absorbed elsewhere.`
-        : `Available acceleration is tight. Review the plan weekly so minimums stay current and no extra payment is forced.`,
+        ? `You show ${dollars(availableAcceleration)} available for acceleration. Decide where it goes before payday spending absorbs it.`
+        : `Available acceleration is tight at ${dollars(availableAcceleration)}. The useful habit is protecting minimums, not forcing an extra payment.`,
       action: 'Set a payday reminder',
       why: `A recurring review makes the payoff plan easier to maintain.`,
     },
@@ -214,7 +217,7 @@ function buildFallbackRecommendations(
       title: highUtilDebt ? 'High utilization risk' : 'Watch debt load',
       body: highUtilDebt
         ? `${highUtilDebt.name} appears above 80% utilization. Avoid adding new charges while paying it down.`
-        : `Debt payments are ${debtLoadPct.toFixed(1)}% of take-home pay with a ${monthsLabel(body.planMonths)} timeline. Keep a cash buffer before accelerating more.`,
+        : `Debt payments are ${debtLoadPct.toFixed(1)}% of take-home pay with a ${monthsLabel(body.planMonths)} timeline. That is the buffer signal to watch before increasing acceleration.`,
       action: highUtilDebt ? 'Pause new card charges' : 'Protect cash buffer',
       why: highUtilDebt
         ? `High utilization can increase financial pressure.`
@@ -389,7 +392,7 @@ export async function POST(request: NextRequest) {
   if (!auth.valid || !auth.user) return unauthorized();
 
   if (!(await isPro(auth.user.id))) {
-    return upgradeRequired('AI recommendations');
+    return upgradeRequired('Payoff Coach');
   }
 
   if (!(await limits.recommendations(auth.user.id))) {
