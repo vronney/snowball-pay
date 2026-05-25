@@ -254,6 +254,8 @@ function RecommendationCard({
           lineHeight: 1.65,
           color: "#475569",
           margin: "0 0 14px",
+          whiteSpace:
+            rec.type === "negotiation_suggestion" ? "pre-line" : "normal",
         }}
       >
         {rec.body}

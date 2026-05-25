@@ -167,6 +167,27 @@ const learnJsonLd = {
   "@context": "https://schema.org",
   "@graph": [
     {
+      "@type": "WebPage",
+      "@id": `${BASE_URL}/learn#webpage`,
+      url: `${BASE_URL}/learn`,
+      name: "Debt Snowball vs Avalanche — Which Strategy Is Right for You?",
+      inLanguage: "en-US",
+      dateModified: "2026-05-25",
+      isPartOf: {
+        "@id": `${BASE_URL}#website`,
+      },
+      about: [
+        {
+          "@type": "DefinedTerm",
+          name: "Debt Snowball Method",
+        },
+        {
+          "@type": "DefinedTerm",
+          name: "Debt Avalanche Method",
+        },
+      ],
+    },
+    {
       "@type": "Article",
       "@id": `${BASE_URL}/learn#article`,
       headline: "Debt Snowball vs Avalanche — Which Strategy Is Right for You?",
@@ -174,15 +195,27 @@ const learnJsonLd = {
         "Learn how the Debt Snowball and Debt Avalanche methods work, compare their benefits, and find out which payoff strategy fits your personality and financial goals.",
       url: `${BASE_URL}/learn`,
       datePublished: "2025-01-01",
-      dateModified: "2026-03-26",
-      author: { "@type": "Organization", name: "SnowballPay", url: BASE_URL },
+      dateModified: "2026-05-25",
+      author: {
+        "@type": "Organization",
+        name: "SnowballPay Editorial Team",
+        url: BASE_URL,
+      },
+      reviewedBy: {
+        "@type": "Organization",
+        name: "SnowballPay Product Team",
+        url: BASE_URL,
+      },
       publisher: {
         "@type": "Organization",
         name: "SnowballPay",
         url: BASE_URL,
         logo: { "@type": "ImageObject", url: `${BASE_URL}/logo-dark.svg` },
       },
-      mainEntityOfPage: { "@type": "WebPage", "@id": `${BASE_URL}/learn` },
+      mainEntityOfPage: {
+        "@type": "WebPage",
+        "@id": `${BASE_URL}/learn#webpage`,
+      },
     },
     {
       "@type": "HowTo",

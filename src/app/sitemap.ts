@@ -4,9 +4,11 @@ import { calculatorConfigs } from '@/components/calculator/configs';
 const BASE_URL = 'https://getsnowballpay.com';
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  const lastModified = new Date('2026-05-25');
+
   const calculatorPages: MetadataRoute.Sitemap = Object.keys(calculatorConfigs).map((slug) => ({
     url: `${BASE_URL}/calculators/${slug}`,
-    lastModified: new Date('2026-04-30'),
+    lastModified,
     changeFrequency: 'monthly' as const,
     priority: 0.9,
   }));
@@ -14,27 +16,33 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     {
       url: BASE_URL,
-      lastModified: new Date('2025-04-19'),
+      lastModified,
       changeFrequency: 'weekly',
       priority: 1.0,
     },
     {
       url: `${BASE_URL}/learn`,
-      lastModified: new Date('2025-04-01'),
+      lastModified,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${BASE_URL}/calculator`,
-      lastModified: new Date('2025-04-01'),
+      lastModified,
       changeFrequency: 'monthly',
       priority: 0.8,
     },
     {
       url: `${BASE_URL}/learn/debt-snowball-calculator`,
-      lastModified: new Date('2025-04-01'),
+      lastModified,
       changeFrequency: 'monthly',
       priority: 0.8,
+    },
+    {
+      url: `${BASE_URL}/contact`,
+      lastModified,
+      changeFrequency: 'monthly',
+      priority: 0.6,
     },
     ...calculatorPages,
     {

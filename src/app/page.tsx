@@ -1,6 +1,34 @@
 ﻿import type { Metadata } from "next";
 import { auth0 } from "@/lib/auth0";
 
+const BASE_URL = "https://getsnowballpay.com";
+
+const organizationJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "@id": `${BASE_URL}#organization`,
+  name: "SnowballPay",
+  url: BASE_URL,
+  logo: `${BASE_URL}/logo-dark.svg`,
+};
+
+const webSiteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "@id": `${BASE_URL}#website`,
+  url: BASE_URL,
+  name: "SnowballPay",
+  publisher: {
+    "@id": `${BASE_URL}#organization`,
+  },
+  inLanguage: "en-US",
+  potentialAction: {
+    "@type": "SearchAction",
+    target: `${BASE_URL}/calculators/{search_term_string}`,
+    "query-input": "required name=search_term_string",
+  },
+};
+
 const faqJsonLd = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
@@ -115,6 +143,14 @@ export default async function Home() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webSiteJsonLd) }}
       />
       <div
         className="lp"
