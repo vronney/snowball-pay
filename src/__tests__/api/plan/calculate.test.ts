@@ -267,6 +267,51 @@ describe('POST /api/plan/calculate', () => {
     expect(res.status).toBe(200);
   });
 
+  it('uses the saved payoff method when the request omits method', async () => {
+    const smallerLowApr = { ...DEBT, id: 'small-low-apr', balance: 500, originalBalance: 500, interestRate: 5 };
+    const largerHighApr = { ...DEBT, id: 'large-high-apr', balance: 1000, originalBalance: 1000, interestRate: 20 };
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.debt.findMany.mockResolvedValue([smallerLowApr, largerHighApr]);
+    mockPrisma.income.findUnique.mockResolvedValue({ ...INCOME, payoffMethod: 'avalanche' });
+    mockPrisma.expense.findMany.mockResolvedValue([]);
+    mockTx.payoffPlan.findUnique.mockResolvedValue(null);
+    mockTx.payoffPlan.create.mockResolvedValue(PLAN_ROW);
+    mockTx.payoffStep.create.mockResolvedValue({});
+
+    const res = await POST(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.payoffPlan.schedule.find((step: { debtId: string }) => step.debtId === 'large-high-apr')?.orderInPayoff).toBe(1);
+  });
+
+  it('caps saved acceleration to available cash flow before persisting monthly payment', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.debt.findMany.mockResolvedValue([{ ...DEBT, minimumPayment: 300 }]);
+    mockPrisma.income.findUnique.mockResolvedValue({
+      ...INCOME,
+      monthlyTakeHome: 200,
+      essentialExpenses: 0,
+      extraPayment: 0,
+      accelerationAmount: 500,
+    });
+    mockPrisma.expense.findMany.mockResolvedValue([]);
+    mockTx.payoffPlan.findUnique.mockResolvedValue(null);
+    mockTx.payoffPlan.create.mockResolvedValue(PLAN_ROW);
+    mockTx.payoffStep.create.mockResolvedValue({});
+
+    const res = await POST(makeRequest());
+
+    expect(res.status).toBe(200);
+    expect(mockTx.payoffPlan.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          monthlyPayment: 300,
+        }),
+      }),
+    );
+  });
+
   // --- Recurring expenses included ---
 
   it('includes recurring expenses in calculation', async () => {

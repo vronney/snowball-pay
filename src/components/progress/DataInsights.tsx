@@ -19,37 +19,28 @@ import {
 import { BarChart3, Gauge, PieChart as PieChartIcon, SlidersHorizontal, TrendingUp } from "lucide-react";
 import { type BalanceSnapshot, type Debt, type Expense, type Income } from "@/types";
 import {
-  calculateDebtAvalanche,
-  calculateDebtCustom,
-  calculateDebtSnowball,
   type PayoffMethod,
   type PayoffResult,
 } from "@/lib/snowball";
 import { formatCurrency, getCategoryColor } from "@/lib/utils";
+import {
+  buildCashFlowCoach,
+  buildCashFlowStages,
+  type CashFlowStage,
+  type CoachTakeawayData,
+  type CoachTone,
+  type PlanMetrics,
+} from "@/components/progress/dataInsightsModel";
+import {
+  calculatePlanMetrics,
+  calculateResultForAcceleration as calculatePayoffResultForAcceleration,
+} from "@/lib/payoffPlan";
 
 interface DataInsightsProps {
   debts: Debt[];
   income: Income | null | undefined;
   expenses: Expense[];
   snapshots: BalanceSnapshot[];
-}
-
-interface PlanMetrics {
-  result: PayoffResult;
-  method: PayoffMethod;
-  recurringTotal: number;
-  totalMinPayments: number;
-  totalEssential: number;
-  availableCashFlow: number;
-  effectiveAcceleration: number;
-}
-
-interface CashFlowStage {
-  label: string;
-  amount: number;
-  range: [number, number];
-  fill: string;
-  helper: string;
 }
 
 interface DebtMixSlice {
@@ -91,15 +82,6 @@ const CARD_STYLE = {
   border: "1px solid rgba(15,23,42,0.08)",
   boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
 };
-
-type CoachTone = "neutral" | "good" | "warn" | "danger";
-
-interface CoachTakeawayData {
-  tone: CoachTone;
-  title: string;
-  evidence: string;
-  action: string;
-}
 
 const COACH_TONE: Record<CoachTone, { bg: string; border: string; color: string; label: string }> = {
   neutral: {
@@ -148,145 +130,6 @@ function shortMonthLabelFromKey(key: string) {
     month: "short",
     year: "2-digit",
   });
-}
-
-function methodFromIncome(income: Income): PayoffMethod {
-  const method = income.payoffMethod;
-  if (method === "avalanche" || method === "custom") return method;
-  return "snowball";
-}
-
-function calculatePlanMetrics(
-  debts: Debt[],
-  income: Income | null | undefined,
-  expenses: Expense[],
-): PlanMetrics | null {
-  if (!income || debts.length === 0) return null;
-
-  const recurringTotal = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const totalMinPayments = debts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
-  const totalEssential = income.essentialExpenses + recurringTotal;
-  const naturalSurplus =
-    income.monthlyTakeHome - totalEssential - totalMinPayments;
-  const availableCashFlow = Math.max(
-    0,
-    naturalSurplus + (income.extraPayment ?? 0),
-  );
-  const effectiveAcceleration =
-    income.accelerationAmount != null
-      ? Math.min(income.accelerationAmount, availableCashFlow)
-      : availableCashFlow;
-  const adjustedExtra = effectiveAcceleration - naturalSurplus;
-  const method = methodFromIncome(income);
-  const result =
-    method === "avalanche"
-      ? calculateDebtAvalanche(
-          debts,
-          income.monthlyTakeHome,
-          income.essentialExpenses,
-          recurringTotal,
-          adjustedExtra,
-        )
-      : method === "custom"
-        ? calculateDebtCustom(
-            debts,
-            income.monthlyTakeHome,
-            income.essentialExpenses,
-            recurringTotal,
-            adjustedExtra,
-          )
-        : calculateDebtSnowball(
-            debts,
-            income.monthlyTakeHome,
-            income.essentialExpenses,
-            recurringTotal,
-            adjustedExtra,
-          );
-
-  return {
-    result,
-    method,
-    recurringTotal,
-    totalMinPayments,
-    totalEssential,
-    availableCashFlow,
-    effectiveAcceleration,
-  };
-}
-
-function buildCashFlowStages(
-  income: Income,
-  metrics: PlanMetrics,
-): CashFlowStage[] {
-  const stages: CashFlowStage[] = [];
-  const extraIncome = Math.max(0, income.extraPayment ?? 0);
-  let remaining = income.monthlyTakeHome;
-
-  stages.push({
-    label: "Take-home",
-    amount: income.monthlyTakeHome,
-    range: [0, income.monthlyTakeHome],
-    fill: "#2563eb",
-    helper: "Monthly income",
-  });
-
-  if (extraIncome > 0) {
-    stages.push({
-      label: "Extra income",
-      amount: extraIncome,
-      range: [remaining, remaining + extraIncome],
-      fill: "#0891b2",
-      helper: "Additional monthly income",
-    });
-    remaining += extraIncome;
-  }
-
-  const deductions: Omit<CashFlowStage, "range">[] = [
-    {
-      label: "Essentials",
-      amount: -income.essentialExpenses,
-      fill: "#64748b",
-      helper: "Rent, food, utilities, insurance",
-    },
-    {
-      label: "Recurring",
-      amount: -metrics.recurringTotal,
-      fill: "#94a3b8",
-      helper: "Monthly recurring costs",
-    },
-    {
-      label: "Minimums",
-      amount: -metrics.totalMinPayments,
-      fill: "#d97706",
-      helper: "Required debt payments",
-    },
-    {
-      label: "Acceleration",
-      amount: -metrics.effectiveAcceleration,
-      fill: "#059669",
-      helper: "Extra payment planned",
-    },
-  ];
-
-  for (const deduction of deductions) {
-    if (deduction.amount === 0) continue;
-    const next = remaining + deduction.amount;
-    stages.push({
-      ...deduction,
-      range: [Math.min(next, remaining), Math.max(next, remaining)],
-    });
-    remaining = next;
-  }
-
-  stages.push({
-    label: remaining >= 0 ? "Buffer" : "Shortfall",
-    amount: remaining,
-    range: remaining >= 0 ? [0, remaining] : [remaining, 0],
-    fill: remaining >= 0 ? "#0f9f6e" : "#dc2626",
-    helper: remaining >= 0 ? "Left after planned payments" : "Monthly gap",
-  });
-
-  return stages;
 }
 
 function buildDebtMix(debts: Debt[]): DebtMixSlice[] {
@@ -434,37 +277,7 @@ function calculateResultForAcceleration(
   metrics: PlanMetrics,
   acceleration: number,
 ) {
-  const naturalSurplus =
-    income.monthlyTakeHome - metrics.totalEssential - metrics.totalMinPayments;
-  const adjustedExtra = acceleration - naturalSurplus;
-
-  if (metrics.method === "avalanche") {
-    return calculateDebtAvalanche(
-      debts,
-      income.monthlyTakeHome,
-      income.essentialExpenses,
-      metrics.recurringTotal,
-      adjustedExtra,
-    );
-  }
-
-  if (metrics.method === "custom") {
-    return calculateDebtCustom(
-      debts,
-      income.monthlyTakeHome,
-      income.essentialExpenses,
-      metrics.recurringTotal,
-      adjustedExtra,
-    );
-  }
-
-  return calculateDebtSnowball(
-    debts,
-    income.monthlyTakeHome,
-    income.essentialExpenses,
-    metrics.recurringTotal,
-    adjustedExtra,
-  );
+  return calculatePayoffResultForAcceleration(debts, income, metrics, acceleration);
 }
 
 function buildPayoffLeverData(
@@ -507,50 +320,6 @@ function buildPayoffLeverData(
       needsMonthlyRoom: Math.max(0, extra - currentBuffer),
     };
   });
-}
-
-function buildCashFlowCoach(
-  income: Income | null | undefined,
-  metrics: PlanMetrics | null,
-  stages: CashFlowStage[],
-): CoachTakeawayData {
-  if (!income || !metrics) {
-    return {
-      tone: "neutral",
-      title: "Add income to unlock the cash-flow read",
-      evidence: "This chart needs take-home pay, essentials, minimums, and planned acceleration.",
-      action: "Enter the monthly budget before changing payoff speed.",
-    };
-  }
-
-  const endingStage = stages.at(-1);
-  const buffer = endingStage?.amount ?? 0;
-  const bufferPct = income.monthlyTakeHome > 0 ? (buffer / income.monthlyTakeHome) * 100 : 0;
-
-  if (buffer < 0) {
-    return {
-      tone: "danger",
-      title: "The plan is short before speed matters",
-      evidence: `${formatCurrency(Math.abs(buffer))} more is needed after essentials, minimums, and planned acceleration.`,
-      action: "Lower acceleration, cut a recurring cost, or add income before increasing payoff pressure.",
-    };
-  }
-
-  if (bufferPct < 5) {
-    return {
-      tone: "warn",
-      title: "The payoff pace leaves a thin buffer",
-      evidence: `${formatCurrency(buffer)} remains after planned debt payments, about ${bufferPct.toFixed(1)}% of take-home pay.`,
-      action: "Hold extra payments at this level until the monthly buffer is less fragile.",
-    };
-  }
-
-  return {
-    tone: "good",
-    title: "The current pace fits the month",
-    evidence: `${formatCurrency(buffer)} remains after minimums and acceleration.`,
-    action: "Keep the extra payment pointed at the current focus debt.",
-  };
 }
 
 function buildDebtMixCoach(debts: Debt[], mix: DebtMixSlice[]): CoachTakeawayData {

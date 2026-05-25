@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
-import {
-  calculateDebtSnowball,
-  calculateDebtAvalanche,
-  calculateDebtCustom,
-  type PayoffMethod,
-  type DebtPayoffSchedule,
-} from '@/lib/snowball';
+import { type PayoffMethod, type DebtPayoffSchedule } from '@/lib/snowball';
+import { calculatePlanMetrics, isPayoffMethod } from '@/lib/payoffPlan';
 import type { Debt } from '@/types';
 
 export async function POST(request: NextRequest) {
@@ -17,9 +12,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json().catch(() => ({}));
     const method = body?.method as PayoffMethod | undefined;
-    const payoffMethod: PayoffMethod = method ?? 'snowball';
 
-    if (!['snowball', 'avalanche', 'custom'].includes(payoffMethod)) {
+    if (method !== undefined && !isPayoffMethod(method)) {
       return badRequest('Invalid payoff method');
     }
 
@@ -43,39 +37,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate recurring expenses total
-    const recurringTotal = expenses.reduce((sum: number, e: { amount: number }) => sum + e.amount, 0);
-
     const normalizedDebts: Debt[] = debts.map((debt: (typeof debts)[number]) => ({
       ...debt,
       category: debt.category as Debt['category'],
       dueDate: debt.dueDate ?? undefined,
     }));
 
-    // Calculate payoff plan
-    const payoffResult = payoffMethod === 'avalanche'
-      ? calculateDebtAvalanche(
-          normalizedDebts,
-          income.monthlyTakeHome,
-          income.essentialExpenses,
-          recurringTotal,
-          income.extraPayment
-        )
-      : payoffMethod === 'custom'
-      ? calculateDebtCustom(
-          normalizedDebts,
-          income.monthlyTakeHome,
-          income.essentialExpenses,
-          recurringTotal,
-          income.extraPayment
-        )
-      : calculateDebtSnowball(
-          normalizedDebts,
-          income.monthlyTakeHome,
-          income.essentialExpenses,
-          recurringTotal,
-          income.extraPayment
-        );
+    const metrics = calculatePlanMetrics(normalizedDebts, income, expenses, {
+      method: method ?? null,
+    });
+    if (!metrics) {
+      return NextResponse.json(
+        { error: 'Add debts and income information first' },
+        { status: 400 },
+      );
+    }
+    const payoffResult = metrics.result;
 
     // Save payoff plan and steps atomically
     const plan = await prisma.$transaction(async (tx) => {

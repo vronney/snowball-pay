@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { Sparkles, X, Check, Zap } from 'lucide-react';
 import { getErrorMessage, useStartCheckout } from '@/lib/hooks';
 import { PLANS } from '@/lib/stripe';
+import { PRO_TRIAL_DAYS } from '@/lib/billing';
 import { track, Events } from '@/lib/analytics';
 
 interface UpgradeModalProps {
@@ -85,7 +86,7 @@ export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
           {feature
             ? `${feature} is a Pro feature.`
             : 'Pro turns your charts into a monthly review with a clear next move.'}{' '}
-          Start your 7-day free trial. Cancel before billing if it does not help you stay on plan.
+          Start your {PRO_TRIAL_DAYS}-day free trial. Cancel before billing if it does not help you stay on plan.
         </p>
 
         {/* Features */}
@@ -135,7 +136,7 @@ export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
           }}
         >
           <Zap size={16} />
-          {checkout.isPending ? 'Redirecting…' : 'Start 7-day free trial'}
+          {checkout.isPending ? 'Redirecting…' : `Start ${PRO_TRIAL_DAYS}-day free trial`}
         </button>
 
         {checkoutError && (

@@ -3,13 +3,12 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Debt, Income, Expense } from "@/types";
 import { type Tab } from "@/components/dashboard/types";
+import { type PayoffMethod } from "@/lib/snowball";
 import {
-  calculateDebtSnowball,
-  calculateDebtAvalanche,
-  calculateDebtCustom,
-  type PayoffMethod,
-  type PayoffResult,
-} from "@/lib/snowball";
+  calculateMinimumsOnlyResult,
+  calculatePlanMetrics,
+  calculateResultForAcceleration,
+} from "@/lib/payoffPlan";
 import { useUpdateDebt, useAllSnapshots, useSaveIncome } from "@/lib/hooks";
 import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
 import { ChevronRight, CalendarCheck } from "lucide-react";
@@ -107,45 +106,13 @@ export default function PayoffTab({
 
   const actualBalanceMap = useActualBalanceMap(snapshotsData?.snapshots ?? []);
 
-  const planResult = useMemo<PayoffResult | null>(() => {
-    if (!debts.length || !income) return null;
-    const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
-    const totalMin = debts.reduce((sum, d) => sum + d.minimumPayment, 0);
-    const totalEss = income.essentialExpenses + recurringTotal;
-    const maxAcceleration = Math.max(
-      0,
-      income.monthlyTakeHome - totalEss - totalMin + (income.extraPayment ?? 0),
-    );
-    const targetAcceleration =
-      accelerationAmount !== null
-        ? Math.min(accelerationAmount, maxAcceleration)
-        : maxAcceleration;
-    const adjustedExtra =
-      targetAcceleration - (income.monthlyTakeHome - totalEss - totalMin);
-    return payoffMethod === "avalanche"
-      ? calculateDebtAvalanche(
-          debts,
-          income.monthlyTakeHome,
-          income.essentialExpenses,
-          recurringTotal,
-          adjustedExtra,
-        )
-      : payoffMethod === "custom"
-        ? calculateDebtCustom(
-            debts,
-            income.monthlyTakeHome,
-            income.essentialExpenses,
-            recurringTotal,
-            adjustedExtra,
-          )
-        : calculateDebtSnowball(
-            debts,
-            income.monthlyTakeHome,
-            income.essentialExpenses,
-            recurringTotal,
-            adjustedExtra,
-          );
+  const planMetrics = useMemo(() => {
+    return calculatePlanMetrics(debts, income, expenses, {
+      method: payoffMethod,
+      accelerationAmount,
+    });
   }, [debts, income, expenses, payoffMethod, accelerationAmount]);
+  const planResult = planMetrics?.result ?? null;
 
   // Track plan_generated once per session when planResult first resolves.
   useEffect(() => {
@@ -217,27 +184,7 @@ export default function PayoffTab({
     );
   }
 
-  const totalMinPayments = debts.reduce((sum, d) => sum + d.minimumPayment, 0);
-  const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const totalEssential = income.essentialExpenses + recurringTotal;
-  const availableCashFlow = Math.max(
-    0,
-    income.monthlyTakeHome -
-      totalEssential -
-      totalMinPayments +
-      income.extraPayment,
-  );
-  const effectiveAcceleration =
-    accelerationAmount !== null
-      ? Math.min(accelerationAmount, availableCashFlow)
-      : availableCashFlow;
-  const monthlyPayment = totalMinPayments + effectiveAcceleration;
-  // Extra payment relative to natural surplus — passed to WhatIfCard for +$50/+$100 scenarios
-  const adjustedExtra =
-    effectiveAcceleration -
-    (income.monthlyTakeHome - totalEssential - totalMinPayments);
-
-  if (!planResult) {
+  if (!planMetrics || !planResult) {
     return (
       <div className="text-center py-12 opacity-40">
         <p className="text-sm">Unable to calculate payoff plan</p>
@@ -245,16 +192,18 @@ export default function PayoffTab({
     );
   }
 
+  const {
+    totalMinPayments,
+    recurringTotal,
+    availableCashFlow,
+    effectiveAcceleration,
+    adjustedExtra,
+  } = planMetrics;
+  const monthlyPayment = totalMinPayments + effectiveAcceleration;
   const years = Math.floor(planResult.months / 12);
   const months = planResult.months % 12;
   const timeStr = years > 0 ? `${years}y ${months}m` : `${months}m`;
-  const minimumsOnlyResult = calculateDebtSnowball(
-    debts,
-    totalMinPayments,
-    0,
-    0,
-    0,
-  );
+  const minimumsOnlyResult = calculateMinimumsOnlyResult(debts);
   const interestSavedVsMinimums = Math.max(
     0,
     minimumsOnlyResult.totalInterestPaid - planResult.totalInterestPaid,
@@ -272,19 +221,19 @@ export default function PayoffTab({
   // Custom uses avalanche as comparison since it has no natural counterpart.
   const comparisonResult =
     payoffMethod === "avalanche"
-      ? calculateDebtSnowball(
+      ? calculateResultForAcceleration(
           debts,
-          income.monthlyTakeHome,
-          income.essentialExpenses,
-          recurringTotal,
-          adjustedExtra,
+          income,
+          planMetrics,
+          effectiveAcceleration,
+          "snowball",
         )
-      : calculateDebtAvalanche(
+      : calculateResultForAcceleration(
           debts,
-          income.monthlyTakeHome,
-          income.essentialExpenses,
-          recurringTotal,
-          adjustedExtra,
+          income,
+          planMetrics,
+          effectiveAcceleration,
+          "avalanche",
         );
   const avalancheBalanceMap = new Map(
     comparisonResult.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]),

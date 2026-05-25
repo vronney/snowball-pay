@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe, getStripeProPriceId } from '@/lib/stripe';
+import { PRO_TRIAL_DAYS } from '@/lib/billing';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 
@@ -52,7 +53,7 @@ export async function POST(request: NextRequest) {
         allow_promotion_codes: true,
         metadata: { userId: auth.user.id },
         subscription_data: {
-          trial_period_days: 7,
+          trial_period_days: PRO_TRIAL_DAYS,
           metadata: { userId: auth.user.id },
         },
         success_url: `${appUrl}/dashboard?upgrade=success`,

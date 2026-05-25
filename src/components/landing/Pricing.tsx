@@ -1,6 +1,7 @@
 "use client";
 
 import { track, Events } from "@/lib/analytics";
+import { PRO_TRIAL_DAYS } from "@/lib/billing";
 
 const plans = [
   {
@@ -28,7 +29,7 @@ const plans = [
     price: 9,
     period: "per month after trial",
     desc: "Use debt-free progress charts plus coach notes to see what changed, what it means, and which safe payment move to make next.",
-    badge: "7-day trial",
+    badge: `${PRO_TRIAL_DAYS}-day trial`,
     featured: true,
     cta: "Start Pro Trial",
     href: "/auth/login?returnTo=%2Fdashboard%3Fcheckout%3Dpro",
@@ -411,7 +412,7 @@ export default function Pricing() {
             marginTop: "34px",
           }}
         >
-          Free plan requires no card. Pro trial lasts 7 days and can be canceled before billing.
+          Free plan requires no card. Pro trial lasts {PRO_TRIAL_DAYS} days and can be canceled before billing.
         </p>
       </div>
     </section>

@@ -127,7 +127,7 @@ The current product surface supports a freemium model:
 
 - Free: up to 5 debts, Snowball and Avalanche strategies, monthly payoff
   calendar, progress visualization, and mobile-friendly planning
-- Pro: $9/month with a 7-day trial, unlimited debts, custom priority order,
+- Pro: $9/month with a 14-day trial, unlimited debts, custom priority order,
   personalized recommendations, deeper planning tools, and priority support
 
 ## Tech Stack

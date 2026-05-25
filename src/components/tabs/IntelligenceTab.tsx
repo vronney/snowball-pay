@@ -4,17 +4,13 @@ import { useMemo } from 'react';
 import { Debt, Income, Expense } from '@/types';
 import { type Tab } from '@/components/dashboard/types';
 import {
-  calculateDebtSnowball,
-  calculateDebtAvalanche,
-  calculateDebtCustom,
-  type PayoffMethod,
-  type PayoffResult,
-} from '@/lib/snowball';
+  calculateMinimumsOnlyResult,
+  calculatePlanMetrics,
+} from '@/lib/payoffPlan';
 import { useAllSnapshots } from '@/lib/hooks';
+import { useActualBalanceMap } from '@/lib/hooks/useActualBalanceMap';
 import { ChevronRight, Lightbulb } from 'lucide-react';
 import PlannerIntelligence from '@/components/payoff/PlannerIntelligence';
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 interface IntelligenceTabProps {
   debts: Debt[];
@@ -26,59 +22,16 @@ interface IntelligenceTabProps {
 
 export default function IntelligenceTab({ debts, income, expenses, isLoading, onNavigate }: IntelligenceTabProps) {
   const { data: snapshotsData } = useAllSnapshots();
-
-  const actualBalanceMap = useMemo(() => {
-    const snapshots = snapshotsData?.snapshots ?? [];
-    if (snapshots.length === 0) return new Map<string, number>();
-
-    const byDebt = new Map<string, { ym: string; balance: number }[]>();
-    for (const s of snapshots) {
-      const ym = s.recordedAt.slice(0, 7);
-      if (!byDebt.has(s.debtId)) byDebt.set(s.debtId, []);
-      byDebt.get(s.debtId)!.push({ ym, balance: s.balance });
-    }
-    for (const arr of byDebt.values()) arr.sort((a, b) => a.ym.localeCompare(b.ym));
-
-    const allYMs = [...new Set(snapshots.map((s) => s.recordedAt.slice(0, 7)))].sort();
-    const map = new Map<string, number>();
-    for (const ym of allYMs) {
-      const [year, month] = ym.split('-').map(Number);
-      const label = `${MONTHS[month - 1]} ${year}`;
-      let total = 0;
-      for (const arr of byDebt.values()) {
-        if (arr[0].ym > ym) continue;
-        let bal = arr[0].balance;
-        for (const { ym: sym, balance } of arr) {
-          if (sym <= ym) bal = balance;
-          else break;
-        }
-        total += bal;
-      }
-      map.set(label, total);
-    }
-    return map;
-  }, [snapshotsData?.snapshots]);
+  const actualBalanceMap = useActualBalanceMap(snapshotsData?.snapshots ?? []);
 
   const planData = useMemo(() => {
     if (!income || debts.length === 0) return null;
 
-    const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
-    const totalMinPayments = debts.reduce((sum, d) => sum + d.minimumPayment, 0);
-    const totalEssential = income.essentialExpenses + recurringTotal;
-    const availableCashFlow = Math.max(0, income.monthlyTakeHome - totalEssential - totalMinPayments + income.extraPayment);
-    const effectiveAcceleration = income.accelerationAmount != null
-      ? Math.min(income.accelerationAmount, availableCashFlow)
-      : availableCashFlow;
-    const adjustedExtra = effectiveAcceleration - (income.monthlyTakeHome - totalEssential - totalMinPayments);
-    const payoffMethod = (income.payoffMethod as PayoffMethod) || 'snowball';
+    const metrics = calculatePlanMetrics(debts, income, expenses);
+    if (!metrics) return null;
 
-    const planResult: PayoffResult = payoffMethod === 'avalanche'
-      ? calculateDebtAvalanche(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
-      : payoffMethod === 'custom'
-      ? calculateDebtCustom(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra)
-      : calculateDebtSnowball(debts, income.monthlyTakeHome, income.essentialExpenses, recurringTotal, adjustedExtra);
-
-    const minimumsOnlyResult = calculateDebtSnowball(debts, totalMinPayments, 0, 0, 0);
+    const planResult = metrics.result;
+    const minimumsOnlyResult = calculateMinimumsOnlyResult(debts);
     const currentTotalDebt = debts.reduce((s, d) => s + d.balance, 0);
     const projectedBalanceMap = new Map(planResult.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]));
     const minimumsBalanceMap = new Map(minimumsOnlyResult.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]));
@@ -100,11 +53,11 @@ export default function IntelligenceTab({ debts, income, expenses, isLoading, on
     return {
       planResult,
       minimumsOnlyResult,
-      payoffMethod,
-      availableCashFlow,
-      effectiveAcceleration,
-      totalEssential,
-      totalMinPayments,
+      payoffMethod: metrics.method,
+      availableCashFlow: metrics.availableCashFlow,
+      effectiveAcceleration: metrics.effectiveAcceleration,
+      totalEssential: metrics.totalEssential,
+      totalMinPayments: metrics.totalMinPayments,
       balanceChartData,
       hasRealSnapshots: actualBalanceMap.size > 0,
     };

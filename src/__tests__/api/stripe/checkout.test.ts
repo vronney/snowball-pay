@@ -149,7 +149,7 @@ describe('POST /api/stripe/checkout', () => {
 
   // --- Checkout session shape ---
 
-  it('creates subscription session with 7-day trial and correct price', async () => {
+  it('creates subscription session with 14-day trial and correct price', async () => {
     vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
     mockPrisma.user.findUnique.mockResolvedValue({ stripeCustomerId: 'cus_existing_456', email: 'test@example.com' });
     mockStripe.checkout.sessions.create.mockResolvedValue({ url: CHECKOUT_URL });
@@ -160,7 +160,7 @@ describe('POST /api/stripe/checkout', () => {
       expect.objectContaining({
         mode: 'subscription',
         line_items: [{ price: 'price_test_pro', quantity: 1 }],
-        subscription_data: expect.objectContaining({ trial_period_days: 7 }),
+        subscription_data: expect.objectContaining({ trial_period_days: 14 }),
         success_url: 'http://localhost:3000/dashboard?upgrade=success',
         cancel_url: 'http://localhost:3000/dashboard?upgrade=canceled',
       }),

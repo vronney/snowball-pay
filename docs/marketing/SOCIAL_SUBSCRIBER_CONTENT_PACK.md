@@ -4,7 +4,7 @@ Goal: drive qualified visitors to the free calculator, convert them into free pl
 
 Primary CTA: Try the free debt payoff calculator.
 Secondary CTA: Save your plan in SnowballPay.
-Upgrade CTA: Start the 7-day Pro trial when you need unlimited debts and deeper planning.
+Upgrade CTA: Start the 14-day Pro trial when you need unlimited debts and deeper planning.
 
 Suggested tracking:
 - `/calculator?utm_source=linkedin&utm_medium=social&utm_campaign=calculator_planner`
@@ -362,7 +362,7 @@ Product shot:
 "Start with Free. Try Pro when you are ready."
 
 CTA:
-"7-day Pro trial available."
+"14-day Pro trial available."
 
 ## Single X Posts
 

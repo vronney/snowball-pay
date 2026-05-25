@@ -113,6 +113,18 @@ describe('calculateDebtSnowball', () => {
     expect(result.monthlyPayment).toBe(50); // only minimums, no extra
   });
 
+  it('handles minimum payments that are larger than monthly income', () => {
+    const card = makeDebt({ id: 'CARD', balance: 1000, interestRate: 0, minimumPayment: 125 });
+    const loan = makeDebt({ id: 'LOAN', balance: 2000, interestRate: 0, minimumPayment: 175 });
+
+    const result = calculateDebtSnowball([card, loan], 200, 0, 0, 0);
+
+    expect(result.monthlyPayment).toBe(300);
+    expect(result.monthlyBalances[0].totalBalance).toBe(3000);
+    expect(result.payoffSchedule).toHaveLength(2);
+    expect(result.payoffSchedule.every((step) => step.monthPaidOff > 0)).toBe(true);
+  });
+
   it('caps at MAX_MONTHS (360) when debt is unpayable', () => {
     const unpayable = makeDebt({ id: 'U', balance: 100_000, interestRate: 99, minimumPayment: 1 });
     const result = calculateDebtSnowball([unpayable], 1000, 998, 0, 0);
