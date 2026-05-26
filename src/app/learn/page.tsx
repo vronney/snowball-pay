@@ -1181,6 +1181,268 @@ export default async function LearnPage({
           </div>
         </section>
 
+        {/* ── Real Numbers Example ──────────────────────────────────── */}
+        <section style={{ padding: "96px 24px", backgroundColor: "#f8fafc" }}>
+          <div style={{ maxWidth: "900px", margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: "52px" }}>
+              <div
+                className="lp-section-tag"
+                style={{ display: "inline-flex", marginBottom: "16px" }}
+              >
+                Side-by-Side Example
+              </div>
+              <h2
+                style={{
+                  fontSize: "clamp(1.7rem, 4vw, 2.6rem)",
+                  fontWeight: 900,
+                  letterSpacing: "-0.035em",
+                  lineHeight: 1.1,
+                  marginBottom: "16px",
+                }}
+              >
+                What the Numbers Actually Look Like
+              </h2>
+              <p
+                style={{
+                  fontSize: "16px",
+                  color: "#64748b",
+                  maxWidth: "560px",
+                  margin: "0 auto",
+                }}
+              >
+                Same three debts, same extra payment — here&apos;s what changes
+                depending on which method you pick.
+              </p>
+            </div>
+
+            {/* Debt scenario setup */}
+            <div
+              style={{
+                borderRadius: "20px",
+                overflow: "hidden",
+                border: "1px solid rgba(15,23,42,0.09)",
+                boxShadow: "0 4px 24px rgba(15,23,42,0.06)",
+                marginBottom: "32px",
+              }}
+            >
+              <div
+                style={{
+                  padding: "16px 24px",
+                  background: "#0f172a",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  letterSpacing: "0.1em",
+                  color: "#94a3b8",
+                  textTransform: "uppercase",
+                }}
+              >
+                Example: $12,500 total debt — $200/month extra payment
+              </div>
+              {[
+                {
+                  name: "Credit Card A",
+                  balance: "$3,200",
+                  apr: "24.99%",
+                  min: "$80/mo",
+                },
+                {
+                  name: "Personal Loan",
+                  balance: "$8,500",
+                  apr: "14.5%",
+                  min: "$180/mo",
+                },
+                {
+                  name: "Credit Card B",
+                  balance: "$1,100",
+                  apr: "19.99%",
+                  min: "$35/mo",
+                },
+              ].map((debt, i) => (
+                <div
+                  key={debt.name}
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1.4fr 1fr 1fr 1fr",
+                    backgroundColor: i % 2 === 0 ? "#ffffff" : "#f8fafc",
+                    borderTop: "1px solid rgba(15,23,42,0.07)",
+                    padding: "16px 24px",
+                    alignItems: "center",
+                    gap: "8px",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: 600,
+                      color: "#0f172a",
+                    }}
+                  >
+                    {debt.name}
+                  </span>
+                  <span style={{ fontSize: "14px", color: "#334155" }}>
+                    {debt.balance}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: "14px",
+                      color: "#dc2626",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {debt.apr} APR
+                  </span>
+                  <span style={{ fontSize: "13px", color: "#64748b" }}>
+                    {debt.min} min
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {/* Results comparison */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+                gap: "20px",
+                marginBottom: "28px",
+              }}
+            >
+              {/* Snowball result */}
+              <div
+                className="lp-glass-blue"
+                style={{ borderRadius: "20px", padding: "32px" }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    marginBottom: "24px",
+                  }}
+                >
+                  <span style={{ fontSize: "22px" }}>❄️</span>
+                  <span
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: 800,
+                      color: "#1d4ed8",
+                    }}
+                  >
+                    Snowball Result
+                  </span>
+                </div>
+                {[
+                  { label: "Payoff order", value: "Card B → Card A → Loan" },
+                  { label: "Months to debt-free", value: "38 months" },
+                  { label: "Total interest paid", value: "$3,840" },
+                  { label: "Saved vs. minimums", value: "$4,180" },
+                  { label: "First debt paid off", value: "Month 6 ✓" },
+                ].map((row) => (
+                  <div
+                    key={row.label}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "12px",
+                      gap: "8px",
+                    }}
+                  >
+                    <span style={{ fontSize: "13px", color: "#475569" }}>
+                      {row.label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: 700,
+                        color: "#1d4ed8",
+                        textAlign: "right",
+                      }}
+                    >
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Avalanche result */}
+              <div
+                style={{
+                  borderRadius: "20px",
+                  padding: "32px",
+                  background: "#ffffff",
+                  border: "1.5px solid rgba(124,58,237,0.2)",
+                  boxShadow: "0 0 0 4px rgba(124,58,237,0.04)",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "10px",
+                    marginBottom: "24px",
+                  }}
+                >
+                  <span style={{ fontSize: "22px" }}>🏔️</span>
+                  <span
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: 800,
+                      color: "#6d28d9",
+                    }}
+                  >
+                    Avalanche Result
+                  </span>
+                </div>
+                {[
+                  { label: "Payoff order", value: "Card A → Card B → Loan" },
+                  { label: "Months to debt-free", value: "36 months" },
+                  { label: "Total interest paid", value: "$3,410" },
+                  { label: "Saved vs. minimums", value: "$4,610" },
+                  { label: "First debt paid off", value: "Month 14" },
+                ].map((row) => (
+                  <div
+                    key={row.label}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: "12px",
+                      gap: "8px",
+                    }}
+                  >
+                    <span style={{ fontSize: "13px", color: "#475569" }}>
+                      {row.label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: 700,
+                        color: "#6d28d9",
+                        textAlign: "right",
+                      }}
+                    >
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <p
+              style={{
+                textAlign: "center",
+                fontSize: "13px",
+                color: "#94a3b8",
+              }}
+            >
+              Avalanche saves $430 more and finishes 2 months earlier — but
+              Snowball delivers the first win 8 months sooner. Both beat paying
+              minimums by thousands.
+            </p>
+          </div>
+        </section>
+
         {/* ── Which is right for you? ───────────────────────────────── */}
         <section style={{ padding: "96px 24px", backgroundColor: "#f8fafc" }}>
           <div style={{ maxWidth: "940px", margin: "0 auto" }}>
@@ -1586,6 +1848,80 @@ export default async function LearnPage({
                   your data stays safe and your plan recalculates instantly.
                 </p>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Related Articles ─────────────────────────────────────── */}
+        <section style={{ padding: "64px 24px", backgroundColor: "#ffffff" }}>
+          <div style={{ maxWidth: "960px", margin: "0 auto" }}>
+            <h2
+              style={{
+                fontSize: "18px",
+                fontWeight: 800,
+                color: "#0f172a",
+                marginBottom: "20px",
+              }}
+            >
+              Related Guides
+            </h2>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "14px",
+              }}
+            >
+              {[
+                {
+                  href: "/learn/pay-off-10k-credit-card-debt",
+                  label: "Pay Off $10k Credit Card Debt →",
+                  desc: "See payoff timelines by payment amount",
+                },
+                {
+                  href: "/learn/debt-payoff-plan-template",
+                  label: "Debt Payoff Plan Template →",
+                  desc: "Build your plan in 5 steps",
+                },
+                {
+                  href: "/learn/fastest-way-to-become-debt-free",
+                  label: "Fastest Way to Become Debt Free →",
+                  desc: "5 tactics that actually work",
+                },
+                {
+                  href: "/calculator",
+                  label: "Free Debt Calculator →",
+                  desc: "Estimate your personal debt-free date",
+                },
+              ].map((link) => (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  style={{
+                    display: "block",
+                    padding: "20px 24px",
+                    borderRadius: "14px",
+                    background: "#f8fafc",
+                    border: "1px solid rgba(15,23,42,0.08)",
+                    textDecoration: "none",
+                    transition: "box-shadow 0.15s",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "14px",
+                      fontWeight: 700,
+                      color: "#1d4ed8",
+                      marginBottom: "4px",
+                    }}
+                  >
+                    {link.label}
+                  </div>
+                  <div style={{ fontSize: "12px", color: "#64748b" }}>
+                    {link.desc}
+                  </div>
+                </a>
+              ))}
             </div>
           </div>
         </section>
