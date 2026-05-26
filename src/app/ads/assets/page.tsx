@@ -25,6 +25,7 @@ const SIZES = [
     w: 1200,
     h: 628,
     previewScale: 0.42,
+    logoOnly: false,
   },
   {
     id: "square",
@@ -35,6 +36,7 @@ const SIZES = [
     w: 1200,
     h: 1200,
     previewScale: 0.25,
+    logoOnly: false,
   },
   {
     id: "portrait",
@@ -45,6 +47,7 @@ const SIZES = [
     w: 960,
     h: 1200,
     previewScale: 0.25,
+    logoOnly: false,
   },
   {
     id: "logo-square",
