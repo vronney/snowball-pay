@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { Sparkles, X, Check, Zap } from 'lucide-react';
-import { getErrorMessage, useStartCheckout } from '@/lib/hooks';
-import { PLANS } from '@/lib/stripe';
-import { PRO_TRIAL_DAYS } from '@/lib/billing';
-import { track, Events } from '@/lib/analytics';
+import { useEffect, useState } from "react";
+import { Sparkles, X, Check, Zap } from "lucide-react";
+import { getErrorMessage, useStartCheckout } from "@/lib/hooks";
+import { PLANS } from "@/lib/stripe";
+import { PRO_TRIAL_DAYS } from "@/lib/billing";
+import { track, Events } from "@/lib/analytics";
 
 interface UpgradeModalProps {
   feature?: string;
@@ -13,151 +13,198 @@ interface UpgradeModalProps {
 }
 
 const proBenefits = [
-  'Unlimited debts and custom priority order',
-  'Monthly payoff audit with chart coach notes',
-  'Payment calendar risk and cash-flow guardrails',
-  'APR negotiation scripts with dollar context',
-  'Exportable payoff plan data',
+  "Unlimited debts and custom priority order",
+  "Intelligence tab — forecast, strategy lab, method comparison",
+  "Clear charts comparing your plan vs. paying minimums only",
+  "What-if scenarios: see how extra payments change your timeline",
+  "Payment calendar with cash-flow guardrails",
+  "Exportable payoff plan",
 ];
 
+type Billing = "monthly" | "annual";
+
 export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
+  const [billing, setBilling] = useState<Billing>("monthly");
   const checkout = useStartCheckout();
   const checkoutError = checkout.isError
-    ? getErrorMessage(checkout.error, 'Could not start checkout. Please try again.')
+    ? getErrorMessage(checkout.error, "Could not start checkout. Please try again.")
     : null;
+
+  const monthlyPrice = PLANS.pro.price;
+  const annualPrice = PLANS.pro.annualPrice;
+  const annualMonthly = Math.round((annualPrice / 12) * 100) / 100;
+  const annualSavings = Math.round(monthlyPrice * 12 - annualPrice);
 
   useEffect(() => {
     track(Events.UPGRADE_MODAL_VIEWED, {
-      feature: feature ?? 'general',
-      source: 'dashboard_upgrade_modal',
+      feature: feature ?? "general",
+      source: "dashboard_upgrade_modal",
     });
   }, [feature]);
 
-  // Close on Escape
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
+
+  const handleCheckout = () => {
+    track(Events.CHECKOUT_STARTED, {
+      source: "upgrade_modal",
+      feature: feature ?? "general",
+      billing,
+    });
+    checkout.mutate(billing);
+  };
 
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '16px',
+        position: "fixed", inset: 0, zIndex: 9999,
+        background: "rgba(15,23,42,0.5)", backdropFilter: "blur(4px)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: "16px",
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <div style={{
-        background: '#ffffff', borderRadius: '20px',
-        padding: '32px', maxWidth: '440px', width: '100%',
-        boxShadow: '0 20px 60px rgba(15,23,42,0.18)',
-        position: 'relative',
+        background: "#ffffff", borderRadius: "20px",
+        padding: "32px", maxWidth: "440px", width: "100%",
+        boxShadow: "0 20px 60px rgba(15,23,42,0.18)",
+        position: "relative",
       }}>
-        {/* Close */}
         <button
           onClick={onClose}
           style={{
-            position: 'absolute', top: '16px', right: '16px',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: '#94a3b8', padding: '4px',
+            position: "absolute", top: "16px", right: "16px",
+            background: "none", border: "none", cursor: "pointer",
+            color: "#94a3b8", padding: "4px",
           }}
         >
           <X size={18} />
         </button>
 
-        {/* Icon */}
         <div style={{
-          width: '52px', height: '52px', borderRadius: '14px',
-          background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginBottom: '20px',
+          width: "48px", height: "48px", borderRadius: "12px",
+          background: "#eff6ff",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          marginBottom: "20px",
         }}>
-          <Sparkles size={24} color="#fff" />
+          <Sparkles size={22} color="#2563eb" />
         </div>
 
-        {/* Heading */}
-        <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', margin: '0 0 8px' }}>
-          Unlock the Payoff Coach
+        <h2 style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a", margin: "0 0 8px" }}>
+          Upgrade to Pro
         </h2>
-        <p style={{ fontSize: '14px', color: '#64748b', margin: '0 0 24px', lineHeight: 1.5 }}>
-          {feature
-            ? `${feature} is a Pro feature.`
-            : 'Pro turns your charts into a monthly review with a clear next move.'}{' '}
-          Start your {PRO_TRIAL_DAYS}-day free trial. Cancel before billing if it does not help you stay on plan.
+        <p style={{ fontSize: "14px", color: "#64748b", margin: "0 0 20px", lineHeight: 1.55 }}>
+          {feature ? `${feature} is a Pro feature. ` : ""}
+          Clear charts and timelines show your progress, comparing your accelerated plan against making only minimum payments.
         </p>
+
+        {/* Billing toggle */}
+        <div style={{
+          display: "flex", gap: "6px", marginBottom: "20px",
+          background: "#f1f5f9", borderRadius: "10px", padding: "4px",
+        }}>
+          {(["monthly", "annual"] as Billing[]).map((b) => (
+            <button
+              key={b}
+              onClick={() => setBilling(b)}
+              style={{
+                flex: 1, padding: "8px 12px", borderRadius: "7px",
+                border: "none", cursor: "pointer", fontFamily: "inherit",
+                fontSize: "13px", fontWeight: 600, transition: "all 0.15s",
+                background: billing === b ? "#ffffff" : "transparent",
+                color: billing === b ? "#0f172a" : "#64748b",
+                boxShadow: billing === b ? "0 1px 4px rgba(15,23,42,0.1)" : "none",
+              }}
+            >
+              {b === "monthly" ? "Monthly" : (
+                <span style={{ display: "flex", alignItems: "center", gap: "6px", justifyContent: "center" }}>
+                  Annual
+                  <span style={{
+                    fontSize: "10px", fontWeight: 700, color: "#fff",
+                    background: "#2563eb", borderRadius: "4px", padding: "1px 5px",
+                  }}>
+                    Save ${annualSavings}
+                  </span>
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
 
         {/* Features */}
         <div style={{
-          background: '#f8fafc', borderRadius: '12px',
-          padding: '16px', marginBottom: '24px',
-          display: 'flex', flexDirection: 'column', gap: '10px',
+          background: "#f8fafc", borderRadius: "12px",
+          padding: "14px 16px", marginBottom: "20px",
+          display: "flex", flexDirection: "column", gap: "9px",
         }}>
           {proBenefits.map((f) => (
-            <div key={f} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div key={f} style={{ display: "flex", alignItems: "flex-start", gap: "10px" }}>
               <div style={{
-                width: '18px', height: '18px', borderRadius: '50%',
-                background: 'rgba(37,99,235,0.1)', flexShrink: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: "17px", height: "17px", borderRadius: "50%",
+                background: "rgba(37,99,235,0.1)", flexShrink: 0, marginTop: "1px",
+                display: "flex", alignItems: "center", justifyContent: "center",
               }}>
-                <Check size={11} color="#2563eb" strokeWidth={3} />
+                <Check size={10} color="#2563eb" strokeWidth={3} />
               </div>
-              <span style={{ fontSize: '13px', color: '#334155' }}>{f}</span>
+              <span style={{ fontSize: "13px", color: "#334155", lineHeight: 1.4 }}>{f}</span>
             </div>
           ))}
         </div>
 
-        {/* Price */}
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px', marginBottom: '20px' }}>
-          <span style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a' }}>${PLANS.pro.price}</span>
-          <span style={{ fontSize: '14px', color: '#64748b' }}>/month after trial</span>
+        {/* Price display */}
+        <div style={{ display: "flex", alignItems: "baseline", gap: "4px", marginBottom: "16px" }}>
+          {billing === "monthly" ? (
+            <>
+              <span style={{ fontSize: "30px", fontWeight: 800, color: "#0f172a" }}>${monthlyPrice}</span>
+              <span style={{ fontSize: "14px", color: "#64748b" }}>/month after {PRO_TRIAL_DAYS}-day trial</span>
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: "30px", fontWeight: 800, color: "#0f172a" }}>${annualMonthly}</span>
+              <span style={{ fontSize: "14px", color: "#64748b" }}>/month · billed ${annualPrice}/year</span>
+            </>
+          )}
         </div>
 
-        {/* CTA */}
         <button
-          onClick={() => {
-            track(Events.CHECKOUT_STARTED, {
-              source: 'upgrade_modal',
-              feature: feature ?? 'general',
-            });
-            checkout.mutate();
-          }}
+          onClick={handleCheckout}
           disabled={checkout.isPending}
           style={{
-            width: '100%', padding: '13px',
-            background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
-            border: 'none', borderRadius: '12px', cursor: 'pointer',
-            fontSize: '15px', fontWeight: 700, color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            width: "100%", padding: "13px",
+            background: "#2563eb",
+            border: "none", borderRadius: "12px", cursor: "pointer",
+            fontSize: "15px", fontWeight: 700, color: "#fff",
+            display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
             opacity: checkout.isPending ? 0.7 : 1,
-            fontFamily: 'inherit',
+            fontFamily: "inherit",
+            transition: "opacity 0.15s",
           }}
         >
           <Zap size={16} />
-          {checkout.isPending ? 'Redirecting…' : `Start ${PRO_TRIAL_DAYS}-day free trial`}
+          {checkout.isPending
+            ? "Redirecting…"
+            : billing === "annual"
+              ? `Start ${PRO_TRIAL_DAYS}-day trial · $${annualPrice}/yr`
+              : `Start ${PRO_TRIAL_DAYS}-day free trial`}
         </button>
 
         {checkoutError && (
-          <p
-            role="alert"
-            style={{
-              margin: '10px 0 0',
-              fontSize: '12px',
-              color: '#b91c1c',
-              background: 'rgba(239,68,68,0.08)',
-              border: '1px solid rgba(239,68,68,0.2)',
-              borderRadius: '8px',
-              padding: '8px 10px',
-            }}
-          >
+          <p role="alert" style={{
+            margin: "10px 0 0", fontSize: "12px", color: "#b91c1c",
+            background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)",
+            borderRadius: "8px", padding: "8px 10px",
+          }}>
             {checkoutError}
           </p>
         )}
 
-        <p style={{ fontSize: '11px', color: '#94a3b8', textAlign: 'center', marginTop: '12px' }}>
-          Cancel anytime. No charge during trial.
+        <p style={{ fontSize: "11px", color: "#94a3b8", textAlign: "center", marginTop: "12px" }}>
+          Cancel anytime.{billing === "monthly" ? " No charge during trial." : ""}
         </p>
       </div>
     </div>

@@ -3,17 +3,19 @@ import Stripe from 'stripe';
 let _stripe: Stripe | null = null;
 
 type StripeMode = 'live' | 'test';
-type StripeEnvKey = 'secret' | 'price' | 'webhook';
+type StripeEnvKey = 'secret' | 'price' | 'annualPrice' | 'webhook';
 
 const STRIPE_ENV_KEYS: Record<StripeMode, Record<StripeEnvKey, readonly string[]>> = {
   live: {
     secret: ['STRIPE_SECRET_KEY_LIVE', 'STRIPE_SECRET_KEY'],
     price: ['STRIPE_PRO_PRICE_ID_LIVE', 'STRIPE_PRICE_ID_LIVE', 'STRIPE_PRO_PRICE_ID', 'STRIPE_PRICE_ID'],
+    annualPrice: ['STRIPE_PRO_ANNUAL_PRICE_ID_LIVE', 'STRIPE_PRO_ANNUAL_PRICE_ID'],
     webhook: ['STRIPE_WEBHOOK_SECRET_LIVE', 'STRIPE_WEBHOOK_SECRET'],
   },
   test: {
     secret: ['STRIPE_SECRET_KEY_TEST', 'STRIPE_SECRET_KEY'],
     price: ['STRIPE_PRO_PRICE_ID_TEST', 'STRIPE_PRICE_ID_TEST', 'STRIPE_PRO_PRICE_ID', 'STRIPE_PRICE_ID'],
+    annualPrice: ['STRIPE_PRO_ANNUAL_PRICE_ID_TEST', 'STRIPE_PRO_ANNUAL_PRICE_ID'],
     webhook: ['STRIPE_WEBHOOK_SECRET_TEST', 'STRIPE_WEBHOOK_SECRET'],
   },
 };
@@ -77,6 +79,11 @@ export function getStripeProPriceId(mode = getStripeMode()): string {
   return priceId;
 }
 
+/** Returns the annual Pro price ID, or null if not configured. */
+export function getStripeProAnnualPriceId(mode = getStripeMode()): string | null {
+  return readFirstEnv(STRIPE_ENV_KEYS[mode].annualPrice) ?? null;
+}
+
 export function getStripeWebhookSecret(mode = getStripeMode()): string | null {
   return readFirstEnv(STRIPE_ENV_KEYS[mode].webhook) ?? null;
 }
@@ -90,6 +97,7 @@ export const PLANS = {
   pro: {
     name: 'Pro',
     price: 9,
+    annualPrice: 79,   // $79/yr ≈ $6.58/mo — saves ~$29 vs monthly
     debtLimit: Infinity,
     features: [
       'Unlimited debts',

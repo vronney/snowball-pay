@@ -669,8 +669,8 @@ export function useSubscription() {
 
 export function useStartCheckout() {
   return useMutation({
-    mutationFn: async () => {
-      const { data } = await axios.post(`${API_URL}/api/stripe/checkout`);
+    mutationFn: async (billing: 'monthly' | 'annual' = 'monthly') => {
+      const { data } = await axios.post(`${API_URL}/api/stripe/checkout`, { billing });
       return data as { url: string };
     },
     onSuccess: ({ url }) => {

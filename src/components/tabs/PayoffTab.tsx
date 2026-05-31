@@ -11,7 +11,8 @@ import {
 } from "@/lib/payoffPlan";
 import { useUpdateDebt, useAllSnapshots, useSaveIncome } from "@/lib/hooks";
 import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
-import { ChevronRight, CalendarCheck } from "lucide-react";
+import { ChevronRight, CalendarCheck, Link2 } from "lucide-react";
+import { useSharePlan } from "@/lib/hooks/useSharePlan";
 import { track, Events } from "@/lib/analytics";
 import ShareDebtFreeCard from "@/components/dashboard/ShareDebtFreeCard";
 import AiRecommendations from "@/components/AiRecommendations";
@@ -47,6 +48,7 @@ export default function PayoffTab({
   // initial-state values on remount and overwriting what was just loaded.
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [shareCardOpen, setShareCardOpen] = useState(false);
+  const sharePlan = useSharePlan();
   const [payoffMethod, setPayoffMethod] = useState<PayoffMethod>(
     () => (income?.payoffMethod as PayoffMethod) || "snowball",
   );
@@ -431,6 +433,29 @@ export default function PayoffTab({
           }}
         >
           🎯 Share my debt-free date
+        </button>
+
+        <button
+          onClick={sharePlan.generate}
+          disabled={sharePlan.loading}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "8px",
+            padding: "10px 22px",
+            borderRadius: "10px",
+            cursor: "pointer",
+            background: sharePlan.copied ? "rgba(22,163,74,0.08)" : "rgba(15,23,42,0.05)",
+            border: `1px solid ${sharePlan.copied ? "rgba(22,163,74,0.2)" : "rgba(15,23,42,0.1)"}`,
+            color: sharePlan.copied ? "#15803d" : "#536078",
+            fontSize: "14px",
+            fontWeight: 600,
+            fontFamily: "inherit",
+            transition: "all 0.2s",
+          }}
+        >
+          <Link2 size={14} />
+          {sharePlan.copied ? "Link copied!" : sharePlan.loading ? "Generating…" : "Copy shareable link"}
         </button>
       </div>
 

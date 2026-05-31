@@ -7,9 +7,11 @@ import {
   calculateMinimumsOnlyResult,
   calculatePlanMetrics,
 } from "@/lib/payoffPlan";
-import { useUserSettings, useAllSnapshots } from "@/lib/hooks";
+import { useAllSnapshots } from "@/lib/hooks";
 import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
 import PlannerIntelligence from "@/components/payoff/PlannerIntelligence";
+import ProGate from "@/components/billing/ProGate";
+import { useSubscription } from "@/lib/hooks";
 import { type ChartEntry } from "@/components/payoff/BalanceOverTimeChart";
 
 interface IntelligenceTabProps {
@@ -25,7 +27,8 @@ export default function IntelligenceTab({
   expenses,
   isLoading,
 }: IntelligenceTabProps) {
-  const { data: settingsData } = useUserSettings();
+  const { data: subData } = useSubscription();
+  const isPro = subData?.paidTier === "pro";
   const { data: snapshotsData } = useAllSnapshots();
 
   const payoffMethod =
@@ -103,6 +106,7 @@ export default function IntelligenceTab({
 
   return (
     <section id="section-intelligence" className="space-y-6">
+      <ProGate feature="Intelligence" isPro={isPro}>
       <PlannerIntelligence
         debts={debts}
         income={income}
@@ -117,6 +121,7 @@ export default function IntelligenceTab({
         balanceChartData={balanceChartData}
         hasRealSnapshots={hasRealSnapshots}
       />
+      </ProGate>
     </section>
   );
 }

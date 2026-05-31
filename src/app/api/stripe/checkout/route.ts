@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe, getStripeProPriceId } from '@/lib/stripe';
+import { getStripe, getStripeProPriceId, getStripeProAnnualPriceId } from '@/lib/stripe';
 import { PRO_TRIAL_DAYS } from '@/lib/billing';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
@@ -19,6 +19,9 @@ export async function POST(request: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
 
+  const body = await request.json().catch(() => ({})) as { billing?: 'monthly' | 'annual' };
+  const billing = body.billing === 'annual' ? 'annual' : 'monthly';
+
   try {
     // Fetch or create a Stripe customer for this user.
     // If Stripe reports the stored customer is missing (usually test/live mismatch),
@@ -30,7 +33,12 @@ export async function POST(request: NextRequest) {
 
     let customerId = user?.stripeCustomerId;
     const stripe = getStripe();
-    const priceId = getStripeProPriceId();
+    const annualPriceId = getStripeProAnnualPriceId();
+    const priceId = billing === 'annual' && annualPriceId
+      ? annualPriceId
+      : getStripeProPriceId();
+    // Annual plan: shorter trial (3 days) since the commitment is yearly
+    const trialDays = billing === 'annual' && annualPriceId ? 3 : PRO_TRIAL_DAYS;
     const userEmail = user?.email ?? auth.user.email;
 
     const createAndPersistCustomer = async () => {
@@ -53,7 +61,7 @@ export async function POST(request: NextRequest) {
         allow_promotion_codes: true,
         metadata: { userId: auth.user.id },
         subscription_data: {
-          trial_period_days: PRO_TRIAL_DAYS,
+          trial_period_days: trialDays,
           metadata: { userId: auth.user.id },
         },
         success_url: `${appUrl}/dashboard?upgrade=success`,

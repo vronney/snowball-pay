@@ -28,6 +28,8 @@ import DashboardLoadingScreen from "@/components/dashboard/DashboardLoadingScree
 import { type Tab } from "@/components/dashboard/types";
 import IntelligenceTab from "@/components/tabs/IntelligenceTab";
 import { upgradeEvents } from "@/lib/upgradeEvents";
+import TrialCountdownBanner from "@/components/dashboard/TrialCountdownBanner";
+import { useSubscription } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 
 type UserInfo = {
@@ -87,7 +89,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
   useEffect(() => {
     if (searchParams.get("checkout") === "pro") {
       track(Events.CHECKOUT_STARTED, { source: "pricing_page" });
-      startCheckout.mutate();
+      startCheckout.mutate('monthly');
       const url = new URL(window.location.href);
       url.searchParams.delete("checkout");
       window.history.replaceState({}, "", url.toString());
@@ -133,6 +135,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
   const { data: settingsData } = useUserSettings();
   const { data: paymentsData } = usePaymentRecords(today.getFullYear(), today.getMonth());
   const markPaid = useMarkPaid();
+  const { data: subData } = useSubscription();
 
   const debts = useMemo(() => debtsData?.debts ?? [], [debtsData?.debts]);
   const income = incomeData?.income;
@@ -218,6 +221,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
           initials={initials}
         />
 
+        <TrialCountdownBanner sub={subData} />
         <main style={{ flex: 1, padding: "32px", width: "100%" }} className="db-content">
           {activeTab === "progress" && debts.length > 0 && (
             <div className="mb-4">
