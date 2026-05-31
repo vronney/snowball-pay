@@ -2,29 +2,25 @@
 
 import Image from "next/image";
 import {
-  Home,
+  Calendar,
   CreditCard,
   Wallet,
   TrendingDown,
   BarChart2,
-  Sparkles,
-  BookOpen,
+  Lightbulb,
   Settings,
   LogOut,
-  HelpCircle,
 } from "lucide-react";
 import { type Tab } from "./types";
 import { LOGOUT_URL, runLogoutClientCleanup } from "@/lib/logout-client";
 
 const navItems = [
-  { id: "home",         label: "Home",        icon: Home },
-  { id: "debts",        label: "My Debts",    icon: CreditCard },
-  { id: "income",       label: "Income",      icon: Wallet },
-  { id: "plan",         label: "Payoff Plan", icon: TrendingDown },
-  { id: "progress",     label: "Progress",    icon: BarChart2 },
-  { id: "intelligence", label: "Intelligence",icon: Sparkles },
-  { id: "journey",      label: "My Journey",  icon: BookOpen },
-  { id: "help",         label: "Help",        icon: HelpCircle },
+  { id: "this-month", label: "This Month",      icon: Calendar },
+  { id: "debts",      label: "My Debts",        icon: CreditCard },
+  { id: "income",     label: "Income & Budget", icon: Wallet },
+  { id: "plan",       label: "My Plan",         icon: TrendingDown },
+  { id: "progress",   label: "Progress",        icon: BarChart2 },
+  { id: "intelligence", label: "Intelligence",    icon: Lightbulb },
 ];
 
 interface DashboardSidebarProps {
@@ -42,10 +38,9 @@ export default function DashboardSidebar({
 }: DashboardSidebarProps) {
   return (
     <>
-      {/* Sidebar */}
       <aside
         style={{
-          width: "252px",
+          width: "220px",
           flexShrink: 0,
           background: "rgba(255,255,255,0.88)",
           borderRight: "1px solid rgba(15,23,42,0.08)",
@@ -67,43 +62,17 @@ export default function DashboardSidebar({
         {/* Logo */}
         <div
           style={{
-            padding: "24px 22px 18px",
+            padding: "22px 20px 16px",
             borderBottom: "1px solid rgba(15,23,42,0.07)",
           }}
         >
-          <a
-            href="/"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              textDecoration: "none",
-            }}
-          >
-            <Image
-              src="/logo-dark.svg"
-              alt="SnowballPay"
-              width={148}
-              height={28}
-              priority
-            />
+          <a href="/" style={{ display: "flex", alignItems: "center", textDecoration: "none" }}>
+            <Image src="/logo-dark.svg" alt="SnowballPay" width={140} height={26} priority />
           </a>
         </div>
 
         {/* Nav */}
-        <nav style={{ flex: 1, padding: "18px 12px", overflowY: "auto" }}>
-          <p
-            style={{
-              fontSize: "10px",
-              fontWeight: 700,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: "#667085",
-              padding: "0 8px",
-              marginBottom: "10px",
-            }}
-          >
-            Main Menu
-          </p>
+        <nav style={{ flex: 1, padding: "14px 10px", overflowY: "auto" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -119,21 +88,18 @@ export default function DashboardSidebar({
                     display: "flex",
                     alignItems: "center",
                     gap: "10px",
-                    padding: "11px 12px",
-                    borderRadius: "14px",
+                    padding: "10px 12px",
+                    borderRadius: "10px",
                     border: "none",
                     cursor: "pointer",
                     fontFamily: "inherit",
-                    fontSize: "13.5px",
-                    fontWeight: isActive ? 800 : 600,
+                    fontSize: "13px",
+                    fontWeight: isActive ? 700 : 500,
                     textAlign: "left",
                     width: "100%",
-                    transition: "transform 0.44s cubic-bezier(0.32,0.72,0,1), background-color 0.44s cubic-bezier(0.32,0.72,0,1), color 0.44s cubic-bezier(0.32,0.72,0,1), box-shadow 0.44s cubic-bezier(0.32,0.72,0,1)",
-                    background: isActive ? "#ffffff" : "transparent",
-                    color: isActive ? "#0b1220" : "#536078",
-                    boxShadow: isActive
-                      ? "0 12px 28px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.88)"
-                      : "none",
+                    transition: "background-color 0.15s, color 0.15s",
+                    background: isActive ? "#eff6ff" : "transparent",
+                    color: isActive ? "#2563eb" : "#536078",
                     position: "relative",
                   }}
                 >
@@ -150,111 +116,83 @@ export default function DashboardSidebar({
                       }}
                     />
                   )}
-                  <Icon size={16} strokeWidth={isActive ? 2.15 : 1.8} />
+                  <Icon size={16} strokeWidth={isActive ? 2.2 : 1.7} />
                   {item.label}
                 </button>
               );
             })}
           </div>
-
-          <div
-            style={{
-              height: "1px",
-              background: "rgba(15,23,42,0.07)",
-              margin: "16px 8px",
-            }}
-          />
-          <p
-            style={{
-              fontSize: "10px",
-              fontWeight: 700,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              color: "#667085",
-              padding: "0 8px",
-              marginBottom: "8px",
-            }}
-          >
-            Account
-          </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-            <button
-              onClick={() => {
-                setActiveTab("settings");
-                setSidebarOpen(false);
-              }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                padding: "11px 12px",
-                borderRadius: "14px",
-                border: "none",
-                fontSize: "13.5px",
-                fontWeight: activeTab === "settings" ? 800 : 600,
-                color: activeTab === "settings" ? "#0b1220" : "#536078",
-                background:
-                  activeTab === "settings" ? "#ffffff" : "transparent",
-                cursor: "pointer",
-                fontFamily: "inherit",
-                textAlign: "left",
-                width: "100%",
-                transition: "transform 0.44s cubic-bezier(0.32,0.72,0,1), background-color 0.44s cubic-bezier(0.32,0.72,0,1), color 0.44s cubic-bezier(0.32,0.72,0,1), box-shadow 0.44s cubic-bezier(0.32,0.72,0,1)",
-                position: "relative",
-                boxShadow: activeTab === "settings"
-                  ? "0 12px 28px rgba(15,23,42,0.08), inset 0 1px 0 rgba(255,255,255,0.88)"
-                  : "none",
-              }}
-            >
-              {activeTab === "settings" && (
-                <span
-                  style={{
-                    position: "absolute",
-                    left: 0,
-                    top: "20%",
-                    bottom: "20%",
-                    width: "3px",
-                    borderRadius: "0 3px 3px 0",
-                    background: "#2563eb",
-                  }}
-                />
-              )}
-              <Settings
-                size={16}
-                strokeWidth={activeTab === "settings" ? 2.15 : 1.8}
-              />
-              Settings
-            </button>
-          </div>
         </nav>
 
-        {/* User + Logout */}
+        {/* Footer — Settings + Sign Out */}
         <div
           style={{
-            padding: "14px 12px",
+            padding: "12px 10px",
             borderTop: "1px solid rgba(15,23,42,0.07)",
+            display: "flex",
+            flexDirection: "column",
+            gap: "2px",
           }}
         >
+          <button
+            onClick={() => {
+              setActiveTab("settings");
+              setSidebarOpen(false);
+            }}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              padding: "10px 12px",
+              borderRadius: "10px",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              fontSize: "13px",
+              fontWeight: activeTab === "settings" ? 700 : 500,
+              color: activeTab === "settings" ? "#2563eb" : "#536078",
+              background: activeTab === "settings" ? "#eff6ff" : "transparent",
+              textAlign: "left",
+              width: "100%",
+              position: "relative",
+              transition: "background-color 0.15s, color 0.15s",
+            }}
+          >
+            {activeTab === "settings" && (
+              <span
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: "20%",
+                  bottom: "20%",
+                  width: "3px",
+                  borderRadius: "0 3px 3px 0",
+                  background: "#2563eb",
+                }}
+              />
+            )}
+            <Settings size={16} strokeWidth={activeTab === "settings" ? 2.2 : 1.7} />
+            Settings
+          </button>
+
           <a
             href={LOGOUT_URL}
             onClick={runLogoutClientCleanup}
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "8px",
+              gap: "10px",
               padding: "10px 12px",
-              borderRadius: "14px",
+              borderRadius: "10px",
               fontSize: "13px",
-              fontWeight: 700,
-              color: "#b42318",
+              fontWeight: 500,
+              color: "#64748b",
               textDecoration: "none",
-              background: "rgba(244,63,94,0.07)",
-              border: "1px solid rgba(244,63,94,0.13)",
               width: "100%",
-              transition: "transform 0.44s cubic-bezier(0.32,0.72,0,1), border-color 0.44s cubic-bezier(0.32,0.72,0,1)",
+              transition: "color 0.15s",
             }}
           >
-            <LogOut size={14} strokeWidth={1.8} />
+            <LogOut size={16} strokeWidth={1.7} />
             Sign Out
           </a>
         </div>

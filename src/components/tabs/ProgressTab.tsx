@@ -31,6 +31,7 @@ import {
 } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import DataInsights from "@/components/progress/DataInsights";
+import JourneyTab from "@/components/tabs/JourneyTab";
 
 interface ProgressTabProps {
   debts: Debt[];
@@ -541,6 +542,33 @@ export default function ProgressTab({
           {milestones.map((milestone) => (
             <MilestoneRow key={milestone.label} {...milestone} />
           ))}
+        </div>
+      </div>
+
+      {/* Your Journey — AI-generated debt story */}
+      <div
+        className="rounded-xl"
+        style={{
+          border: "1px solid rgba(15,23,42,0.08)",
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            padding: "14px 20px",
+            background: "#f8fafc",
+            borderBottom: "1px solid rgba(15,23,42,0.07)",
+          }}
+        >
+          <span className="font-semibold text-sm" style={{ color: "#111827" }}>
+            Your Journey
+          </span>
+          <p className="text-xs mt-0.5" style={{ color: "#94a3b8" }}>
+            An AI-generated summary of your payoff story so far
+          </p>
+        </div>
+        <div style={{ padding: "4px 0" }}>
+          <JourneyTab />
         </div>
       </div>
     </section>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { auth0 } from "@/lib/auth0";
 import LandingNav from "@/components/landing/LandingNav";
 import LandingFooter from "@/components/landing/LandingFooter";
+import LearnInlineCTA from "@/components/learn/LearnInlineCTA";
 
 const BASE_URL = "https://getsnowballpay.com";
 
@@ -422,6 +423,12 @@ export default async function PayOff10kPage() {
             </p>
           </div>
         </section>
+
+        <LearnInlineCTA
+          headline="See how long it takes to pay off your balance"
+          body="Enter your actual balance, APR, and what you can pay each month — get your payoff date and interest cost in under 2 minutes."
+          isLoggedIn={isLoggedIn}
+        />
 
         {/* ── Key Insights ─────────────────────────────────────────── */}
         <section style={{ padding: "80px 24px", backgroundColor: "#f8fafc" }}>

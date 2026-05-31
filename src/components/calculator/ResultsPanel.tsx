@@ -29,6 +29,7 @@ interface ResultsPanelProps {
   effectiveAccel: number;
   showMinimumsLine: boolean;
   timeStr: string | null;
+  method?: "snowball" | "avalanche" | "custom";
   savePlanLabel?: string;
   savePlanHelperText?: string;
   onboardingPrefill?: OnboardingPrefill;
@@ -41,6 +42,7 @@ export default function ResultsPanel({
   effectiveAccel,
   showMinimumsLine,
   timeStr,
+  method = "snowball",
   savePlanLabel = "Save This Plan and Track Progress",
   savePlanHelperText = "Free account - no card required",
   onboardingPrefill,
@@ -187,6 +189,13 @@ export default function ResultsPanel({
         effectiveAcceleration={effectiveAccel}
         showMinimumsLine={showMinimumsLine}
         hasRealSnapshots={false}
+        strategyLabel={
+          method === "avalanche"
+            ? "Avalanche"
+            : method === "custom"
+              ? "Custom"
+              : "Snowball"
+        }
       />
 
       {/* Payoff order */}

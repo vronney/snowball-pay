@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import LearnInlineCTA from "@/components/learn/LearnInlineCTA";
 
 export const metadata: Metadata = {
   title: "Free Debt Snowball Calculator — See Your Projected Payoff Date",
@@ -462,6 +463,11 @@ export default function DebtSnowballCalculatorPage() {
           >
             Example: Paying off $41,500 in debt
           </h2>
+
+          <LearnInlineCTA
+            headline="Like what you see? Save your plan."
+            body="Create a free account to track your real balances month by month and keep your debt-free date updated as you make payments."
+          />
 
           {/* Example table */}
           <div style={{ overflowX: "auto", marginBottom: "16px" }}>

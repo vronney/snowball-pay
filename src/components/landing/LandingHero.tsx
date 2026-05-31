@@ -97,7 +97,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                 color: "#0b1220",
               }}
             >
-              Know what to pay next and when you will be debt-free.
+              See your debt-free date in 2 minutes.
             </h1>
 
             <p
@@ -110,9 +110,9 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                 marginBottom: "38px",
               }}
             >
-              SnowballPay turns your balances, minimums, and extra payment into a
-              realistic payoff order, debt-free date, visual charts, and coach notes
-              for the next safe monthly move.
+              Enter your balances and what you can pay. SnowballPay calculates
+              your payoff order, exact debt-free date, and how much interest
+              you&apos;ll save — no bank connection, no signup required to start.
             </p>
 
             <div
@@ -136,27 +136,27 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
               ) : (
                 <>
                   <a
-                    href="/auth/login?returnTo=/dashboard"
+                    href="/calculator"
                     className="lp-btn lp-btn-primary lp-btn-with-icon"
                     style={{ fontSize: "16px", padding: "16px 12px 16px 28px" }}
                     onClick={() =>
-                      track(Events.SIGNUP_STARTED, { source: "hero_primary" })
-                    }
-                  >
-                    Build My Free Plan
-                    <ArrowIsland />
-                  </a>
-                  <a
-                    href="/calculator"
-                    className="lp-btn lp-btn-ghost"
-                    style={{ fontSize: "15px" }}
-                    onClick={() =>
                       track(Events.CALCULATOR_STARTED, {
-                        source: "hero_secondary",
+                        source: "hero_primary",
                       })
                     }
                   >
-                    Run Free Calculator
+                    Try the Free Calculator
+                    <ArrowIsland />
+                  </a>
+                  <a
+                    href="/auth/login?returnTo=/onboarding"
+                    className="lp-btn lp-btn-ghost"
+                    style={{ fontSize: "15px" }}
+                    onClick={() =>
+                      track(Events.SIGNUP_STARTED, { source: "hero_secondary" })
+                    }
+                  >
+                    Build My Plan
                   </a>
                 </>
               )}

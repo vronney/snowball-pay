@@ -1,14 +1,12 @@
 import { type LucideIcon } from "lucide-react";
 
 export type Tab =
-  | "home"
+  | "this-month"
   | "debts"
   | "income"
   | "plan"
   | "progress"
   | "intelligence"
-  | "journey"
-  | "help"
   | "settings";
 
 export interface Notification {

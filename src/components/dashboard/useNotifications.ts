@@ -153,7 +153,7 @@ export function useNotifications({
           icon: TrendingDown,
           title: "Budget shortfall detected",
           body: `Expenses and minimums exceed take-home by $${Math.round(shortfall).toLocaleString()}. Review your budget.`,
-          tab: "income",
+          tab: "settings",
         });
       }
     }
@@ -166,7 +166,7 @@ export function useNotifications({
         icon: AlertTriangle,
         title: "Set up your budget",
         body: "Add your monthly income and expenses to unlock your payoff plan.",
-        tab: "income",
+        tab: "settings",
       });
     }
 
@@ -178,7 +178,7 @@ export function useNotifications({
         icon: AlertTriangle,
         title: "Add your first debt",
         body: "Track your balances and build a personalised payoff schedule.",
-        tab: "debts",
+        tab: "settings",
       });
     }
 

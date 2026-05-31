@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { auth0 } from "@/lib/auth0";
 import LandingNav from "@/components/landing/LandingNav";
 import LandingFooter from "@/components/landing/LandingFooter";
+import LearnInlineCTA from "@/components/learn/LearnInlineCTA";
 
 const BASE_URL = "https://getsnowballpay.com";
 
@@ -451,6 +452,12 @@ export default async function FastestWayToBecomeDebtFreePage() {
           </div>
         </section>
 
+        <LearnInlineCTA
+          headline="Want to see your fastest path to debt-free?"
+          body="Enter your balances, pick a strategy, and get your exact payoff order and debt-free date — free, no account required."
+          isLoggedIn={isLoggedIn}
+        />
+
         {/* Key insights */}
         <section style={{ padding: "80px 24px", backgroundColor: "#f8fafc" }}>
           <div style={{ maxWidth: "960px", margin: "0 auto" }}>
@@ -663,17 +670,17 @@ export default async function FastestWayToBecomeDebtFreePage() {
               {[
                 {
                   href: "/learn",
-                  label: "Debt Snowball vs. Avalanche \u2192",
+                  label: "Debt Snowball vs. Avalanche →",
                   desc: "Compare both methods side-by-side",
                 },
                 {
                   href: "/learn/pay-off-10k-credit-card-debt",
-                  label: "Pay Off $10k Credit Card Debt \u2192",
+                  label: "Pay Off $10k Credit Card Debt →",
                   desc: "See payoff timelines by payment amount",
                 },
                 {
                   href: "/learn/debt-payoff-plan-template",
-                  label: "Debt Payoff Plan Template \u2192",
+                  label: "Debt Payoff Plan Template →",
                   desc: "Build your plan in 5 steps",
                 },
               ].map((link) => (
@@ -757,8 +764,8 @@ export default async function FastestWayToBecomeDebtFreePage() {
                 style={{ fontSize: "16px", padding: "15px 34px" }}
               >
                 {isLoggedIn
-                  ? "Open Dashboard \u2192"
-                  : "Build My Free Plan \u2192"}
+                  ? "Open Dashboard →"
+                  : "Build My Free Plan →"}
               </a>
               <a
                 href="/calculator"
