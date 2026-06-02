@@ -75,16 +75,21 @@ export async function GET(request: NextRequest) {
     const recurringTotal = expenses.reduce((s, e) => s + e.amount, 0);
     const totalMinPayments = debts.reduce((s, d) => s + d.minimumPayment, 0);
 
+    const naturalSurplus = Math.max(
+      0,
+      income.monthlyTakeHome -
+        income.essentialExpenses -
+        recurringTotal -
+        totalMinPayments,
+    );
+    const availableCashFlow = Math.max(
+      0,
+      naturalSurplus + (income.extraPayment ?? 0),
+    );
     const plannedMonthly =
       income.accelerationAmount != null
-        ? income.accelerationAmount
-        : Math.max(
-            0,
-            income.monthlyTakeHome -
-              income.essentialExpenses -
-              recurringTotal -
-              totalMinPayments,
-          );
+        ? Math.min(income.accelerationAmount, availableCashFlow)
+        : availableCashFlow;
 
     const debtMinMap = new Map(debts.map((d) => [d.id, d.minimumPayment]));
 
@@ -131,7 +136,6 @@ export async function GET(request: NextRequest) {
       0,
     );
 
-    const naturalSurplus = income.monthlyTakeHome - income.essentialExpenses - recurringTotal - totalMinPayments;
     const adjustedExtra = Math.max(0, plannedMonthly - naturalSurplus);
 
     const currentResult = calcFn(

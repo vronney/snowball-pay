@@ -4,11 +4,8 @@ import { useMemo, useState } from "react";
 import { CalendarCheck, ChevronRight, CreditCard, TrendingDown } from "lucide-react";
 import { Debt, Income, Expense } from "@/types";
 import { type Tab } from "@/components/dashboard/types";
-import {
-  calculateDebtSnowball,
-  calculateDebtAvalanche,
-} from "@/lib/snowball";
 import { calculateMinimumsOnlyResult } from "@/lib/payoffPlan";
+import { calculatePlanMetrics } from "@/lib/payoffPlan";
 import { formatCurrency } from "@/lib/utils";
 import { usePaymentRecords, useMarkPaid } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,21 +62,16 @@ export default function ThisMonthTab({
   );
 
   // Accelerated plan (user's actual strategy)
-  const result = useMemo(() => {
+  const planMetrics = useMemo(() => {
     if (!debts.length || !income) return null;
     try {
-      const fn = method === "avalanche" ? calculateDebtAvalanche : calculateDebtSnowball;
-      return fn(
-        debts,
-        income.monthlyTakeHome,
-        income.essentialExpenses,
-        recurringExpenses,
-        income.extraPayment,
-      );
+      return calculatePlanMetrics(debts, income, expenses, { method });
     } catch {
       return null;
     }
-  }, [debts, income, method, recurringExpenses]);
+  }, [debts, income, method, expenses]);
+
+  const result = planMetrics?.result ?? null;
 
   // Minimums-only baseline for interest reclaimed calculation
   const minimumsResult = useMemo(() => {

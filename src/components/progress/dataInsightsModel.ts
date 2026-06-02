@@ -26,7 +26,6 @@ export function buildCashFlowStages(
   metrics: PlanMetrics,
 ): CashFlowStage[] {
   const stages: CashFlowStage[] = [];
-  const extraIncome = Math.max(0, income.extraPayment ?? 0);
   let remaining = income.monthlyTakeHome;
 
   stages.push({
@@ -36,17 +35,6 @@ export function buildCashFlowStages(
     fill: '#2563eb',
     helper: 'Monthly income',
   });
-
-  if (extraIncome > 0) {
-    stages.push({
-      label: 'Extra income',
-      amount: extraIncome,
-      range: [remaining, remaining + extraIncome],
-      fill: '#0891b2',
-      helper: 'Additional monthly income',
-    });
-    remaining += extraIncome;
-  }
 
   const deductions: Omit<CashFlowStage, 'range'>[] = [
     {
