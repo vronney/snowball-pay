@@ -24,6 +24,7 @@ import BalanceOverTimeChart from "@/components/payoff/BalanceOverTimeChart";
 import PayoffTimeline from "@/components/payoff/PayoffTimeline";
 import PayoffOrderList from "@/components/payoff/PayoffOrderList";
 import FocusDebtExplainer from "@/components/payoff/FocusDebtExplainer";
+import RollForwardAdvice from "@/components/payoff/RollForwardAdvice";
 import StrategyExplanation from "@/components/payoff/StrategyExplanation";
 import ReferralPrompt from "@/components/payoff/ReferralPrompt";
 import WhatIfCard from "@/components/payoff/WhatIfCard";
@@ -331,6 +332,12 @@ export default function PayoffTab({
     );
   };
 
+  const handleReviewExtraAmount = () => {
+    document
+      .getElementById("cash-flow-overview")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <section id="section-plan" className="space-y-6">
       <StrategySelector
@@ -408,6 +415,15 @@ export default function PayoffTab({
         focusDebtId={focusDebt?.id ?? null}
         paidThisMonthDebtIds={paidThisMonthDebtIds}
         onLogPayment={() => onNavigate("debts")}
+      />
+
+      <RollForwardAdvice
+        debts={debts}
+        focusDebt={focusDebt}
+        currentAcceleration={effectiveAcceleration}
+        availableCashFlow={availableCashFlow}
+        surface="plan"
+        onReviewPlan={handleReviewExtraAmount}
       />
 
       <PayoffOrderList

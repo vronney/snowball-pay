@@ -66,4 +66,8 @@ export const Events = {
   CELEBRATION_FIRED:        'celebration_fired',
   CELEBRATION_FALLBACK:     'celebration_fallback',
   CELEBRATION_RATE_LIMITED: 'celebration_rate_limited',
+  ROLL_FORWARD_ADVICE_VIEWED: 'roll_forward_advice_viewed',
+  ROLL_FORWARD_ADVICE_REVIEW_CLICKED: 'roll_forward_advice_review_clicked',
+  ROLL_FORWARD_ADVICE_PLANNED: 'roll_forward_advice_planned',
+  ROLL_FORWARD_ADVICE_DISMISSED: 'roll_forward_advice_dismissed',
 } as const;

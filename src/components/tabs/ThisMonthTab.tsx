@@ -9,6 +9,7 @@ import { formatCurrency } from "@/lib/utils";
 import { usePaymentRecords, useMarkPaid } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import InterestReclaimedBanner from "@/components/dashboard/InterestReclaimedBanner";
+import RollForwardAdvice from "@/components/payoff/RollForwardAdvice";
 
 interface ThisMonthTabProps {
   debts: Debt[];
@@ -273,6 +274,17 @@ export default function ThisMonthTab({
             </p>
           )}
         </div>
+      )}
+
+      {hasDebts && (
+        <RollForwardAdvice
+          debts={debts}
+          focusDebt={focusDebt}
+          currentAcceleration={planMetrics?.effectiveAcceleration ?? 0}
+          availableCashFlow={planMetrics?.availableCashFlow}
+          surface="this_month"
+          onReviewPlan={() => onNavigate("plan")}
+        />
       )}
 
       {/* Empty state */}
