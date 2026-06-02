@@ -3,8 +3,6 @@
 import { CheckCircle2, X } from "lucide-react";
 import { type Notification, type Tab } from "./types";
 
-const today = new Date();
-
 function getNotifStyle(
   type: Notification["type"],
   daysUntil?: number,
@@ -50,6 +48,7 @@ export default function NotificationItem({
   onClose,
   onDismiss,
 }: NotificationItemProps) {
+  const today = new Date();
   const Icon = notif.icon;
   const s = getNotifStyle(notif.type, notif.daysUntil);
 

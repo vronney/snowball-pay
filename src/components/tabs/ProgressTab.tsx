@@ -81,13 +81,18 @@ interface ChartPoint {
   paid: number;
 }
 
-function buildChartData(snapshots: BalanceSnapshot[]): ChartPoint[] {
+function buildChartData(snapshots: BalanceSnapshot[], currentBalance: number): ChartPoint[] {
   const byMonth = new Map<string, number>();
 
   for (const snapshot of snapshots) {
     const key = snapshot.recordedAt.slice(0, 7);
     byMonth.set(key, (byMonth.get(key) ?? 0) + snapshot.balance);
   }
+
+  // Always include today as the latest anchor so the chart shows current progress
+  // even when the user hasn't logged a payment yet this month.
+  const todayKey = new Date().toISOString().slice(0, 7);
+  byMonth.set(todayKey, currentBalance);
 
   const sorted = Array.from(byMonth.entries())
     .sort(([a], [b]) => a.localeCompare(b))
@@ -205,7 +210,14 @@ export default function ProgressTab({
     [snapshotData],
   );
 
-  const chartData = useMemo(() => buildChartData(snapshots), [snapshots]);
+  const currentBalance = useMemo(
+    () => debts.reduce((sum, debt) => sum + debt.balance, 0),
+    [debts],
+  );
+  const chartData = useMemo(
+    () => buildChartData(snapshots, currentBalance),
+    [snapshots, currentBalance],
+  );
   const [chartView, setChartView] = useState<"balance" | "paid">("balance");
 
   const yDomain = useMemo((): [number, number] | [number, string] => {

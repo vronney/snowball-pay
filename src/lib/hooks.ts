@@ -469,6 +469,21 @@ export function useMarkPaid() {
 
     const result = await mutation.mutateAsync(args);
 
+    // Optimistically zero the debt balance in the cache if the payment covers
+    // the full remaining balance. This prevents a paid-off debt from appearing
+    // as the focus debt on the next render (before the refetch lands).
+    if (targetDebt && args.amount >= targetDebt.balance) {
+      const cached = queryClient.getQueryData<{ debts: Debt[] }>(['debts']);
+      if (cached) {
+        queryClient.setQueryData(['debts'], {
+          ...cached,
+          debts: cached.debts.map((d) =>
+            d.id === args.debtId ? { ...d, balance: 0 } : d,
+          ),
+        });
+      }
+    }
+
     if (targetDebt) {
       fireCelebration({
         debtId: args.debtId,
