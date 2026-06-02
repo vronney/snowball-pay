@@ -29,6 +29,16 @@ export default function PayoffOrderList({ payoffSchedule, payoffOrderLabel }: Pa
       </button>
 
       {open && <div className="px-5 pb-5 space-y-3">
+        {payoffSchedule.length === 0 && (
+          <div className="rounded-xl p-3" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)' }}>
+            <p className="text-sm font-semibold" style={{ color: '#059669' }}>
+              No active payoff order remains.
+            </p>
+            <p className="text-xs mt-1" style={{ color: '#64748b' }}>
+              Paid-off accounts stay visible in your debt list for the record.
+            </p>
+          </div>
+        )}
         {payoffSchedule.map((item) => {
           const categoryColor = getCategoryColor(item.category);
           const yPO = Math.floor(item.monthPaidOff / 12);

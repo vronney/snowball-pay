@@ -26,6 +26,7 @@ import {
 } from "@/lib/hooks";
 import { upgradeEvents } from "@/lib/upgradeEvents";
 import { Debt, Income, Expense } from "@/types";
+import { isActiveDebt } from "@/lib/monthlyFocusDebt";
 
 interface Props {
   debts: Debt[];
@@ -397,10 +398,11 @@ export default function AiRecommendations({
   totalInterestPaid,
   onAccelerationChange,
 }: Props) {
+  const activeDebts = debts.filter(isActiveDebt);
   const recurringExpenses = expenses.reduce((s, e) => s + e.amount, 0);
 
   const payload: RecommendationPayload = {
-    debts: debts.map((d) => ({
+    debts: activeDebts.map((d) => ({
       name: d.name,
       balance: d.balance,
       interestRate: d.interestRate,
@@ -441,6 +443,7 @@ export default function AiRecommendations({
   const isGenerating = generate.isPending;
 
   const handleGenerate = () => {
+    if (activeDebts.length === 0) return;
     if (!subscriptionLoading && !isPro) {
       upgradeEvents.dispatch("Payoff Coach");
       return;
@@ -520,6 +523,7 @@ export default function AiRecommendations({
           )}
 
           {!hasResults &&
+            activeDebts.length > 0 &&
             !isGenerating &&
             !cacheLoading &&
             !generate.isError && (
@@ -549,8 +553,25 @@ export default function AiRecommendations({
         </div>
       </div>
 
+      {activeDebts.length === 0 && (
+        <div
+          style={{
+            padding: "12px 14px",
+            borderRadius: "10px",
+            background: "rgba(16,185,129,0.08)",
+            border: "1px solid rgba(16,185,129,0.2)",
+            color: "#047857",
+            fontSize: "13px",
+            lineHeight: 1.55,
+          }}
+        >
+          All tracked debts are paid off. The payoff coach will stay quiet until
+          a new active balance appears.
+        </div>
+      )}
+
       {/* Stale banner */}
-      {isStale && hasResults && !isGenerating && (
+      {activeDebts.length > 0 && isStale && hasResults && !isGenerating && (
         <div
           style={{
             display: "flex",
@@ -601,7 +622,7 @@ export default function AiRecommendations({
       )}
 
       {/* Loading skeletons — cache fetch on mount */}
-      {cacheLoading && (
+      {activeDebts.length > 0 && cacheLoading && (
         <div
           style={{
             display: "grid",
@@ -616,7 +637,7 @@ export default function AiRecommendations({
       )}
 
       {/* Generating skeletons */}
-      {isGenerating && (
+      {activeDebts.length > 0 && isGenerating && (
         <div
           style={{
             display: "grid",
@@ -631,7 +652,7 @@ export default function AiRecommendations({
       )}
 
       {/* Error */}
-      {generate.isError && (
+      {activeDebts.length > 0 && generate.isError && (
         <div
           style={{
             padding: "12px 14px",
@@ -647,7 +668,7 @@ export default function AiRecommendations({
       )}
 
       {/* Results */}
-      {hasResults && !isGenerating && (
+      {activeDebts.length > 0 && hasResults && !isGenerating && (
         <div
           style={{
             display: "grid",

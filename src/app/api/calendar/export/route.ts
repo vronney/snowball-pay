@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const debts = await prisma.debt.findMany({
-      where: { userId: auth.user.id, dueDate: { not: null } },
+      where: { userId: auth.user.id, dueDate: { not: null }, balance: { gt: 0.01 } },
       select: {
         id: true,
         name: true,

@@ -142,10 +142,10 @@ function buildFallbackRecommendations(
   totalMin: number,
   monthChangeContext: string,
 ): NormalizedRecommendation[] {
-  const highestAprDebt = [...body.debts].sort(
+  const activeDebts = body.debts.filter((debt) => debt.balance > 0.01);
+  const highestAprDebt = [...activeDebts].sort(
     (a, b) => b.interestRate - a.interestRate || b.balance - a.balance,
   )[0];
-  const smallestDebt = [...body.debts].sort((a, b) => a.balance - b.balance)[0];
   const topExpense = [...body.expenseItems]
     .filter((expense) => expense.amount > 0)
     .sort((a, b) => b.amount - a.amount)[0];
@@ -153,7 +153,7 @@ function buildFallbackRecommendations(
   const debtLoadPct = body.monthlyTakeHome > 0
     ? ((totalMin + body.extraPayment) / body.monthlyTakeHome) * 100
     : 0;
-  const highUtilDebt = body.debts.find(
+  const highUtilDebt = activeDebts.find(
     (debt) =>
       debt.category === 'Credit Card' &&
       (debt.creditLimit ?? 0) > 0 &&
@@ -272,8 +272,9 @@ type SnapshotRow = { debtId: string; balance: number; recordedAt: Date };
 
 /** Deterministic fingerprint of the financial data used to detect staleness. */
 function buildDataHash(body: RecommendationPayload): string {
-  const totalDebt = body.debts.reduce((s, d) => s + d.balance, 0);
-  const totalMin = body.debts.reduce((s, d) => s + d.minimumPayment, 0);
+  const activeDebts = body.debts.filter((debt) => debt.balance > 0.01);
+  const totalDebt = activeDebts.reduce((s, d) => s + d.balance, 0);
+  const totalMin = activeDebts.reduce((s, d) => s + d.minimumPayment, 0);
   const expenseSignature = [...body.expenseItems]
     .sort((a, b) => b.amount - a.amount || a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
     .slice(0, 5)
@@ -411,9 +412,14 @@ export async function POST(request: NextRequest) {
       return badRequest(parseResult.error.issues[0]?.message ?? 'Invalid request payload');
     }
     const body: RecommendationPayload = parseResult.data;
+    const activeDebts = body.debts.filter((debt) => debt.balance > 0.01);
 
-    const totalDebt = body.debts.reduce((s, d) => s + d.balance, 0);
-    const totalMin = body.debts.reduce((s, d) => s + d.minimumPayment, 0);
+    if (activeDebts.length === 0) {
+      return badRequest('At least one active debt is required');
+    }
+
+    const totalDebt = activeDebts.reduce((s, d) => s + d.balance, 0);
+    const totalMin = activeDebts.reduce((s, d) => s + d.minimumPayment, 0);
 
     const snapshots = await prisma.balanceSnapshot.findMany({
       where: { userId: auth.user.id },
@@ -423,7 +429,7 @@ export async function POST(request: NextRequest) {
 
     const monthChangeContext = buildMonthChangeContext(totalDebt, snapshots);
 
-    const debtList = [...body.debts]
+    const debtList = [...activeDebts]
       .sort((a, b) => b.balance - a.balance)
       .map((d) => {
         const utilization =
@@ -440,8 +446,8 @@ export async function POST(request: NextRequest) {
       .map((e) => `  - ${e.name} (${e.category}): $${e.amount.toFixed(0)}/mo`)
       .join('\n');
 
-    const highAprDebts = body.debts.filter((d) => d.interestRate >= 20);
-    const highUtilDebts = body.debts.filter(
+    const highAprDebts = activeDebts.filter((d) => d.interestRate >= 20);
+    const highUtilDebts = activeDebts.filter(
       (d) => d.category === 'Credit Card' && (d.creditLimit ?? 0) > 0 && d.balance / (d.creditLimit ?? 1) >= 0.8,
     );
     const debtLoadPct = body.monthlyTakeHome > 0
@@ -454,7 +460,7 @@ export async function POST(request: NextRequest) {
 
     const userContext = `User's financial snapshot:
 
-Debts (${body.debts.length} total, $${totalDebt.toFixed(0)} combined):
+Active debts (${activeDebts.length} total, $${totalDebt.toFixed(0)} combined):
 ${debtList}
 
 Monthly cash flow:

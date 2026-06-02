@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, CalendarClock } from 'lucide-react';
 import { Debt } from '@/types';
 import { useMarkPaid } from '@/lib/hooks';
+import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 
 interface Props {
   debts: Debt[];
@@ -26,7 +27,7 @@ export default function ToastNotifications({ debts }: Props) {
   const markPaid = useMarkPaid();
 
   useEffect(() => {
-    const debtsWithDue = debts.filter((d) => d.dueDate != null);
+    const debtsWithDue = debts.filter((d) => isActiveDebt(d) && d.dueDate != null);
     const newToasts: Toast[] = [];
 
     for (const debt of debtsWithDue) {

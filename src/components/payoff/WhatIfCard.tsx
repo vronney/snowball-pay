@@ -10,6 +10,7 @@ import {
   type PayoffMethod,
 } from "@/lib/snowball";
 import { formatCurrency } from "@/lib/utils";
+import { isActiveDebt } from "@/lib/monthlyFocusDebt";
 
 interface WhatIfCardProps {
   debts: Debt[];
@@ -72,6 +73,7 @@ export default function WhatIfCard({
   availableCashFlow,
   onAccelerationChange,
 }: WhatIfCardProps) {
+  const activeDebts = useMemo(() => debts.filter(isActiveDebt), [debts]);
   const recurringTotal = useMemo(
     () => expenses.reduce((s, e) => s + e.amount, 0),
     [expenses],
@@ -80,27 +82,27 @@ export default function WhatIfCard({
   const scenario50 = useMemo(
     () =>
       calcScenario(
-        debts,
+        activeDebts,
         income,
         recurringTotal,
         adjustedExtra + 50,
         payoffMethod,
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [debts, income, recurringTotal, adjustedExtra, payoffMethod],
+    [activeDebts, income, recurringTotal, adjustedExtra, payoffMethod],
   );
 
   const scenario100 = useMemo(
     () =>
       calcScenario(
-        debts,
+        activeDebts,
         income,
         recurringTotal,
         adjustedExtra + 100,
         payoffMethod,
       ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [debts, income, recurringTotal, adjustedExtra, payoffMethod],
+    [activeDebts, income, recurringTotal, adjustedExtra, payoffMethod],
   );
 
   const saved50months = currentMonths - scenario50.months;

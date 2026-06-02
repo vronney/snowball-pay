@@ -101,8 +101,12 @@ export default function IntelligenceTab({
     );
   }
 
-  const { totalMinPayments, availableCashFlow, effectiveAcceleration } =
-    planMetrics!;
+  const {
+    totalMinPayments,
+    availableCashFlow,
+    effectiveAcceleration,
+    totalEssential,
+  } = planMetrics!;
 
   return (
     <section id="section-intelligence" className="space-y-6">
@@ -116,7 +120,7 @@ export default function IntelligenceTab({
         minimumsOnlyResult={minimumsOnlyResult}
         availableCashFlow={availableCashFlow}
         effectiveAcceleration={effectiveAcceleration}
-        totalEssential={income.essentialExpenses ?? 0}
+        totalEssential={totalEssential}
         totalMinPayments={totalMinPayments}
         balanceChartData={balanceChartData}
         hasRealSnapshots={hasRealSnapshots}

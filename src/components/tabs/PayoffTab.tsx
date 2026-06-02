@@ -9,7 +9,7 @@ import {
   calculatePlanMetrics,
   calculateResultForAcceleration,
 } from "@/lib/payoffPlan";
-import { useUpdateDebt, useAllSnapshots, useSaveIncome } from "@/lib/hooks";
+import { useUpdateDebt, useAllSnapshots, useSaveIncome, usePaymentRecords } from "@/lib/hooks";
 import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
 import { ChevronRight, CalendarCheck, Link2 } from "lucide-react";
 import { useSharePlan } from "@/lib/hooks/useSharePlan";
@@ -27,6 +27,7 @@ import FocusDebtExplainer from "@/components/payoff/FocusDebtExplainer";
 import StrategyExplanation from "@/components/payoff/StrategyExplanation";
 import ReferralPrompt from "@/components/payoff/ReferralPrompt";
 import WhatIfCard from "@/components/payoff/WhatIfCard";
+import { isActiveDebt, selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
 
 interface PayoffTabProps {
   debts: Debt[];
@@ -66,6 +67,11 @@ export default function PayoffTab({
     accel: income?.accelerationAmount ?? null,
   });
   const { data: snapshotsData } = useAllSnapshots();
+  const today = new Date();
+  const { data: paymentsData } = usePaymentRecords(
+    today.getFullYear(),
+    today.getMonth(),
+  );
 
   // Fire plan_generated once per session when a valid plan first appears.
   const planTrackedRef = useRef(false);
@@ -114,7 +120,17 @@ export default function PayoffTab({
       accelerationAmount,
     });
   }, [debts, income, expenses, payoffMethod, accelerationAmount]);
+  const activeDebts = useMemo(() => debts.filter(isActiveDebt), [debts]);
   const planResult = planMetrics?.result ?? null;
+  const paidDebtIds = useMemo(
+    () => new Set((paymentsData?.records ?? []).map((record) => record.debtId)),
+    [paymentsData],
+  );
+  const paidThisMonthDebtIds = useMemo(() => [...paidDebtIds], [paidDebtIds]);
+  const focusDebt = useMemo(
+    () => selectMonthlyFocusDebt(debts, planResult, paidDebtIds),
+    [debts, paidDebtIds, planResult],
+  );
 
   // Track plan_generated once per session when planResult first resolves.
   useEffect(() => {
@@ -248,7 +264,7 @@ export default function PayoffTab({
       : comparisonResult.months >= planResult.months
         ? comparisonResult.monthlyBalances
         : planResult.monthlyBalances;
-  const priorityEditorDebts = [...debts].sort((a, b) => {
+  const priorityEditorDebts = [...activeDebts].sort((a, b) => {
     const aPriority = a.priorityOrder ?? Number.MAX_SAFE_INTEGER;
     const bPriority = b.priorityOrder ?? Number.MAX_SAFE_INTEGER;
     if (aPriority !== bPriority) {
@@ -257,7 +273,7 @@ export default function PayoffTab({
 
     return a.balance - b.balance;
   });
-  const hasAnyCustomPriority = debts.some((debt) => debt.priorityOrder != null);
+  const hasAnyCustomPriority = activeDebts.some((debt) => debt.priorityOrder != null);
   const currentTotalDebt = debts.reduce((s, d) => s + d.balance, 0);
   const hasRealSnapshots = actualBalanceMap.size > 0;
   const balanceChartData = baseBalances.map((mb, index) => ({
@@ -302,7 +318,7 @@ export default function PayoffTab({
   };
 
   const handleResetPriorities = async () => {
-    const debtsWithPriority = debts.filter(
+    const debtsWithPriority = activeDebts.filter(
       (debt) => debt.priorityOrder != null,
     );
     await Promise.all(
@@ -324,7 +340,7 @@ export default function PayoffTab({
 
       {payoffMethod === "custom" && (
         <CustomPriorityEditor
-          debts={debts}
+          debts={activeDebts}
           priorityEditorDebts={priorityEditorDebts}
           priorityOpen={priorityOpen}
           hasAnyCustomPriority={hasAnyCustomPriority}
@@ -389,6 +405,8 @@ export default function PayoffTab({
         payoffSchedule={planResult.payoffSchedule}
         debts={debts}
         payoffMethod={payoffMethod}
+        focusDebtId={focusDebt?.id ?? null}
+        paidThisMonthDebtIds={paidThisMonthDebtIds}
         onLogPayment={() => onNavigate("debts")}
       />
 

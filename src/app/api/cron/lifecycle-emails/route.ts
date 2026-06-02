@@ -109,21 +109,27 @@ export async function GET(request: NextRequest) {
       const checks = (user.preferences?.actionChecks ?? {}) as Record<string, boolean>;
       if (checks['lifecycle_day5_sent'] || !user.income) continue;
 
+      const activeDebts = user.debts.filter((debt) => debt.balance > 0.01);
+      if (activeDebts.length === 0) {
+        await markSent(user.id, user.preferences?.id, checks, 'lifecycle_day5_sent');
+        continue;
+      }
+
       const method: PayoffMethod = (user.income.payoffMethod as PayoffMethod) || 'snowball';
       const calc = method === 'avalanche' ? calculateDebtAvalanche
         : method === 'custom'   ? calculateDebtCustom
         : calculateDebtSnowball;
 
       const plan = calc(
-        user.debts as Parameters<typeof calc>[0],
+        activeDebts as Parameters<typeof calc>[0],
         user.income.monthlyTakeHome,
         user.income.essentialExpenses,
         0,
         user.income.extraPayment ?? 0,
       );
       const minimumsOnly = calculateDebtSnowball(
-        user.debts as Parameters<typeof calculateDebtSnowball>[0],
-        user.debts.reduce((s, d) => s + d.minimumPayment, 0),
+        activeDebts as Parameters<typeof calculateDebtSnowball>[0],
+        activeDebts.reduce((s, d) => s + d.minimumPayment, 0),
         0, 0, 0,
       );
       const saved = Math.max(0, minimumsOnly.totalInterestPaid - plan.totalInterestPaid);
@@ -132,7 +138,7 @@ export async function GET(request: NextRequest) {
         userName:           user.name?.split(' ')[0] ?? undefined,
         debtFreeDate:       plan.debtFreeDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
         totalInterestSaved: Math.round(saved),
-        debtCount:          user.debts.length,
+        debtCount:          activeDebts.length,
         monthlyPayment:     Math.round(plan.monthlyPayment),
       }));
       await resend.emails.send({
@@ -171,25 +177,31 @@ export async function GET(request: NextRequest) {
       const checks = (user.preferences?.actionChecks ?? {}) as Record<string, boolean>;
       if (checks['lifecycle_day7_sent'] || !user.income) continue;
 
+      const activeDebts = user.debts.filter((debt) => debt.balance > 0.01);
+      if (activeDebts.length === 0) {
+        await markSent(user.id, user.preferences?.id, checks, 'lifecycle_day7_sent');
+        continue;
+      }
+
       const method: PayoffMethod = (user.income.payoffMethod as PayoffMethod) || 'snowball';
       const calc = method === 'avalanche' ? calculateDebtAvalanche
         : method === 'custom'   ? calculateDebtCustom
         : calculateDebtSnowball;
 
       const plan = calc(
-        user.debts as Parameters<typeof calc>[0],
+        activeDebts as Parameters<typeof calc>[0],
         user.income.monthlyTakeHome,
         user.income.essentialExpenses,
         0,
         user.income.extraPayment ?? 0,
       );
       const minimumsOnly = calculateDebtSnowball(
-        user.debts as Parameters<typeof calculateDebtSnowball>[0],
-        user.debts.reduce((s, d) => s + d.minimumPayment, 0),
+        activeDebts as Parameters<typeof calculateDebtSnowball>[0],
+        activeDebts.reduce((s, d) => s + d.minimumPayment, 0),
         0, 0, 0,
       );
       const interestSaved  = Math.max(0, minimumsOnly.totalInterestPaid - plan.totalInterestPaid);
-      const totalDebt      = user.debts.reduce((s, d) => s + d.balance, 0);
+      const totalDebt      = activeDebts.reduce((s, d) => s + d.balance, 0);
 
       const html = await render(React.createElement(SharePromptEmail, {
         userName:         user.name?.split(' ')[0] ?? undefined,

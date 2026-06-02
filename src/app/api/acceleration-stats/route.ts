@@ -7,6 +7,7 @@ import {
   calculateDebtCustom,
 } from '@/lib/snowball';
 import type { Debt } from '@/types';
+import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 
 /** Returns the current month and two prior months as [{year, month}]. */
 function getRolling3Months(): { year: number; month: number }[] {
@@ -72,8 +73,14 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const normalizedDebts: Debt[] = debts.map((d) => ({
+      ...d,
+      category: d.category as Debt['category'],
+      dueDate: d.dueDate ?? undefined,
+    }));
+    const activeDebts = normalizedDebts.filter(isActiveDebt);
     const recurringTotal = expenses.reduce((s, e) => s + e.amount, 0);
-    const totalMinPayments = debts.reduce((s, d) => s + d.minimumPayment, 0);
+    const totalMinPayments = activeDebts.reduce((s, d) => s + d.minimumPayment, 0);
 
     const naturalSurplus = Math.max(
       0,
@@ -91,7 +98,7 @@ export async function GET(request: NextRequest) {
         ? Math.min(income.accelerationAmount, availableCashFlow)
         : availableCashFlow;
 
-    const debtMinMap = new Map(debts.map((d) => [d.id, d.minimumPayment]));
+    const debtMinMap = new Map(normalizedDebts.map((d) => [d.id, d.minimumPayment]));
 
     const monthlyData: AccelerationMonthData[] = monthRanges.map(({ year, month }) => {
       const monthRecords = allRecords.filter(
@@ -114,12 +121,6 @@ export async function GET(request: NextRequest) {
     const totalPlanned = plannedMonthly * 3;
     const totalActualExtra = monthlyData.reduce((s, m) => s + m.actualExtra, 0);
 
-    const normalizedDebts: Debt[] = debts.map((d) => ({
-      ...d,
-      category: d.category as Debt['category'],
-      dueDate: d.dueDate ?? undefined,
-    }));
-
     const method = (income.payoffMethod ?? 'snowball') as 'snowball' | 'avalanche' | 'custom';
     const calcFn =
       method === 'avalanche'
@@ -129,7 +130,7 @@ export async function GET(request: NextRequest) {
           : calculateDebtSnowball;
 
     const baselineResult = calcFn(
-      normalizedDebts,
+      activeDebts,
       income.monthlyTakeHome,
       income.essentialExpenses,
       recurringTotal,
@@ -139,7 +140,7 @@ export async function GET(request: NextRequest) {
     const adjustedExtra = Math.max(0, plannedMonthly - naturalSurplus);
 
     const currentResult = calcFn(
-      normalizedDebts,
+      activeDebts,
       income.monthlyTakeHome,
       income.essentialExpenses,
       recurringTotal,

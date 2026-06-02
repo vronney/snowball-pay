@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { AlertTriangle, CalendarClock, ShieldAlert, Trophy, TrendingDown } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
 import { type Notification } from "./types";
+import { isActiveDebt } from "@/lib/monthlyFocusDebt";
 
 const MILESTONE_THRESHOLDS = [50_000, 25_000, 10_000, 5_000, 1_000];
 
@@ -34,10 +35,11 @@ export function useNotifications({
     const today = new Date();
     const dueDateItems: Notification[] = [];
     const otherItems: Notification[] = [];
+    const activeDebts = debts.filter(isActiveDebt);
 
     // 1. Upcoming due dates — collect with daysUntil, sort soonest first
     const debtsWithDue = notifyDueDates
-      ? debts.filter((d) => d.dueDate != null && !paidThisMonth.has(d.id))
+      ? activeDebts.filter((d) => d.dueDate != null && !paidThisMonth.has(d.id))
       : [];
     for (const debt of debtsWithDue) {
       const day = debt.dueDate as number;
@@ -84,7 +86,7 @@ export function useNotifications({
     // 2. Guardrail: low cash buffer after acceleration
     if (notifyLowBuffer && income) {
       const recurringTotal = expenses.reduce((s, e) => s + e.amount, 0);
-      const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);
+      const totalMin = activeDebts.reduce((s, d) => s + d.minimumPayment, 0);
       const available = Math.max(
         0,
         income.monthlyTakeHome -
@@ -143,7 +145,7 @@ export function useNotifications({
     // 4. Budget change alerts — flag when expenses + minimums exceed take-home
     if (notifyBudgetChanges && income) {
       const recurringTotal = expenses.reduce((s, e) => s + e.amount, 0);
-      const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);
+      const totalMin = activeDebts.reduce((s, d) => s + d.minimumPayment, 0);
       const shortfall =
         income.essentialExpenses + recurringTotal + totalMin - income.monthlyTakeHome;
       if (shortfall > 0) {

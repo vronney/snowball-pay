@@ -35,6 +35,7 @@ import {
   calculatePlanMetrics,
   calculateResultForAcceleration as calculatePayoffResultForAcceleration,
 } from "@/lib/payoffPlan";
+import { isActiveDebt } from "@/lib/monthlyFocusDebt";
 
 interface DataInsightsProps {
   debts: Debt[];
@@ -135,7 +136,7 @@ function shortMonthLabelFromKey(key: string) {
 function buildDebtMix(debts: Debt[]): DebtMixSlice[] {
   const byCategory = new Map<string, { value: number; aprTotal: number; count: number }>();
 
-  for (const debt of debts) {
+  for (const debt of debts.filter(isActiveDebt)) {
     const current = byCategory.get(debt.category) ?? {
       value: 0,
       aprTotal: 0,
@@ -323,18 +324,23 @@ function buildPayoffLeverData(
 }
 
 function buildDebtMixCoach(debts: Debt[], mix: DebtMixSlice[]): CoachTakeawayData {
-  if (debts.length === 0 || mix.length === 0) {
+  const activeDebts = debts.filter(isActiveDebt);
+  if (activeDebts.length === 0 || mix.length === 0) {
     return {
-      tone: "neutral",
-      title: "Add debts to see concentration risk",
-      evidence: "Debt mix needs balances, categories, and APRs before it can show pressure.",
-      action: "Add each account balance and rate before choosing payoff order.",
+      tone: debts.length > 0 ? "good" : "neutral",
+      title: debts.length > 0 ? "No active debt pressure remains" : "Add debts to see concentration risk",
+      evidence: debts.length > 0
+        ? "Every tracked account is at a paid-off balance."
+        : "Debt mix needs balances, categories, and APRs before it can show pressure.",
+      action: debts.length > 0
+        ? "Keep the account list for the payoff record and update only new balances."
+        : "Add each account balance and rate before choosing payoff order.",
     };
   }
 
-  const total = debts.reduce((sum, debt) => sum + debt.balance, 0);
-  const largestDebt = [...debts].sort((a, b) => b.balance - a.balance)[0];
-  const highestAprDebt = [...debts].sort((a, b) => b.interestRate - a.interestRate)[0];
+  const total = activeDebts.reduce((sum, debt) => sum + debt.balance, 0);
+  const largestDebt = [...activeDebts].sort((a, b) => b.balance - a.balance)[0];
+  const highestAprDebt = [...activeDebts].sort((a, b) => b.interestRate - a.interestRate)[0];
   const largestShare = total > 0 ? (largestDebt.balance / total) * 100 : 0;
 
   if (highestAprDebt.interestRate >= 18) {
@@ -881,9 +887,10 @@ function CashFlowWaterfallCard({
 }
 
 function DebtMixCard({ debts }: { debts: Debt[] }) {
+  const activeDebts = debts.filter(isActiveDebt);
   const mix = buildDebtMix(debts);
-  const total = debts.reduce((sum, debt) => sum + debt.balance, 0);
-  const topDebts = [...debts].sort((a, b) => b.balance - a.balance).slice(0, 4);
+  const total = activeDebts.reduce((sum, debt) => sum + debt.balance, 0);
+  const topDebts = [...activeDebts].sort((a, b) => b.balance - a.balance).slice(0, 4);
   const coach = buildDebtMixCoach(debts, mix);
 
   return (

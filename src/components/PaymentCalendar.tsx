@@ -9,6 +9,7 @@ import { usePaymentRecords, useMarkPaid, useUnmarkPaid } from '@/lib/hooks';
 import CalendarGrid from '@/components/calendar/CalendarGrid';
 import SelectedDayPanel from '@/components/calendar/SelectedDayPanel';
 import PaymentList from '@/components/calendar/PaymentList';
+import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 
 interface Props {
   debts: Debt[];
@@ -39,7 +40,7 @@ export default function PaymentCalendar({ debts }: Props) {
     return map;
   }, [paymentsData]);
 
-  const debtsWithDue = debts.filter((d) => d.dueDate);
+  const debtsWithDue = debts.filter((d) => isActiveDebt(d) && d.dueDate);
 
   const paymentsByDay = useMemo(() => {
     const map = new Map<number, Debt[]>();

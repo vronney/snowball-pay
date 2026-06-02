@@ -1,4 +1,5 @@
 import { type Debt, type BalanceSnapshot } from '@/types';
+import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 
 export interface UpcomingPayment {
   debt: Debt;
@@ -15,6 +16,7 @@ export function getUpcomingPayments(debts: Debt[]): UpcomingPayment[] {
   const results: UpcomingPayment[] = [];
 
   for (const debt of debts) {
+    if (!isActiveDebt(debt)) continue;
     if (!debt.dueDate) continue;
     const dueDay = debt.dueDate;
 

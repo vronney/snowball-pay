@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { type Debt, type Income } from '@/types';
 import { type PayoffMethod, type PayoffResult } from '@/lib/snowball';
 import { type ChartEntry } from '@/components/payoff/BalanceOverTimeChart';
+import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 
 export interface SmartCalendarItem {
   debt: Debt;
@@ -72,7 +73,7 @@ export function usePlannerComputed(
 
   const smartCalendar = useMemo<SmartCalendar>(() => {
     const items = debts
-      .filter((debt) => debt.dueDate != null)
+      .filter((debt) => isActiveDebt(debt) && debt.dueDate != null)
       .map((debt) => {
         const day = debt.dueDate as number;
         const thisMonth = new Date(today.getFullYear(), today.getMonth(), day);
@@ -87,7 +88,10 @@ export function usePlannerComputed(
   }, [debts, today]);
 
   const monthlyInterestLeak = useMemo(
-    () => debts.reduce((sum, debt) => sum + ((debt.balance * debt.interestRate) / 100) / 12, 0),
+    () =>
+      debts
+        .filter(isActiveDebt)
+        .reduce((sum, debt) => sum + ((debt.balance * debt.interestRate) / 100) / 12, 0),
     [debts],
   );
 
@@ -97,7 +101,7 @@ export function usePlannerComputed(
   }, [minimumsOnlyResult.totalInterestPaid, planResult.totalInterestPaid, planResult.months]);
 
   const priorityQueue = useMemo(() => {
-    const sorted = [...debts];
+    const sorted = debts.filter(isActiveDebt);
     if (payoffMethod === 'avalanche') sorted.sort((a, b) => b.interestRate - a.interestRate);
     else if (payoffMethod === 'custom') sorted.sort((a, b) => (a.priorityOrder ?? Number.MAX_SAFE_INTEGER) - (b.priorityOrder ?? Number.MAX_SAFE_INTEGER));
     else sorted.sort((a, b) => a.balance - b.balance);
@@ -123,7 +127,7 @@ export function usePlannerComputed(
   const refinanceCandidates = useMemo<RefinanceCandidate[]>(
     () =>
       debts
-        .filter((d) => d.interestRate >= 10 && d.balance >= 3000)
+        .filter((d) => isActiveDebt(d) && d.interestRate >= 10 && d.balance >= 3000)
         .sort((a, b) => b.interestRate - a.interestRate)
         .slice(0, 3)
         .map((debt) => ({ debt, estimatedSavings: Math.max(0, debt.balance * ((debt.interestRate - 7.5) / 100) * 0.35) })),

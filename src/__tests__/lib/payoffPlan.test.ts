@@ -107,4 +107,33 @@ describe('payoff plan metrics', () => {
     expect(result.monthlyPayment).toBe(120);
     expect(result.monthlyBalances[0].totalBalance).toBe(1_200);
   });
+
+  it('ignores paid-off debts when calculating active plan payments', () => {
+    const paidOffDebt = makeDebt({
+      id: 'paid-off-card',
+      balance: 0,
+      minimumPayment: 125,
+    });
+    const activeDebt = makeDebt({
+      id: 'active-card',
+      balance: 500,
+      minimumPayment: 50,
+    });
+    const income = makeIncome({
+      monthlyTakeHome: 1_000,
+      essentialExpenses: 500,
+      accelerationAmount: 0,
+    });
+
+    const metrics = calculatePlanMetrics([paidOffDebt, activeDebt], income, []);
+    const minimumsOnlyResult = calculateMinimumsOnlyResult([
+      paidOffDebt,
+      activeDebt,
+    ]);
+
+    expect(metrics?.totalMinPayments).toBe(50);
+    expect(metrics?.result.payoffSchedule).toHaveLength(1);
+    expect(metrics?.result.payoffSchedule[0].debtId).toBe('active-card');
+    expect(minimumsOnlyResult.monthlyPayment).toBe(50);
+  });
 });

@@ -6,6 +6,7 @@ import {
   type PayoffMethod,
   type PayoffResult,
 } from '@/lib/snowball';
+import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 
 export interface PayoffIncomeInput {
   monthlyTakeHome: number;
@@ -90,8 +91,9 @@ export function calculatePlanMetrics(
 ): PlanMetrics | null {
   if (!income || debts.length === 0) return null;
 
+  const activeDebts = debts.filter(isActiveDebt);
   const recurringTotal = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const totalMinPayments = debts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
+  const totalMinPayments = activeDebts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
   const totalEssential = income.essentialExpenses + recurringTotal;
   const naturalSurplus =
     income.monthlyTakeHome - totalEssential - totalMinPayments;
@@ -110,7 +112,7 @@ export function calculatePlanMetrics(
   const adjustedExtra = effectiveAcceleration - naturalSurplus;
   const method = methodFromIncome(income, options.method);
   const result = calculateResultByMethod(
-    debts,
+    activeDebts,
     income,
     recurringTotal,
     adjustedExtra,
@@ -131,8 +133,9 @@ export function calculatePlanMetrics(
 }
 
 export function calculateMinimumsOnlyResult(debts: Debt[]): PayoffResult {
-  const totalMinPayments = debts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
-  return calculateDebtSnowball(debts, totalMinPayments, 0, 0, 0);
+  const activeDebts = debts.filter(isActiveDebt);
+  const totalMinPayments = activeDebts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
+  return calculateDebtSnowball(activeDebts, totalMinPayments, 0, 0, 0);
 }
 
 export function calculateResultForAcceleration(
@@ -142,8 +145,9 @@ export function calculateResultForAcceleration(
   acceleration: number,
   method: PayoffMethod = metrics.method,
 ): PayoffResult {
+  const activeDebts = debts.filter(isActiveDebt);
   return calculateResultByMethod(
-    debts,
+    activeDebts,
     income,
     metrics.recurringTotal,
     acceleration - metrics.naturalSurplus,

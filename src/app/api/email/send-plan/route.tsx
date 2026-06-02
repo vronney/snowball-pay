@@ -6,11 +6,8 @@ import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-se
 import { limits } from '@/lib/rateLimit';
 import { PayoffPlanEmail } from '@/emails/PayoffPlanEmail';
 import { fetchEmailContent } from '@/lib/emailContent';
-import {
-  calculateDebtSnowball,
-  calculateDebtAvalanche,
-  calculateDebtCustom,
-} from '@/lib/snowball';
+import { calculatePlanMetrics } from '@/lib/payoffPlan';
+import type { Debt } from '@/types';
 import * as React from 'react';
 
 export async function POST(request: NextRequest) {
@@ -41,42 +38,23 @@ export async function POST(request: NextRequest) {
     if (debts.length === 0) return badRequest('No debts found');
     if (!income) return badRequest('Income not configured');
 
-    const essential = income.essentialExpenses ?? 0;
-    const recurring = expenses.reduce((s, e) => s + e.amount, 0);
-    const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);
-    const naturalSurplus = Math.max(
-      0,
-      income.monthlyTakeHome - essential - recurring - totalMin,
-    );
-    const maxAccel = naturalSurplus + (income.extraPayment ?? 0);
-    const targetAccel =
-      income.accelerationAmount != null
-        ? Math.min(income.accelerationAmount, maxAccel)
-        : maxAccel;
-    const adjustedExtra = targetAccel - naturalSurplus;
+    const normalizedDebts: Debt[] = debts.map((debt: (typeof debts)[number]) => ({
+      ...debt,
+      category: debt.category as Debt['category'],
+      dueDate: debt.dueDate ?? undefined,
+    }));
+    const metrics = calculatePlanMetrics(normalizedDebts, income, expenses);
+    if (!metrics) return badRequest('No payoff plan available');
 
-    const method = income.payoffMethod ?? 'snowball';
-    const calc =
-      method === 'avalanche'
-        ? calculateDebtAvalanche
-        : method === 'custom'
-          ? calculateDebtCustom
-          : calculateDebtSnowball;
-
-    const result = calc(
-      debts as import('@/types').Debt[],
-      income.monthlyTakeHome,
-      essential,
-      recurring,
-      adjustedExtra,
-    );
+    const result = metrics.result;
+    const method = metrics.method;
 
     const featuredContent = await fetchEmailContent();
 
     const html = await render(
       React.createElement(PayoffPlanEmail, {
         userName: user?.name ?? undefined,
-        totalDebt: debts.reduce((s, d) => s + d.balance, 0),
+        totalDebt: normalizedDebts.reduce((s, d) => s + d.balance, 0),
         totalInterestPaid: result.totalInterestPaid,
         monthlyPayment: result.monthlyPayment,
         debtFreeDate: result.debtFreeDate.toLocaleDateString('en-US', {

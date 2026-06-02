@@ -24,6 +24,24 @@ interface PayoffTimelineProps {
 }
 
 export default function PayoffTimeline({ data }: PayoffTimelineProps) {
+  if (data.length === 0) {
+    return (
+      <div
+        className="rounded-2xl p-5"
+        style={{
+          background: "rgb(255, 255, 255)",
+          border: "1px solid rgba(15, 23, 42, 0.08)",
+          boxShadow: "rgba(15, 23, 42, 0.06) 0px 1px 4px",
+        }}
+      >
+        <h2 className="font-semibold text-base mb-2">Payoff Timeline</h2>
+        <p className="text-sm" style={{ color: "#059669" }}>
+          All active debts are paid off.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div
       className="rounded-2xl p-5"

@@ -21,23 +21,35 @@ export default function PayoffSummary({
   interestSavedVsMinimums,
   availableCashFlow,
 }: PayoffSummaryProps) {
-  const coachTone = availableCashFlow === 0 ? '#92400e' : '#047857';
+  const isComplete = planResult.payoffSchedule.length === 0 && planResult.months === 0;
+  const coachTone = isComplete
+    ? '#047857'
+    : availableCashFlow === 0
+      ? '#92400e'
+      : '#047857';
   const coachBg =
-    availableCashFlow === 0 ? 'rgba(245,158,11,0.12)' : 'rgba(5,150,105,0.08)';
+    !isComplete && availableCashFlow === 0 ? 'rgba(245,158,11,0.12)' : 'rgba(5,150,105,0.08)';
   const coachBorder =
-    availableCashFlow === 0 ? 'rgba(245,158,11,0.28)' : 'rgba(5,150,105,0.18)';
+    !isComplete && availableCashFlow === 0 ? 'rgba(245,158,11,0.28)' : 'rgba(5,150,105,0.18)';
   const coachTitle =
-    availableCashFlow === 0
+    isComplete
+      ? 'All active debts are paid off'
+      : availableCashFlow === 0
       ? 'Pause speed until monthly room opens up'
       : `${strategyName} gives this plan a clear next move`;
   const coachEvidence =
-    interestSavedVsMinimums > 0
+    isComplete
+      ? 'No active balance remains in the payoff schedule.'
+      : interestSavedVsMinimums > 0
       ? `${formatCurrency(interestSavedVsMinimums)} projected interest saved vs minimums only.`
       : 'This is your current payoff baseline against minimum payments.';
   const coachAction =
-    availableCashFlow === 0
+    isComplete
+      ? 'Keep paid-off accounts recorded and update the plan only if a new balance appears.'
+      : availableCashFlow === 0
       ? 'Keep minimums current where possible and revisit expenses before increasing payoff speed.'
       : `Put the planned ${formatCurrency(monthlyPayment)} toward the current payoff order.`;
+  const displayMonthlyPayment = isComplete ? 0 : monthlyPayment;
 
   return (
     <div className="rounded-2xl p-5 snowball-glow" style={{ background: 'rgb(255, 255, 255)', border: '1px solid rgba(15, 23, 42, 0.08)', boxShadow: 'rgba(15, 23, 42, 0.06) 0px 1px 4px' }}>
@@ -75,7 +87,7 @@ export default function PayoffSummary({
         <div>
           <div className="text-xs mb-1" style={{ color: '#64748b' }}>Debt-Free In</div>
           <div className="mono font-bold text-lg" style={{ color: '#3b82f6' }}>
-            {planResult.months >= 360 ? '30+ years' : timeStr}
+            {isComplete ? 'Complete' : planResult.months >= 360 ? '30+ years' : timeStr}
           </div>
         </div>
         <div>
@@ -90,7 +102,7 @@ export default function PayoffSummary({
         </div>
         <div>
           <div className="text-xs mb-1" style={{ color: '#64748b' }}>Monthly {strategyName}</div>
-          <div className="mono font-bold text-lg">{formatCurrency(monthlyPayment)}</div>
+          <div className="mono font-bold text-lg">{formatCurrency(displayMonthlyPayment)}</div>
         </div>
         <div>
           <div className="text-xs mb-1" style={{ color: '#64748b' }}>Interest Saved vs Minimums</div>

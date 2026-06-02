@@ -14,6 +14,7 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { type ChartEntry } from "@/components/payoff/BalanceOverTimeChart";
 import { usePlannerComputed } from "@/lib/hooks/usePlannerComputed";
+import { isActiveDebt } from "@/lib/monthlyFocusDebt";
 import {
   IntelligenceOverviewCard,
   ForecastCard,
@@ -65,12 +66,15 @@ export default function PlannerIntelligence({
   balanceChartData,
   hasRealSnapshots,
 }: PlannerIntelligenceProps) {
+  const hasInitialActiveDebts = debts.some(isActiveDebt);
   const [sandboxMethod, setSandboxMethod] =
     useState<PayoffMethod>(payoffMethod);
   const [sandboxExtra, setSandboxExtra] = useState<number>(
-    Math.min(effectiveAcceleration, availableCashFlow),
+    hasInitialActiveDebts ? Math.min(effectiveAcceleration, availableCashFlow) : 0,
   );
   const [actionChecks, setActionChecks] = useState<Record<string, boolean>>({});
+  const activeDebts = useMemo(() => debts.filter(isActiveDebt), [debts]);
+  const hasActiveDebts = activeDebts.length > 0;
 
   const recurringTotal = useMemo(
     () => expenses.reduce((sum, e) => sum + e.amount, 0),
@@ -88,7 +92,7 @@ export default function PlannerIntelligence({
     const essentialsOnly = essentials - recurringTotal;
     if (method === "avalanche")
       return calculateDebtAvalanche(
-        debts,
+        activeDebts,
         monthlyTakeHome,
         essentialsOnly,
         recurringTotal,
@@ -96,14 +100,14 @@ export default function PlannerIntelligence({
       );
     if (method === "custom")
       return calculateDebtCustom(
-        debts,
+        activeDebts,
         monthlyTakeHome,
         essentialsOnly,
         recurringTotal,
         adjustedExtra,
       );
     return calculateDebtSnowball(
-      debts,
+      activeDebts,
       monthlyTakeHome,
       essentialsOnly,
       recurringTotal,
@@ -135,7 +139,7 @@ export default function PlannerIntelligence({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       sandboxExtra,
-      debts,
+      activeDebts,
       income.monthlyTakeHome,
       totalEssential,
       recurringTotal,
@@ -159,7 +163,7 @@ export default function PlannerIntelligence({
     .sort((a, b) => a.months - b.months);
 
   const computed = usePlannerComputed(
-    debts,
+    activeDebts,
     income,
     sandboxMethod,
     scenarioResult,
@@ -203,6 +207,12 @@ export default function PlannerIntelligence({
               : "It is your smallest balance, which frees up its minimum soonest to roll into the next debt.",
         impact: `Pays off in ${focusMonths}m - frees ${formatCurrency(focusDebt.minimumPayment)}/mo to roll forward`,
       });
+    } else {
+      insights.push({
+        title: "No active focus debt",
+        why: "Every tracked debt is at a paid-off balance.",
+        impact: "Keep the paid-off accounts recorded and update the plan only if a new balance appears.",
+      });
     }
     const interestAvoided = Math.max(
       0,
@@ -239,13 +249,17 @@ export default function PlannerIntelligence({
   const updatePreferences = useUpdatePreferences();
 
   useEffect(() => {
+    if (!hasActiveDebts) {
+      setSandboxExtra(0);
+      return;
+    }
     const p = savedSettings?.preferences;
     if (!p) return;
     if (p.actionChecks) setActionChecks(p.actionChecks);
     if (p.sandboxMethod) setSandboxMethod(p.sandboxMethod as PayoffMethod);
     if (p.sandboxExtra != null) setSandboxExtra(p.sandboxExtra);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savedSettings?.preferences]);
+  }, [hasActiveDebts, savedSettings?.preferences]);
 
   const handleActionCheck = (action: string) => {
     const next = { ...actionChecks, [action]: !actionChecks[action] };
@@ -290,7 +304,7 @@ export default function PlannerIntelligence({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 auto-rows-fr">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 md:auto-rows-fr">
         <IntelligenceOverviewCard
           planResult={scenarioResult}
           minimumsOnlyResult={minimumsOnlyResult}

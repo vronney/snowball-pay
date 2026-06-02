@@ -35,7 +35,7 @@ function nextOccurrence(dueDay: number): string {
 }
 
 export function generateICS(debts: DebtForCalendar[]): string {
-  const debtsWithDue = debts.filter((d) => d.dueDate != null);
+  const debtsWithDue = debts.filter((d) => d.dueDate != null && d.balance > 0.01);
 
   const events = debtsWithDue.map((debt) => {
     const dtstart = nextOccurrence(debt.dueDate);

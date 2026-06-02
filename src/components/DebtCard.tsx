@@ -148,7 +148,7 @@ export default function DebtCard({
   return (
     <div
       ref={cardRef}
-      className="rounded-xl p-4 card-enter flex flex-col gap-3"
+      className="rounded-xl p-3 sm:p-4 card-enter flex flex-col gap-2.5 sm:gap-3"
       style={{
         background: "#ffffff",
         border: "1px solid rgba(15,23,42,0.08)",
@@ -168,10 +168,10 @@ export default function DebtCard({
       }}
     >
       {/* Header row */}
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-2.5 sm:gap-3">
         <div className="flex-1 min-w-0">
           {/* Name row — full width, no badges competing */}
-          <div className="flex items-center gap-2 mb-1">
+          <div className="flex items-center gap-2 mb-0.5">
             <span
               className="inline-block w-2 h-2 rounded-full flex-shrink-0"
               style={{ background: isPaidOff ? "#10b981" : categoryColor }}
@@ -181,7 +181,7 @@ export default function DebtCard({
             </span>
           </div>
           {/* Badges row */}
-          <div className="flex items-center gap-1.5 mb-1.5">
+          <div className="flex items-center gap-1.5 mb-1">
             <span
               className="text-[0.65rem] px-1.5 py-0.5 rounded-full"
               style={{
@@ -232,9 +232,9 @@ export default function DebtCard({
               </span>
             )}
           </div>
-          <div className="flex items-baseline gap-x-3 gap-y-1.5 flex-wrap">
+          <div className="flex items-baseline gap-x-2.5 gap-y-1 flex-wrap">
             <span
-              className="mono font-bold text-lg leading-none whitespace-nowrap"
+              className="mono font-bold text-base sm:text-lg leading-none whitespace-nowrap"
               style={{ color: isPaidOff ? "#059669" : "#0f172a" }}
             >
               {formatCurrency(debt.balance)}
@@ -279,7 +279,7 @@ export default function DebtCard({
           style={{
             background: "rgba(15,23,42,0.03)",
             border: "1px solid rgba(15,23,42,0.06)",
-            padding: "2px",
+            padding: "1px",
           }}
         >
           <button
@@ -287,7 +287,7 @@ export default function DebtCard({
               if (!isPaidOff) togglePanel("payment");
             }}
             title={isPaidOff ? "Debt paid off" : "Log payment"}
-            className="p-1.5 rounded-md hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
+            className="p-1 sm:p-1.5 rounded-md hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
             aria-label={isPaidOff ? "Debt paid off" : "Log payment"}
             disabled={isPaidOff}
             style={{
@@ -301,7 +301,7 @@ export default function DebtCard({
           <button
             onClick={() => togglePanel("balance")}
             title="Update balance"
-            className="p-1.5 rounded-md hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
+            className="p-1 sm:p-1.5 rounded-md hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
             aria-label="Update balance"
             style={{
               color: panel === "balance" ? "#fbbf24" : undefined,
@@ -313,7 +313,7 @@ export default function DebtCard({
           <button
             onClick={() => togglePanel("edit")}
             title="Edit debt"
-            className="p-1.5 rounded-md hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
+            className="p-1 sm:p-1.5 rounded-md hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
             aria-label="Edit debt"
             style={{
               color: panel === "edit" ? "#93c5fd" : undefined,
@@ -363,7 +363,7 @@ export default function DebtCard({
           ) : (
             <button
               onClick={() => setConfirmingDelete(true)}
-              className="p-1.5 rounded-md hover:bg-red-500/10 cursor-pointer bg-transparent border-0 opacity-30 hover:opacity-80 transition"
+              className="p-1 sm:p-1.5 rounded-md hover:bg-red-500/10 cursor-pointer bg-transparent border-0 opacity-30 hover:opacity-80 transition"
               aria-label="Delete debt"
               style={{ color: "#f87171" }}
             >

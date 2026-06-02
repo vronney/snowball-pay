@@ -137,13 +137,21 @@ export function IntelligenceOverviewCard({
     0,
     minimumsOnlyResult.totalInterestPaid - planResult.totalInterestPaid,
   );
+  const isComplete = planResult.payoffSchedule.length === 0 && planResult.months === 0;
   const COMMAND_CENTER_STYLE = {
     background: "#eff6ff",
     border: "1px solid #bfdbfe",
     boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
   };
   const coach =
-    debtCoveragePct >= 35
+    isComplete
+      ? {
+          tone: "good" as const,
+          title: "No active debt remains",
+          evidence: "Every tracked account is at a paid-off balance.",
+          action: "Keep the account list for the record and update the plan only if a new balance appears.",
+        }
+      : debtCoveragePct >= 35
       ? {
           tone: "warn" as const,
           title: "Debt payments are taking a large share of income",
@@ -262,7 +270,7 @@ export function ForecastCard({
           Forecast: date, confidence, and drift
         </h3>
       </div>
-      <div className="grid grid-cols-2 gap-3 mb-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <div className="rounded-xl p-3" style={INNER_STYLE}>
           <p className="text-xs" style={{ color: "#64748b" }}>
             Projected debt-free date
@@ -759,7 +767,7 @@ export function PriorityQueueCard({
         </h3>
       </div>
       <div className="space-y-2 mb-3 flex-1">
-        {priorityQueue.map((debt, idx) => (
+        {priorityQueue.length > 0 ? priorityQueue.map((debt, idx) => (
           <div
             key={debt.id}
             className="rounded-lg p-2 flex items-center justify-between"
@@ -777,7 +785,16 @@ export function PriorityQueueCard({
               )}
             </span>
           </div>
-        ))}
+        )) : (
+          <div className="rounded-lg p-3" style={INNER_STYLE}>
+            <p className="text-xs font-semibold" style={{ color: "#059669" }}>
+              All tracked debts are paid off.
+            </p>
+            <p className="text-xs mt-1" style={{ color: "#64748b" }}>
+              No payment order is needed until a new active balance appears.
+            </p>
+          </div>
+        )}
       </div>
       <div className="space-y-2">
         {actions.map((action) => (

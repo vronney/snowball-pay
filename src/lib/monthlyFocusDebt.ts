@@ -3,6 +3,10 @@ import type { DebtPayoffSchedule } from '@/lib/snowball';
 
 const ACTIVE_BALANCE_THRESHOLD = 0.01;
 
+export function isActiveDebt(debt: Pick<Debt, 'balance'>): boolean {
+  return debt.balance > ACTIVE_BALANCE_THRESHOLD;
+}
+
 interface FocusPayoffResult {
   payoffSchedule: DebtPayoffSchedule[];
 }
@@ -12,7 +16,7 @@ export function selectMonthlyFocusDebt(
   payoffResult: FocusPayoffResult | null | undefined,
   paidDebtIds: ReadonlySet<string> = new Set(),
 ): Debt | null {
-  const activeDebts = debts.filter((debt) => debt.balance > ACTIVE_BALANCE_THRESHOLD);
+  const activeDebts = debts.filter(isActiveDebt);
   if (activeDebts.length === 0) return null;
 
   const eligibleDebts = activeDebts.filter((debt) => !paidDebtIds.has(debt.id));

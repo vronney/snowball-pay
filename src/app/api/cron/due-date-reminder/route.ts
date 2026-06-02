@@ -92,6 +92,7 @@ export async function GET(request: NextRequest) {
 
   const debts = await prisma.debt.findMany({
     where: {
+      balance: { gt: 0.01 },
       dueDate: isLastDay ? { gte: targetDay } : targetDay,
       user: {
         OR: [

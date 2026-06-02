@@ -37,7 +37,7 @@ import { getUpcomingPayments, computeStreak } from "@/lib/debtHelpers";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
+import { isActiveDebt, selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -224,6 +224,7 @@ export default function DebtTab({
   );
 
   const income = incomeData?.income;
+  const activeDebts = useMemo(() => debts.filter(isActiveDebt), [debts]);
   const snapshots = useMemo(
     () => snapshotData?.snapshots ?? [],
     [snapshotData?.snapshots],
@@ -246,11 +247,11 @@ export default function DebtTab({
 
   // Payoff estimate — mirrors the PayoffTab acceleration logic so both tabs show the same date
   const payoffResult = useMemo(() => {
-    if (!income || debts.length === 0) return null;
+    if (!income || activeDebts.length === 0) return null;
     const expenses = expensesData?.expenses ?? [];
     const essential = income.essentialExpenses ?? 0;
     const recurring = expenses.reduce((s, e) => s + e.amount, 0);
-    const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);
+    const totalMin = activeDebts.reduce((s, d) => s + d.minimumPayment, 0);
     const naturalSurplus = Math.max(
       0,
       income.monthlyTakeHome - essential - recurring - totalMin,
@@ -271,7 +272,7 @@ export default function DebtTab({
             ? calculateDebtCustom
             : calculateDebtSnowball;
       return calc(
-        debts,
+        activeDebts,
         income.monthlyTakeHome,
         essential,
         recurring,
@@ -280,7 +281,7 @@ export default function DebtTab({
     } catch {
       return null;
     }
-  }, [debts, income, expensesData?.expenses]);
+  }, [activeDebts, income, expensesData?.expenses]);
 
   // Map strategy → natural sort order so the list mirrors the payoff plan by default
   const strategyDefaultSort = useMemo(():
@@ -333,24 +334,30 @@ export default function DebtTab({
       filterCategory === "all"
         ? debts
         : debts.filter((d) => d.category === filterCategory);
+    const paidOffLast = (a: Debt, b: Debt) => {
+      const aActive = isActiveDebt(a);
+      const bActive = isActiveDebt(b);
+      if (aActive === bActive) return 0;
+      return aActive ? -1 : 1;
+    };
     switch (sortBy) {
       case "balance-asc":
-        return [...list].sort((a, b) => a.balance - b.balance);
+        return [...list].sort((a, b) => paidOffLast(a, b) || a.balance - b.balance);
       case "balance-desc":
-        return [...list].sort((a, b) => b.balance - a.balance);
+        return [...list].sort((a, b) => paidOffLast(a, b) || b.balance - a.balance);
       case "apr-desc":
-        return [...list].sort((a, b) => b.interestRate - a.interestRate);
+        return [...list].sort((a, b) => paidOffLast(a, b) || b.interestRate - a.interestRate);
       case "min-desc":
-        return [...list].sort((a, b) => b.minimumPayment - a.minimumPayment);
+        return [...list].sort((a, b) => paidOffLast(a, b) || b.minimumPayment - a.minimumPayment);
       case "due":
-        return [...list].sort((a, b) => (a.dueDate ?? 99) - (b.dueDate ?? 99));
+        return [...list].sort((a, b) => paidOffLast(a, b) || (a.dueDate ?? 99) - (b.dueDate ?? 99));
       default:
-        return list;
+        return [...list].sort(paidOffLast);
     }
   }, [debts, sortBy, filterCategory]);
 
   const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
-  const totalMin = debts.reduce((s, d) => s + d.minimumPayment, 0);
+  const totalMin = activeDebts.reduce((s, d) => s + d.minimumPayment, 0);
 
   const upcomingPayments = useMemo(() => getUpcomingPayments(debts), [debts]);
 

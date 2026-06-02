@@ -6,6 +6,7 @@ import { Income, Expense, Debt } from "@/types";
 import { Calculator, Repeat, Plus, X, ChevronDown, Pencil } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { track, Events } from "@/lib/analytics";
+import { isActiveDebt } from "@/lib/monthlyFocusDebt";
 
 interface IncomeTabProps {
   income: Income | null | undefined;
@@ -38,7 +39,9 @@ export default function IncomeTab({
   const takeHome = parseFloat(formData.monthlyTakeHome) || 0;
   const essential = parseFloat(formData.essentialExpenses) || 0;
 
-  const totalMinPayments = debts.reduce((sum, d) => sum + d.minimumPayment, 0);
+  const totalMinPayments = debts
+    .filter(isActiveDebt)
+    .reduce((sum, d) => sum + d.minimumPayment, 0);
   const recurringTotal = expenses.reduce((sum, e) => sum + e.amount, 0);
   const cancelledTotal = expenses
     .filter((e) => cancelledIds.has(e.id))
