@@ -9,7 +9,7 @@ const SCANNER_PATH_PREFIXES = [
   '/.git',
   '/.hg',
   '/.svn',
-  '/.DS_Store',
+  '/.ds_store',
   '/.aws',
   '/.ssh',
   '/config.php',
@@ -24,14 +24,45 @@ const SCANNER_PATH_PREFIXES = [
   '/xmlrpc.php',
 ];
 
+const SENSITIVE_SCANNER_SEGMENTS = [
+  '.git',
+  '.hg',
+  '.svn',
+  '.ds_store',
+  '.aws',
+  '.ssh',
+  'config.php',
+  'id_rsa',
+  'phpinfo',
+  'server-status',
+  'wp-config.php',
+  'xmlrpc.php',
+];
+
 const PUBLIC_API_PATHS = [
   '/api/support/contact',
   '/api/webhooks/stripe',
   '/api/unsubscribe',
 ];
 
-function isScannerPath(pathname: string): boolean {
-  return SCANNER_PATH_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+function normalizePathname(pathname: string): string {
+  try {
+    return decodeURIComponent(pathname).toLowerCase();
+  } catch {
+    return pathname.toLowerCase();
+  }
+}
+
+export function isScannerPath(pathname: string): boolean {
+  const normalizedPathname = normalizePathname(pathname);
+  if (SCANNER_PATH_PREFIXES.some((prefix) => normalizedPathname.startsWith(prefix))) {
+    return true;
+  }
+
+  return normalizedPathname
+    .split('/')
+    .filter(Boolean)
+    .some((segment) => segment === '.env' || segment.startsWith('.env.') || SENSITIVE_SCANNER_SEGMENTS.includes(segment));
 }
 
 // Simple in-memory rate limiter: max 60 requests per IP per 60-second window.

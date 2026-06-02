@@ -5,6 +5,34 @@ vi.mock('next/server', () => ({
   NextRequest: vi.fn(),
 }));
 
+vi.mock('@auth0/nextjs-auth0/server', () => ({
+  Auth0Client: vi.fn().mockImplementation(function Auth0Client() {
+    return {
+      middleware: vi.fn(),
+      getSession: vi.fn(),
+    };
+  }),
+}));
+
+describe('isScannerPath', () => {
+  it('blocks direct and nested env file probes', async () => {
+    const { isScannerPath } = await import('@/middleware');
+
+    expect(isScannerPath('/.env')).toBe(true);
+    expect(isScannerPath('/admin/.env')).toBe(true);
+    expect(isScannerPath('/backend/.env.local')).toBe(true);
+    expect(isScannerPath('/core/%2Eenv')).toBe(true);
+  });
+
+  it('blocks nested sensitive config probes without blocking well-known routes', async () => {
+    const { isScannerPath } = await import('@/middleware');
+
+    expect(isScannerPath('/wordpress/wp-config.php')).toBe(true);
+    expect(isScannerPath('/uploads/.git/config')).toBe(true);
+    expect(isScannerPath('/.well-known/traffic-advice')).toBe(false);
+  });
+});
+
 describe('getAllowedOrigin', () => {
   afterEach(() => {
     vi.resetModules();
