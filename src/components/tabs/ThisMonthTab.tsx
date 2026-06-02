@@ -1,11 +1,10 @@
-"use client";
-
 import { useMemo, useState } from "react";
 import { CalendarCheck, ChevronRight, CreditCard, TrendingDown } from "lucide-react";
 import { Debt, Income, Expense } from "@/types";
 import { type Tab } from "@/components/dashboard/types";
 import { calculateMinimumsOnlyResult } from "@/lib/payoffPlan";
 import { calculatePlanMetrics } from "@/lib/payoffPlan";
+import { selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
 import { formatCurrency } from "@/lib/utils";
 import { usePaymentRecords, useMarkPaid } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -54,6 +53,11 @@ export default function ThisMonthTab({
     return map;
   }, [paymentsData]);
 
+  const paidDebtIds = useMemo(
+    () => new Set((paymentsData?.records ?? []).map((record) => record.debtId)),
+    [paymentsData],
+  );
+
   const totalDebt = useMemo(() => debts.reduce((s, d) => s + d.balance, 0), [debts]);
 
   const recurringExpenses = useMemo(
@@ -95,13 +99,10 @@ export default function ThisMonthTab({
 
   const extraPayment = income?.extraPayment ?? 0;
 
-  // Focus debt = first in payoff order
+  // Focus debt = first active debt in payoff order that still needs this month's payment.
   const focusDebt = useMemo(() => {
-    if (!result?.payoffSchedule.length) return debts[0] ?? null;
-    const first = result.payoffSchedule.find((s) => s.orderInPayoff === 1);
-    if (!first) return debts[0] ?? null;
-    return debts.find((d) => d.id === first.debtId) ?? debts[0] ?? null;
-  }, [result, debts]);
+    return selectMonthlyFocusDebt(debts, result, paidDebtIds);
+  }, [debts, paidDebtIds, result]);
 
   const focusSchedule = useMemo(() => {
     if (!result || !focusDebt) return null;
