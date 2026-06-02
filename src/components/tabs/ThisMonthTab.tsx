@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarCheck, ChevronRight, CreditCard, TrendingDown } from "lucide-react";
+import { CalendarCheck, CheckCircle2, ChevronRight, CreditCard, TrendingDown } from "lucide-react";
 import { Debt, Income, Expense } from "@/types";
 import { type Tab } from "@/components/dashboard/types";
 import { calculateMinimumsOnlyResult } from "@/lib/payoffPlan";
@@ -370,6 +370,7 @@ export default function ThisMonthTab({
             {debts.map((debt, i) => {
               const paid = paidThisMonth.get(debt.id);
               const isFocus = debt.id === focusDebt?.id;
+              const isPaidOff = debt.balance <= 0.01;
               return (
                 <div
                   key={debt.id}
@@ -387,20 +388,35 @@ export default function ThisMonthTab({
                         width: "7px",
                         height: "7px",
                         borderRadius: "50%",
-                        background: isFocus ? "#2563eb" : "#e2e8f0",
+                        background: isPaidOff ? "#10b981" : isFocus ? "#2563eb" : "#e2e8f0",
                         flexShrink: 0,
                       }}
                     />
                     <div>
-                      <div style={{ fontSize: "13px", fontWeight: 600, color: "#0f172a" }}>{debt.name}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                        <span style={{ fontSize: "13px", fontWeight: 600, color: isPaidOff ? "#059669" : "#0f172a" }}>
+                          {debt.name}
+                        </span>
+                        {isPaidOff && (
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: "3px", fontSize: "10px", fontWeight: 700, color: "#059669", background: "rgba(16,185,129,0.10)", border: "1px solid rgba(16,185,129,0.22)", borderRadius: "999px", padding: "1px 6px" }}>
+                            <CheckCircle2 size={10} strokeWidth={2} />
+                            Paid off
+                          </span>
+                        )}
+                        {!isPaidOff && isFocus && (
+                          <span style={{ fontSize: "10px", fontWeight: 700, color: "#2563eb", background: "rgba(37,99,235,0.08)", border: "1px solid rgba(37,99,235,0.18)", borderRadius: "999px", padding: "1px 6px" }}>
+                            Focus
+                          </span>
+                        )}
+                      </div>
                       <div style={{ fontSize: "11px", color: "#94a3b8" }}>{formatCurrency(debt.minimumPayment)}/mo minimum</div>
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
+                    <div style={{ fontSize: "13px", fontWeight: 700, color: isPaidOff ? "#059669" : "#0f172a", fontVariantNumeric: "tabular-nums" }}>
                       {formatCurrency(debt.balance)}
                     </div>
-                    {paid && (
+                    {!isPaidOff && paid && (
                       <div style={{ fontSize: "11px", color: "#10b981", fontWeight: 600 }}>Paid ✓</div>
                     )}
                   </div>

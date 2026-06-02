@@ -7,6 +7,7 @@ import {
   useIncome,
   useExpenses,
   useAllSnapshots,
+  usePaymentRecords,
 } from "@/lib/hooks";
 import PaymentCelebrationBanner from "@/components/PaymentCelebrationBanner";
 import { Debt } from "@/types";
@@ -36,6 +37,7 @@ import { getUpcomingPayments, computeStreak } from "@/lib/debtHelpers";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
 import {
   Collapsible,
   CollapsibleTrigger,
@@ -215,6 +217,11 @@ export default function DebtTab({
   const { data: incomeData } = useIncome();
   const { data: expensesData } = useExpenses();
   const { data: snapshotData } = useAllSnapshots();
+  const today = new Date();
+  const { data: paymentsData } = usePaymentRecords(
+    today.getFullYear(),
+    today.getMonth(),
+  );
 
   const income = incomeData?.income;
   const snapshots = useMemo(
@@ -303,6 +310,16 @@ export default function DebtTab({
     }
     return map;
   }, [payoffResult]);
+
+  const paidDebtIds = useMemo(
+    () => new Set((paymentsData?.records ?? []).map((record) => record.debtId)),
+    [paymentsData],
+  );
+
+  const focusDebt = useMemo(
+    () => selectMonthlyFocusDebt(debts, payoffResult, paidDebtIds),
+    [debts, paidDebtIds, payoffResult],
+  );
 
   // Unique categories for the filter dropdown
   const categories = useMemo(() => {
@@ -669,6 +686,7 @@ export default function DebtTab({
                           setInternalOpenDebtId(null);
                       }}
                       rank={rankByDebtId.get(debt.id)}
+                      isActiveFocus={debt.id === focusDebt?.id}
                     />
                   ))}
 

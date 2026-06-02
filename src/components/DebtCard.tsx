@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Debt } from "@/types";
-import { Trash2, Pencil, DollarSign, RefreshCw } from "lucide-react";
+import { Trash2, Pencil, DollarSign, RefreshCw, CheckCircle2, Target } from "lucide-react";
 import {
   formatCurrency,
   formatPercent,
@@ -26,6 +26,7 @@ interface DebtCardProps {
   openPaymentPanel?: boolean;
   onPaymentPanelOpened?: () => void;
   rank?: number;
+  isActiveFocus?: boolean;
 }
 
 type Panel = "payment" | "balance" | "edit" | null;
@@ -38,6 +39,7 @@ export default function DebtCard({
   openPaymentPanel,
   onPaymentPanelOpened,
   rank,
+  isActiveFocus = false,
 }: DebtCardProps) {
   const util =
     debt.creditLimit > 0
@@ -46,6 +48,7 @@ export default function DebtCard({
   const categoryColor = getCategoryColor(debt.category);
   const isHighInterest = debt.interestRate >= 20;
   const isMedInterest = debt.interestRate >= 15 && debt.interestRate < 20;
+  const isPaidOff = debt.balance <= 0.01;
   const [panel, setPanel] = useState<Panel>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [newBalance, setNewBalance] = useState(String(debt.balance));
@@ -96,6 +99,7 @@ export default function DebtCard({
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isPaidOff) return;
     const amount = parseFloat(paymentAmount);
     if (!amount || amount <= 0) return;
     const now = new Date();
@@ -148,12 +152,19 @@ export default function DebtCard({
       style={{
         background: "#ffffff",
         border: "1px solid rgba(15,23,42,0.08)",
-        borderLeft:
-          rank === 1 ? "3px solid #2563eb" : `3px solid ${categoryColor}`,
+        borderLeft: isPaidOff
+          ? "3px solid #10b981"
+          : isActiveFocus
+            ? "3px solid #2563eb"
+            : `3px solid ${categoryColor}`,
         transition: "border-color 0.2s ease, box-shadow 0.2s ease",
-        boxShadow: isHighInterest
-          ? `0 0 0 1px ${categoryColor}18, 0 2px 12px rgba(15,23,42,0.08)`
-          : "0 1px 4px rgba(15,23,42,0.06)",
+        boxShadow: isActiveFocus
+          ? "0 1px 4px rgba(15,23,42,0.06), 0 0 0 1px rgba(37,99,235,0.10)"
+          : isPaidOff
+            ? "0 1px 4px rgba(15,23,42,0.05), 0 0 0 1px rgba(16,185,129,0.10)"
+            : isHighInterest
+              ? `0 0 0 1px ${categoryColor}18, 0 2px 12px rgba(15,23,42,0.08)`
+              : "0 1px 4px rgba(15,23,42,0.06)",
       }}
     >
       {/* Header row */}
@@ -163,7 +174,7 @@ export default function DebtCard({
           <div className="flex items-center gap-2 mb-1">
             <span
               className="inline-block w-2 h-2 rounded-full flex-shrink-0"
-              style={{ background: categoryColor }}
+              style={{ background: isPaidOff ? "#10b981" : categoryColor }}
             />
             <span className="font-semibold text-sm truncate min-w-0 flex-1">
               {debt.name || "Unnamed"}
@@ -181,7 +192,20 @@ export default function DebtCard({
             >
               {debt.category}
             </span>
-            {rank !== undefined && rank !== 1 && (
+            {isPaidOff && (
+              <span
+                className="text-[0.65rem] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
+                style={{
+                  background: "rgba(16,185,129,0.10)",
+                  color: "#059669",
+                  border: "1px solid rgba(16,185,129,0.22)",
+                }}
+              >
+                <CheckCircle2 size={10} strokeWidth={2} />
+                Paid off
+              </span>
+            )}
+            {!isPaidOff && rank !== undefined && !isActiveFocus && (
               <span
                 className="text-[0.65rem] font-bold px-1.5 py-0.5 rounded-full"
                 title="Payoff priority order"
@@ -194,23 +218,24 @@ export default function DebtCard({
                 #{rank}
               </span>
             )}
-            {rank === 1 && (
+            {!isPaidOff && isActiveFocus && (
               <span
-                className="text-[0.65rem] font-bold px-2 py-0.5 rounded-full"
+                className="text-[0.65rem] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
                 style={{
                   background: "#2563eb",
                   color: "#ffffff",
                   letterSpacing: "-0.01em",
                 }}
               >
-                🎯 Active Target
+                <Target size={10} strokeWidth={2} />
+                Active Target
               </span>
             )}
           </div>
           <div className="flex items-baseline gap-x-3 gap-y-1.5 flex-wrap">
             <span
               className="mono font-bold text-lg leading-none whitespace-nowrap"
-              style={{ color: "#0f172a" }}
+              style={{ color: isPaidOff ? "#059669" : "#0f172a" }}
             >
               {formatCurrency(debt.balance)}
             </span>
@@ -258,13 +283,17 @@ export default function DebtCard({
           }}
         >
           <button
-            onClick={() => togglePanel("payment")}
-            title="Log payment"
+            onClick={() => {
+              if (!isPaidOff) togglePanel("payment");
+            }}
+            title={isPaidOff ? "Debt paid off" : "Log payment"}
             className="p-1.5 rounded-md hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
-            aria-label="Log payment"
+            aria-label={isPaidOff ? "Debt paid off" : "Log payment"}
+            disabled={isPaidOff}
             style={{
               color: panel === "payment" ? "#34d399" : undefined,
-              opacity: panel === "payment" ? 1 : 0.4,
+              cursor: isPaidOff ? "default" : "pointer",
+              opacity: isPaidOff ? 0.2 : panel === "payment" ? 1 : 0.4,
             }}
           >
             <DollarSign size={13} />
