@@ -74,10 +74,95 @@ const SALARY_PATTERNS = [
 
 // ── Frequency detection ───────────────────────────────────────────────────────
 
+/**
+ * Parse a date from MM/DD/YYYY or MM-DD-YYYY into a UTC timestamp.
+ * Using UTC avoids DST off-by-one errors when diffing dates.
+ * Returns null if any component is outside a plausible range.
+ */
+function parseMDY(m: string, d: string, y: string): number | null {
+  const month = parseInt(m, 10);
+  const day   = parseInt(d, 10);
+  const year  = parseInt(y, 10);
+  if (month < 1 || month > 12)    return null;
+  if (day   < 1 || day   > 31)    return null;
+  if (year  < 2000 || year > 2100) return null;
+  return Date.UTC(year, month - 1, day);
+}
+
+/** Return the inclusive number of days between two UTC timestamps. */
+function daysBetween(a: number, b: number): number {
+  return Math.floor(Math.abs(b - a) / (1000 * 60 * 60 * 24)) + 1;
+}
+
+/**
+ * Map an inclusive day count to a pay frequency.
+ * Ranges are non-overlapping:
+ *   weekly      6–8
+ *   bi-weekly   13–14
+ *   semi-monthly 15–17
+ *   monthly     28–32
+ * Returns null for ambiguous counts so callers can fall back to keyword matching.
+ */
+export function daysToFrequency(days: number): IncomeFrequency | null {
+  if (days >= 6  && days <= 8)  return 'weekly';
+  if (days >= 13 && days <= 14) return 'bi-weekly';
+  if (days >= 15 && days <= 17) return 'semi-monthly';
+  if (days >= 28 && days <= 32) return 'monthly';
+  return null;
+}
+
+/**
+ * Infer pay frequency from a pay-period date range embedded in the text.
+ * Returns null if no date range is found or the count is ambiguous.
+ *
+ * Checked before keyword matching so explicit date evidence takes precedence
+ * over incidental occurrences of words like "weekly pay rate".
+ */
+export function detectFrequencyFromDateRange(text: string): IncomeFrequency | null {
+  const SEP  = '[\\-/]';
+  const DATE = `(\\d{1,2})${SEP}(\\d{1,2})${SEP}(\\d{4})`;
+
+  // Strategy 1: inline range — "04/07/2026 - 04/13/2026" or "04-07-2026 to 04-13-2026"
+  const inlineRange = text.match(new RegExp(`${DATE}\\s*(?:-|–|\\bto\\b)\\s*${DATE}`, 'i'));
+  if (inlineRange) {
+    const start = parseMDY(inlineRange[1], inlineRange[2], inlineRange[3]);
+    const end   = parseMDY(inlineRange[4], inlineRange[5], inlineRange[6]);
+    if (start !== null && end !== null) return daysToFrequency(daysBetween(start, end));
+  }
+
+  // Strategy 2: separate labeled fields — "Pay Begin Date: 05-25-2026 … Pay End Date: 05-31-2026"
+  const beginMatch = text.match(
+    /pay\s+(?:begin|start|period\s+start|from)\s+date[:\s]+(\d{1,2})[-/](\d{1,2})[-/](\d{4})/i,
+  );
+  const endMatch = text.match(
+    /pay\s+(?:end|period\s+end|through|thru)\s+date[:\s]+(\d{1,2})[-/](\d{1,2})[-/](\d{4})/i,
+  );
+  if (beginMatch && endMatch) {
+    const start = parseMDY(beginMatch[1], beginMatch[2], beginMatch[3]);
+    const end   = parseMDY(endMatch[1],   endMatch[2],   endMatch[3]);
+    if (start !== null && end !== null) return daysToFrequency(daysBetween(start, end));
+  }
+
+  return null;
+}
+
 function detectFrequency(text: string): IncomeFrequency {
-  if (/bi[-\s]?weekly|every\s+two\s+weeks|26\s+times/i.test(text)) return 'bi-weekly';
-  if (/semi[-\s]?monthly|twice\s+(?:a|per)\s+month|24\s+times/i.test(text)) return 'semi-monthly';
-  if (/weekly|every\s+week|52\s+times/i.test(text)) return 'weekly';
+  // Explicit multi-word keywords are high-confidence — check them first.
+  // Bi-weekly must precede weekly since "bi-weekly" contains "weekly".
+  if (/bi[-\s]?weekly|every\s+two\s+weeks|26\s+(?:times|pays|checks|periods)/i.test(text)) return 'bi-weekly';
+  if (/semi[-\s]?monthly|twice\s+(?:a|per)\s+month|24\s+(?:times|pays|checks|periods)/i.test(text)) return 'semi-monthly';
+
+  // Date-range inference runs before the generic "weekly" keyword so that
+  // explicit pay-period dates (e.g., a 14-day range) beat incidental text
+  // like "weekly pay rate" on a bi-weekly stub.
+  const fromRange = detectFrequencyFromDateRange(text);
+  if (fromRange) return fromRange;
+
+  // Keyword fallback — only reached when no date range is present.
+  if (
+    /\bweekly\b|\bwkly\b|every\s+week|once\s+(?:a|per)\s+week|per\s+week|52\s+(?:times|pays|checks|periods)|7[-\s]day\s+pay|pay\s+(?:cycle|period|frequency)[:\s]+week/i.test(text)
+  ) return 'weekly';
+
   return 'monthly';
 }
 
@@ -133,7 +218,7 @@ export function extractIncome(text: string): IncomeExtractResult {
     }
   }
 
-  // W2 annual wages — rough monthly net (assume 22% effective rate)
+  // W2 annual wages -- rough monthly net (assume 22% effective rate)
   const w2Raw = firstMatch(text, W2_WAGES_PATTERNS);
   if (w2Raw) {
     const annual = parseDollar(w2Raw);
@@ -147,7 +232,6 @@ export function extractIncome(text: string): IncomeExtractResult {
     }
   }
 
-  // Gross pay only — rough net (assume 25% withholding)
   const grossRaw = firstMatch(text, GROSS_PAY_PATTERNS);
   if (grossRaw) {
     const perPeriod = parseDollar(grossRaw);
@@ -157,11 +241,10 @@ export function extractIncome(text: string): IncomeExtractResult {
       return {
         type: 'income',
         items: [{ monthlyTakeHome, source, frequency, confidence: 0.40 }],
-        confident: false, // below threshold — caller should try Claude
+        confident: false,
       };
     }
   }
 
-  // Nothing found
   return { type: 'income', items: [], confident: false };
 }
