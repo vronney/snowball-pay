@@ -9,6 +9,12 @@ export const FREE_DEBT_LIMIT = PLANS.free.debtLimit;
  * Defaults to 'free' if no user row exists yet.
  */
 export async function getUserTier(userId: string): Promise<PaidTier> {
+  // Dev override: set FORCE_PRO=true in .env.local to test Pro features locally
+  // without needing a real Stripe subscription. Never enabled in production.
+  if (process.env.FORCE_PRO === 'true' && process.env.NODE_ENV !== 'production') {
+    return 'pro';
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { paidTier: true, subscriptionStatus: true, subscriptionEndsAt: true },

@@ -100,7 +100,7 @@ export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
         </h2>
         <p style={{ fontSize: "14px", color: "#64748b", margin: "0 0 20px", lineHeight: 1.55 }}>
           {feature ? `${feature} is a Pro feature. ` : ""}
-          Clear charts and timelines show your progress, comparing your accelerated plan against making only minimum payments.
+          Upgrade to unlock document import, AI coaching, unlimited debts, and full payoff history.
         </p>
 
         {/* Billing toggle */}

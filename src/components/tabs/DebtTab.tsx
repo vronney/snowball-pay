@@ -5,14 +5,19 @@ import {
   useCreateDebt,
   useDeleteDebt,
   useIncome,
+  useSaveIncome,
   useExpenses,
+  useCreateExpense,
   useAllSnapshots,
   usePaymentRecords,
+  useSubscription,
 } from "@/lib/hooks";
+import DocumentImportModal from "@/components/documents/DocumentImportModal";
 import PaymentCelebrationBanner from "@/components/PaymentCelebrationBanner";
 import { Debt } from "@/types";
 import {
   PlusCircle,
+  FileUp,
   Inbox,
   Bell,
   ChevronDown,
@@ -44,6 +49,7 @@ import {
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 import { track, Events } from "@/lib/analytics";
+import { upgradeEvents } from "@/lib/upgradeEvents";
 
 interface DebtTabProps {
   debts: Debt[];
@@ -157,6 +163,7 @@ export default function DebtTab({
   onAddDebtHandled,
 }: DebtTabProps) {
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [debtsOpen, setDebtsOpen] = useState(true);
   const [emailStatus, setEmailStatus] = useState<
     "idle" | "sending" | "sent" | "error"
@@ -213,6 +220,10 @@ export default function DebtTab({
 
   const createDebt = useCreateDebt();
   const deleteDebt = useDeleteDebt();
+  const saveIncome = useSaveIncome();
+  const createExpense = useCreateExpense();
+  const { data: subscription } = useSubscription();
+  const isPro = subscription?.paidTier === "pro";
 
   const { data: incomeData } = useIncome();
   const { data: expensesData } = useExpenses();
@@ -568,24 +579,48 @@ export default function DebtTab({
                 style={{ display: "flex", alignItems: "center", gap: "8px" }}
               >
                 {!showForm && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowForm(true);
-                    }}
-                    className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold"
-                    style={{
-                      background: "rgba(37,99,235,0.08)",
-                      color: "#2563eb",
-                      border: "1px solid rgba(37,99,235,0.18)",
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                    }}
-                  >
-                    <PlusCircle size={12} />
-                    Add Debt
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isPro) {
+                          setShowImport(true);
+                        } else {
+                          upgradeEvents.dispatch("Document Import");
+                        }
+                      }}
+                      className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                      style={{
+                        background: isPro ? "rgba(15,23,42,0.04)" : "rgba(245,158,11,0.08)",
+                        color: isPro ? "#475569" : "#b45309",
+                        border: `1px solid ${isPro ? "rgba(15,23,42,0.12)" : "rgba(245,158,11,0.25)"}`,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      <FileUp size={12} />
+                      Import{!isPro && " ✦"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowForm(true);
+                      }}
+                      className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                      style={{
+                        background: "rgba(37,99,235,0.08)",
+                        color: "#2563eb",
+                        border: "1px solid rgba(37,99,235,0.18)",
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      <PlusCircle size={12} />
+                      Add Debt
+                    </button>
+                  </div>
                 )}
                 <ChevronDown
                   size={16}
@@ -973,40 +1008,34 @@ export default function DebtTab({
                   </Button>
                 </a>
               )}
-
-              <Button
-                variant="outline"
-                onClick={handleSendEmail}
-                disabled={emailStatus === "sending"}
-                className="w-full gap-2 font-medium text-slate-700 hover:text-slate-900"
-              >
-                {emailStatus === "sending" ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Mail size={14} />
-                )}
-                {emailStatus === "sent"
-                  ? "Plan Sent!"
-                  : emailStatus === "error"
-                    ? "Try Again"
-                    : "Email My Plan"}
-              </Button>
-              {emailStatus === "error" && (
-                <p
-                  style={{
-                    fontSize: "12px",
-                    color: "#ef4444",
-                    margin: "4px 0 0",
-                    textAlign: "center",
-                  }}
-                >
-                  Failed to send. Check your email address in Settings.
-                </p>
-              )}
             </div>
           )}
         </aside>
       </div>
+
+      {showImport && (
+        <DocumentImportModal
+          onClose={() => setShowImport(false)}
+          onDebtImported={(debt) => {
+            createDebt.mutate(debt as Partial<Debt>);
+            setShowImport(false);
+          }}
+          onIncomeImported={(income) => {
+            if (incomeData?.income) {
+              saveIncome.mutate({
+                monthlyTakeHome: income.monthlyTakeHome,
+                essentialExpenses: incomeData.income.essentialExpenses,
+                extraPayment: incomeData.income.extraPayment,
+              });
+            }
+            setShowImport(false);
+          }}
+          onExpensesImported={(expenses) => {
+            expenses.forEach((exp) => createExpense.mutate(exp));
+            setShowImport(false);
+          }}
+        />
+      )}
     </section>
   );
 }

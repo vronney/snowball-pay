@@ -43,13 +43,13 @@ const nextConfig = {
   eslint: {
     dirs: ['src'],
   },
-  serverExternalPackages: ['@auth0/nextjs-auth0'],
   experimental: {
     typedRoutes: true,
     serverActions: {
       bodySizeLimit: '10mb',
     },
-  },
+    serverComponentsExternalPackages: ['@auth0/nextjs-auth0', 'pdf-parse', 'pdfjs-dist'],
+  }
 };
 
 module.exports = nextConfig;
