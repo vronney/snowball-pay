@@ -1,5 +1,3 @@
-'use client';
-
 import { type Income } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import { Wallet } from 'lucide-react';

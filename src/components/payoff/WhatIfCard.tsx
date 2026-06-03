@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import { Zap } from "lucide-react";
+import { useSubscription } from "@/lib/hooks";
+import { upgradeEvents } from "@/lib/upgradeEvents";
+import { Lock, Zap as ZapIcon } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
 import {
   calculateDebtSnowball,
@@ -73,6 +75,10 @@ export default function WhatIfCard({
   availableCashFlow,
   onAccelerationChange,
 }: WhatIfCardProps) {
+  const { data: subData } = useSubscription();
+  const isPro = subData?.paidTier === "pro";
+
+
   const activeDebts = useMemo(() => debts.filter(isActiveDebt), [debts]);
   const recurringTotal = useMemo(
     () => expenses.reduce((s, e) => s + e.amount, 0),
@@ -115,6 +121,59 @@ export default function WhatIfCard({
     0,
     currentInterestPaid - scenario100.totalInterestPaid,
   );
+
+  if (!isPro) {
+    return (
+      <div style={{ position: "relative" }}>
+        <div style={{ filter: "blur(4px)", pointerEvents: "none", userSelect: "none", opacity: 0.55 }}>
+          <div style={{
+            background: "#ffffff", borderRadius: "16px",
+            border: "1px solid rgba(15,23,42,0.08)", padding: "24px",
+          }}>
+            <div style={{ height: "120px", background: "#f1f5f9", borderRadius: "8px", marginBottom: "12px" }} />
+            <div style={{ height: "32px", background: "#f1f5f9", borderRadius: "6px", width: "60%" }} />
+          </div>
+        </div>
+        <div style={{
+          position: "absolute", inset: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: "#ffffff", border: "1px solid rgba(15,23,42,0.1)",
+            borderRadius: "16px", padding: "20px 28px", textAlign: "center",
+            boxShadow: "0 8px 32px rgba(15,23,42,0.1)", maxWidth: "260px",
+          }}>
+            <div style={{
+              width: "36px", height: "36px", borderRadius: "50%",
+              background: "#eff6ff", display: "flex",
+              alignItems: "center", justifyContent: "center", margin: "0 auto 10px",
+            }}>
+              <Lock size={16} color="#2563eb" />
+            </div>
+            <p style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a", margin: "0 0 4px" }}>
+              Pro feature
+            </p>
+            <p style={{ fontSize: "12px", color: "#64748b", margin: "0 0 12px", lineHeight: 1.4 }}>
+              What-if scenarios are available on the Pro plan.
+            </p>
+            <button
+              onClick={() => upgradeEvents.dispatch("What-if scenarios")}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: "5px",
+                padding: "7px 14px", borderRadius: "8px",
+                background: "#2563eb", color: "#fff",
+                border: "none", cursor: "pointer",
+                fontSize: "12px", fontWeight: 700, fontFamily: "inherit",
+              }}
+            >
+              <ZapIcon size={12} />
+              Upgrade to Pro
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (saved50months <= 0 && saved100months <= 0) return null;
 
@@ -161,7 +220,7 @@ export default function WhatIfCard({
       }}
     >
       <h2 className="font-semibold text-base mb-1 flex items-center gap-2">
-        <Zap size={16} style={{ color: "#f59e0b" }} />
+        <ZapIcon size={16} style={{ color: "#f59e0b" }} />
         What If You Paid a Little More?
       </h2>
       <p className="text-xs mb-4" style={{ color: "#64748b" }}>

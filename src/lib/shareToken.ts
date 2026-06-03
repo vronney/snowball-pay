@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "crypto";
 
 const SECRET = process.env.SHARE_TOKEN_SECRET ?? "dev-share-secret-change-in-prod";
 const VERSION = "v1";
-const SEPARATOR = ".";
+const SEPARATOR = "."; // Safe because User.id is a CUID (no dots); update if ID format changes
 
 /**
  * Signs a userId into a URL-safe token.

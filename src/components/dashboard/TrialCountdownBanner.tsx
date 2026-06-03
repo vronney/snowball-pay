@@ -25,7 +25,7 @@ export default function TrialCountdownBanner({ sub }: TrialCountdownBannerProps)
   if (!sub || sub.subscriptionStatus !== "trialing" || !sub.subscriptionEndsAt) return null;
 
   const days = daysUntil(sub.subscriptionEndsAt);
-  if (days === null) return null;
+  if (days === null || days < 0) return null;
 
   const urgent = days <= 3;
   const label = days === 0

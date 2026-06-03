@@ -150,10 +150,14 @@ export async function middleware(request: NextRequest) {
     return addCorsHeaders(unauth, request);
   }
 
-  // Unauthenticated visitors to /onboarding have no account to set up —
-  // send them to the landing page rather than the login flow.
+  // Unauthenticated visitors to /onboarding: send to login with returnTo=/dashboard.
+  // The dashboard then redirects to /onboarding after the session is established.
+  // Using /onboarding as returnTo directly caused a redirect loop because the
+  // session cookie isn't readable by the middleware on the first post-callback request.
   if (pathname.startsWith('/onboarding')) {
-    return NextResponse.redirect(new URL('/', request.nextUrl.origin));
+    const loginUrl = new URL('/auth/login', request.nextUrl.origin);
+    loginUrl.searchParams.set('returnTo', '/dashboard');
+    return NextResponse.redirect(loginUrl);
   }
 
   const loginUrl = new URL('/auth/login', request.nextUrl.origin);

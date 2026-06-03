@@ -27,23 +27,40 @@ export async function verifyAuth(request: NextRequest): Promise<AuthResult> {
 
     // Find or create the user row so FK constraints on Debt/Income/etc are satisfied.
     // Returns the cuid User.id, not the Auth0 sub.
-    const user = await prisma.user.upsert({
-      where: { auth0Id: session.user.sub },
-      update: {},
-      create: {
-        auth0Id: session.user.sub,
-        email: typeof session.user.email === 'string' ? session.user.email : '',
-        name: typeof session.user.name === 'string' ? session.user.name : null,
-      },
-      select: { id: true, email: true },
-    });
+    const email = typeof session.user.email === 'string' ? session.user.email : '';
+    const name = typeof session.user.name === 'string' ? session.user.name : null;
+
+    let user: { id: string; email: string | null } | null = null;
+
+    try {
+      user = await prisma.user.upsert({
+        where: { auth0Id: session.user.sub },
+        update: {},
+        create: { auth0Id: session.user.sub, email, name },
+        select: { id: true, email: true },
+      });
+    } catch {
+      // Upsert failed — most likely a unique constraint on email (same email,
+      // different auth0Id). Find the existing row by email and link the new sub.
+      if (email) {
+        user = await prisma.user.findUnique({
+          where: { email },
+          select: { id: true, email: true },
+        });
+        if (user) {
+          await prisma.user.update({
+            where: { id: user.id },
+            data: { auth0Id: session.user.sub },
+          });
+        }
+      }
+    }
+
+    if (!user) return { valid: false, user: null };
 
     return {
       valid: true,
-      user: {
-        id: user.id,
-        email: user.email ?? undefined,
-      },
+      user: { id: user.id, email: user.email ?? undefined },
     };
   } catch {
     return { valid: false, user: null };

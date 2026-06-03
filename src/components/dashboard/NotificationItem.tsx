@@ -1,5 +1,3 @@
-"use client";
-
 import { CheckCircle2, X } from "lucide-react";
 import { type Notification, type Tab } from "./types";
 

@@ -37,7 +37,8 @@ export async function POST(request: NextRequest) {
     const priceId = billing === 'annual' && annualPriceId
       ? annualPriceId
       : getStripeProPriceId();
-    // Annual plan: shorter trial (3 days) since the commitment is yearly
+    // Annual plan: 3-day trial only — annual is a larger upfront commitment so
+    // we keep the trial short to reduce abuse while still letting users verify billing.
     const trialDays = billing === 'annual' && annualPriceId ? 3 : PRO_TRIAL_DAYS;
     const userEmail = user?.email ?? auth.user.email;
 

@@ -1,5 +1,3 @@
-"use client";
-
 import Image from "next/image";
 import { Menu, X } from "lucide-react";
 import { type Tab } from "@/components/dashboard/types";

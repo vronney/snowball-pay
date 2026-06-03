@@ -1,5 +1,3 @@
-'use client';
-
 import { CheckCircle2 } from 'lucide-react';
 import { type Debt } from '@/types';
 import { getCategoryColor } from '@/lib/utils';

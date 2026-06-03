@@ -1,5 +1,3 @@
-'use client';
-
 import { type Debt } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import { RefreshCcw, ChevronDown } from 'lucide-react';
