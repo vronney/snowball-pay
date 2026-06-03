@@ -139,28 +139,22 @@ export function detectFrequencyFromDateRange(text: string): IncomeFrequency | nu
   }
 
   // Strategy 2: separate labeled fields — "Pay Begin Date: 05-25-2026 … Pay End Date: 05-31-2026"
-  // Also handles "Period Begin", "Period Start", "Pay Period Begin", etc.
-  const beginMatch = text.match(
-    new RegExp(
-      `(?:pay\\s+)?(?:period\\s+)?(?:begin|start|from)\\s*date[:\\s]+(${DATE.slice(1, -1)})`,
-      'i',
-    ),
+  // Groups in DATE are (month)(day)(year) — use them directly, no secondary match needed.
+  const BEGIN_RE = new RegExp(
+    `(?:pay\\s+)?(?:period\\s+)?(?:begin|start|from)\\s*date[:\\s]+${DATE}`,
+    'i',
   );
-  const endMatch = text.match(
-    new RegExp(
-      `(?:pay\\s+)?(?:period\\s+)?(?:end|through|thru|to)\\s*date[:\\s]+(${DATE.slice(1, -1)})`,
-      'i',
-    ),
+  const END_RE = new RegExp(
+    `(?:pay\\s+)?(?:period\\s+)?(?:end|through|thru|to)\\s*date[:\\s]+${DATE}`,
+    'i',
   );
+  const beginMatch = text.match(BEGIN_RE);
+  const endMatch   = text.match(END_RE);
   if (beginMatch && endMatch) {
-    // beginMatch[1] = full date string, split on separator
-    const bParts = beginMatch[1].match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-    const eParts = endMatch[1].match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-    if (bParts && eParts) {
-      const start = parseMDY(bParts[1], bParts[2], bParts[3]);
-      const end   = parseMDY(eParts[1], eParts[2], eParts[3]);
-      if (start !== null && end !== null) return daysToFrequency(daysBetween(start, end));
-    }
+    // Groups: [1]=month [2]=day [3]=year for each match
+    const start = parseMDY(beginMatch[1], beginMatch[2], beginMatch[3]);
+    const end   = parseMDY(endMatch[1],   endMatch[2],   endMatch[3]);
+    if (start !== null && end !== null) return daysToFrequency(daysBetween(start, end));
   }
 
   return null;
