@@ -50,6 +50,7 @@ export function calculateResultByMethod(
   recurringTotal: number,
   adjustedExtra: number,
   method: PayoffMethod,
+  planStartDate?: Date,
 ): PayoffResult {
   if (method === 'avalanche') {
     return calculateDebtAvalanche(
@@ -58,6 +59,7 @@ export function calculateResultByMethod(
       income.essentialExpenses,
       recurringTotal,
       adjustedExtra,
+      planStartDate,
     );
   }
 
@@ -68,6 +70,7 @@ export function calculateResultByMethod(
       income.essentialExpenses,
       recurringTotal,
       adjustedExtra,
+      planStartDate,
     );
   }
 
@@ -77,6 +80,7 @@ export function calculateResultByMethod(
     income.essentialExpenses,
     recurringTotal,
     adjustedExtra,
+    planStartDate,
   );
 }
 
@@ -87,6 +91,7 @@ export function calculatePlanMetrics(
   options: {
     method?: PayoffMethod | null;
     accelerationAmount?: number | null;
+    planStartDate?: Date;
   } = {},
 ): PlanMetrics | null {
   if (!income || debts.length === 0) return null;
@@ -117,6 +122,7 @@ export function calculatePlanMetrics(
     recurringTotal,
     adjustedExtra,
     method,
+    options.planStartDate,
   );
 
   return {
@@ -132,10 +138,10 @@ export function calculatePlanMetrics(
   };
 }
 
-export function calculateMinimumsOnlyResult(debts: Debt[]): PayoffResult {
+export function calculateMinimumsOnlyResult(debts: Debt[], planStartDate?: Date): PayoffResult {
   const activeDebts = debts.filter(isActiveDebt);
   const totalMinPayments = activeDebts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
-  return calculateDebtSnowball(activeDebts, totalMinPayments, 0, 0, 0);
+  return calculateDebtSnowball(activeDebts, totalMinPayments, 0, 0, 0, planStartDate);
 }
 
 export function calculateResultForAcceleration(
@@ -144,13 +150,14 @@ export function calculateResultForAcceleration(
   metrics: Pick<PlanMetrics, 'method' | 'recurringTotal' | 'naturalSurplus'>,
   acceleration: number,
   method: PayoffMethod = metrics.method,
-): PayoffResult {
-  const activeDebts = debts.filter(isActiveDebt);
+  planStartDate?: Date,
+): PayoffResult {  const activeDebts = debts.filter(isActiveDebt);
   return calculateResultByMethod(
     activeDebts,
     income,
     metrics.recurringTotal,
     acceleration - metrics.naturalSurplus,
     method,
+    planStartDate,
   );
 }

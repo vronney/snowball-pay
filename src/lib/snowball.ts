@@ -72,12 +72,13 @@ function calculatePayoffByMethod(
   essentialExpenses: number,
   recurringExpenses = 0,
   extraPayment = 0,
-  method: PayoffMethod = 'snowball'
+  method: PayoffMethod = 'snowball',
+  planStartDate?: Date
 ): PayoffResult {
   function offsetDate(offsetMonths: number): string {
-    const d = new Date();
-    d.setMonth(d.getMonth() + offsetMonths);
-    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+    const anchor = planStartDate ? new Date(planStartDate) : new Date();
+    anchor.setMonth(anchor.getMonth() + offsetMonths);
+    return anchor.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
   }
 
   if (debts.length === 0) {
@@ -219,9 +220,10 @@ export function calculateDebtSnowball(
   monthlyIncome: number,
   essentialExpenses: number,
   recurringExpenses = 0,
-  extraPayment = 0
+  extraPayment = 0,
+  planStartDate?: Date
 ): PayoffResult {
-  return calculatePayoffByMethod(debts, monthlyIncome, essentialExpenses, recurringExpenses, extraPayment, 'snowball');
+  return calculatePayoffByMethod(debts, monthlyIncome, essentialExpenses, recurringExpenses, extraPayment, 'snowball', planStartDate);
 }
 
 /**
@@ -232,9 +234,10 @@ export function calculateDebtAvalanche(
   monthlyIncome: number,
   essentialExpenses: number,
   recurringExpenses = 0,
-  extraPayment = 0
+  extraPayment = 0,
+  planStartDate?: Date
 ): PayoffResult {
-  return calculatePayoffByMethod(debts, monthlyIncome, essentialExpenses, recurringExpenses, extraPayment, 'avalanche');
+  return calculatePayoffByMethod(debts, monthlyIncome, essentialExpenses, recurringExpenses, extraPayment, 'avalanche', planStartDate);
 }
 
 /**
@@ -245,7 +248,8 @@ export function calculateDebtCustom(
   monthlyIncome: number,
   essentialExpenses: number,
   recurringExpenses = 0,
-  extraPayment = 0
+  extraPayment = 0,
+  planStartDate?: Date
 ): PayoffResult {
-  return calculatePayoffByMethod(debts, monthlyIncome, essentialExpenses, recurringExpenses, extraPayment, 'custom');
+  return calculatePayoffByMethod(debts, monthlyIncome, essentialExpenses, recurringExpenses, extraPayment, 'custom', planStartDate);
 }

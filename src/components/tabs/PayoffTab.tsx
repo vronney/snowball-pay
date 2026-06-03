@@ -9,7 +9,12 @@ import {
   calculatePlanMetrics,
   calculateResultForAcceleration,
 } from "@/lib/payoffPlan";
-import { useUpdateDebt, useAllSnapshots, useSaveIncome, usePaymentRecords } from "@/lib/hooks";
+import {
+  useUpdateDebt,
+  useAllSnapshots,
+  useSaveIncome,
+  usePaymentRecords,
+} from "@/lib/hooks";
 import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
 import { ChevronRight, CalendarCheck, Link2 } from "lucide-react";
 import { useSharePlan } from "@/lib/hooks/useSharePlan";
@@ -115,11 +120,18 @@ export default function PayoffTab({
 
   const actualBalanceMap = useActualBalanceMap(snapshotsData?.snapshots ?? []);
 
+  const planStartDate = income?.createdAt
+    ? new Date(income.createdAt)
+    : undefined;
+
   const planMetrics = useMemo(() => {
     return calculatePlanMetrics(debts, income, expenses, {
       method: payoffMethod,
       accelerationAmount,
+      planStartDate,
     });
+    // planStartDate is derived from income.createdAt which doesn't change after creation
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debts, income, expenses, payoffMethod, accelerationAmount]);
   const activeDebts = useMemo(() => debts.filter(isActiveDebt), [debts]);
   const planResult = planMetrics?.result ?? null;
@@ -222,7 +234,7 @@ export default function PayoffTab({
   const years = Math.floor(planResult.months / 12);
   const months = planResult.months % 12;
   const timeStr = years > 0 ? `${years}y ${months}m` : `${months}m`;
-  const minimumsOnlyResult = calculateMinimumsOnlyResult(debts);
+  const minimumsOnlyResult = calculateMinimumsOnlyResult(debts, planStartDate);
   const interestSavedVsMinimums = Math.max(
     0,
     minimumsOnlyResult.totalInterestPaid - planResult.totalInterestPaid,
@@ -246,6 +258,7 @@ export default function PayoffTab({
           planMetrics,
           effectiveAcceleration,
           "snowball",
+          planStartDate,
         )
       : calculateResultForAcceleration(
           debts,
@@ -253,6 +266,7 @@ export default function PayoffTab({
           planMetrics,
           effectiveAcceleration,
           "avalanche",
+          planStartDate,
         );
   const avalancheBalanceMap = new Map(
     comparisonResult.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]),
@@ -274,7 +288,9 @@ export default function PayoffTab({
 
     return a.balance - b.balance;
   });
-  const hasAnyCustomPriority = activeDebts.some((debt) => debt.priorityOrder != null);
+  const hasAnyCustomPriority = activeDebts.some(
+    (debt) => debt.priorityOrder != null,
+  );
   const currentTotalDebt = debts.reduce((s, d) => s + d.balance, 0);
   const hasRealSnapshots = actualBalanceMap.size > 0;
   const balanceChartData = baseBalances.map((mb, index) => ({
@@ -479,7 +495,9 @@ export default function PayoffTab({
             padding: "10px 22px",
             borderRadius: "10px",
             cursor: "pointer",
-            background: sharePlan.copied ? "rgba(22,163,74,0.08)" : "rgba(15,23,42,0.05)",
+            background: sharePlan.copied
+              ? "rgba(22,163,74,0.08)"
+              : "rgba(15,23,42,0.05)",
             border: `1px solid ${sharePlan.copied ? "rgba(22,163,74,0.2)" : "rgba(15,23,42,0.1)"}`,
             color: sharePlan.copied ? "#15803d" : "#536078",
             fontSize: "14px",
@@ -489,9 +507,14 @@ export default function PayoffTab({
           }}
         >
           <Link2 size={14} />
-          {sharePlan.copied ? "Link copied!" : sharePlan.loading ? "Generating…" : "Copy shareable link"}
+          {sharePlan.copied
+            ? "Link copied!"
+            : sharePlan.loading
+              ? "Generating…"
+              : "Copy shareable link"}
         </button>
       </div>
+
 
       {shareCardOpen && (
         <ShareDebtFreeCard
