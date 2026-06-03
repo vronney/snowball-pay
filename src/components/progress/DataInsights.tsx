@@ -114,7 +114,9 @@ const COACH_TONE: Record<CoachTone, { bg: string; border: string; color: string;
 function formatCompactCurrency(value: number) {
   if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
   if (Math.abs(value) >= 1_000) return `$${Math.round(value / 1_000)}k`;
-  return formatCurrency(value);
+  if (Math.abs(value) >= 100) return `$${Math.round(value)}`;
+  if (value === 0) return '$0';
+  return `$${Math.round(value)}`;
 }
 
 function monthLabelFromKey(key: string) {
@@ -983,7 +985,7 @@ function VarianceCard({
       subtitle="Compares real balances against the plan so you know when to adjust."
       coach={coach}
     >
-      {data.length > 0 ? (
+      {data.length >= 2 ? (
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
@@ -1015,8 +1017,8 @@ function VarianceCard({
         </div>
       ) : (
         <EmptyVisualization
-          title="Track one monthly balance first"
-          body="Record this month's statement balances to compare real progress against the payoff plan."
+          title="Log 2+ months to see variance"
+          body="Log your actual balance each month — after two months the chart shows whether you're ahead or behind your plan."
         />
       )}
     </InsightCard>
@@ -1040,7 +1042,7 @@ function InterestPrincipalCard({
       subtitle="Shows when interest is eating the payment and when momentum is improving."
       coach={coach}
     >
-      {data.length > 0 ? (
+      {data.length >= 2 ? (
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>

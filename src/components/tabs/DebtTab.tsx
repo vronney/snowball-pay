@@ -359,7 +359,10 @@ export default function DebtTab({
   const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
   const totalMin = activeDebts.reduce((s, d) => s + d.minimumPayment, 0);
 
-  const upcomingPayments = useMemo(() => getUpcomingPayments(debts), [debts]);
+  const upcomingPayments = useMemo(
+    () => getUpcomingPayments(debts).filter((p) => !paidDebtIds.has(p.debt.id)),
+    [debts, paidDebtIds],
+  );
 
   const handleSubmit = async (formData: any) => {
     setAddDebtError(null);

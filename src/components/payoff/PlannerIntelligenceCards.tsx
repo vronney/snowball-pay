@@ -236,10 +236,6 @@ export function IntelligenceOverviewCard({
         </div>
       </div>
 
-      <p className="text-xs" style={{ color: "#64748b" }}>
-        Charts stay available for the deeper read. The coach layer turns those
-        numbers into the next payment decision.
-      </p>
     </div>
   );
 }
@@ -639,7 +635,12 @@ export function SmartCalendarCard({
         </p>
       </div>
       <div className="space-y-2 flex-1">
-        {smartCalendar.items.slice(0, 4).map((item) => (
+        {smartCalendar.items
+          .filter((item) =>
+            smartCalendar.dueIn7 >= 3 ? item.daysUntil <= 7 : item.daysUntil <= 14,
+          )
+          .slice(0, 4)
+          .map((item) => (
           <div
             key={item.debt.id}
             className="rounded-lg p-2 flex items-center justify-between"
@@ -669,7 +670,7 @@ export function SmartCalendarCard({
             </div>
           </div>
         ))}
-        {smartCalendar.items.length === 0 && (
+        {smartCalendar.dueIn14 === 0 && (
           <p className="text-xs" style={{ color: "#94a3b8" }}>
             Add due dates on debts to activate smart calendar flags.
           </p>
@@ -693,45 +694,94 @@ export function GuardrailsCard({
   bufferTarget,
 }: GuardrailsCardProps) {
   const isLow = leftoverAfterAcceleration < bufferTarget;
+  const bufferPct = bufferTarget > 0
+    ? Math.min(100, Math.round((leftoverAfterAcceleration / bufferTarget) * 100))
+    : 100;
+  const leakPct = monthlyInterestLeak + monthlyInterestAvoided > 0
+    ? Math.round((monthlyInterestAvoided / (monthlyInterestLeak + monthlyInterestAvoided)) * 100)
+    : 0;
+
   return (
     <div
       className="rounded-2xl p-5 h-auto md:h-full flex flex-col"
       style={CARD_STYLE}
     >
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-4">
         <Shield size={16} style={{ color: "#2563eb" }} />
-        <h3 className="text-sm font-semibold">
-          Interest leak and buffer guardrail
-        </h3>
+        <h3 className="text-sm font-semibold">Interest &amp; buffer guardrail</h3>
       </div>
-      <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className="rounded-xl p-3" style={INNER_STYLE}>
-          <p className="text-xs" style={{ color: "#64748b" }}>
-            Interest burned this month
-          </p>
-          <p className="text-sm font-semibold" style={{ color: "#dc2626" }}>
+
+      {/* Interest split bar */}
+      <div className="mb-4">
+        <div className="flex justify-between mb-1">
+          <span className="text-xs" style={{ color: "#64748b" }}>Interest this month</span>
+          <span className="text-xs font-semibold" style={{ color: "#0f172a" }}>
             {formatCurrency(monthlyInterestLeak)}
-          </p>
+          </span>
         </div>
-        <div className="rounded-xl p-3" style={INNER_STYLE}>
-          <p className="text-xs" style={{ color: "#64748b" }}>
-            Interest avoided monthly
-          </p>
-          <p className="text-sm font-semibold" style={{ color: "#059669" }}>
-            {formatCurrency(monthlyInterestAvoided)}
-          </p>
+        <div style={{ height: "6px", borderRadius: "999px", background: "rgba(220,38,38,0.12)", overflow: "hidden" }}>
+          <div
+            style={{
+              height: "100%",
+              width: `${leakPct}%`,
+              borderRadius: "999px",
+              background: "linear-gradient(90deg, #059669, #10b981)",
+              transition: "width 0.7s cubic-bezier(0.22,1,0.36,1)",
+            }}
+          />
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-xs" style={{ color: "#dc2626" }}>
+            {formatCurrency(monthlyInterestLeak - monthlyInterestAvoided)} going to lenders
+          </span>
+          <span className="text-xs" style={{ color: "#059669" }}>
+            {formatCurrency(monthlyInterestAvoided)} avoided
+          </span>
         </div>
       </div>
+
+      {/* Buffer meter */}
+      <div className="mb-3">
+        <div className="flex justify-between mb-1">
+          <span className="text-xs" style={{ color: "#64748b" }}>Cash buffer after acceleration</span>
+          <span className="text-xs font-semibold" style={{ color: isLow ? "#b45309" : "#059669" }}>
+            {formatCurrency(leftoverAfterAcceleration)}
+          </span>
+        </div>
+        <div style={{ height: "6px", borderRadius: "999px", background: "rgba(15,23,42,0.08)", overflow: "hidden" }}>
+          <div
+            style={{
+              height: "100%",
+              width: `${bufferPct}%`,
+              borderRadius: "999px",
+              background: isLow
+                ? "linear-gradient(90deg, #f59e0b, #fbbf24)"
+                : "linear-gradient(90deg, #2563eb, #3b82f6)",
+              transition: "width 0.7s cubic-bezier(0.22,1,0.36,1)",
+            }}
+          />
+        </div>
+        <div className="flex justify-between mt-1">
+          <span className="text-xs" style={{ color: "#94a3b8" }}>
+            Target: {formatCurrency(bufferTarget)}
+          </span>
+          <span className="text-xs" style={{ color: isLow ? "#b45309" : "#059669" }}>
+            {isLow ? "⚠ Below target" : "✓ On track"}
+          </span>
+        </div>
+      </div>
+
       <div
-        className="rounded-lg p-3"
+        className="rounded-lg p-2 mt-auto"
         style={{
-          background: isLow ? "rgba(245,158,11,0.12)" : "rgba(16,185,129,0.12)",
+          background: isLow ? "rgba(245,158,11,0.1)" : "rgba(16,185,129,0.08)",
+          border: `1px solid ${isLow ? "rgba(245,158,11,0.2)" : "rgba(16,185,129,0.15)"}`,
         }}
       >
         <p className="text-xs" style={{ color: isLow ? "#92400e" : "#065f46" }}>
           {isLow
-            ? `Guardrail warning: ${formatCurrency(leftoverAfterAcceleration)} buffer left after acceleration.`
-            : `Guardrail healthy: ${formatCurrency(leftoverAfterAcceleration)} left after acceleration.`}
+            ? "Reduce acceleration until buffer recovers."
+            : "Buffer is healthy. Keep acceleration on."}
         </p>
       </div>
     </div>
@@ -830,21 +880,30 @@ export function MilestonesCard({
     >
       <div className="flex items-center gap-2 mb-3">
         <BadgeCheck size={16} style={{ color: "#2563eb" }} />
-        <h3 className="text-sm font-semibold">
-          Progress milestones and rate opportunities
-        </h3>
+        <h3 className="text-sm font-semibold">Progress &amp; refinance flags</h3>
       </div>
+
+      {/* Progress section */}
       <div className="rounded-lg p-3 mb-3" style={INNER_STYLE}>
-        <p className="text-xs" style={{ color: "#64748b" }}>
-          Paid down progress
+        <p className="text-xs font-semibold mb-1" style={{ color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          Paid down
         </p>
         <p className="text-sm font-semibold" style={{ color: "#0f172a" }}>
-          {milestoneData.pctPaid.toFixed(1)}% paid off
+          {milestoneData.pctPaid.toFixed(1)}% of total debt
         </p>
         <p className="text-xs" style={{ color: "#64748b" }}>
-          On-plan streak: {milestoneData.streak} months
+          {milestoneData.streak === 0
+            ? "Log a payment to start your streak"
+            : `${milestoneData.streak}-month on-plan streak`}
         </p>
       </div>
+
+      {/* Refinance candidates section */}
+      {refinanceCandidates.length > 0 && (
+        <p className="text-xs font-semibold mb-2" style={{ color: "#64748b", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+          High-rate debts — worth refinancing
+        </p>
+      )}
       <div className="space-y-2 flex-1">
         {refinanceCandidates.map(({ debt, estimatedSavings }) => (
           <div
@@ -852,17 +911,25 @@ export function MilestonesCard({
             className="rounded-lg p-2 flex items-center justify-between"
             style={INNER_STYLE}
           >
-            <span className="text-xs" style={{ color: "#334155" }}>
-              {debt.name} at {debt.interestRate.toFixed(2)}%
-            </span>
-            <span className="text-xs" style={{ color: "#059669" }}>
-              ~{formatCurrency(estimatedSavings)} potential save
-            </span>
+            <div>
+              <span className="text-xs font-medium" style={{ color: "#334155" }}>
+                {debt.name}
+              </span>
+              <span className="text-xs ml-1" style={{ color: "#94a3b8" }}>
+                {debt.interestRate.toFixed(2)}% APR
+              </span>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <span className="text-xs font-semibold" style={{ color: "#059669" }}>
+                ~{formatCurrency(estimatedSavings)} saved
+              </span>
+              <p className="text-xs" style={{ color: "#94a3b8" }}>if refinanced to ~7.5%</p>
+            </div>
           </div>
         ))}
         {refinanceCandidates.length === 0 && (
           <p className="text-xs" style={{ color: "#94a3b8" }}>
-            No strong refinance flags right now.
+            No debts flagged for refinancing right now.
           </p>
         )}
       </div>

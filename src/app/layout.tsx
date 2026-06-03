@@ -128,7 +128,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning className={`${manrope.variable} ${jakarta.variable}`}>
       <head>
         {/* Google tag (gtag.js) */}
+        {/* eslint-disable-next-line @next/next/next-script-for-ga */}
         <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18159208162"></script>
+        {/* eslint-disable-next-line @next/next/next-script-for-ga */}
         <script
           dangerouslySetInnerHTML={{
             __html: `

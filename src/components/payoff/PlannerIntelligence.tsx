@@ -255,14 +255,27 @@ export default function PlannerIntelligence({
     }
     const p = savedSettings?.preferences;
     if (!p) return;
-    if (p.actionChecks) setActionChecks(p.actionChecks);
+
+    // Auto-reset checklist at the start of a new month so it feels fresh each cycle.
+    const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
+    const savedMonth = (p.actionChecks as Record<string, unknown>)?.__month as string | undefined;
+    if (savedMonth && savedMonth !== currentMonth) {
+      // New month — clear all checks and write the new month marker
+      const reset = { __month: currentMonth } as unknown as Record<string, boolean>;
+      setActionChecks(reset);
+      updatePreferences.mutate({ actionChecks: reset });
+    } else if (p.actionChecks) {
+      setActionChecks(p.actionChecks as Record<string, boolean>);
+    }
+
     if (p.sandboxMethod) setSandboxMethod(p.sandboxMethod as PayoffMethod);
     if (p.sandboxExtra != null) setSandboxExtra(p.sandboxExtra);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasActiveDebts, savedSettings?.preferences]);
 
   const handleActionCheck = (action: string) => {
-    const next = { ...actionChecks, [action]: !actionChecks[action] };
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const next = { ...actionChecks, [action]: !actionChecks[action], __month: currentMonth } as unknown as Record<string, boolean>;
     setActionChecks(next);
     updatePreferences.mutate({ actionChecks: next });
   };
