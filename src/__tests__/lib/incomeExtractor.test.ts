@@ -147,11 +147,11 @@ describe('extractIncome — frequency precedence', () => {
     expect(result.items[0]?.frequency).toBe('weekly');
   });
 
-  it('bi-weekly keyword beats date range (explicit keyword wins over inference)', () => {
-    // bi-weekly keyword check happens before date-range inference
-    const text = `${netPayLine}Pay Frequency: Bi-Weekly\n04/07/2026 - 04/13/2026`;
+  it('date range beats bi-weekly keyword — a 7-day range wins even with "bi-weekly" text', () => {
+    // Date-range inference now runs first; a 7-day span overrides keyword noise
+    const text = `${netPayLine}Bi-Weekly Pay Advice\n04/07/2026 - 04/13/2026`;
     const result = extractIncome(text);
-    expect(result.items[0]?.frequency).toBe('bi-weekly');
+    expect(result.items[0]?.frequency).toBe('weekly');
   });
 
   it('normalises weekly net pay to monthly correctly (×4.33)', () => {

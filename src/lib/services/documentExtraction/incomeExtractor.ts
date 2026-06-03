@@ -147,18 +147,17 @@ export function detectFrequencyFromDateRange(text: string): IncomeFrequency | nu
 }
 
 function detectFrequency(text: string): IncomeFrequency {
-  // Explicit multi-word keywords are high-confidence — check them first.
-  // Bi-weekly must precede weekly since "bi-weekly" contains "weekly".
-  if (/bi[-\s]?weekly|every\s+two\s+weeks|26\s+(?:times|pays|checks|periods)/i.test(text)) return 'bi-weekly';
-  if (/semi[-\s]?monthly|twice\s+(?:a|per)\s+month|24\s+(?:times|pays|checks|periods)/i.test(text)) return 'semi-monthly';
-
-  // Date-range inference runs before the generic "weekly" keyword so that
-  // explicit pay-period dates (e.g., a 14-day range) beat incidental text
-  // like "weekly pay rate" on a bi-weekly stub.
+  // Date-range inference is the most reliable signal — it uses explicit
+  // pay-period dates on the stub and is not fooled by incidental keywords.
+  // Run it first so a 7-day range (weekly) wins even if the stub says
+  // "bi-weekly pay advice" in a header.
   const fromRange = detectFrequencyFromDateRange(text);
   if (fromRange) return fromRange;
 
-  // Keyword fallback — only reached when no date range is present.
+  // Keyword fallback — reached only when no date range is present.
+  // Bi-weekly must precede weekly since "bi-weekly" contains "weekly".
+  if (/bi[-\s]?weekly|every\s+two\s+weeks|26\s+(?:times|pays|checks|periods)/i.test(text)) return 'bi-weekly';
+  if (/semi[-\s]?monthly|twice\s+(?:a|per)\s+month|24\s+(?:times|pays|checks|periods)/i.test(text)) return 'semi-monthly';
   if (
     /\bweekly\b|\bwkly\b|every\s+week|once\s+(?:a|per)\s+week|per\s+week|52\s+(?:times|pays|checks|periods)|7[-\s]day\s+pay|pay\s+(?:cycle|period|frequency)[:\s]+week/i.test(text)
   ) return 'weekly';
