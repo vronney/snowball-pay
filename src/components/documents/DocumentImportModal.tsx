@@ -37,6 +37,7 @@ interface ExtractedDebtResult {
 
 interface ExtractedIncomeItem {
   monthlyTakeHome: number;
+  perPeriodAmount: number;
   source: string;
   frequency: string;
   confidence: number;
@@ -452,6 +453,19 @@ function DebtReview({
   );
 }
 
+type IncomeFreq = 'weekly' | 'bi-weekly' | 'semi-monthly' | 'monthly';
+
+const FREQ_MULTIPLIERS: Record<IncomeFreq, number> = {
+  weekly:       4.33,
+  'bi-weekly':  2.167,
+  'semi-monthly': 2,
+  monthly:      1,
+};
+
+function toMonthly(perPeriod: number, freq: IncomeFreq): number {
+  return parseFloat((perPeriod * FREQ_MULTIPLIERS[freq]).toFixed(2));
+}
+
 function IncomeReview({
   item,
   onChange,
@@ -461,29 +475,56 @@ function IncomeReview({
   onChange: (updated: ExtractedIncomeItem) => void;
   onConfirm: () => void;
 }) {
+  const handleFrequencyChange = (newFreq: IncomeFreq) => {
+    // Recalculate monthly from the original per-period amount
+    const perPeriod = item.perPeriodAmount || item.monthlyTakeHome;
+    const newMonthly = toMonthly(perPeriod, newFreq);
+    onChange({ ...item, frequency: newFreq, monthlyTakeHome: newMonthly });
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       <p style={{ fontSize: '13px', color: '#64748b', margin: 0 }}>
-        Review the extracted take-home amount. We{"'"}ll update your income record.
+        Review the extracted data. Changing pay frequency will recalculate the monthly amount automatically.
       </p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <FieldRow
+          label="Pay Frequency"
+          value={
+            <select
+              style={inputStyle}
+              value={item.frequency}
+              onChange={(e) => handleFrequencyChange(e.target.value as IncomeFreq)}
+            >
+              <option value="weekly">Weekly</option>
+              <option value="bi-weekly">Bi-Weekly</option>
+              <option value="semi-monthly">Semi-Monthly</option>
+              <option value="monthly">Monthly</option>
+            </select>
+          }
+        />
+        <FieldRow
+          label="Source"
+          value={
+            <div style={{ ...inputStyle, background: '#f1f5f9', color: '#64748b', cursor: 'default' }}>
+              {item.source}
+            </div>
+          }
+        />
+      </div>
+      {item.perPeriodAmount > 0 && (
+        <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#f8fafc', border: '1px solid rgba(15,23,42,0.08)', fontSize: '12px', color: '#64748b' }}>
+          Per-period net pay: <strong style={{ color: '#0f172a' }}>${item.perPeriodAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+        </div>
+      )}
       <FieldRow
-        label="Monthly Take-Home ($)"
+        label="Monthly Take-Home ($) — calculated from per-period × frequency"
         value={
           <input style={inputStyle} type="number" step="0.01" min="0"
             value={item.monthlyTakeHome || ''}
             onChange={(e) => onChange({ ...item, monthlyTakeHome: parseFloat(e.target.value) || 0 })} />
         }
       />
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-        <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#f8fafc', border: '1px solid rgba(15,23,42,0.08)' }}>
-          <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '3px' }}>Source</span>
-          <span style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>{item.source}</span>
-        </div>
-        <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#f8fafc', border: '1px solid rgba(15,23,42,0.08)' }}>
-          <span style={{ fontSize: '11px', color: '#94a3b8', display: 'block', marginBottom: '3px' }}>Pay Frequency</span>
-          <span style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a', textTransform: 'capitalize' }}>{item.frequency}</span>
-        </div>
-      </div>
       <button
         type="button"
         onClick={onConfirm}
@@ -852,42 +893,42 @@ export default function DocumentImportModal({
               </button>
             </div>
           )}
-        </div>
-
-        {/* Step indicator dots */}
-        {step !== 'done' && (
-          <div style={{
-            display: 'flex', justifyContent: 'center', gap: '6px',
-            padding: '12px', borderTop: '1px solid rgba(15,23,42,0.06)', flexShrink: 0,
-          }}>
-            {(['type', 'upload', 'review'] as Step[]).map((s) => (
-              <span
-                key={s}
-                style={{
-                  width: step === s ? 20 : 6, height: 6, borderRadius: '9999px',
-                  background: step === s ? '#2563eb' : 'rgba(15,23,42,0.12)',
-                  transition: 'width 0.2s, background 0.2s',
-                }}
-              />
-            ))}
           </div>
-        )}
-      </div>
 
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @media (max-width: 640px) {
-          [data-import-modal] {
-            top: auto !important;
-            bottom: 0 !important;
-            left: 0 !important;
-            transform: none !important;
-            width: 100% !important;
-            max-height: 92vh !important;
-            border-radius: 16px 16px 0 0 !important;
-          }
+      {/* Step indicator dots */}
+      {step !== 'done' && (
+        <div style={{
+          display: 'flex', justifyContent: 'center', gap: '6px',
+          padding: '12px', borderTop: '1px solid rgba(15,23,42,0.06)', flexShrink: 0,
+        }}>
+          {(['type', 'upload', 'review'] as Step[]).map((s) => (
+            <span
+              key={s}
+              style={{
+                width: step === s ? 20 : 6, height: 6, borderRadius: '9999px',
+                background: step === s ? '#2563eb' : 'rgba(15,23,42,0.12)',
+                transition: 'width 0.2s, background 0.2s',
+              }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+
+    <style>{`
+      @keyframes spin { to { transform: rotate(360deg); } }
+      @media (max-width: 640px) {
+        [data-import-modal] {
+          top: auto !important;
+          bottom: 0 !important;
+          left: 0 !important;
+          transform: none !important;
+          width: 100% !important;
+          max-height: 92vh !important;
+          border-radius: 16px 16px 0 0 !important;
         }
-      `}</style>
-    </>
+      }
+    `}</style>
+  </>
   )
 }

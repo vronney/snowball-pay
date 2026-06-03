@@ -14,6 +14,8 @@ export type IncomeSource = 'W2' | '1099' | 'Self-Employed' | 'Unknown';
 
 export interface ExtractedIncomeItem {
   monthlyTakeHome: number;
+  /** Raw per-period net pay before frequency normalization — allows the UI to recalculate if the user corrects the frequency */
+  perPeriodAmount: number;
   source: IncomeSource;
   frequency: IncomeFrequency;
   /** 0–1 confidence in this extraction */
@@ -119,28 +121,46 @@ export function daysToFrequency(days: number): IncomeFrequency | null {
  * over incidental occurrences of words like "weekly pay rate".
  */
 export function detectFrequencyFromDateRange(text: string): IncomeFrequency | null {
-  const SEP  = '[\\-/]';
-  const DATE = `(\\d{1,2})${SEP}(\\d{1,2})${SEP}(\\d{4})`;
+  const DATE = `(\\d{1,2})[-/](\\d{1,2})[-/](\\d{4})`;
 
-  // Strategy 1: inline range — "04/07/2026 - 04/13/2026" or "04-07-2026 to 04-13-2026"
-  const inlineRange = text.match(new RegExp(`${DATE}\\s*(?:-|–|\\bto\\b)\\s*${DATE}`, 'i'));
-  if (inlineRange) {
-    const start = parseMDY(inlineRange[1], inlineRange[2], inlineRange[3]);
-    const end   = parseMDY(inlineRange[4], inlineRange[5], inlineRange[6]);
+  // Strategy 1: labeled inline range — requires a pay-period keyword before the dates
+  // to avoid false matches on advice dates, issue dates, or other date pairs on the stub.
+  // e.g. "Pay Period: 04/07/2026 - 04/13/2026" or "Period 04-07-2026 to 04-13-2026"
+  const labeledRange = text.match(
+    new RegExp(
+      `(?:pay\\s+period|period|pay\\s+date\\s+range)[:\\s]+${DATE}\\s*(?:-|–|\\bto\\b)\\s*${DATE}`,
+      'i',
+    ),
+  );
+  if (labeledRange) {
+    const start = parseMDY(labeledRange[1], labeledRange[2], labeledRange[3]);
+    const end   = parseMDY(labeledRange[4], labeledRange[5], labeledRange[6]);
     if (start !== null && end !== null) return daysToFrequency(daysBetween(start, end));
   }
 
   // Strategy 2: separate labeled fields — "Pay Begin Date: 05-25-2026 … Pay End Date: 05-31-2026"
+  // Also handles "Period Begin", "Period Start", "Pay Period Begin", etc.
   const beginMatch = text.match(
-    /pay\s+(?:begin|start|period\s+start|from)\s+date[:\s]+(\d{1,2})[-/](\d{1,2})[-/](\d{4})/i,
+    new RegExp(
+      `(?:pay\\s+)?(?:period\\s+)?(?:begin|start|from)\\s*date[:\\s]+(${DATE.slice(1, -1)})`,
+      'i',
+    ),
   );
   const endMatch = text.match(
-    /pay\s+(?:end|period\s+end|through|thru)\s+date[:\s]+(\d{1,2})[-/](\d{1,2})[-/](\d{4})/i,
+    new RegExp(
+      `(?:pay\\s+)?(?:period\\s+)?(?:end|through|thru|to)\\s*date[:\\s]+(${DATE.slice(1, -1)})`,
+      'i',
+    ),
   );
   if (beginMatch && endMatch) {
-    const start = parseMDY(beginMatch[1], beginMatch[2], beginMatch[3]);
-    const end   = parseMDY(endMatch[1],   endMatch[2],   endMatch[3]);
-    if (start !== null && end !== null) return daysToFrequency(daysBetween(start, end));
+    // beginMatch[1] = full date string, split on separator
+    const bParts = beginMatch[1].match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+    const eParts = endMatch[1].match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+    if (bParts && eParts) {
+      const start = parseMDY(bParts[1], bParts[2], bParts[3]);
+      const end   = parseMDY(eParts[1], eParts[2], eParts[3]);
+      if (start !== null && end !== null) return daysToFrequency(daysBetween(start, end));
+    }
   }
 
   return null;
@@ -197,7 +217,7 @@ export function extractIncome(text: string): IncomeExtractResult {
       const monthlyTakeHome = parseFloat(toMonthly(perPeriod, frequency).toFixed(2));
       return {
         type: 'income',
-        items: [{ monthlyTakeHome, source, frequency, confidence: 0.85 }],
+        items: [{ monthlyTakeHome, perPeriodAmount: perPeriod, source, frequency, confidence: 0.85 }],
         confident: true,
       };
     }
@@ -211,7 +231,7 @@ export function extractIncome(text: string): IncomeExtractResult {
       const monthlyTakeHome = parseFloat(((annual / 12) * 0.8).toFixed(2));
       return {
         type: 'income',
-        items: [{ monthlyTakeHome, source, frequency: 'monthly', confidence: 0.65 }],
+        items: [{ monthlyTakeHome, perPeriodAmount: monthlyTakeHome, source, frequency: 'monthly', confidence: 0.65 }],
         confident: true,
       };
     }
@@ -225,7 +245,7 @@ export function extractIncome(text: string): IncomeExtractResult {
       const monthlyTakeHome = parseFloat(((annual / 12) * 0.78).toFixed(2));
       return {
         type: 'income',
-        items: [{ monthlyTakeHome, source: 'W2', frequency: 'monthly', confidence: 0.60 }],
+        items: [{ monthlyTakeHome, perPeriodAmount: monthlyTakeHome, source: 'W2', frequency: 'monthly', confidence: 0.60 }],
         confident: 0.60 >= CONFIDENCE_THRESHOLD,
       };
     }
@@ -239,7 +259,7 @@ export function extractIncome(text: string): IncomeExtractResult {
       const monthlyTakeHome = parseFloat((grossMonthly * 0.75).toFixed(2));
       return {
         type: 'income',
-        items: [{ monthlyTakeHome, source, frequency, confidence: 0.40 }],
+        items: [{ monthlyTakeHome, perPeriodAmount: perPeriod, source, frequency, confidence: 0.40 }],
         confident: false,
       };
     }
