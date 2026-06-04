@@ -119,6 +119,8 @@ export async function POST(request: NextRequest) {
           access: 'private',
         });
 
+        console.log('Blob response:', JSON.stringify(blob));
+
         if (!blob.url) {
           throw new Error(`Blob upload failed: no URL returned. Response: ${JSON.stringify(blob)}`);
         }
