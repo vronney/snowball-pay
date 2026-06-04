@@ -9,8 +9,8 @@ export interface UploadDocumentArgs {
 }
 
 export interface UploadDocumentResult {
-  jobs?: Array<{ documentId: string; jobId: string }>;
-  extractedData?: unknown;
+  documents?: Array<{ documentId: string }>;
+  message?: string;
 }
 
 export interface JobStatusResponse {
