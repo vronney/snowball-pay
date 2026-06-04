@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized } from '@/lib/auth-server';
-import { getJobStatus } from '@/lib/services/documentProcessingJob';
 
 export async function GET(request: NextRequest) {
   const auth = await verifyAuth(request);
@@ -17,9 +17,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const status = await getJobStatus(documentId);
+    const doc = await prisma.uploadedDocument.findUnique({
+      where: { id: documentId },
+      select: {
+        id: true,
+        status: true,
+        extractedData: true,
+        errorMessage: true,
+        updatedAt: true,
+      },
+    });
 
-    if (!status) {
+    if (!doc) {
       return NextResponse.json(
         { error: 'Document not found' },
         { status: 404 },
@@ -27,11 +36,11 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
-      id: status.id,
-      status: status.status,
-      extractedData: status.extractedData,
-      errorMessage: status.errorMessage,
-      processedAt: status.processedAt,
+      id: doc.id,
+      status: doc.status,
+      extractedData: doc.extractedData,
+      errorMessage: doc.errorMessage,
+      processedAt: doc.updatedAt,
     });
   } catch (error) {
     console.error('Error fetching job status:', error);

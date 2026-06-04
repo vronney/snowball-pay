@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 import { isPro, upgradeRequired } from '@/lib/gates';
 import { limits } from '@/lib/rateLimit';
-import { createProcessingJob, updateUploadedDocumentJob } from '@/lib/services/documentProcessingJob';
 
 // Job queueing is fast; no need for long timeout
 export const maxDuration = 30;
@@ -110,50 +109,36 @@ export async function POST(request: NextRequest) {
     // Processing moves to cron worker for async execution
     // Return 202 Accepted immediately with job ID(s)
 
-    const jobs = await Promise.all(
+    const documents = await Promise.all(
       files.map(async (file) => {
         const fileBuffer = Buffer.from(await file.arrayBuffer());
         const sanitizedName = sanitizeFileName(file.name);
 
-        // Create document record
+        // Upload file to Vercel Blob first
+        const blob = await put(`documents/${auth.user!.id}/${Date.now()}-${sanitizedName}`, fileBuffer, {
+          access: 'public',
+        });
+
+        // Create document record with blob URL and mark as processing
         const doc = await prisma.uploadedDocument.create({
           data: {
             userId: auth.user!.id,
             fileName: sanitizedName,
             fileType,
-            fileUrl: '',
+            fileUrl: String(blob.url),
             status: 'processing',
+            attempts: 0,
           },
         });
 
-        // Upload file to Vercel Blob
-        const blob = await put(`documents/${auth.user!.id}/${doc.id}`, fileBuffer, {
-          access: 'public',
-        });
-
-        // Extract URL as clean string
-        const fileUrl = String(blob.url);
-
-        // Create background processing job with blob URL
-        const job = await createProcessingJob({
-          userId: auth.user!.id,
-          documentId: doc.id,
-          fileName: sanitizedName,
-          fileType: fileType as 'debt' | 'income' | 'statement',
-          fileUrl,
-        });
-
-        // Link document to job
-        await updateUploadedDocumentJob(doc.id, job.id);
-
-        return { documentId: doc.id, jobId: job.id };
+        return { documentId: doc.id };
       }),
     );
 
     return NextResponse.json(
       {
         message: 'Document processing queued',
-        jobs,
+        documents,
       },
       { status: 202 }, // Accepted — processing in background
     );

@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getNextPendingJob,
-  markJobAsProcessing,
-  markJobAsCompleted,
-  markJobAsFailed,
-} from '@/lib/services/documentProcessingJob';
+import { prisma } from '@/lib/prisma';
 import { processDocumentJob } from '@/lib/services/documentJobProcessor';
 
 // Called by Vercel cron to process queued document jobs
@@ -23,44 +18,66 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const job = await getNextPendingJob();
+    // Get next document with status='processing' and attempts < 3
+    const doc = await prisma.uploadedDocument.findFirst({
+      where: {
+        status: 'processing',
+        attempts: { lt: 3 },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
 
-    if (!job) {
+    if (!doc) {
       return NextResponse.json({
-        message: 'No pending jobs',
+        message: 'No documents to process',
         processed: 0,
       });
     }
 
-    // Mark as processing
-    await markJobAsProcessing(job.id);
-
     try {
-      // Process the document using blob URL
+      // Process the document
       const extractedData = await processDocumentJob(
-        job.fileUrl,
-        job.fileType as 'debt' | 'income' | 'statement',
-        job.fileName,
+        doc.fileUrl,
+        doc.fileType as 'debt' | 'income' | 'statement',
+        doc.fileName,
       );
 
       // Mark as completed
-      await markJobAsCompleted(job.id, extractedData);
+      await prisma.uploadedDocument.update({
+        where: { id: doc.id },
+        data: {
+          status: 'completed',
+          extractedData: extractedData as any,
+          errorMessage: null,
+        },
+      });
 
       return NextResponse.json({
-        message: 'Job processed successfully',
-        jobId: job.id,
+        message: 'Document processed successfully',
+        documentId: doc.id,
         status: 'completed',
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`Error processing job ${job.id}:`, error);
+      console.error(`Error processing document ${doc.id}:`, error);
 
-      // Mark as failed
-      await markJobAsFailed(job.id, errorMessage);
+      // Increment attempts and mark as failed if max retries reached
+      const newAttempts = doc.attempts + 1;
+      const status = newAttempts >= 3 ? 'failed' : 'processing';
+
+      await prisma.uploadedDocument.update({
+        where: { id: doc.id },
+        data: {
+          status,
+          attempts: newAttempts,
+          errorMessage,
+        },
+      });
 
       return NextResponse.json({
-        error: 'Job processing failed',
-        jobId: job.id,
+        error: 'Document processing failed',
+        documentId: doc.id,
+        attempts: newAttempts,
         errorMessage,
       }, { status: 500 });
     }
