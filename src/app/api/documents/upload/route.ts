@@ -131,13 +131,16 @@ export async function POST(request: NextRequest) {
           access: 'public',
         });
 
+        // Extract URL as clean string
+        const fileUrl = String(blob.url);
+
         // Create background processing job with blob URL
         const job = await createProcessingJob({
           userId: auth.user!.id,
           documentId: doc.id,
           fileName: sanitizedName,
           fileType: fileType as 'debt' | 'income' | 'statement',
-          fileUrl: blob.url,
+          fileUrl,
         });
 
         // Link document to job
