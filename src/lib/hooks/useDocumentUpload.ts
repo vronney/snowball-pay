@@ -45,8 +45,8 @@ export function useDocumentUpload() {
   });
 }
 
-export async function pollJobStatus(documentId: string, maxAttempts = 180): Promise<JobStatusResponse> {
-  const pollInterval = 1000; // 1 second
+export async function pollJobStatus(documentId: string, maxAttempts = 600): Promise<JobStatusResponse> {
+  const pollInterval = 1000; // 1 second — polls for up to 10 minutes max
   let attempts = 0;
 
   while (attempts < maxAttempts) {
@@ -68,5 +68,5 @@ export async function pollJobStatus(documentId: string, maxAttempts = 180): Prom
     }
   }
 
-  throw new Error('Job processing timeout: exceeded maximum polling attempts');
+  throw new Error('Job processing timeout: extraction took longer than 10 minutes');
 }
