@@ -1235,16 +1235,40 @@ export default function DocumentImportModal({
 
           {step === "upload" && fileType && (
             <>
-              <DropZone
-                fileType={fileType}
-                file={file}
-                onFile={setFile}
-                isPending={upload.isPending}
-                error={uploadError}
-                onUpload={handleUpload}
-                processingPhase={processingPhase}
-              />
-              {fileType === "statement" && (
+              {!upload.isPending ? (
+                <DropZone
+                  fileType={fileType}
+                  file={file}
+                  onFile={setFile}
+                  isPending={upload.isPending}
+                  error={uploadError}
+                  onUpload={handleUpload}
+                  processingPhase={processingPhase}
+                />
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "16px", padding: "32px 20px" }}>
+                  <Loader2 size={40} style={{ color: "#2563eb", animation: "spin 2s linear infinite" }} />
+                  <div style={{ textAlign: "center" }}>
+                    <p style={{ fontSize: "14px", fontWeight: 600, color: "#0f172a", margin: 0, marginBottom: "4px" }}>
+                      {processingPhase === "uploading" && "Uploading your document…"}
+                      {processingPhase === "queued" && "Queued for processing…"}
+                      {processingPhase === "processing" && (
+                        <>
+                          {fileType === "statement" && "Extracting transactions…"}
+                          {fileType === "debt" && "Extracting debt information…"}
+                          {fileType === "income" && "Extracting income information…"}
+                        </>
+                      )}
+                    </p>
+                    <p style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>
+                      {processingPhase === "processing" && fileType === "statement" && "This may take 30-120 seconds"}
+                      {processingPhase === "processing" && fileType !== "statement" && "This may take 10-30 seconds"}
+                      {processingPhase !== "processing" && "Please wait…"}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {fileType === "statement" && !upload.isPending && (
                 <div
                   style={{
                     marginTop: "12px",
