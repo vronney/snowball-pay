@@ -119,13 +119,17 @@ export async function POST(request: NextRequest) {
           access: 'private',
         });
 
+        if (!blob.url) {
+          throw new Error(`Blob upload failed: no URL returned. Response: ${JSON.stringify(blob)}`);
+        }
+
         // Create document record with blob URL and mark as processing
         const doc = await prisma.uploadedDocument.create({
           data: {
             userId: auth.user!.id,
             fileName: sanitizedName,
             fileType,
-            fileUrl: String(blob.url),
+            fileUrl: blob.url,
             status: 'processing',
             attempts: 0,
           },
