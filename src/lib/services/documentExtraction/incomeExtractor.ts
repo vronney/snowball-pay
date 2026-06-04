@@ -200,19 +200,28 @@ function toMonthly(amount: number, frequency: IncomeFrequency): number {
 // ── Main extractor ────────────────────────────────────────────────────────────
 
 export function extractIncome(text: string): IncomeExtractResult {
-  const frequency = detectFrequency(text);
+  // Detect frequency via date range first (highest confidence), then keywords.
+  // Track whether we got a confident date-range signal — if not, reduce overall
+  // confidence so the orchestration layer falls back to Claude for income docs.
+  const frequencyFromRange = detectFrequencyFromDateRange(text);
+  const frequency = frequencyFromRange ?? detectFrequency(text);
+  const frequencyIsConfident = frequencyFromRange !== null;
   const source = detectSource(text);
 
-  // Try net pay first (most reliable for take-home)
+  // Try net pay first (most reliable for take-home).
+  // Confidence is high only when frequency was confirmed by date-range evidence.
+  // Without that, we drop to 0.45 to trigger the Claude fallback — keyword-only
+  // frequency detection has caused wrong monthly totals in production.
   const netRaw = firstMatch(text, NET_PAY_PATTERNS);
   if (netRaw) {
     const perPeriod = parseDollar(netRaw);
     if (perPeriod > 0) {
       const monthlyTakeHome = parseFloat(toMonthly(perPeriod, frequency).toFixed(2));
+      const confidence = frequencyIsConfident ? 0.85 : 0.45;
       return {
         type: 'income',
-        items: [{ monthlyTakeHome, perPeriodAmount: perPeriod, source, frequency, confidence: 0.85 }],
-        confident: true,
+        items: [{ monthlyTakeHome, perPeriodAmount: perPeriod, source, frequency, confidence }],
+        confident: frequencyIsConfident,
       };
     }
   }
