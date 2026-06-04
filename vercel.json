@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/process-documents",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/lifecycle-emails",
       "schedule": "0 10 * * *"
     },

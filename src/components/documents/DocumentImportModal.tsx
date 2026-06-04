@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import {
   useDocumentUpload,
+  pollJobStatus,
   type DocumentFileType,
 } from "@/lib/hooks/useDocumentUpload";
 import { formatCurrency } from "@/lib/utils";
@@ -981,8 +982,29 @@ export default function DocumentImportModal({
     if (!file || !fileType) return;
     setUploadError(null);
     try {
-      const { extractedData } = await upload.mutateAsync({ file, fileType });
-      const data = extractedData as ExtractedResult;
+      // Upload returns 202 with job IDs
+      const result = await upload.mutateAsync({ file, fileType });
+
+      if (!result.jobs || result.jobs.length === 0) {
+        throw new Error("No jobs created");
+      }
+
+      // Poll for the first job (single file upload)
+      const { documentId } = result.jobs[0];
+      const jobStatus = await pollJobStatus(documentId);
+
+      if (jobStatus.status === "failed") {
+        throw new Error(
+          jobStatus.errorMessage ||
+            "Processing failed. Please try again."
+        );
+      }
+
+      if (!jobStatus.extractedData) {
+        throw new Error("No data extracted");
+      }
+
+      const data = jobStatus.extractedData as ExtractedResult;
       setResult(data);
       if (data.type === "debt" && data.items.length > 0) {
         setDebtItem(data.items[0]);
@@ -994,12 +1016,12 @@ export default function DocumentImportModal({
     } catch (err: unknown) {
       let msg: string;
 
-      // Handle axios error with response
-      if ((err as any)?.response?.status === 504) {
+      if ((err as any)?.message?.includes("timeout")) {
         msg =
-          "Processing took too long. Large bank statements with many transactions may take 1-2 minutes. Please try again — we're optimizing this.";
-      } else if ((err as any)?.code === "ECONNABORTED") {
-        msg = "Request timed out. Please try uploading again.";
+          "Processing took too long (exceeded 3 minutes). Please try again with a smaller file.";
+      } else if ((err as any)?.response?.status === 502 ||
+                 (err as any)?.response?.status === 503) {
+        msg = "Server is temporarily unavailable. Please try again in a few moments.";
       } else if ((err as any)?.response?.data?.error) {
         msg = (err as any).response.data.error;
       } else if ((err as any)?.message) {

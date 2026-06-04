@@ -141,3 +141,6 @@ export function extractTransactions(
 
   return { period, transactions };
 }
+
+// Export cleanMerchant and parseDate for use in other modules
+export { cleanMerchant, parseDate } from './dataCleanup';

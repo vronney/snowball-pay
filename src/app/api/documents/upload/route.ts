@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 import { isPro, upgradeRequired } from '@/lib/gates';
 import { limits } from '@/lib/rateLimit';
-import {
-  parsePdfFile,
-  extractDebt,
-  extractIncome,
-  extractTransactions,
-  detectRecurring,
-} from '@/lib/services/documentExtraction';
+import { createProcessingJob, updateUploadedDocumentJob } from '@/lib/services/documentProcessingJob';
 
-// Allow up to 5 minutes for multi-file statement analysis
-export const maxDuration = 300;
+// Job queueing is fast; no need for long timeout
+export const maxDuration = 30;
 
 // ── Security constants ────────────────────────────────────────────────────────
 
@@ -53,70 +46,8 @@ async function validateFileMagicBytes(file: File): Promise<boolean> {
   }
 }
 
-// ── Claude fallback (income only, low-confidence code extraction) ─────────────
-
-const INCOME_PROMPT = `You are a financial data extraction assistant. Analyze this pay stub or income document carefully.
-
-STEP 1 — Find the net (take-home) pay per pay period. Look for: "Net Pay", "NET PAY", "Net Amount", "Take-Home Pay", or "Direct Deposit Amount". Use the CURRENT period amount, not YTD.
-
-STEP 2 — Determine pay frequency from the pay period dates:
-- If "Pay Begin Date" and "Pay End Date" span 6–8 days → weekly (multiply net pay × 4.33)
-- If span is 13–15 days → bi-weekly (multiply net pay × 2.167)
-- If span is 15–17 days → semi-monthly (multiply net pay × 2)
-- If span is 28–32 days → monthly (use net pay as-is)
-- If no dates found, look for explicit "Pay Frequency", "Pay Cycle", or "WKLY"/"BIWK" labels.
-
-STEP 3 — Calculate monthlyTakeHome = net pay per period × frequency multiplier.
-
-Return ONLY valid JSON — no markdown, no explanation:
-{
-  "type": "income",
-  "items": [
-    {
-      "monthlyTakeHome": number (monthly take-home after applying frequency multiplier),
-      "perPeriodAmount": number (net pay per pay period before multiplying),
-      "source": "string (W2, 1099, Self-Employed, or Unknown)",
-      "frequency": "one of: weekly | bi-weekly | semi-monthly | monthly"
-    }
-  ]
-}
-If this is not an income document return { "type": "income", "items": [] }.`;
-
-type SupportedMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'application/pdf';
-
-function getMediaType(fileName: string): SupportedMediaType {
-  const ext = fileName.toLowerCase().split('.').pop();
-  if (ext === 'pdf')  return 'application/pdf';
-  if (ext === 'png')  return 'image/png';
-  if (ext === 'gif')  return 'image/gif';
-  if (ext === 'webp') return 'image/webp';
-  return 'image/jpeg';
-}
-
-function parseClaudeJson(raw: string): unknown {
-  const clean = raw.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
-  return JSON.parse(clean);
-}
-
-async function extractIncomeWithClaude(file: File): Promise<unknown> {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const buf       = await file.arrayBuffer();
-  const base64    = Buffer.from(buf).toString('base64');
-  const mediaType = getMediaType(file.name);
-
-  const contentBlock = mediaType === 'application/pdf'
-    ? { type: 'document' as const, source: { type: 'base64' as const, media_type: mediaType, data: base64 } }
-    : { type: 'image'    as const, source: { type: 'base64' as const, media_type: mediaType, data: base64 } };
-
-  const msg = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 1024,
-    messages: [{ role: 'user', content: [contentBlock, { type: 'text', text: INCOME_PROMPT }] }],
-  });
-
-  const raw = msg.content[0].type === 'text' ? msg.content[0].text : '';
-  return parseClaudeJson(raw);
-}
+// Note: Claude AI extraction and other processing now happens asynchronously
+// in the documentJobProcessor service, called by the job worker cron endpoint.
 
 // ── Route ─────────────────────────────────────────────────────────────────────
 
@@ -174,65 +105,49 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ── Extraction — orchestration layer routes by fileType ───────────────────
-    //
-    // Debt statements  → pdf-parse + regex (no AI)
-    // Bank statements  → pdf-parse + transaction extract + recurring detect (no AI)
-    // Income docs      → pdf-parse + regex; Claude Haiku fallback if low confidence
+    // ── Queueing — create background jobs instead of processing synchronously
+    // Processing moves to cron worker for async execution
+    // Return 202 Accepted immediately with job ID(s)
 
-    let extractedData: unknown;
+    const jobs = await Promise.all(
+      files.map(async (file) => {
+        const fileBuffer = Buffer.from(await file.arrayBuffer());
+        const sanitizedName = sanitizeFileName(file.name);
 
-    if (fileType === 'statement') {
-      const extractions = await Promise.all(
-        files.map(async (file) => {
-          const parsed = await parsePdfFile(file);
-          return extractTransactions(parsed.text, file.name);
-        }),
-      );
-      extractedData = detectRecurring(extractions);
-
-    } else if (fileType === 'debt') {
-      const file   = files[0];
-      const parsed = await parsePdfFile(file);
-      extractedData = extractDebt(parsed.text, sanitizeFileName(file.name));
-
-    } else {
-      // income
-      const file   = files[0];
-      const parsed = await parsePdfFile(file);
-      const result = extractIncome(parsed.text);
-
-      if (result.confident) {
-        extractedData = result;
-      } else {
-        // Pay stub formats are too variable for reliable regex — use Claude Haiku
-        // (cheapest model, vision-capable) as a targeted fallback only here
-        try {
-          extractedData = await extractIncomeWithClaude(file);
-        } catch (err) {
-          console.error('Claude income fallback failed:', err);
-          extractedData = result; // return low-confidence result rather than hard error
-        }
-      }
-    }
-
-    // Persist document records
-    await Promise.all(
-      files.map((file) =>
-        prisma.uploadedDocument.create({
+        // Create document record
+        const doc = await prisma.uploadedDocument.create({
           data: {
-            userId:        auth.user!.id,
-            fileName:      sanitizeFileName(file.name),
+            userId: auth.user!.id,
+            fileName: sanitizedName,
             fileType,
-            fileUrl:       '',
-            extractedData: extractedData as object,
-            status:        'completed',
+            fileUrl: '',
+            status: 'processing',
           },
-        }),
-      ),
+        });
+
+        // Create background processing job
+        const job = await createProcessingJob({
+          userId: auth.user!.id,
+          documentId: doc.id,
+          fileName: sanitizedName,
+          fileType: fileType as 'debt' | 'income' | 'statement',
+          fileData: fileBuffer,
+        });
+
+        // Link document to job
+        await updateUploadedDocumentJob(doc.id, job.id);
+
+        return { documentId: doc.id, jobId: job.id };
+      }),
     );
 
-    return NextResponse.json({ extractedData }, { status: 200 });
+    return NextResponse.json(
+      {
+        message: 'Document processing queued',
+        jobs,
+      },
+      { status: 202 }, // Accepted — processing in background
+    );
   } catch (error) {
     console.error('Error processing document(s):', error);
     return serverError('Failed to process document(s)');
