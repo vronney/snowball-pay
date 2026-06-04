@@ -12,12 +12,17 @@ import {
 } from '@/lib/services/documentExtraction';
 
 export async function processDocumentJob(
-  fileData: Buffer,
+  fileUrl: string,
   fileType: 'debt' | 'income' | 'statement',
   fileName: string,
 ): Promise<unknown> {
-  // Use parsePdf directly since we already have a buffer
-  const parsed = await parsePdf(fileData);
+  // Fetch file from Vercel Blob
+  const response = await fetch(fileUrl);
+  const arrayBuffer = await response.arrayBuffer();
+  const fileBuffer = Buffer.from(arrayBuffer);
+
+  // Use parsePdf with the fetched buffer
+  const parsed = await parsePdf(fileBuffer);
 
   if (fileType === 'statement') {
     // Try regex extraction first (fast path for simple statements)
@@ -33,7 +38,7 @@ export async function processDocumentJob(
     console.log(`Regex found ${regexCount} transactions, trying Claude extraction...`);
 
     try {
-      const base64Pdf = fileData.toString('base64');
+      const base64Pdf = fileBuffer.toString('base64');
       const tables = await extractTablesWithClaude(base64Pdf, fileName);
 
       if (tables.length > 0) {

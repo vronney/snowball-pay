@@ -36,14 +36,9 @@ export async function POST(request: NextRequest) {
     await markJobAsProcessing(job.id);
 
     try {
-      // Process the document
-      // Convert Uint8Array to Buffer if needed
-      const fileBuffer = Buffer.isBuffer(job.fileData)
-        ? job.fileData
-        : Buffer.from(job.fileData);
-
+      // Process the document using blob URL
       const extractedData = await processDocumentJob(
-        fileBuffer,
+        job.fileUrl,
         job.fileType as 'debt' | 'income' | 'statement',
         job.fileName,
       );

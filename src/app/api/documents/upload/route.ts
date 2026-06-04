@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { put } from '@vercel/blob';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 import { isPro, upgradeRequired } from '@/lib/gates';
@@ -125,13 +126,18 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // Create background processing job
+        // Upload file to Vercel Blob
+        const blob = await put(`documents/${auth.user!.id}/${doc.id}`, fileBuffer, {
+          access: 'public',
+        });
+
+        // Create background processing job with blob URL
         const job = await createProcessingJob({
           userId: auth.user!.id,
           documentId: doc.id,
           fileName: sanitizedName,
           fileType: fileType as 'debt' | 'income' | 'statement',
-          fileData: fileBuffer,
+          fileUrl: blob.url,
         });
 
         // Link document to job

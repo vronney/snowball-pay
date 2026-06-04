@@ -5,7 +5,7 @@ export interface DocumentProcessingJobInput {
   documentId: string;
   fileName: string;
   fileType: 'debt' | 'income' | 'statement';
-  fileData: Buffer | Uint8Array;
+  fileUrl: string; // Vercel Blob URL
 }
 
 export async function createProcessingJob(input: DocumentProcessingJobInput) {
@@ -15,7 +15,7 @@ export async function createProcessingJob(input: DocumentProcessingJobInput) {
       userId: input.userId,
       fileName: input.fileName,
       fileType: input.fileType,
-      fileData: Buffer.from(input.fileData),
+      fileUrl: input.fileUrl,
       status: 'queued',
     },
   });

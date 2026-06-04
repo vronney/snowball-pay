@@ -246,7 +246,7 @@ model DocumentProcessingJob {
   documentId        String   @unique
   userId            String
   fileType          String   // debt | income | statement
-  fileData          Bytes    // store file bytes for processing
+  fileUrl           String   // Vercel Blob storage URL
   fileName          String
   status            String   @default("queued") // queued | processing | completed | failed
   errorMessage      String?
