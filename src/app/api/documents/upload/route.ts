@@ -119,6 +119,12 @@ export async function POST(request: NextRequest) {
           access: 'private',
         });
 
+        // Validate blob URL exists
+        if (!blob?.url || typeof blob.url !== 'string') {
+          console.error('Invalid blob response:', JSON.stringify(blob));
+          throw new Error(`Blob upload failed: invalid response - ${JSON.stringify(blob)}`);
+        }
+
         // Create document record with blob URL and mark as processing
         const doc = await prisma.uploadedDocument.create({
           data: {
