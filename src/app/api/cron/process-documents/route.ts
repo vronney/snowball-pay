@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { processDocumentJob } from '@/lib/services/documentJobProcessor';
 
+// Allow up to 10 minutes for extraction (bank statements can take 30-120 seconds + overhead)
+export const maxDuration = 600;
+
 // Called by Vercel cron to process queued document jobs
 // Uses CRON_SECRET from environment for authorization
 

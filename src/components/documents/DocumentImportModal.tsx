@@ -978,6 +978,7 @@ export default function DocumentImportModal({
   const [result, setResult] = useState<ExtractedResult | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [processingPhase, setProcessingPhase] = useState<"uploading" | "queued" | "processing" | null>(null);
+  const [isPolling, setIsPolling] = useState(false);
 
   // Mutable review states
   const [debtItem, setDebtItem] = useState<ExtractedDebtItem | null>(null);
@@ -1003,7 +1004,9 @@ export default function DocumentImportModal({
       setProcessingPhase("queued");
       const { documentId } = result.documents[0];
       setProcessingPhase("processing");
+      setIsPolling(true);
       const jobStatus = await pollJobStatus(documentId);
+      setIsPolling(false);
 
       if (jobStatus.status === "failed") {
         throw new Error(
@@ -1045,6 +1048,7 @@ export default function DocumentImportModal({
 
       setUploadError(msg);
       setProcessingPhase(null);
+      setIsPolling(false);
     }
   };
 
@@ -1235,7 +1239,7 @@ export default function DocumentImportModal({
 
           {step === "upload" && fileType && (
             <>
-              {!upload.isPending ? (
+              {!upload.isPending && !isPolling ? (
                 <DropZone
                   fileType={fileType}
                   file={file}
@@ -1268,7 +1272,7 @@ export default function DocumentImportModal({
                   </div>
                 </div>
               )}
-              {fileType === "statement" && !upload.isPending && (
+              {fileType === "statement" && !upload.isPending && !isPolling && (
                 <div
                   style={{
                     marginTop: "12px",
