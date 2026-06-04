@@ -17,17 +17,19 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { Redis } from '@upstash/redis';
 import { prisma } from '@/lib/prisma';
+import { EMAIL_FROM, APP_BASE_URL, CRON_PAGE_SIZE } from '@/lib/constants/app';
+import {
+  verifyCronRequest,
+  sendEmail,
+  handleMissingResendConfig,
+} from '@/lib/services/emailService';
 import { generateDigestUnsubscribeToken } from '@/lib/unsubscribeToken';
 import WeeklyDigestEmail from '@/emails/WeeklyDigestEmail';
 import * as React from 'react';
 
-const FROM    = 'SnowballPay <noreply@getsnowballpay.com>';
-const BASE    = 'https://getsnowballpay.com';
-const PAGE    = 25;
 const CURSOR_KEY = 'cron:weekly-digest:cursor';
 
 // ── KV helpers ────────────────────────────────────────────────────────────────
@@ -79,20 +81,13 @@ function bestMilestone(labels: Array<string | null>): string | null {
 }
 
 export async function GET(request: NextRequest) {
-  // Auth
-  const isDev = process.env.NODE_ENV === 'development';
-  if (!isDev) {
-    const secret = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (secret !== process.env.CRON_SECRET) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-  }
+  const authError = verifyCronRequest(request);
+  if (authError) return authError;
 
   if (!process.env.RESEND_API_KEY) {
-    return NextResponse.json({ skipped: true, reason: 'email_not_configured' });
+    return NextResponse.json(handleMissingResendConfig());
   }
 
-  const resend = new Resend(process.env.RESEND_API_KEY);
   const redis  = makeRedis();
 
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -116,7 +111,7 @@ export async function GET(request: NextRequest) {
       createdAt:      true,
     },
     orderBy: [{ userId: 'asc' }, { createdAt: 'desc' }],
-    take: PAGE * 20, // over-fetch; we'll group by userId
+    take: CRON_PAGE_SIZE * 20, // over-fetch; we'll group by userId
   });
 
   if (stories.length === 0) {
@@ -129,7 +124,7 @@ export async function GET(request: NextRequest) {
   const byUser = new Map<string, StoryEntry[]>();
   for (const s of stories) {
     if (!byUser.has(s.userId)) {
-      if (byUser.size >= PAGE) break;
+      if (byUser.size >= CRON_PAGE_SIZE) break;
       byUser.set(s.userId, []);
     }
     byUser.get(s.userId)!.push(s);
@@ -139,7 +134,7 @@ export async function GET(request: NextRequest) {
   const lastUserId = userIds[userIds.length - 1];
 
   // Write cursor BEFORE sending (crash-safe: may skip but never duplicate)
-  const hasMore = stories.length >= PAGE * 20 || byUser.size >= PAGE;
+  const hasMore = stories.length >= CRON_PAGE_SIZE * 20 || byUser.size >= CRON_PAGE_SIZE;
   await writeCursor(redis, hasMore ? lastUserId : null);
 
   // Fetch user records (email + name + emailDigest)
@@ -161,7 +156,7 @@ export async function GET(request: NextRequest) {
     const recentMessage      = entries[0]?.message;
 
     const unsubToken = generateDigestUnsubscribeToken(user.id);
-    const unsubscribeUrl = `${BASE}/api/unsubscribe?token=${encodeURIComponent(unsubToken)}`;
+    const unsubscribeUrl = `${APP_BASE_URL}/api/unsubscribe?token=${encodeURIComponent(unsubToken)}`;
 
     try {
       const html = await render(
@@ -175,13 +170,17 @@ export async function GET(request: NextRequest) {
         }),
       );
 
-      await resend.emails.send({
-        from:    FROM,
-        to:      user.email,
-        subject: 'Your debt week in review',
+      const result = await sendEmail(
+        user.email,
+        EMAIL_FROM,
+        'Your debt week in review',
         html,
-      });
-      sent++;
+      );
+      if (result.success) {
+        sent++;
+      } else {
+        skipped++;
+      }
     } catch (e) {
       console.error(`[weekly-digest] failed to send to ${user.id}:`, e);
       skipped++;

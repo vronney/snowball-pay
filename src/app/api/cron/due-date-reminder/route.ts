@@ -23,62 +23,32 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { prisma } from '@/lib/prisma';
+import { EMAIL_FROM, APP_BASE_URL, MAX_STREAK_MONTHS } from '@/lib/constants/app';
+import {
+  verifyCronRequest,
+  sendEmail,
+  handleMissingResendConfig,
+} from '@/lib/services/emailService';
+import {
+  daysInMonth,
+  computeStreak,
+  formatDateShort,
+} from '@/lib/utils/date';
 import { generateDigestUnsubscribeToken } from '@/lib/unsubscribeToken';
 import DueDateReminderEmail from '@/emails/DueDateReminderEmail';
 import * as React from 'react';
 
-const FROM            = 'SnowballPay <noreply@getsnowballpay.com>';
-const BASE            = 'https://getsnowballpay.com';
-const DAYS_AHEAD      = 3;
-const MAX_STREAK_MONTHS = 24; // keep in sync with paymentRecords take below
-
-// month0 is 0-indexed (matches Date.getMonth())
-function daysInMonth(year: number, month0: number): number {
-  return new Date(year, month0 + 1, 0).getDate();
-}
-
-function computeStreak(
-  // May contain duplicate {dueYear, dueMonth} pairs (flatMap across debts).
-  // .some() is duplicate-safe — does not inflate the count.
-  records: { dueYear: number; dueMonth: number }[],
-  targetYear: number,
-  targetMonth: number, // 0-11
-): number {
-  let streak = 0;
-  let y = targetYear;
-  let m = targetMonth - 1;
-  if (m < 0) { m = 11; y--; }
-
-  for (let i = 0; i < MAX_STREAK_MONTHS; i++) {
-    if (!records.some((r) => r.dueYear === y && r.dueMonth === m)) break;
-    streak++;
-    m--;
-    if (m < 0) { m = 11; y--; }
-  }
-  return streak;
-}
-
-function formatDueDate(day: number, month: number, year: number): string {
-  return new Date(year, month, day).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
-}
+const DAYS_AHEAD = 3;
 
 export async function GET(request: NextRequest) {
-  const isDev = process.env.NODE_ENV === 'development';
-  if (!isDev) {
-    const secret = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-  }
+  const authError = verifyCronRequest(request);
+  if (authError) return authError;
 
   if (!process.env.RESEND_API_KEY) {
-    return NextResponse.json({ skipped: true, reason: 'email_not_configured' });
+    return NextResponse.json(handleMissingResendConfig());
   }
-
-  const resend = new Resend(process.env.RESEND_API_KEY);
 
   const now = new Date();
   const target = new Date(now);
@@ -133,14 +103,14 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const dueDateLabel = formatDueDate(targetDay, targetMonth, targetYear);
+  const dueDateLabel = formatDateShort(new Date(targetYear, targetMonth, targetDay));
   let sent = 0;
   let skipped = 0;
 
   for (const { user, debts: userDebts } of byUser.values()) {
     // Flatten all payment records across debts for a per-user streak
     const allRecords = userDebts.flatMap((d) => d.paymentRecords);
-    const streak = computeStreak(allRecords, targetYear, targetMonth);
+    const streak = computeStreak(allRecords, targetYear, targetMonth, MAX_STREAK_MONTHS);
 
     const debtCount = userDebts.length;
     const subject   = debtCount === 1
@@ -149,7 +119,7 @@ export async function GET(request: NextRequest) {
 
     try {
       const unsubToken     = generateDigestUnsubscribeToken(user.id);
-      const unsubscribeUrl = `${BASE}/api/unsubscribe?token=${encodeURIComponent(unsubToken)}`;
+      const unsubscribeUrl = `${APP_BASE_URL}/api/unsubscribe?token=${encodeURIComponent(unsubToken)}`;
 
       const html = await render(
         React.createElement(DueDateReminderEmail, {
@@ -162,8 +132,12 @@ export async function GET(request: NextRequest) {
         }),
       );
 
-      await resend.emails.send({ from: FROM, to: user.email, subject, html });
-      sent++;
+      const result = await sendEmail(user.email, EMAIL_FROM, subject, html);
+      if (result.success) {
+        sent++;
+      } else {
+        skipped++;
+      }
     } catch (e) {
       console.error(`[due-date-reminder] failed for user ${user.id}:`, e);
       skipped++;

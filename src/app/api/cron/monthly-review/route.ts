@@ -9,9 +9,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { prisma } from '@/lib/prisma';
+import { EMAIL_FROM, APP_BASE_URL } from '@/lib/constants/app';
+import {
+  verifyCronRequest,
+  sendEmail,
+  handleMissingResendConfig,
+} from '@/lib/services/emailService';
 import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
 import MonthlyReviewEmail from '@/emails/MonthlyReviewEmail';
 import {
@@ -22,20 +27,13 @@ import {
 } from '@/lib/snowball';
 import * as React from 'react';
 
-const FROM = 'SnowballPay <noreply@getsnowballpay.com>';
-const BASE = 'https://getsnowballpay.com';
-
 export async function GET(request: NextRequest) {
-  const secret = request.headers.get('authorization')?.replace('Bearer ', '');
-  if (secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authError = verifyCronRequest(request);
+  if (authError) return authError;
 
   if (!process.env.RESEND_API_KEY) {
-    return NextResponse.json({ skipped: true, reason: 'email_not_configured' });
+    return NextResponse.json(handleMissingResendConfig());
   }
-
-  const resend    = new Resend(process.env.RESEND_API_KEY);
   const now       = new Date();
   const monthName = now.toLocaleDateString('en-US', { month: 'long' });
   const results   = { sent: 0, skipped: 0, errors: 0 };
@@ -85,7 +83,7 @@ export async function GET(request: NextRequest) {
       }
 
       const token          = generateUnsubscribeToken(user.id);
-      const unsubscribeUrl = `${BASE}/api/email/unsubscribe?userId=${user.id}&token=${token}`;
+      const unsubscribeUrl = `${APP_BASE_URL}/api/email/unsubscribe?userId=${user.id}&token=${token}`;
 
       const html = await render(React.createElement(MonthlyReviewEmail, {
         userName:     user.name?.split(' ')[0] ?? undefined,
@@ -96,14 +94,13 @@ export async function GET(request: NextRequest) {
         unsubscribeUrl,
       }));
 
-      await resend.emails.send({
-        from:    FROM,
-        to:      user.email,
-        subject: `Your ${monthName} review reminder — SnowballPay`,
+      const result = await sendEmail(
+        user.email,
+        EMAIL_FROM,
+        `Your ${monthName} review reminder — SnowballPay`,
         html,
-      });
-
-      results.sent++;
+      );
+      if (result.success) results.sent++;
     } catch (err) {
       console.error('[cron monthly-review]', user.id, err);
       results.errors++;

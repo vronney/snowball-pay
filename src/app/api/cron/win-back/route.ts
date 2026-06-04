@@ -13,29 +13,28 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { prisma } from '@/lib/prisma';
+import { EMAIL_FROM, APP_BASE_URL } from '@/lib/constants/app';
+import {
+  verifyCronRequest,
+  sendEmail,
+  handleMissingResendConfig,
+} from '@/lib/services/emailService';
 import WinBackEmail from '@/emails/WinBackEmail';
 import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
 import * as React from 'react';
 
-const FROM       = 'SnowballPay <noreply@getsnowballpay.com>';
-const BASE_URL   = 'https://getsnowballpay.com';
 const INACTIVE_DAYS = 30;
-const RESEND_COOLDOWN_DAYS = 30; // don't re-send within 30 days
+const RESEND_COOLDOWN_DAYS = 30;
 
 export async function GET(request: NextRequest) {
-  const secret = request.headers.get('authorization')?.replace('Bearer ', '');
-  if (secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authError = verifyCronRequest(request);
+  if (authError) return authError;
 
   if (!process.env.RESEND_API_KEY) {
-    return NextResponse.json({ skipped: true, reason: 'email_not_configured' });
+    return NextResponse.json(handleMissingResendConfig());
   }
-
-  const resend = new Resend(process.env.RESEND_API_KEY);
   const now    = new Date();
 
   // Cutoff dates
@@ -95,24 +94,25 @@ export async function GET(request: NextRequest) {
         : undefined;
 
       const token = generateUnsubscribeToken(user.id);
-      const unsubscribeUrl = `${BASE_URL}/api/email/unsubscribe?userId=${user.id}&token=${token}`;
+      const unsubscribeUrl = `${APP_BASE_URL}/api/email/unsubscribe?userId=${user.id}&token=${token}`;
 
       const html = await render(
         React.createElement(WinBackEmail, {
           userName:          user.name?.split(' ')[0] ?? undefined,
           totalBalance,
           debtFreeDate,
-          daysSinceActivity: Math.min(daysSinceActivity, 90), // cap display at 90
+          daysSinceActivity: Math.min(daysSinceActivity, 90),
           unsubscribeUrl,
         }),
       );
 
-      await resend.emails.send({
-        from: FROM,
-        to:   user.email,
-        subject: 'Your debt payoff plan is waiting — come back',
+      const result = await sendEmail(
+        user.email,
+        EMAIL_FROM,
+        'Your debt payoff plan is waiting — come back',
         html,
-      });
+      );
+      if (!result.success) throw new Error(result.error);
 
       // Record send timestamp in actionChecks
       const updated = { ...checks, winback_sent_at: now.toISOString() };
