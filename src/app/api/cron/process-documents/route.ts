@@ -5,7 +5,7 @@ import { processDocumentJob } from '@/lib/services/documentJobProcessor';
 // Called by Vercel cron to process queued document jobs
 // Uses CRON_SECRET from environment for authorization
 
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   // Verify cron secret
   const authHeader = request.headers.get('Authorization');
   const expectedSecret = process.env.CRON_SECRET;
