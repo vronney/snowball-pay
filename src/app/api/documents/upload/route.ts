@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
           throw new Error(`Blob upload failed: invalid response - ${JSON.stringify(blob)}`);
         }
 
-        // Create document record with blob URL and mark as processing
+        // Create document record with blob URL (cron will fetch with BLOB_READ_WRITE_TOKEN)
         const doc = await prisma.uploadedDocument.create({
           data: {
             userId: auth.user!.id,
