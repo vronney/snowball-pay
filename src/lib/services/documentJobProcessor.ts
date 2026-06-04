@@ -16,12 +16,8 @@ export async function processDocumentJob(
   fileType: 'debt' | 'income' | 'statement',
   fileName: string,
 ): Promise<unknown> {
-  // Fetch file from Vercel Blob (with token for private blobs)
-  const response = await fetch(fileUrl, {
-    headers: process.env.BLOB_READ_WRITE_TOKEN
-      ? { Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}` }
-      : {},
-  });
+  // Fetch file from Vercel Blob (public access)
+  const response = await fetch(fileUrl);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch document from Blob: ${response.status} ${response.statusText}`);

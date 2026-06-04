@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
 
         // Upload file to Vercel Blob first
         const blob = await put(`documents/${auth.user!.id}/${Date.now()}-${sanitizedName}`, fileBuffer, {
-          access: 'private',
+          access: 'public',
         });
 
         // Validate blob URL exists
