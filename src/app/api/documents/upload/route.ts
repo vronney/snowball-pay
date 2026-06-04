@@ -115,9 +115,7 @@ export async function POST(request: NextRequest) {
         const sanitizedName = sanitizeFileName(file.name);
 
         // Upload file to Vercel Blob first
-        const blob = await put(`documents/${auth.user!.id}/${Date.now()}-${sanitizedName}`, fileBuffer, {
-          access: 'public',
-        });
+        const blob = await put(`documents/${auth.user!.id}/${Date.now()}-${sanitizedName}`, fileBuffer);
 
         // Create document record with blob URL and mark as processing
         const doc = await prisma.uploadedDocument.create({
