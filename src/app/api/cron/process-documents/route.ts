@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
       where: {
         status: 'processing',
         attempts: { lt: 3 },
+        fileUrl: { not: '' }, // Skip documents with empty fileUrls
       },
       orderBy: { createdAt: 'asc' },
     });
