@@ -28,7 +28,15 @@ export async function GET(request: NextRequest) {
       orderBy: { createdAt: 'asc' },
     });
 
+    console.log('Cron: checking for documents', {
+      found: !!doc,
+      documentId: doc?.id,
+      fileUrl: doc?.fileUrl ? 'set' : 'empty',
+      fileType: doc?.fileType,
+    });
+
     if (!doc) {
+      console.log('Cron: no documents to process');
       return NextResponse.json({
         message: 'No documents to process',
         processed: 0,
@@ -36,12 +44,18 @@ export async function GET(request: NextRequest) {
     }
 
     try {
+      console.log(`Cron: processing document ${doc.id}`);
       // Process the document
       const extractedData = await processDocumentJob(
         doc.fileUrl,
         doc.fileType as 'debt' | 'income' | 'statement',
         doc.fileName,
       );
+
+      console.log(`Cron: extraction complete for ${doc.id}`, {
+        type: (extractedData as any)?.type,
+        itemCount: (extractedData as any)?.items?.length || 0,
+      });
 
       // Mark as completed
       await prisma.uploadedDocument.update({
@@ -60,7 +74,7 @@ export async function GET(request: NextRequest) {
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error(`Error processing document ${doc.id}:`, error);
+      console.error(`Cron: error processing document ${doc.id}:`, errorMessage);
 
       // Increment attempts and mark as failed if max retries reached
       const newAttempts = doc.attempts + 1;
@@ -83,7 +97,7 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
   } catch (error) {
-    console.error('Error in document processing cron:', error);
+    console.error('Cron: error in document processing cron:', error);
     return NextResponse.json(
       { error: 'Cron job failed' },
       { status: 500 },
