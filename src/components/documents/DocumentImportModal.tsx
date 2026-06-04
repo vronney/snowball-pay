@@ -225,6 +225,7 @@ function DropZone({
   isPending,
   error,
   onUpload,
+  processingPhase,
 }: {
   fileType: DocumentFileType;
   file: File | null;
@@ -232,6 +233,7 @@ function DropZone({
   isPending: boolean;
   error: string | null;
   onUpload: () => void;
+  processingPhase: "uploading" | "queued" | "processing" | null;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -391,9 +393,15 @@ function DropZone({
               size={15}
               style={{ animation: "spin 1s linear infinite" }}
             />
-            {fileType === "statement"
-              ? "Processing statements…"
-              : "Extracting…"}
+            {processingPhase === "uploading" && "Uploading file…"}
+            {processingPhase === "queued" && "Queued for processing…"}
+            {processingPhase === "processing" &&
+              (fileType === "statement"
+                ? "Extracting transactions…"
+                : fileType === "debt"
+                  ? "Extracting debt info…"
+                  : "Extracting income…")}
+            {!processingPhase && "Processing…"}
           </>
         ) : (
           <>
@@ -969,6 +977,7 @@ export default function DocumentImportModal({
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<ExtractedResult | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [processingPhase, setProcessingPhase] = useState<"uploading" | "queued" | "processing" | null>(null);
 
   // Mutable review states
   const [debtItem, setDebtItem] = useState<ExtractedDebtItem | null>(null);
@@ -981,16 +990,19 @@ export default function DocumentImportModal({
   const handleUpload = async () => {
     if (!file || !fileType) return;
     setUploadError(null);
+    setProcessingPhase("uploading");
     try {
-      // Upload returns 202 with job IDs
+      // Upload returns 202 Accepted with document IDs (queued for background processing)
       const result = await upload.mutateAsync({ file, fileType });
 
-      if (!result.jobs || result.jobs.length === 0) {
-        throw new Error("No jobs created");
+      if (!result.documents || result.documents.length === 0) {
+        throw new Error("Upload failed: no document ID returned");
       }
 
-      // Poll for the first job (single file upload)
-      const { documentId } = result.jobs[0];
+      // Document is queued — now poll for results
+      setProcessingPhase("queued");
+      const { documentId } = result.documents[0];
+      setProcessingPhase("processing");
       const jobStatus = await pollJobStatus(documentId);
 
       if (jobStatus.status === "failed") {
@@ -1032,6 +1044,7 @@ export default function DocumentImportModal({
       }
 
       setUploadError(msg);
+      setProcessingPhase(null);
     }
   };
 
@@ -1229,6 +1242,7 @@ export default function DocumentImportModal({
                 isPending={upload.isPending}
                 error={uploadError}
                 onUpload={handleUpload}
+                processingPhase={processingPhase}
               />
               {fileType === "statement" && (
                 <div
