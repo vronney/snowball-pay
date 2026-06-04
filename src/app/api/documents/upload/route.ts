@@ -55,20 +55,32 @@ async function validateFileMagicBytes(file: File): Promise<boolean> {
 
 // ── Claude fallback (income only, low-confidence code extraction) ─────────────
 
-const INCOME_PROMPT = `You are a financial data extraction assistant. Analyze this document and extract income information.
+const INCOME_PROMPT = `You are a financial data extraction assistant. Analyze this pay stub or income document carefully.
+
+STEP 1 — Find the net (take-home) pay per pay period. Look for: "Net Pay", "NET PAY", "Net Amount", "Take-Home Pay", or "Direct Deposit Amount". Use the CURRENT period amount, not YTD.
+
+STEP 2 — Determine pay frequency from the pay period dates:
+- If "Pay Begin Date" and "Pay End Date" span 6–8 days → weekly (multiply net pay × 4.33)
+- If span is 13–15 days → bi-weekly (multiply net pay × 2.167)
+- If span is 15–17 days → semi-monthly (multiply net pay × 2)
+- If span is 28–32 days → monthly (use net pay as-is)
+- If no dates found, look for explicit "Pay Frequency", "Pay Cycle", or "WKLY"/"BIWK" labels.
+
+STEP 3 — Calculate monthlyTakeHome = net pay per period × frequency multiplier.
 
 Return ONLY valid JSON — no markdown, no explanation:
 {
   "type": "income",
   "items": [
     {
-      "monthlyTakeHome": number (net monthly take-home pay),
-      "source": "string (e.g. W2, 1099, Self-Employed)",
-      "frequency": "one of: monthly | bi-weekly | weekly"
+      "monthlyTakeHome": number (monthly take-home after applying frequency multiplier),
+      "perPeriodAmount": number (net pay per pay period before multiplying),
+      "source": "string (W2, 1099, Self-Employed, or Unknown)",
+      "frequency": "one of: weekly | bi-weekly | semi-monthly | monthly"
     }
   ]
 }
-If pay is bi-weekly multiply by 2.167 to get monthly. If this is not an income document return { "type": "income", "items": [] }.`;
+If this is not an income document return { "type": "income", "items": [] }.`;
 
 type SupportedMediaType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' | 'application/pdf';
 
