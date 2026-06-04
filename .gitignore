@@ -51,3 +51,4 @@ nul
 .turbo
 dist
 .gstack/
+.vercel
