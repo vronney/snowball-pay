@@ -1,5 +1,5 @@
 /**
- * incomeExtractor — service layer capability block
+ * incomeExtractor — service layer capability block — v2
  *
  * Responsibility: extract income information from plain text using regex.
  * Handles W2s, pay stubs, and offer letters where format is structured enough.
