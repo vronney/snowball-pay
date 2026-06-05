@@ -224,25 +224,6 @@ model PaymentRecord {
   @@map("payment_records")
 }
 
-model UploadedDocument {
-  id                String   @id @default(cuid())
-  userId            String
-  fileName          String
-  fileType          String   // "income_statement", "debt_list", etc.
-  fileUrl           String
-  extractedData     Json?    // store extracted data as JSON
-  status            String   @default("uploaded") // uploaded, processing, completed, failed
-  errorMessage      String?
-  attempts          Int      @default(0)
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@index([userId])
-  @@index([status])
-  @@map("uploaded_documents")
-}
-
 // ---------------------------------------------------------------------------
 // Debt Story — one entry per payment celebration logged by the AI route.
 // Drives the JourneyTab timeline: cursor-paginated, scoped to user.

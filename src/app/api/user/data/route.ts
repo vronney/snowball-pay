@@ -95,7 +95,6 @@ export async function DELETE(request: NextRequest) {
       await tx.payoffPlan.deleteMany({ where: { userId } });
       await tx.aiRecommendationCache.deleteMany({ where: { userId } });
       await tx.userPreferences.deleteMany({ where: { userId } });
-      await tx.uploadedDocument.deleteMany({ where: { userId } });
       await tx.debt.deleteMany({ where: { userId } });
       await tx.expense.deleteMany({ where: { userId } });
       await tx.income.deleteMany({ where: { userId } });

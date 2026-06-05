@@ -12,12 +12,10 @@ import {
   usePaymentRecords,
   useSubscription,
 } from "@/lib/hooks";
-import DocumentImportModal from "@/components/documents/DocumentImportModal";
 import PaymentCelebrationBanner from "@/components/PaymentCelebrationBanner";
 import { Debt } from "@/types";
 import {
   PlusCircle,
-  FileUp,
   Inbox,
   Bell,
   ChevronDown,
@@ -163,7 +161,6 @@ export default function DebtTab({
   onAddDebtHandled,
 }: DebtTabProps) {
   const [showForm, setShowForm] = useState(false);
-  const [showImport, setShowImport] = useState(false);
   const [debtsOpen, setDebtsOpen] = useState(true);
   const [emailStatus, setEmailStatus] = useState<
     "idle" | "sending" | "sent" | "error"
@@ -584,28 +581,6 @@ export default function DebtTab({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (isPro) {
-                          setShowImport(true);
-                        } else {
-                          upgradeEvents.dispatch("Document Import");
-                        }
-                      }}
-                      className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold"
-                      style={{
-                        background: isPro ? "rgba(15,23,42,0.04)" : "rgba(245,158,11,0.08)",
-                        color: isPro ? "#475569" : "#b45309",
-                        border: `1px solid ${isPro ? "rgba(15,23,42,0.12)" : "rgba(245,158,11,0.25)"}`,
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      <FileUp size={12} />
-                      Import{!isPro && " ✦"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
                         setShowForm(true);
                       }}
                       className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold"
@@ -1013,29 +988,6 @@ export default function DebtTab({
         </aside>
       </div>
 
-      {showImport && (
-        <DocumentImportModal
-          onClose={() => setShowImport(false)}
-          onDebtImported={(debt) => {
-            createDebt.mutate(debt as Partial<Debt>);
-            setShowImport(false);
-          }}
-          onIncomeImported={(income) => {
-            if (incomeData?.income) {
-              saveIncome.mutate({
-                monthlyTakeHome: income.monthlyTakeHome,
-                essentialExpenses: incomeData.income.essentialExpenses,
-                extraPayment: incomeData.income.extraPayment,
-              });
-            }
-            setShowImport(false);
-          }}
-          onExpensesImported={(expenses) => {
-            expenses.forEach((exp) => createExpense.mutate(exp));
-            setShowImport(false);
-          }}
-        />
-      )}
     </section>
   );
 }
