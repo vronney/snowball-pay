@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { CalendarCheck, CheckCircle2, ChevronRight, CreditCard, TrendingDown } from "lucide-react";
 import { Debt, Income, Expense } from "@/types";
 import { type Tab } from "@/components/dashboard/types";
@@ -112,19 +112,20 @@ export default function ThisMonthTab({
 
   const [logPending, setLogPending] = useState(false);
 
-  function handleLogPayment() {
+  const handleLogPayment = useCallback(() => {
     if (!focusDebt || logPending) return;
     setLogPending(true);
+    const currentDate = new Date();
     markPaid.mutate(
       {
         debtId: focusDebt.id,
         amount: focusDebt.minimumPayment,
-        dueYear: today.getFullYear(),
-        dueMonth: today.getMonth(),
+        dueYear: currentDate.getFullYear(),
+        dueMonth: currentDate.getMonth(),
       },
       { onSettled: () => setLogPending(false) },
     );
-  }
+  }, [focusDebt, logPending, markPaid]);
 
   if (isLoading) {
     return (

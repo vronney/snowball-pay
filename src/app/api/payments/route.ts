@@ -63,15 +63,38 @@ export async function POST(request: NextRequest) {
         throw error;
       }
 
-      // Already marked for this debt/month: update metadata without re-applying balance change.
-      record = await prisma.paymentRecord.update({
+      // Already marked for this debt/month: fetch old amount, calculate delta, and apply balance change.
+      const existingRecord = await prisma.paymentRecord.findUnique({
         where: { debtId_dueYear_dueMonth: { debtId, dueYear, dueMonth } },
-        data: { amount, paidAt: new Date() },
       });
+
+      if (existingRecord) {
+        const delta = amount - existingRecord.amount;
+
+        record = await prisma.paymentRecord.update({
+          where: { debtId_dueYear_dueMonth: { debtId, dueYear, dueMonth } },
+          data: { amount, paidAt: new Date() },
+        });
+
+        // Apply delta to balance: delta > 0 means more payment, balance goes down more
+        if (delta !== 0) {
+          const updatedDebt = await prisma.debt.update({
+            where: { id: debtId },
+            data: { balance: { decrement: delta } },
+          });
+          if (updatedDebt.balance < 0) {
+            await prisma.debt.update({ where: { id: debtId }, data: { balance: 0 } });
+            updatedBalance = 0;
+          } else {
+            updatedBalance = updatedDebt.balance;
+          }
+        }
+        shouldDecrementBalance = false; // Already handled the balance update
+      }
     }
 
     if (shouldDecrementBalance) {
-      // Subtract payment from debt balance (floor at 0) only on first mark-paid create.
+      // Subtract payment from debt balance (floor at 0) only on first create.
       const updatedDebt = await prisma.debt.update({
         where: { id: debtId },
         data: { balance: { decrement: amount } },

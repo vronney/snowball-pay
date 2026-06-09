@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown, CalendarDays } from 'lucide-react';
 import { Debt } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -89,14 +89,15 @@ export default function PaymentCalendar({ debts }: Props) {
     setSelectedDay((prev) => (prev === day ? null : day));
   };
 
-  const handleMarkPaid = (debt: Debt) => {
+  const handleMarkPaid = useCallback((debt: Debt) => {
     markPaid.mutate({ debtId: debt.id, amount: debt.minimumPayment, dueYear: viewYear, dueMonth: viewMonth });
-  };
-  const handleUnmark = (debt: Debt) => {
+  }, [markPaid, viewYear, viewMonth]);
+
+  const handleUnmark = useCallback((debt: Debt) => {
     const rec = paidMap.get(debt.id);
     if (!rec) return;
     unmarkPaid.mutate({ recordId: rec.id, debtId: debt.id, dueYear: viewYear, dueMonth: viewMonth });
-  };
+  }, [unmarkPaid, paidMap, viewYear, viewMonth]);
 
   const totalDue      = debtsWithDue.reduce((s, d) => s + d.minimumPayment, 0);
   const sortedEntries = [...paymentsByDay.entries()].sort(([a], [b]) => a - b);
