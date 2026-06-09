@@ -303,7 +303,7 @@ export default function PayoffTab({
     // the same starting point. Subsequent months use recorded snapshot data.
     actualBalance:
       index === 0
-        ? (actualBalanceMap.get(mb.date) ?? currentTotalDebt)
+        ? currentTotalDebt
         : actualBalanceMap.get(mb.date),
   }));
   const timelineData = [...planResult.payoffSchedule]
