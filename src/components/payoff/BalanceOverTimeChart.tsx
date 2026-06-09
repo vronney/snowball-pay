@@ -395,11 +395,15 @@ export default function BalanceOverTimeChart({
     const minimumsFinish = findPayoffPoint(data, 'minimumsBalance');
     const comparisonFinish = findPayoffPoint(data, 'avalancheBalance');
 
-    // Find latest actual balance by iterating backward without array copy
+    // Find latest month where BOTH actual AND projected balances exist
+    // (don't compare actual from a month beyond where the plan has projections)
     let latestActual: ChartEntry | undefined;
     if (hasRealSnapshots) {
       for (let i = data.length - 1; i >= 0; i--) {
-        if (getValue(data[i], 'actualBalance') != null) {
+        const actualVal = getValue(data[i], 'actualBalance');
+        const projectedVal = getValue(data[i], 'totalBalance');
+        // Only count it if both values exist (actual balance AND projected balance for that month)
+        if (actualVal != null && projectedVal != null) {
           latestActual = data[i];
           break;
         }
