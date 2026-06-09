@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import {
   Area,
   CartesianGrid,
@@ -290,32 +291,39 @@ function DebtChartTooltip({
     label: string;
     value: number | null;
     color: string;
-  }[] = [
-    {
-      key: 'totalBalance',
-      label: `${strategyLabel} plan`,
-      value: projected,
-      color: PLAN_COLOR,
-    },
-    {
-      key: 'actualBalance',
-      label: hasRealSnapshots ? 'Actual recorded' : 'Actual starting point',
-      value: actual,
-      color: ACTUAL_COLOR,
-    },
-    {
+  }[] = [];
+
+  rows.push({
+    key: 'totalBalance',
+    label: `${strategyLabel} plan`,
+    value: projected,
+    color: PLAN_COLOR,
+  });
+
+  rows.push({
+    key: 'actualBalance',
+    label: hasRealSnapshots ? 'Actual recorded' : 'Actual starting point',
+    value: actual,
+    color: ACTUAL_COLOR,
+  });
+
+  if (showMinimumsLine) {
+    rows.push({
       key: 'minimumsBalance',
       label: 'Minimums only',
-      value: showMinimumsLine ? getValue(entry, 'minimumsBalance') : null,
+      value: getValue(entry, 'minimumsBalance'),
       color: MINIMUMS_COLOR,
-    },
-    {
+    });
+  }
+
+  if (showAvalancheLine) {
+    rows.push({
       key: 'avalancheBalance',
       label: comparisonLabel,
-      value: showAvalancheLine ? getValue(entry, 'avalancheBalance') : null,
+      value: getValue(entry, 'avalancheBalance'),
       color: COMPARISON_COLOR,
-    },
-  ];
+    });
+  }
 
   return (
     <div
@@ -336,22 +344,20 @@ function DebtChartTooltip({
         {remaining != null ? ` - ${remaining}m left` : ''}
       </p>
       <div className="space-y-1.5">
-        {rows
-          .filter((row) => row.value != null)
-          .map((row) => (
-            <div key={row.key} className="flex items-center justify-between gap-4">
-              <span className="flex items-center gap-2 text-xs" style={{ color: '#64748b' }}>
-                <span
-                  className="inline-block h-2 w-2 rounded-full"
-                  style={{ background: row.color }}
-                />
-                {row.label}
-              </span>
-              <span className="text-xs font-semibold" style={{ color: '#0f172a' }}>
-                {formatCurrency(row.value as number)}
-              </span>
-            </div>
-          ))}
+        {rows.map((row) => (
+          <div key={row.key} className="flex items-center justify-between gap-4">
+            <span className="flex items-center gap-2 text-xs" style={{ color: '#64748b' }}>
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ background: row.color }}
+              />
+              {row.label}
+            </span>
+            <span className="text-xs font-semibold" style={{ color: '#0f172a' }}>
+              {formatCurrency(row.value as number)}
+            </span>
+          </div>
+        ))}
       </div>
       {diff != null && hasRealSnapshots && (
         <div
@@ -383,32 +389,73 @@ export default function BalanceOverTimeChart({
   strategyLabel = 'Snowball',
   comparisonLabel = 'Avalanche',
 }: BalanceOverTimeChartProps) {
-  const startingBalance = findFirstValue(data, 'totalBalance');
-  const planFinish = findPayoffPoint(data, 'totalBalance');
-  const minimumsFinish = findPayoffPoint(data, 'minimumsBalance');
-  const comparisonFinish = findPayoffPoint(data, 'avalancheBalance');
-  const latestActual = hasRealSnapshots
-    ? [...data].reverse().find((point) => getValue(point, 'actualBalance') != null)
-    : undefined;
-  const latestActualValue = getValue(latestActual, 'actualBalance');
-  const latestProjectedValue = getValue(latestActual, 'totalBalance');
-  const latestDiff =
-    latestActualValue != null && latestProjectedValue != null
-      ? latestProjectedValue - latestActualValue
-      : null;
-  const hasActualSeries = data.some((point) => getValue(point, 'actualBalance') != null);
-  const projectedPaydown =
-    startingBalance > 0 && planFinish?.totalBalance != null
-      ? Math.max(0, startingBalance - planFinish.totalBalance)
-      : 0;
-  const selectedPayoffMonth = planFinish?.month ?? totalPlanMonths;
-  const minimumsPayoffMonth = minimumsFinish?.month;
-  const monthsSaved =
-    selectedPayoffMonth != null && minimumsPayoffMonth != null
-      ? Math.max(0, minimumsPayoffMonth - selectedPayoffMonth)
-      : 0;
-  const coach =
-    latestDiff != null && latestDiff < -50
+  const calculations = useMemo(() => {
+    const startingBalance = findFirstValue(data, 'totalBalance');
+    const planFinish = findPayoffPoint(data, 'totalBalance');
+    const minimumsFinish = findPayoffPoint(data, 'minimumsBalance');
+    const comparisonFinish = findPayoffPoint(data, 'avalancheBalance');
+
+    // Find latest actual balance by iterating backward without array copy
+    let latestActual: ChartEntry | undefined;
+    if (hasRealSnapshots) {
+      for (let i = data.length - 1; i >= 0; i--) {
+        if (getValue(data[i], 'actualBalance') != null) {
+          latestActual = data[i];
+          break;
+        }
+      }
+    }
+
+    const latestActualValue = getValue(latestActual, 'actualBalance');
+    const latestProjectedValue = getValue(latestActual, 'totalBalance');
+    const latestDiff =
+      latestActualValue != null && latestProjectedValue != null
+        ? latestProjectedValue - latestActualValue
+        : null;
+
+    const hasActualSeries = data.some((point) => getValue(point, 'actualBalance') != null);
+    const projectedPaydown =
+      startingBalance > 0 && planFinish?.totalBalance != null
+        ? Math.max(0, startingBalance - planFinish.totalBalance)
+        : 0;
+
+    const selectedPayoffMonth = planFinish?.month ?? totalPlanMonths;
+    const minimumsPayoffMonth = minimumsFinish?.month;
+    const monthsSaved =
+      selectedPayoffMonth != null && minimumsPayoffMonth != null
+        ? Math.max(0, minimumsPayoffMonth - selectedPayoffMonth)
+        : 0;
+
+    return {
+      startingBalance,
+      planFinish,
+      minimumsFinish,
+      comparisonFinish,
+      latestActual,
+      latestDiff,
+      hasActualSeries,
+      projectedPaydown,
+      selectedPayoffMonth,
+      minimumsPayoffMonth,
+      monthsSaved,
+    };
+  }, [data, hasRealSnapshots, totalPlanMonths]);
+
+  const {
+    startingBalance,
+    planFinish,
+    minimumsFinish,
+    comparisonFinish,
+    latestActual,
+    latestDiff,
+    hasActualSeries,
+    projectedPaydown,
+    selectedPayoffMonth,
+    minimumsPayoffMonth,
+    monthsSaved,
+  } = calculations;
+  const coach = useMemo(() => {
+    return latestDiff != null && latestDiff < -50
       ? {
           tone: 'warn' as const,
           title: 'Actual balances are behind the plan line',
@@ -439,6 +486,7 @@ export default function BalanceOverTimeChart({
                 ? 'Keep recording statement balances monthly.'
                 : 'Record the next statement balance to turn this into actual tracking.',
             };
+  }, [latestDiff, latestActual, monthsSaved, selectedPayoffMonth, minimumsPayoffMonth, strategyLabel, effectiveAcceleration, hasRealSnapshots]);
 
   return (
     <div
