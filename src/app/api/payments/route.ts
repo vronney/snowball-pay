@@ -53,22 +53,44 @@ export async function POST(request: NextRequest) {
     const debt = await prisma.debt.findUnique({ where: { id: debtId } });
     if (!debt || debt.userId !== auth.user.id) return badRequest('Debt not found');
 
-    let record;
-    let updatedBalance: number;
+    const userId = auth.user.id;
+    const snapshotDate = new Date(Date.UTC(dueYear, dueMonth, 1));
 
-    try {
-      // Create the record and deduct the balance atomically so they can never drift apart.
-      const [created, updatedDebt] = await prisma.$transaction([
-        prisma.paymentRecord.create({
-          data: { userId: auth.user.id, debtId, amount, dueYear, dueMonth },
-        }),
-        prisma.debt.update({
+    // Writes the payment record, deducts the balance (floored at 0), and syncs
+    // this month's snapshot in one transaction so the three can never drift apart.
+    const applyPayment = (write: 'create' | 'add') =>
+      prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const record = write === 'create'
+          ? await tx.paymentRecord.create({
+              data: { userId, debtId, amount, dueYear, dueMonth },
+            })
+          : await tx.paymentRecord.update({
+              where: { debtId_dueYear_dueMonth: { debtId, dueYear, dueMonth } },
+              data: { amount: { increment: amount }, paidAt: new Date() },
+            });
+
+        const updatedDebt = await tx.debt.update({
           where: { id: debtId },
           data: { balance: { decrement: amount } },
-        }),
-      ]);
-      record = created;
-      updatedBalance = updatedDebt.balance;
+        });
+        let updatedBalance = updatedDebt.balance;
+        if (updatedBalance < 0) {
+          await tx.debt.update({ where: { id: debtId }, data: { balance: 0 } });
+          updatedBalance = 0;
+        }
+
+        await tx.balanceSnapshot.upsert({
+          where: { debtId_recordedAt: { debtId, recordedAt: snapshotDate } },
+          update: { balance: updatedBalance },
+          create: { debtId, userId, balance: updatedBalance, recordedAt: snapshotDate },
+        });
+
+        return { record, updatedBalance };
+      });
+
+    let result;
+    try {
+      result = await applyPayment('create');
     } catch (error) {
       if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
         throw error;
@@ -91,36 +113,14 @@ export async function POST(request: NextRequest) {
       }
 
       // 'log': another payment this month — add it to the month's total and
-      // deduct it from the balance, atomically.
-      const [updatedRecord, updatedDebt] = await prisma.$transaction([
-        prisma.paymentRecord.update({
-          where: { debtId_dueYear_dueMonth: { debtId, dueYear, dueMonth } },
-          data: { amount: { increment: amount }, paidAt: new Date() },
-        }),
-        prisma.debt.update({
-          where: { id: debtId },
-          data: { balance: { decrement: amount } },
-        }),
-      ]);
-      record = updatedRecord;
-      updatedBalance = updatedDebt.balance;
+      // deduct it from the balance.
+      result = await applyPayment('add');
     }
 
-    if (updatedBalance < 0) {
-      // Floor the balance at 0 (overpayment of the remaining balance).
-      await prisma.debt.update({ where: { id: debtId }, data: { balance: 0 } });
-      updatedBalance = 0;
-    }
-
-    // Record a balance snapshot for this month
-    const snapshotDate = new Date(Date.UTC(dueYear, dueMonth, 1));
-    await prisma.balanceSnapshot.upsert({
-      where: { debtId_recordedAt: { debtId, recordedAt: snapshotDate } },
-      update: { balance: updatedBalance },
-      create: { debtId, userId: auth.user.id, balance: updatedBalance, recordedAt: snapshotDate },
-    });
-
-    return NextResponse.json({ record, updatedBalance }, { status: 201 });
+    return NextResponse.json(
+      { record: result.record, updatedBalance: result.updatedBalance },
+      { status: 201 },
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return badRequest(error.issues[0]?.message || 'Invalid payload');

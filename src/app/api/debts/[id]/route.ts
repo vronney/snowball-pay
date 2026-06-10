@@ -59,9 +59,27 @@ export async function PATCH(
 
     const body = await request.json();
     const updates = UpdateDebtSchema.parse(body);
-    const updatedDebt = await prisma.debt.update({
-      where: { id: params.id },
-      data: updates,
+    const userId = auth.user.id;
+
+    const updatedDebt = await prisma.$transaction(async (tx) => {
+      const debt = await tx.debt.update({
+        where: { id: params.id },
+        data: updates,
+      });
+
+      // A manual balance edit must also sync this month's snapshot, or the
+      // Actual vs Projected chart diverges from the real balance.
+      if (updates.balance !== undefined) {
+        const now = new Date();
+        const recordedAt = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+        await tx.balanceSnapshot.upsert({
+          where: { debtId_recordedAt: { debtId: params.id, recordedAt } },
+          update: { balance: debt.balance },
+          create: { debtId: params.id, userId, balance: debt.balance, recordedAt },
+        });
+      }
+
+      return debt;
     });
 
     return NextResponse.json({ debt: updatedDebt });
