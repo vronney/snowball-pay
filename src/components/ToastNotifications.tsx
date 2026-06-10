@@ -18,7 +18,6 @@ interface Toast {
   daysUntil: number;
 }
 
-const today = new Date();
 const DISMISS_DURATION = 8000;
 
 export default function ToastNotifications({ debts }: Props) {
@@ -27,6 +26,9 @@ export default function ToastNotifications({ debts }: Props) {
   const markPaid = useMarkPaid();
 
   useEffect(() => {
+    // Read the clock when the effect runs, not at module load, so due-date
+    // math stays correct in sessions left open across midnight.
+    const today = new Date();
     const debtsWithDue = debts.filter((d) => isActiveDebt(d) && d.dueDate != null);
     const newToasts: Toast[] = [];
 
@@ -56,7 +58,8 @@ export default function ToastNotifications({ debts }: Props) {
   const dismiss = (id: string) => setToasts((prev) => prev.filter((t) => t.id !== id));
 
   const handleMarkPaid = (toast: Toast) => {
-    markPaid.mutate({ debtId: toast.debtId, amount: toast.debtAmount, dueYear: today.getFullYear(), dueMonth: today.getMonth() });
+    const now = new Date();
+    markPaid.mutate({ debtId: toast.debtId, amount: toast.debtAmount, dueYear: now.getFullYear(), dueMonth: now.getMonth() });
     dismiss(toast.id);
   };
 
