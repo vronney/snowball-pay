@@ -13,6 +13,10 @@ import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 
 interface Props {
   debts: Debt[];
+  /** The current focus debt — marking it paid logs the planned amount. */
+  focusDebtId?: string | null;
+  /** This month's extra acceleration, applied on top of the focus debt's minimum. */
+  focusExtra?: number;
 }
 
 const MONTH_NAMES = [
@@ -21,7 +25,7 @@ const MONTH_NAMES = [
 ];
 const DAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
-export default function PaymentCalendar({ debts }: Props) {
+export default function PaymentCalendar({ debts, focusDebtId = null, focusExtra = 0 }: Props) {
   // Evaluated per render so a session left open across midnight doesn't
   // highlight the wrong day or compute due dates against a stale date.
   const today = new Date();
@@ -93,9 +97,21 @@ export default function PaymentCalendar({ debts }: Props) {
     setSelectedDay((prev) => (prev === day ? null : day));
   };
 
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth();
+
+  // The focus debt's planned payment includes this month's extra — but only
+  // for the current month; backfilling a past month logs just the minimum.
+  const plannedAmountFor = useCallback((debt: Debt) => {
+    const isCurrentMonth = viewYear === currentYear && viewMonth === currentMonth;
+    return debt.id === focusDebtId && isCurrentMonth && focusExtra > 0
+      ? debt.minimumPayment + focusExtra
+      : debt.minimumPayment;
+  }, [viewYear, viewMonth, currentYear, currentMonth, focusDebtId, focusExtra]);
+
   const handleMarkPaid = useCallback((debt: Debt) => {
-    markPaid.mutate({ debtId: debt.id, amount: debt.minimumPayment, dueYear: viewYear, dueMonth: viewMonth });
-  }, [markPaid, viewYear, viewMonth]);
+    markPaid.mutate({ debtId: debt.id, amount: plannedAmountFor(debt), dueYear: viewYear, dueMonth: viewMonth });
+  }, [markPaid, viewYear, viewMonth, plannedAmountFor]);
 
   const handleUnmark = useCallback((debt: Debt) => {
     const rec = paidMap.get(debt.id);
@@ -184,6 +200,7 @@ export default function PaymentCalendar({ debts }: Props) {
               viewMonth={viewMonth}
               monthName={monthName}
               paidMap={paidMap}
+              plannedAmount={plannedAmountFor}
               onMarkPaid={handleMarkPaid}
               onUnmark={handleUnmark}
             />

@@ -934,7 +934,11 @@ export default function DebtTab({
           {/* Payment Calendar */}
           {debts.length > 0 && (
             <div>
-              <PaymentCalendar debts={debts} />
+              <PaymentCalendar
+                debts={debts}
+                focusDebtId={focusDebt?.id ?? null}
+                focusExtra={planMetrics?.effectiveAcceleration ?? 0}
+              />
             </div>
           )}
 

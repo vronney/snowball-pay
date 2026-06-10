@@ -8,6 +8,8 @@ interface SelectedDayPanelProps {
   viewMonth: number;
   monthName: string;
   paidMap: Map<string, { id: string; amount: number }>;
+  /** Amount "Mark paid" will log for this debt (minimum, or minimum + extra for the focus debt). */
+  plannedAmount?: (debt: Debt) => number;
   onMarkPaid: (debt: Debt) => void;
   onUnmark: (debt: Debt) => void;
 }
@@ -18,6 +20,7 @@ export default function SelectedDayPanel({
   viewMonth: _viewMonth,
   monthName,
   paidMap,
+  plannedAmount,
   onMarkPaid,
   onUnmark,
 }: SelectedDayPanelProps) {
@@ -29,6 +32,8 @@ export default function SelectedDayPanel({
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {selectedDebts.map((debt) => {
           const paid = paidMap.has(debt.id);
+          const amountToLog = plannedAmount?.(debt) ?? debt.minimumPayment;
+          const isPlanned = amountToLog > debt.minimumPayment;
           return (
             <div
               key={debt.id}
@@ -50,7 +55,9 @@ export default function SelectedDayPanel({
                     {debt.name}
                   </p>
                   <p style={{ fontSize: '11px', color: '#94a3b8', margin: 0 }}>
-                    {formatCurrency(debt.minimumPayment)} minimum
+                    {isPlanned
+                      ? `${formatCurrency(amountToLog)} planned (${formatCurrency(debt.minimumPayment)} min + extra)`
+                      : `${formatCurrency(debt.minimumPayment)} minimum`}
                   </p>
                 </div>
               </div>
