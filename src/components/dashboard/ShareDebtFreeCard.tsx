@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Share2, Download, Copy, X, Loader2 } from 'lucide-react';
 import { track, Events } from '@/lib/analytics';
+import { formatMonths } from '@/lib/utils';
 
 interface ShareDebtFreeCardProps {
   debtFreeDate: string;        // e.g. "March 2027"
@@ -69,11 +70,7 @@ export default function ShareDebtFreeCard({
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  const yearsLeft  = Math.floor(monthsRemaining / 12);
-  const moLeft     = monthsRemaining % 12;
-  const timeLabel  = yearsLeft > 0
-    ? `${yearsLeft}y ${moLeft > 0 ? `${moLeft}m` : ''}`
-    : `${moLeft}m`;
+  const timeLabel = formatMonths(monthsRemaining);
 
   if (!mounted) return null;
 

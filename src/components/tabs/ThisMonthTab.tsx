@@ -5,7 +5,7 @@ import { type Tab } from "@/components/dashboard/types";
 import { calculateMinimumsOnlyResult } from "@/lib/payoffPlan";
 import { calculatePlanMetrics } from "@/lib/payoffPlan";
 import { selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
-import { formatCurrency, getOrdinalDay } from "@/lib/utils";
+import { formatCurrency, formatMonths, getOrdinalDay } from "@/lib/utils";
 import { usePaymentRecords, useMarkPaid } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import InterestReclaimedBanner from "@/components/dashboard/InterestReclaimedBanner";
@@ -25,14 +25,6 @@ function greeting(name: string | null | undefined): string {
   const time = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const first = name?.split(" ")[0];
   return first ? `${time}, ${first}.` : `${time}.`;
-}
-
-function monthsToStr(months: number): string {
-  const yrs = Math.floor(months / 12);
-  const mo = months % 12;
-  if (yrs === 0) return `${mo} month${mo !== 1 ? "s" : ""}`;
-  if (mo === 0) return `${yrs} year${yrs !== 1 ? "s" : ""}`;
-  return `${yrs} yr ${mo} mo`;
 }
 
 export default function ThisMonthTab({
@@ -104,6 +96,13 @@ export default function ThisMonthTab({
     return result.payoffSchedule.find((s) => s.debtId === focusDebt.id) ?? null;
   }, [result, focusDebt]);
 
+  // The focus debt's planned payment = its minimum plus this month's extra,
+  // matching the debt card's "Pay $X here this month" guidance.
+  const focusExtra = Math.max(0, planMetrics?.effectiveAcceleration ?? 0);
+  const plannedPayment = focusDebt
+    ? focusDebt.minimumPayment + focusExtra
+    : 0;
+
   const [logPending, setLogPending] = useState(false);
 
   const handleLogPayment = useCallback(() => {
@@ -113,13 +112,13 @@ export default function ThisMonthTab({
     markPaid.mutate(
       {
         debtId: focusDebt.id,
-        amount: focusDebt.minimumPayment,
+        amount: plannedPayment,
         dueYear: currentDate.getFullYear(),
         dueMonth: currentDate.getMonth(),
       },
       { onSettled: () => setLogPending(false) },
     );
-  }, [focusDebt, logPending, markPaid]);
+  }, [focusDebt, plannedPayment, logPending, markPaid]);
 
   if (isLoading) {
     return (
@@ -146,7 +145,7 @@ export default function ThisMonthTab({
         {hasDebts && result ? (
           <p style={{ fontSize: "14px", color: "#64748b", marginTop: "4px" }}>
             You&apos;re on track to be debt-free in{" "}
-            <strong style={{ color: "#0f172a" }}>{monthsToStr(result.months)}</strong>
+            <strong style={{ color: "#0f172a" }}>{formatMonths(result.months)}</strong>
             {" — "}
             {result.debtFreeDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}.
           </p>
@@ -234,10 +233,17 @@ export default function ThisMonthTab({
             }}
           >
             <div>
-              <div style={{ fontSize: "11px", color: "#94a3b8" }}>Minimum payment</div>
-              <div style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
-                {formatCurrency(focusDebt.minimumPayment)}
+              <div style={{ fontSize: "11px", color: "#94a3b8" }}>
+                {focusExtra > 0 ? "Planned payment" : "Minimum payment"}
               </div>
+              <div style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
+                {formatCurrency(plannedPayment)}
+              </div>
+              {focusExtra > 0 && (
+                <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>
+                  {formatCurrency(focusDebt.minimumPayment)} minimum + {formatCurrency(focusExtra)} extra
+                </div>
+              )}
               {focusDebt.dueDate && (
                 <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>
                   Due the {getOrdinalDay(focusDebt.dueDate)}
@@ -265,7 +271,7 @@ export default function ThisMonthTab({
 
           {focusSchedule && focusSchedule.monthPaidOff > 0 && (
             <p style={{ fontSize: "12px", color: "#94a3b8", marginTop: "12px" }}>
-              Paid off in {monthsToStr(focusSchedule.monthPaidOff)} · {formatCurrency(focusSchedule.interestPaid)} interest total
+              Paid off in {formatMonths(focusSchedule.monthPaidOff)} · {formatCurrency(focusSchedule.interestPaid)} interest total
             </p>
           )}
         </div>

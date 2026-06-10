@@ -12,18 +12,14 @@ import {
 } from "lucide-react";
 import { type Debt } from "@/types";
 import { type PayoffMethod, type PayoffResult } from "@/lib/snowball";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatMonths } from "@/lib/utils";
 import {
   type SmartCalendar,
   type MilestoneData,
   type RefinanceCandidate,
 } from "@/lib/hooks/usePlannerComputed";
 
-function toTimeLabel(months: number) {
-  const years = Math.floor(months / 12);
-  const rem = months % 12;
-  return years > 0 ? `${years}y ${rem}m` : `${rem}m`;
-}
+const toTimeLabel = formatMonths;
 
 function methodLabel(method: PayoffMethod) {
   if (method === "avalanche") return "Avalanche";

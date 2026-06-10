@@ -16,6 +16,18 @@ export function formatPercent(value: number): string {
   return `${value.toFixed(2)}%`;
 }
 
+/**
+ * Compact duration for a month count: 14 → "1y 2m", 24 → "2y", 8 → "8m".
+ * The canonical format for payoff timelines — chosen to fit on mobile.
+ */
+export function formatMonths(months: number): string {
+  const years = Math.floor(months / 12);
+  const rem = months % 12;
+  if (years > 0 && rem > 0) return `${years}y ${rem}m`;
+  if (years > 0) return `${years}y`;
+  return `${rem}m`;
+}
+
 export function getOrdinalDay(day: number): string {
   if (!day) return '';
   const s = ['th', 'st', 'nd', 'rd'];

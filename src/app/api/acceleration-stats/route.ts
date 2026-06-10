@@ -139,10 +139,9 @@ export async function GET(request: NextRequest) {
     const currentDebtFreeDate: Date = currentResult.debtFreeDate;
     const interestSaved = Math.max(0, baselineResult.totalInterestPaid - currentResult.totalInterestPaid);
 
-    const baselineMs = baselineResult.debtFreeDate.getTime();
-    const currentMs = currentDebtFreeDate.getTime();
-    const msPerMonth = 1000 * 60 * 60 * 24 * 30.44;
-    const monthsSaved = Math.round((baselineMs - currentMs) / msPerMonth);
+    // Plain plan-month subtraction — same formula the UI uses, so coach copy
+    // can never disagree with the header by a month.
+    const monthsSaved = Math.max(0, baselineResult.months - currentResult.months);
 
     const consistencyScore =
       totalPlanned > 0 ? Math.min(1, totalActualExtra / totalPlanned) : 0;

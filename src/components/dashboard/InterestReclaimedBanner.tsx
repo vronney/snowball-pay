@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { TrendingDown } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatMonths } from "@/lib/utils";
 
 interface InterestReclaimedBannerProps {
   interestSaved: number;   // projected interest saved vs minimums-only
@@ -46,11 +46,7 @@ export default function InterestReclaimedBanner({
 
   if (!hasData || interestSaved <= 0) return null;
 
-  const yearsSaved = Math.floor(monthsSaved / 12);
-  const moSaved = monthsSaved % 12;
-  const timeSavedStr = yearsSaved > 0
-    ? `${yearsSaved} yr${yearsSaved !== 1 ? "s" : ""}${moSaved > 0 ? ` ${moSaved} mo` : ""}`
-    : `${monthsSaved} month${monthsSaved !== 1 ? "s" : ""}`;
+  const timeSavedStr = formatMonths(monthsSaved);
 
   return (
     <div

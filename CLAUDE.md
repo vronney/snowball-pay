@@ -53,7 +53,7 @@ Do not deviate without explicit user approval.
 In QA mode, flag any code that doesn't match `DESIGN.md`.
 
 Key rules from DESIGN.md:
-- Display font: **Geist** (700–900). Body: **DM Sans**. Numbers: **Geist Mono** with `tabular-nums`.
+- Fonts: **Plus Jakarta Sans** (display 600–800, body 400–600) with **Manrope** fallback, loaded via next/font. Numbers: `.mono` utility with `tabular-nums`.
 - Primary color `#2563eb` — used ONLY on CTAs, progress fills, and active states. Not on nav or passive elements.
 - Border radius is hierarchical: cards 12px, inputs 8px, tags 6px. Never uniform.
 - Celebration easing: `cubic-bezier(0.22,1,0.36,1)` — all win-moment animations must use this curve.

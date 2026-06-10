@@ -16,6 +16,7 @@ import {
   usePaymentRecords,
 } from "@/lib/hooks";
 import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
+import { formatMonths } from "@/lib/utils";
 import { ChevronRight, CalendarCheck, Link2 } from "lucide-react";
 import { useSharePlan } from "@/lib/hooks/useSharePlan";
 import { track, Events } from "@/lib/analytics";
@@ -231,9 +232,7 @@ export default function PayoffTab({
     adjustedExtra,
   } = planMetrics;
   const monthlyPayment = totalMinPayments + effectiveAcceleration;
-  const years = Math.floor(planResult.months / 12);
-  const months = planResult.months % 12;
-  const timeStr = years > 0 ? `${years}y ${months}m` : `${months}m`;
+  const timeStr = formatMonths(planResult.months);
   const minimumsOnlyResult = calculateMinimumsOnlyResult(debts, planStartDate);
   const interestSavedVsMinimums = Math.max(
     0,

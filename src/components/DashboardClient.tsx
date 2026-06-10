@@ -95,6 +95,12 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Tab switches are client-side state, not real navigations — reset the
+  // scroll position so each "page" starts at the top like a normal link.
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0 });
+  }, [activeTab]);
+
   useEffect(() => {
     const tab = searchParams.get("tab");
     if (!isValidTab(tab)) return;

@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { verifyShareToken } from "@/lib/shareToken";
 import { prisma } from "@/lib/prisma";
 import { calculatePlanMetrics } from "@/lib/payoffPlan";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatMonths } from "@/lib/utils";
 import type { Debt } from "@/types";
 import Image from "next/image";
 
@@ -54,9 +54,7 @@ export default async function SharedPlanPage({ params }: Props) {
   const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
   const totalInterest = Math.round(result.totalInterestPaid);
   const months = result.months;
-  const years = Math.floor(months / 12);
-  const mo = months % 12;
-  const timeStr = years > 0 ? `${years}y ${mo}m` : `${mo}m`;
+  const timeStr = formatMonths(months);
 
   return (
     <div style={{

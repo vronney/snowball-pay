@@ -14,14 +14,15 @@
 - **Research:** Monarch Money (warm/editorial but cold), YNAB (energetic but chaotic), Undebt.it (undesigned). Gap: warm and precise without either extreme.
 
 ## Typography
-- **Display / Headings / Debt names / AI celebration messages:** Geist (700–900 weight)
-  — Ultraclean geometric sans by Vercel. Modern and precise without being cold. At heavy weights it's striking; at light weights it breathes. Differentiates from the Inter/Roboto fintech default.
-- **Body / Labels / Form fields / Nav:** DM Sans (400–600 weight)
-  — Slightly warmer geometry than Geist. Softens the system. Reads clearly at 13px in data rows.
-- **Numbers / Balances / Amounts:** Geist Mono (400–500) with `font-variant-numeric: tabular-nums`
+- **Display / Headings / Debt names / AI celebration messages:** Plus Jakarta Sans (600–800 weight)
+  — Geometric, friendly-but-precise sans. Differentiates from the Inter/Roboto fintech default.
+- **Body / Labels / Form fields / Nav:** Plus Jakarta Sans (400–600), falling back to Manrope
+  — One family across display and body keeps the system calm; weight carries the hierarchy.
+- **Numbers / Balances / Amounts:** monospace stack via the `.mono` utility (Tailwind `font-mono`) with `font-variant-numeric: tabular-nums`
   — Numbers always align vertically. Dollar amounts feel counted, not styled.
 - **Code:** JetBrains Mono (if needed)
-- **Loading:** Google Fonts — `https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap`
+- **Loading:** `next/font/google` in `src/app/layout.tsx` (`--font-jakarta`, `--font-manrope`) — no external font CSS links.
+- **History:** The original direction specified Geist / DM Sans / Geist Mono; the implementation shipped on Plus Jakarta Sans + Manrope and the doc was amended to match (2026-06-10). Revisit only as a deliberate rebrand with visual QA.
 - **Scale:**
 
 | Token  | Size  | Usage                          |
@@ -142,6 +143,9 @@ The celebration easing (`cubic-bezier(0.22,1,0.36,1)`) is already used in `Payme
 | 2026-04-29 | Celebration animations use spring easing | `cubic-bezier(0.22,1,0.36,1)` — win moments feel earned, not generic. Consistent across PaymentCelebrationBanner and future milestone animations. |
 | 2026-04-29 | Terracotta direction rejected | User preferred crisp/modern over warm/earthy. Terracotta + Fraunces direction was explored and set aside. |
 | 2026-04-29 | Light mode only | Dark mode removed. App is light-mode only for consistency across all pages. No `prefers-color-scheme` queries, no `.dark:` variants. |
+| 2026-06-10 | Wallet-card debt items | Debt cards evoke a wallet card: flat category-tinted identity band, balance hero with tabular numerals, statement-style APR/min/due row, and a next-step footer tying the card to the snowball plan. Explicitly approved as a restrained hybrid — gradient bank-card chrome remains banned. |
+| 2026-06-10 | Canonical timeline format | All payoff durations render via `formatMonths()` ("1y 2m") — chosen so timeline copy fits on mobile. |
+| 2026-06-10 | Fonts amended to match implementation | The app ships Plus Jakarta Sans + Manrope via next/font; the Geist/DM Sans direction was never implemented and the doc now reflects reality. Hero scale (`5xl` "Geist Mono") reads as the `.mono` stack. |
 
 ## Anti-Patterns (never do these)
 
@@ -151,5 +155,5 @@ The celebration easing (`cubic-bezier(0.22,1,0.36,1)`) is already used in `Payme
 - Uniform bubble border-radius on all elements (all `rounded-full` or all `rounded-2xl`)
 - Gradient buttons as the primary CTA pattern
 - `Inter`, `Roboto`, `Arial`, `system-ui`, `Space Grotesk` as primary display fonts
-- Bank-card chrome on debt items (rounded gradient cards mimicking credit cards)
+- Gradient bank-card chrome on debt items (realistic card faces, chips, embossed-number theatrics). The approved treatment is a *flat* category-tinted identity band — see 2026-06-10 decision.
 - Milestone `debt_paid_off` confetti animation on the debt card itself — celebration fires in the banner, the card goes quiet (fades, strikes through)

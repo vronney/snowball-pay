@@ -11,7 +11,7 @@ import {
   LabelList,
   ResponsiveContainer,
 } from "recharts";
-import { getCategoryColor } from "@/lib/utils";
+import { formatMonths, getCategoryColor } from "@/lib/utils";
 
 type TimelineEntry = {
   debtName: string;
@@ -82,10 +82,7 @@ export default function PayoffTimeline({ data }: PayoffTimelineProps) {
                 if (!active || !payload?.length) return null;
                 const d = payload[0];
                 const months = d.value as number;
-                const years = Math.floor(months / 12);
-                const rem = months % 12;
-                const timeLabel =
-                  years > 0 ? `${years}y ${rem}m` : `${months}m`;
+                const timeLabel = formatMonths(months);
                 const color =
                   (d.payload as { fill?: string }).fill ?? "#f59e0b";
                 return (
@@ -159,9 +156,7 @@ export default function PayoffTimeline({ data }: PayoffTimelineProps) {
       <div className="block sm:hidden space-y-2">
         {data.map((entry) => {
           const color = getCategoryColor(entry.category);
-          const yrs = Math.floor(entry.monthPaidOff / 12);
-          const mos = entry.monthPaidOff % 12;
-          const timeLabel = yrs > 0 ? `${yrs}y ${mos}m` : `${mos}m`;
+          const timeLabel = formatMonths(entry.monthPaidOff);
           return (
             <div
               key={entry.debtName}

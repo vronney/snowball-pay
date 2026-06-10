@@ -12,6 +12,7 @@ import {
   Button,
 } from '@react-email/components';
 import * as React from 'react';
+import { formatMonths } from '@/lib/utils';
 
 interface PayoffItem {
   debtName: string;
@@ -184,9 +185,7 @@ export function PayoffPlanEmail({
             </Text>
 
             {payoffSchedule.map((item, i) => {
-              const mo = item.monthPaidOff % 12;
-              const yr = Math.floor(item.monthPaidOff / 12);
-              const timeStr = yr > 0 ? `${yr}y ${mo}m` : `${mo}m`;
+              const timeStr = formatMonths(item.monthPaidOff);
               const isLast = i === payoffSchedule.length - 1;
               const color = categoryColor(item.category);
 

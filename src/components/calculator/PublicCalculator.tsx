@@ -10,6 +10,7 @@ import {
   calculateDebtAvalanche,
 } from "@/lib/snowball";
 import type { Debt } from "@/types";
+import { formatMonths } from "@/lib/utils";
 import type { ChartEntry } from "@/components/payoff/BalanceOverTimeChart";
 import DebtTable from "./DebtTable";
 import BudgetPanel from "./BudgetPanel";
@@ -238,13 +239,7 @@ export default function PublicCalculator({
       : 0;
   const showMinimumsLine = effectiveAccel > 0;
 
-  const years = planResult ? Math.floor(planResult.months / 12) : 0;
-  const months = planResult ? planResult.months % 12 : 0;
-  const timeStr = planResult
-    ? years > 0
-      ? `${years}y ${months}m`
-      : `${months}m`
-    : null;
+  const timeStr = planResult ? formatMonths(planResult.months) : null;
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
