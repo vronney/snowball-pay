@@ -249,19 +249,17 @@ export default function DebtTab({
   // Payment streak
   const streak = useMemo(() => computeStreak(snapshots), [snapshots]);
 
-  // Payoff estimate — uses the same calculatePlanMetrics as the other tabs so
+  // Payoff plan — uses the same calculatePlanMetrics as the other tabs so
   // every tab shows the same debt-free date.
-  const payoffResult = useMemo(() => {
+  const planMetrics = useMemo(() => {
     if (!income || activeDebts.length === 0) return null;
     try {
-      return (
-        calculatePlanMetrics(debts, income, expensesData?.expenses ?? [])
-          ?.result ?? null
-      );
+      return calculatePlanMetrics(debts, income, expensesData?.expenses ?? []);
     } catch {
       return null;
     }
   }, [debts, activeDebts.length, income, expensesData?.expenses]);
+  const payoffResult = planMetrics?.result ?? null;
 
   // Map strategy → natural sort order so the list mirrors the payoff plan by default
   const strategyDefaultSort = useMemo(():
@@ -287,6 +285,17 @@ export default function DebtTab({
     if (payoffResult) {
       payoffResult.payoffSchedule.forEach((s) =>
         map.set(s.debtId, s.orderInPayoff),
+      );
+    }
+    return map;
+  }, [payoffResult]);
+
+  // Months until each debt is cleared on the current plan
+  const monthPaidOffByDebtId = useMemo(() => {
+    const map = new Map<string, number>();
+    if (payoffResult) {
+      payoffResult.payoffSchedule.forEach((s) =>
+        map.set(s.debtId, s.monthPaidOff),
       );
     }
     return map;
@@ -679,6 +688,9 @@ export default function DebtTab({
                       }}
                       rank={rankByDebtId.get(debt.id)}
                       isActiveFocus={debt.id === focusDebt?.id}
+                      paidThisMonth={paidDebtIds.has(debt.id)}
+                      monthPaidOff={monthPaidOffByDebtId.get(debt.id) ?? null}
+                      focusExtra={planMetrics?.effectiveAcceleration ?? 0}
                     />
                   ))}
 
