@@ -20,9 +20,11 @@ const MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 const DAY_INITIALS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-const today = new Date();
 
 export default function PaymentCalendar({ debts }: Props) {
+  // Evaluated per render so a session left open across midnight doesn't
+  // highlight the wrong day or compute due dates against a stale date.
+  const today = new Date();
   const [open,        setOpen]        = useState(false);
   const [viewYear,    setViewYear]    = useState(today.getFullYear());
   const [viewMonth,   setViewMonth]   = useState(today.getMonth());
@@ -53,17 +55,19 @@ export default function PaymentCalendar({ debts }: Props) {
     return map;
   }, [debtsWithDue, viewYear, viewMonth]);
 
+  // Day-stable timestamp so the memo below only recomputes when the date changes.
+  const todayStartMs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+
   const nextPayment = useMemo(() => {
-    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     let nearest: { day: number; debts: Debt[] } | null = null;
     for (const [day, dayDebts] of paymentsByDay) {
       const due = new Date(viewYear, viewMonth, day);
-      if (due >= todayStart) {
+      if (due.getTime() >= todayStartMs) {
         if (!nearest || day < nearest.day) nearest = { day, debts: dayDebts };
       }
     }
     return nearest;
-  }, [paymentsByDay, viewYear, viewMonth]);
+  }, [paymentsByDay, viewYear, viewMonth, todayStartMs]);
 
   const firstDow    = new Date(viewYear, viewMonth, 1).getDay();
   const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();

@@ -38,8 +38,6 @@ type UserInfo = {
   picture?: string | null;
 };
 
-const today = new Date();
-
 const tabLabels: Record<Tab, string> = {
   "this-month": "This Month",
   debts: "My Debts",
@@ -133,6 +131,9 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
   const { data: incomeData, isLoading: incomeLoading, isFetching: incomeFetching } = useIncome();
   const { data: expensesData, isLoading: expensesLoading } = useExpenses();
   const { data: settingsData } = useUserSettings();
+  // Evaluated per render so a session left open across midnight / a month
+  // boundary doesn't query payment records for a stale month.
+  const today = new Date();
   const { data: paymentsData } = usePaymentRecords(today.getFullYear(), today.getMonth());
   const markPaid = useMarkPaid();
   const { data: subData } = useSubscription();
