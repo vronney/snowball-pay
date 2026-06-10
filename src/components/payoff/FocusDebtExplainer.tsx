@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Debt } from "@/types";
 import { type DebtPayoffSchedule, type PayoffMethod } from "@/lib/snowball";
-import { formatCurrency, formatPercent, getCategoryColor } from "@/lib/utils";
+import { formatCurrency, formatMonths, formatPercent, getCategoryColor } from "@/lib/utils";
 import { CheckCircle2, Target } from "lucide-react";
 import { isActiveDebt } from "@/lib/monthlyFocusDebt";
 
@@ -107,9 +107,7 @@ export default function FocusDebtExplainer({
 
   const { item, debt, hasResolvedEarlierDebt } = focus;
   const categoryColor = getCategoryColor(debt.category);
-  const yrs = Math.floor(item.monthPaidOff / 12);
-  const mos = item.monthPaidOff % 12;
-  const timeStr = yrs > 0 ? `${yrs}y ${mos}m` : `${mos}m`;
+  const timeStr = formatMonths(item.monthPaidOff);
 
   return (
     <div

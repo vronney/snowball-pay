@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { type DebtPayoffSchedule } from '@/lib/snowball';
-import { formatCurrency, getCategoryColor } from '@/lib/utils';
+import { formatCurrency, formatMonths, getCategoryColor } from '@/lib/utils';
 import { ListOrdered, ChevronDown } from 'lucide-react';
 
 interface PayoffOrderListProps {
@@ -41,9 +41,7 @@ export default function PayoffOrderList({ payoffSchedule, payoffOrderLabel }: Pa
         )}
         {payoffSchedule.map((item) => {
           const categoryColor = getCategoryColor(item.category);
-          const yPO = Math.floor(item.monthPaidOff / 12);
-          const mPO = item.monthPaidOff % 12;
-          const poStr = item.monthPaidOff > 0 ? (yPO > 0 ? `${yPO}y ${mPO}m` : `${mPO}m`) : 'N/A';
+          const poStr = item.monthPaidOff > 0 ? formatMonths(item.monthPaidOff) : 'N/A';
 
           return (
             <div key={item.debtId} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#f8fafc', border: '1px solid rgba(15,23,42,0.06)' }}>

@@ -5,6 +5,7 @@ import { isPro, upgradeRequired } from '@/lib/gates';
 import { z } from 'zod';
 import { limits } from '@/lib/rateLimit';
 import { anthropic as client, parseClaudeJson, extractTextBlocks } from '@/lib/claude';
+import { formatMonths } from '@/lib/utils';
 
 export const maxDuration = 30;
 
@@ -128,13 +129,7 @@ function dollars(value: number): string {
   return `$${Math.round(value).toLocaleString('en-US')}`;
 }
 
-function monthsLabel(planMonths: number): string {
-  const years = Math.floor(planMonths / 12);
-  const months = planMonths % 12;
-  if (years > 0 && months > 0) return `${years}y ${months}m`;
-  if (years > 0) return `${years}y`;
-  return `${months}m`;
-}
+const monthsLabel = formatMonths;
 
 function buildFallbackRecommendations(
   body: RecommendationPayload,

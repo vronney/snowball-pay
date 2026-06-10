@@ -5,7 +5,7 @@ import { type Tab } from "@/components/dashboard/types";
 import { calculateMinimumsOnlyResult } from "@/lib/payoffPlan";
 import { calculatePlanMetrics } from "@/lib/payoffPlan";
 import { selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
-import { formatCurrency, getOrdinalDay } from "@/lib/utils";
+import { formatCurrency, formatMonths, getOrdinalDay } from "@/lib/utils";
 import { usePaymentRecords, useMarkPaid } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import InterestReclaimedBanner from "@/components/dashboard/InterestReclaimedBanner";
@@ -25,14 +25,6 @@ function greeting(name: string | null | undefined): string {
   const time = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const first = name?.split(" ")[0];
   return first ? `${time}, ${first}.` : `${time}.`;
-}
-
-function monthsToStr(months: number): string {
-  const yrs = Math.floor(months / 12);
-  const mo = months % 12;
-  if (yrs === 0) return `${mo} month${mo !== 1 ? "s" : ""}`;
-  if (mo === 0) return `${yrs} year${yrs !== 1 ? "s" : ""}`;
-  return `${yrs} yr ${mo} mo`;
 }
 
 export default function ThisMonthTab({
@@ -146,7 +138,7 @@ export default function ThisMonthTab({
         {hasDebts && result ? (
           <p style={{ fontSize: "14px", color: "#64748b", marginTop: "4px" }}>
             You&apos;re on track to be debt-free in{" "}
-            <strong style={{ color: "#0f172a" }}>{monthsToStr(result.months)}</strong>
+            <strong style={{ color: "#0f172a" }}>{formatMonths(result.months)}</strong>
             {" — "}
             {result.debtFreeDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}.
           </p>
@@ -265,7 +257,7 @@ export default function ThisMonthTab({
 
           {focusSchedule && focusSchedule.monthPaidOff > 0 && (
             <p style={{ fontSize: "12px", color: "#94a3b8", marginTop: "12px" }}>
-              Paid off in {monthsToStr(focusSchedule.monthPaidOff)} · {formatCurrency(focusSchedule.interestPaid)} interest total
+              Paid off in {formatMonths(focusSchedule.monthPaidOff)} · {formatCurrency(focusSchedule.interestPaid)} interest total
             </p>
           )}
         </div>

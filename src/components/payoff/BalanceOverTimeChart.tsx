@@ -12,7 +12,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatMonths } from '@/lib/utils';
 
 export type ChartEntry = {
   date: string;
@@ -97,9 +97,7 @@ function formatCompactCurrency(value: number) {
 
 function timeLabel(months: number | undefined) {
   if (months == null) return 'Not available';
-  const years = Math.floor(months / 12);
-  const rem = months % 12;
-  return years > 0 ? `${years}y ${rem}m` : `${rem}m`;
+  return formatMonths(months);
 }
 
 function comparisonText(diff: number | null) {

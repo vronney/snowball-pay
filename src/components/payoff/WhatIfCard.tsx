@@ -7,7 +7,7 @@ import { Lock, Zap as ZapIcon } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
 import { type PayoffMethod } from "@/lib/snowball";
 import { calculateResultByMethod } from "@/lib/payoffPlan";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatMonths } from "@/lib/utils";
 import { isActiveDebt } from "@/lib/monthlyFocusDebt";
 
 interface WhatIfCardProps {
@@ -135,14 +135,8 @@ export default function WhatIfCard({
 
   if (saved50months <= 0 && saved100months <= 0) return null;
 
-  const fmtMonths = (n: number) => {
-    if (n <= 0) return "no change";
-    const y = Math.floor(n / 12);
-    const m = n % 12;
-    if (y > 0 && m > 0) return `${y}y ${m}m sooner`;
-    if (y > 0) return `${y} yr${y > 1 ? "s" : ""} sooner`;
-    return `${m} mo${m > 1 ? "s" : ""} sooner`;
-  };
+  const fmtMonths = (n: number) =>
+    n <= 0 ? "no change" : `${formatMonths(n)} sooner`;
 
   const scenarios = [
     {
