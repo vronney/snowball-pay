@@ -28,11 +28,7 @@ import {
   Circle,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
-import {
-  calculateDebtSnowball,
-  calculateDebtAvalanche,
-  calculateDebtCustom,
-} from "@/lib/snowball";
+import { calculatePlanMetrics } from "@/lib/payoffPlan";
 import DebtCard from "@/components/DebtCard";
 import DebtForm from "@/components/DebtForm";
 import PaymentCalendar from "@/components/PaymentCalendar";
@@ -253,43 +249,19 @@ export default function DebtTab({
   // Payment streak
   const streak = useMemo(() => computeStreak(snapshots), [snapshots]);
 
-  // Payoff estimate — mirrors the PayoffTab acceleration logic so both tabs show the same date
+  // Payoff estimate — uses the same calculatePlanMetrics as the other tabs so
+  // every tab shows the same debt-free date.
   const payoffResult = useMemo(() => {
     if (!income || activeDebts.length === 0) return null;
-    const expenses = expensesData?.expenses ?? [];
-    const essential = income.essentialExpenses ?? 0;
-    const recurring = expenses.reduce((s, e) => s + e.amount, 0);
-    const totalMin = activeDebts.reduce((s, d) => s + d.minimumPayment, 0);
-    const naturalSurplus = Math.max(
-      0,
-      income.monthlyTakeHome - essential - recurring - totalMin,
-    );
-    const maxAccel = naturalSurplus + (income.extraPayment ?? 0);
-    const targetAccel =
-      income.accelerationAmount !== null &&
-      income.accelerationAmount !== undefined
-        ? Math.min(income.accelerationAmount, maxAccel)
-        : maxAccel;
-    const adjustedExtra = targetAccel - naturalSurplus;
     try {
-      const method = income.payoffMethod ?? "snowball";
-      const calc =
-        method === "avalanche"
-          ? calculateDebtAvalanche
-          : method === "custom"
-            ? calculateDebtCustom
-            : calculateDebtSnowball;
-      return calc(
-        activeDebts,
-        income.monthlyTakeHome,
-        essential,
-        recurring,
-        adjustedExtra,
+      return (
+        calculatePlanMetrics(debts, income, expensesData?.expenses ?? [])
+          ?.result ?? null
       );
     } catch {
       return null;
     }
-  }, [activeDebts, income, expensesData?.expenses]);
+  }, [debts, activeDebts.length, income, expensesData?.expenses]);
 
   // Map strategy → natural sort order so the list mirrors the payoff plan by default
   const strategyDefaultSort = useMemo(():

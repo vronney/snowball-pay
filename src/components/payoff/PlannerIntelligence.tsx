@@ -4,13 +4,8 @@ import { useMemo, useState, useEffect, useRef } from "react";
 import { useUserSettings, useUpdatePreferences } from "@/lib/hooks";
 import { Sparkles } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
-import {
-  calculateDebtSnowball,
-  calculateDebtAvalanche,
-  calculateDebtCustom,
-  type PayoffMethod,
-  type PayoffResult,
-} from "@/lib/snowball";
+import { type PayoffMethod, type PayoffResult } from "@/lib/snowball";
+import { calculateResultByMethod } from "@/lib/payoffPlan";
 import { formatCurrency } from "@/lib/utils";
 import { type ChartEntry } from "@/components/payoff/BalanceOverTimeChart";
 import { usePlannerComputed } from "@/lib/hooks/usePlannerComputed";
@@ -87,31 +82,16 @@ export default function PlannerIntelligence({
     essentials: number,
     extraAccel: number,
   ) => {
+    // `essentials` arrives bundled with recurring expenses (totalEssential);
+    // the calculators take them separately, so un-bundle before dispatching.
     const adjustedExtra =
       extraAccel - (monthlyTakeHome - essentials - totalMinPayments);
-    const essentialsOnly = essentials - recurringTotal;
-    if (method === "avalanche")
-      return calculateDebtAvalanche(
-        activeDebts,
-        monthlyTakeHome,
-        essentialsOnly,
-        recurringTotal,
-        adjustedExtra,
-      );
-    if (method === "custom")
-      return calculateDebtCustom(
-        activeDebts,
-        monthlyTakeHome,
-        essentialsOnly,
-        recurringTotal,
-        adjustedExtra,
-      );
-    return calculateDebtSnowball(
+    return calculateResultByMethod(
       activeDebts,
-      monthlyTakeHome,
-      essentialsOnly,
+      { monthlyTakeHome, essentialExpenses: essentials - recurringTotal },
       recurringTotal,
       adjustedExtra,
+      method,
     );
   };
 

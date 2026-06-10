@@ -5,12 +5,8 @@ import { useSubscription } from "@/lib/hooks";
 import { upgradeEvents } from "@/lib/upgradeEvents";
 import { Lock, Zap as ZapIcon } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
-import {
-  calculateDebtSnowball,
-  calculateDebtAvalanche,
-  calculateDebtCustom,
-  type PayoffMethod,
-} from "@/lib/snowball";
+import { type PayoffMethod } from "@/lib/snowball";
+import { calculateResultByMethod } from "@/lib/payoffPlan";
 import { formatCurrency } from "@/lib/utils";
 import { isActiveDebt } from "@/lib/monthlyFocusDebt";
 
@@ -25,42 +21,6 @@ interface WhatIfCardProps {
   effectiveAcceleration?: number;
   availableCashFlow?: number;
   onAccelerationChange?: (amount: number) => void;
-}
-
-function calcScenario(
-  debts: Debt[],
-  income: Income,
-  recurringTotal: number,
-  adjustedExtra: number,
-  method: PayoffMethod,
-) {
-  if (method === "avalanche") {
-    return calculateDebtAvalanche(
-      debts,
-      income.monthlyTakeHome,
-      income.essentialExpenses,
-      recurringTotal,
-      adjustedExtra,
-    );
-  }
-
-  if (method === "custom") {
-    return calculateDebtCustom(
-      debts,
-      income.monthlyTakeHome,
-      income.essentialExpenses,
-      recurringTotal,
-      adjustedExtra,
-    );
-  }
-
-  return calculateDebtSnowball(
-    debts,
-    income.monthlyTakeHome,
-    income.essentialExpenses,
-    recurringTotal,
-    adjustedExtra,
-  );
 }
 
 export default function WhatIfCard({
@@ -87,27 +47,25 @@ export default function WhatIfCard({
 
   const scenario50 = useMemo(
     () =>
-      calcScenario(
+      calculateResultByMethod(
         activeDebts,
         income,
         recurringTotal,
         adjustedExtra + 50,
         payoffMethod,
       ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [activeDebts, income, recurringTotal, adjustedExtra, payoffMethod],
   );
 
   const scenario100 = useMemo(
     () =>
-      calcScenario(
+      calculateResultByMethod(
         activeDebts,
         income,
         recurringTotal,
         adjustedExtra + 100,
         payoffMethod,
       ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [activeDebts, income, recurringTotal, adjustedExtra, payoffMethod],
   );
 

@@ -103,12 +103,15 @@ export default function DebtCard({
     const amount = parseFloat(paymentAmount);
     if (!amount || amount <= 0) return;
     const now = new Date();
-    // markPaid handles: paymentRecord creation, balance decrement, and snapshot for this debt
+    // markPaid handles: paymentRecord creation, balance decrement, and snapshot for this debt.
+    // 'log' mode: each submitted payment deducts from the balance, even if one
+    // was already recorded this month (amounts accumulate into the month total).
     await markPaid.mutateAsync({
       debtId: debt.id,
       amount,
       dueYear: now.getFullYear(),
       dueMonth: now.getMonth(),
+      mode: 'log',
     });
     // snapshot remaining debts so their balances are recorded for this month too
     const recordedAt = new Date(
@@ -448,7 +451,7 @@ export default function DebtCard({
           onAmountChange={setPaymentAmount}
           onSubmit={(e) => void handlePaymentSubmit(e)}
           onClose={() => setPanel(null)}
-          isPending={updateDebt.isPending || addBulkSnapshots.isPending}
+          isPending={markPaid.isPending || updateDebt.isPending || addBulkSnapshots.isPending}
         />
       )}
 
