@@ -436,13 +436,22 @@ export function usePaymentRecords(year: number, month: number) {
   });
 }
 
+interface MarkPaidArgs {
+  debtId: string;
+  amount: number;
+  dueYear: number;
+  dueMonth: number;
+  /** 'mark' (default) is idempotent per month; 'log' adds to the month's total. */
+  mode?: 'mark' | 'log';
+}
+
 /** Marks a debt payment as paid for a given month. */
 export function useMarkPaid() {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: async ({ debtId, amount, dueYear, dueMonth }: { debtId: string; amount: number; dueYear: number; dueMonth: number }) => {
-      const { data } = await axios.post(`${API_URL}/api/payments`, { debtId, amount, dueYear, dueMonth });
+    mutationFn: async ({ debtId, amount, dueYear, dueMonth, mode }: MarkPaidArgs) => {
+      const { data } = await axios.post(`${API_URL}/api/payments`, { debtId, amount, dueYear, dueMonth, mode });
       return data;
     },
     onSuccess: async () => {
@@ -456,7 +465,7 @@ export function useMarkPaid() {
     },
   });
 
-  const mutateAsync = async (args: { debtId: string; amount: number; dueYear: number; dueMonth: number }) => {
+  const mutateAsync = async (args: MarkPaidArgs) => {
     // Snapshot BEFORE mutation — cache is cleared in onSuccess
     const cachedDebts = queryClient.getQueryData<{ debts: Debt[] }>(['debts'])?.debts ?? [];
     const targetDebt = cachedDebts.find((d) => d.id === args.debtId);
@@ -468,6 +477,10 @@ export function useMarkPaid() {
     const monthsSaved = queryClient.getQueryData<AccelerationStats>(['accelerationStats'])?.monthsSaved;
 
     const result = await mutation.mutateAsync(args);
+
+    // The month was already marked paid and the server changed nothing —
+    // skip the optimistic cache update and the celebration.
+    if (result?.alreadyMarked) return result;
 
     // Optimistically zero the debt balance in the cache if the payment covers
     // the full remaining balance. This prevents a paid-off debt from appearing

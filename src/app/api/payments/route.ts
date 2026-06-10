@@ -9,6 +9,10 @@ const CreatePaymentSchema = z.object({
   amount:   z.number().min(0),
   dueYear:  z.number().int(),
   dueMonth: z.number().int().min(0).max(11),
+  // 'mark' = idempotent mark-as-paid (repeat calls are no-ops so a reminder
+  // button can never overwrite a logged payment); 'log' = a payment event
+  // (repeat calls add to the month's total and deduct from the balance).
+  mode:     z.enum(['mark', 'log']).default('mark'),
 });
 
 /** GET /api/payments?year=2025&month=2 — returns all payment records for that month */
@@ -35,14 +39,14 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/** POST /api/payments — mark a debt payment as paid (upsert) */
+/** POST /api/payments — record a debt payment ('mark' is idempotent, 'log' is additive) */
 export async function POST(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!auth.valid || !auth.user) return unauthorized();
 
   try {
     const body = await request.json();
-    const { debtId, amount, dueYear, dueMonth } = CreatePaymentSchema.parse(body);
+    const { debtId, amount, dueYear, dueMonth, mode } = CreatePaymentSchema.parse(body);
 
     if (!isValidId(debtId)) return badRequest('Invalid debtId');
 
@@ -50,61 +54,62 @@ export async function POST(request: NextRequest) {
     if (!debt || debt.userId !== auth.user.id) return badRequest('Debt not found');
 
     let record;
-    let updatedBalance = debt.balance;
-    let shouldDecrementBalance = false;
+    let updatedBalance: number;
 
     try {
-      record = await prisma.paymentRecord.create({
-        data: { userId: auth.user.id, debtId, amount, dueYear, dueMonth },
-      });
-      shouldDecrementBalance = true;
+      // Create the record and deduct the balance atomically so they can never drift apart.
+      const [created, updatedDebt] = await prisma.$transaction([
+        prisma.paymentRecord.create({
+          data: { userId: auth.user.id, debtId, amount, dueYear, dueMonth },
+        }),
+        prisma.debt.update({
+          where: { id: debtId },
+          data: { balance: { decrement: amount } },
+        }),
+      ]);
+      record = created;
+      updatedBalance = updatedDebt.balance;
     } catch (error) {
       if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== 'P2002') {
         throw error;
       }
 
-      // Already marked for this debt/month: fetch old amount, calculate delta, and apply balance change.
+      // A record already exists for this debt/month.
       const existingRecord = await prisma.paymentRecord.findUnique({
         where: { debtId_dueYear_dueMonth: { debtId, dueYear, dueMonth } },
       });
+      if (!existingRecord) throw error;
 
-      if (existingRecord) {
-        const delta = amount - existingRecord.amount;
-
-        record = await prisma.paymentRecord.update({
-          where: { debtId_dueYear_dueMonth: { debtId, dueYear, dueMonth } },
-          data: { amount, paidAt: new Date() },
-        });
-
-        // Apply delta to balance: delta > 0 means more payment, balance goes down more
-        if (delta !== 0) {
-          const updatedDebt = await prisma.debt.update({
-            where: { id: debtId },
-            data: { balance: { decrement: delta } },
-          });
-          if (updatedDebt.balance < 0) {
-            await prisma.debt.update({ where: { id: debtId }, data: { balance: 0 } });
-            updatedBalance = 0;
-          } else {
-            updatedBalance = updatedDebt.balance;
-          }
-        }
-        shouldDecrementBalance = false; // Already handled the balance update
+      if (mode === 'mark') {
+        // Idempotent: the month is already marked paid, so a repeated "mark paid"
+        // (reminder toast, calendar, notification) must not overwrite a logged
+        // amount or move the balance.
+        return NextResponse.json(
+          { record: existingRecord, updatedBalance: debt.balance, alreadyMarked: true },
+          { status: 200 },
+        );
       }
+
+      // 'log': another payment this month — add it to the month's total and
+      // deduct it from the balance, atomically.
+      const [updatedRecord, updatedDebt] = await prisma.$transaction([
+        prisma.paymentRecord.update({
+          where: { debtId_dueYear_dueMonth: { debtId, dueYear, dueMonth } },
+          data: { amount: { increment: amount }, paidAt: new Date() },
+        }),
+        prisma.debt.update({
+          where: { id: debtId },
+          data: { balance: { decrement: amount } },
+        }),
+      ]);
+      record = updatedRecord;
+      updatedBalance = updatedDebt.balance;
     }
 
-    if (shouldDecrementBalance) {
-      // Subtract payment from debt balance (floor at 0) only on first create.
-      const updatedDebt = await prisma.debt.update({
-        where: { id: debtId },
-        data: { balance: { decrement: amount } },
-      });
-      if (updatedDebt.balance < 0) {
-        await prisma.debt.update({ where: { id: debtId }, data: { balance: 0 } });
-        updatedBalance = 0;
-      } else {
-        updatedBalance = updatedDebt.balance;
-      }
+    if (updatedBalance < 0) {
+      // Floor the balance at 0 (overpayment of the remaining balance).
+      await prisma.debt.update({ where: { id: debtId }, data: { balance: 0 } });
+      updatedBalance = 0;
     }
 
     // Record a balance snapshot for this month
