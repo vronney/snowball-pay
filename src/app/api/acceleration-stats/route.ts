@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
-import {
-  calculateDebtSnowball,
-  calculateDebtAvalanche,
-  calculateDebtCustom,
-} from '@/lib/snowball';
+import { calculateResultByMethod, methodFromIncome } from '@/lib/payoffPlan';
 import type { Debt } from '@/types';
 import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 
@@ -121,30 +117,24 @@ export async function GET(request: NextRequest) {
     const totalPlanned = plannedMonthly * 3;
     const totalActualExtra = monthlyData.reduce((s, m) => s + m.actualExtra, 0);
 
-    const method = (income.payoffMethod ?? 'snowball') as 'snowball' | 'avalanche' | 'custom';
-    const calcFn =
-      method === 'avalanche'
-        ? calculateDebtAvalanche
-        : method === 'custom'
-          ? calculateDebtCustom
-          : calculateDebtSnowball;
+    const method = methodFromIncome(income);
 
-    const baselineResult = calcFn(
+    const baselineResult = calculateResultByMethod(
       activeDebts,
-      income.monthlyTakeHome,
-      income.essentialExpenses,
+      income,
       recurringTotal,
       0,
+      method,
     );
 
     const adjustedExtra = Math.max(0, plannedMonthly - naturalSurplus);
 
-    const currentResult = calcFn(
+    const currentResult = calculateResultByMethod(
       activeDebts,
-      income.monthlyTakeHome,
-      income.essentialExpenses,
+      income,
       recurringTotal,
       adjustedExtra,
+      method,
     );
     const currentDebtFreeDate: Date = currentResult.debtFreeDate;
     const interestSaved = Math.max(0, baselineResult.totalInterestPaid - currentResult.totalInterestPaid);

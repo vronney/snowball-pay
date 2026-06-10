@@ -19,12 +19,8 @@ import {
 } from '@/lib/services/emailService';
 import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
 import WeeklyProgressEmail from '@/emails/WeeklyProgressEmail';
-import {
-  calculateDebtSnowball,
-  calculateDebtAvalanche,
-  calculateDebtCustom,
-  type PayoffMethod,
-} from '@/lib/snowball';
+import { calculateResultByMethod, methodFromIncome } from '@/lib/payoffPlan';
+import type { Debt } from '@/types';
 import * as React from 'react';
 
 export async function GET(request: NextRequest) {
@@ -73,16 +69,12 @@ export async function GET(request: NextRequest) {
 
       let debtFreeDate: string | undefined;
       if (user.income) {
-        const method: PayoffMethod = (user.income.payoffMethod as PayoffMethod) || 'snowball';
-        const calc = method === 'avalanche' ? calculateDebtAvalanche
-          : method === 'custom'   ? calculateDebtCustom
-          : calculateDebtSnowball;
-        const plan = calc(
-          user.debts as Parameters<typeof calc>[0],
-          user.income.monthlyTakeHome,
-          user.income.essentialExpenses,
+        const plan = calculateResultByMethod(
+          user.debts as Debt[],
+          user.income,
           0,
           user.income.extraPayment ?? 0,
+          methodFromIncome(user.income),
         );
         debtFreeDate = plan.debtFreeDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
       }
