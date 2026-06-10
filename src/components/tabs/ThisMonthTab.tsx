@@ -96,6 +96,13 @@ export default function ThisMonthTab({
     return result.payoffSchedule.find((s) => s.debtId === focusDebt.id) ?? null;
   }, [result, focusDebt]);
 
+  // The focus debt's planned payment = its minimum plus this month's extra,
+  // matching the debt card's "Pay $X here this month" guidance.
+  const focusExtra = Math.max(0, planMetrics?.effectiveAcceleration ?? 0);
+  const plannedPayment = focusDebt
+    ? focusDebt.minimumPayment + focusExtra
+    : 0;
+
   const [logPending, setLogPending] = useState(false);
 
   const handleLogPayment = useCallback(() => {
@@ -105,13 +112,13 @@ export default function ThisMonthTab({
     markPaid.mutate(
       {
         debtId: focusDebt.id,
-        amount: focusDebt.minimumPayment,
+        amount: plannedPayment,
         dueYear: currentDate.getFullYear(),
         dueMonth: currentDate.getMonth(),
       },
       { onSettled: () => setLogPending(false) },
     );
-  }, [focusDebt, logPending, markPaid]);
+  }, [focusDebt, plannedPayment, logPending, markPaid]);
 
   if (isLoading) {
     return (
@@ -226,10 +233,17 @@ export default function ThisMonthTab({
             }}
           >
             <div>
-              <div style={{ fontSize: "11px", color: "#94a3b8" }}>Minimum payment</div>
-              <div style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
-                {formatCurrency(focusDebt.minimumPayment)}
+              <div style={{ fontSize: "11px", color: "#94a3b8" }}>
+                {focusExtra > 0 ? "Planned payment" : "Minimum payment"}
               </div>
+              <div style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
+                {formatCurrency(plannedPayment)}
+              </div>
+              {focusExtra > 0 && (
+                <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>
+                  {formatCurrency(focusDebt.minimumPayment)} minimum + {formatCurrency(focusExtra)} extra
+                </div>
+              )}
               {focusDebt.dueDate && (
                 <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>
                   Due the {getOrdinalDay(focusDebt.dueDate)}

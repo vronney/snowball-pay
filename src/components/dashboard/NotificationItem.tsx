@@ -143,12 +143,14 @@ export default function NotificationItem({
           )}
         </div>
       </button>
-      {notif.debtId && (
+      {/* Only offer one-tap mark-paid when we know the amount — a $0 payment
+          record would show the debt as "paid" without deducting anything. */}
+      {notif.debtId && (notif.debtAmount ?? 0) > 0 && (
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
-            onMarkPaid(notif.debtId!, notif.debtAmount ?? 0, today.getFullYear(), today.getMonth());
+            onMarkPaid(notif.debtId!, notif.debtAmount!, today.getFullYear(), today.getMonth());
             onDismiss(notif.id);
           }}
           style={{
