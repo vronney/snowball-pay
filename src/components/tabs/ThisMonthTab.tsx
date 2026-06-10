@@ -5,7 +5,7 @@ import { type Tab } from "@/components/dashboard/types";
 import { calculateMinimumsOnlyResult } from "@/lib/payoffPlan";
 import { calculatePlanMetrics } from "@/lib/payoffPlan";
 import { selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, getOrdinalDay } from "@/lib/utils";
 import { usePaymentRecords, useMarkPaid } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import InterestReclaimedBanner from "@/components/dashboard/InterestReclaimedBanner";
@@ -47,12 +47,6 @@ export default function ThisMonthTab({
   const today = new Date();
   const markPaid = useMarkPaid();
   const { data: paymentsData } = usePaymentRecords(today.getFullYear(), today.getMonth());
-
-  const paidThisMonth = useMemo(() => {
-    const map = new Map<string, boolean>();
-    for (const r of paymentsData?.records ?? []) map.set(r.debtId, true);
-    return map;
-  }, [paymentsData]);
 
   const paidDebtIds = useMemo(
     () => new Set((paymentsData?.records ?? []).map((record) => record.debtId)),
@@ -139,7 +133,7 @@ export default function ThisMonthTab({
   }
 
   const hasDebts = debts.length > 0;
-  const focusPaid = focusDebt ? paidThisMonth.get(focusDebt.id) ?? false : false;
+  const focusPaid = focusDebt ? paidDebtIds.has(focusDebt.id) : false;
 
   return (
     <div style={{ maxWidth: "680px", display: "flex", flexDirection: "column", gap: "20px" }}>
@@ -246,7 +240,7 @@ export default function ThisMonthTab({
               </div>
               {focusDebt.dueDate && (
                 <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>
-                  Due the {focusDebt.dueDate}{focusDebt.dueDate === 1 ? "st" : focusDebt.dueDate === 2 ? "nd" : focusDebt.dueDate === 3 ? "rd" : "th"}
+                  Due the {getOrdinalDay(focusDebt.dueDate)}
                 </div>
               )}
             </div>
@@ -381,7 +375,7 @@ export default function ThisMonthTab({
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             {debts.map((debt, i) => {
-              const paid = paidThisMonth.get(debt.id);
+              const paid = paidDebtIds.has(debt.id);
               const isFocus = debt.id === focusDebt?.id;
               const isPaidOff = debt.balance <= 0.01;
               return (
