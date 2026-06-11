@@ -55,8 +55,8 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
               width={168}
               height={32}
               priority
-              sizes="(max-width: 900px) 36vw, 168px"
-              style={{ width: "clamp(112px, 36vw, 168px)", height: "auto" }}
+              sizes="(max-width: 900px) 30vw, 168px"
+              style={{ width: "clamp(96px, 30vw, 168px)", maxWidth: "100%", height: "auto" }}
             />
           </a>
 

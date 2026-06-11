@@ -342,7 +342,9 @@ input[type="number"] {
   display: inline-flex;
   align-items: center;
   text-decoration: none;
-  flex-shrink: 0;
+  /* shrink path for the nav row: when OS font scaling widens the nowrap
+     CTA/menu group, the logo gives way instead of overflowing the pill */
+  min-width: 0;
 }
 .lp-nav-links {
   display: flex;
@@ -392,11 +394,12 @@ input[type="number"] {
 .lp-nav-mobile {
   display: none;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .lp-nav-mobile-cta {
   font-size: 13px;
-  padding: 10px 16px;
+  padding: 10px 14px;
 }
 .lp-menu-btn {
   width: 44px;
