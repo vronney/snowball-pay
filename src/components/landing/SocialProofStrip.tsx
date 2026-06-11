@@ -38,16 +38,9 @@ export default function SocialProofStrip() {
       <div style={{ background: '#f8fafc', borderBottom: '1px solid rgba(15,23,42,0.07)' }}>
         <div className="lp-stat-wrap" style={{ maxWidth: '1000px', margin: '0 auto', padding: '52px 24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
           {stats.map((s, i) => (
-            <div key={s.label} style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{ textAlign: 'center', padding: '0 44px' }}>
-                <div style={{
-                  fontSize: 'clamp(1.8rem, 4.5vw, 2.4rem)',
-                  fontWeight: 900,
-                  letterSpacing: '-0.04em',
-                  marginBottom: '5px',
-                  color: s.color,
-                  fontVariantNumeric: 'tabular-nums',
-                }}>
+            <div key={s.label} className="lp-stat-item" style={{ display: 'flex', alignItems: 'center' }}>
+              <div className="lp-stat-cell">
+                <div className="lp-stat-value" style={{ color: s.color }}>
                   {s.value}
                 </div>
                 <div style={{ fontSize: '12px', color: '#475569', letterSpacing: '0.02em', fontWeight: 600, marginBottom: '3px' }}>{s.label}</div>

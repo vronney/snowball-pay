@@ -146,6 +146,14 @@ input[type="number"] {
 
 /* ─── Landing page design system ─────────────────────── */
 
+/* Clip stray horizontal overflow at the page root: content wider than the
+   screen expands the mobile layout viewport, which makes the fixed navbar
+   overhang the screen edge (overflow-x: hidden is the pre-Safari-16 fallback) */
+.lp {
+  overflow-x: hidden;
+  overflow-x: clip;
+}
+
 @keyframes lp-glow-pulse {
   0%, 100% { opacity: 0.22; transform: scale(1); }
   50%       { opacity: 0.52; transform: scale(1.05); }
@@ -537,6 +545,18 @@ input[type="number"] {
 }
 .lp-ticker:hover { animation-play-state: paused; }
 
+.lp-stat-cell {
+  text-align: center;
+  padding: 0 44px;
+}
+.lp-stat-value {
+  font-size: clamp(1.8rem, 4.5vw, 2.4rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  margin-bottom: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
 .lp-f1 { animation: lp-fade-up 0.85s cubic-bezier(0.22,1,0.36,1) 0.05s both; }
 .lp-f2 { animation: lp-fade-up 0.85s cubic-bezier(0.22,1,0.36,1) 0.18s both; }
 .lp-f3 { animation: lp-fade-up 0.85s cubic-bezier(0.22,1,0.36,1) 0.31s both; }
@@ -896,13 +916,17 @@ input[type="number"] {
   .lp-mobile-link {
     font-size: clamp(1.3rem, 9vw, 1.75rem);
   }
-  .lp-stat-wrap  { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 0 !important; flex-wrap: unset !important; }
-  .lp-stat-wrap > div { padding-left: 16px !important; padding-right: 16px !important; }
+  /* minmax(0, 1fr): plain 1fr tracks can't shrink below the stat text's
+     min-content width, which pushed the page wider than the viewport */
+  .lp-stat-wrap  { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 0 !important; flex-wrap: unset !important; }
+  .lp-stat-item  { min-width: 0; justify-content: center; }
+  .lp-stat-cell  { padding: 16px; }
+  .lp-stat-value { font-size: clamp(1.05rem, 5vw, 1.5rem); }
   .lp-stat-divider { display: none !important; }
 }
 @media (max-width: 480px) {
   .lp-ftr-grid   { grid-template-columns: 1fr !important; }
-  .lp-stat-wrap  { grid-template-columns: 1fr 1fr !important; }
+  .lp-stat-wrap  { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .lp-ticker     { animation-duration: 20s; }
   .lp-cta-btns   { flex-direction: column !important; align-items: stretch !important; }
   .lp-cta-btns .lp-btn { justify-content: center; }
