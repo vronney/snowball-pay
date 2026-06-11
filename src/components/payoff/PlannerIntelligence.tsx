@@ -65,7 +65,9 @@ export default function PlannerIntelligence({
   const [sandboxMethod, setSandboxMethod] =
     useState<PayoffMethod>(payoffMethod);
   const [sandboxExtra, setSandboxExtra] = useState<number>(
-    hasInitialActiveDebts ? Math.min(effectiveAcceleration, availableCashFlow) : 0,
+    hasInitialActiveDebts
+      ? Math.min(effectiveAcceleration, availableCashFlow)
+      : 0,
   );
   const [actionChecks, setActionChecks] = useState<Record<string, boolean>>({});
   const activeDebts = useMemo(() => debts.filter(isActiveDebt), [debts]);
@@ -191,7 +193,8 @@ export default function PlannerIntelligence({
       insights.push({
         title: "No active focus debt",
         why: "Every tracked debt is at a paid-off balance.",
-        impact: "Keep the paid-off accounts recorded and update the plan only if a new balance appears.",
+        impact:
+          "Keep the paid-off accounts recorded and update the plan only if a new balance appears.",
       });
     }
     const interestAvoided = Math.max(
@@ -238,10 +241,15 @@ export default function PlannerIntelligence({
 
     // Auto-reset checklist at the start of a new month so it feels fresh each cycle.
     const currentMonth = new Date().toISOString().slice(0, 7); // "YYYY-MM"
-    const savedMonth = (p.actionChecks as Record<string, unknown>)?.__month as string | undefined;
+    const savedMonth = (p.actionChecks as Record<string, unknown>)?.__month as
+      | string
+      | undefined;
     if (savedMonth && savedMonth !== currentMonth) {
       // New month — clear all checks and write the new month marker
-      const reset = { __month: currentMonth } as unknown as Record<string, boolean>;
+      const reset = { __month: currentMonth } as unknown as Record<
+        string,
+        boolean
+      >;
       setActionChecks(reset);
       updatePreferences.mutate({ actionChecks: reset });
     } else if (p.actionChecks) {
@@ -255,7 +263,11 @@ export default function PlannerIntelligence({
 
   const handleActionCheck = (action: string) => {
     const currentMonth = new Date().toISOString().slice(0, 7);
-    const next = { ...actionChecks, [action]: !actionChecks[action], __month: currentMonth } as unknown as Record<string, boolean>;
+    const next = {
+      ...actionChecks,
+      [action]: !actionChecks[action],
+      __month: currentMonth,
+    } as unknown as Record<string, boolean>;
     setActionChecks(next);
     updatePreferences.mutate({ actionChecks: next });
   };
@@ -292,8 +304,9 @@ export default function PlannerIntelligence({
           </h2>
         </div>
         <p className="text-xs" style={{ color: "#64748b" }}>
-          Keep the analytical charts, then use the coach reads to decide the
-          next payment, guardrail, or balance update.
+          Use this workspace to compare payoff strategies, stress-test extra
+          payment amounts, and follow prioritized next actions based on your
+          balances, due dates, and cash-buffer guardrails.
         </p>
       </div>
 
