@@ -462,7 +462,9 @@ export default function BalanceOverTimeChart({
           tone: 'warn' as const,
           title: 'Actual balances are behind the plan line',
           evidence: `${latestActual?.date ?? 'Latest update'} is ${formatCurrency(Math.abs(latestDiff))} above the projected balance.`,
-          action: 'Update balances, then adjust the forecast or add a catch-up payment only if the buffer allows.',
+          action: effectiveAcceleration > 0
+            ? `Your minimums are being paid — the gap is from the extra ${formatCurrency(effectiveAcceleration)}/mo acceleration not yet being applied to the focus debt.`
+            : 'Set an acceleration amount in your budget and direct it to your focus debt above the minimum payment each month.',
         }
       : latestDiff != null && latestDiff > 50
         ? {
