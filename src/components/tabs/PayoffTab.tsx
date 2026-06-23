@@ -233,51 +233,70 @@ export default function PayoffTab({
   } = planMetrics;
   const monthlyPayment = totalMinPayments + effectiveAcceleration;
   const timeStr = formatMonths(planResult.months);
+  // Headline metrics use CURRENT balances — the debt-free date is projected forward
+  // from today, so it must reflect what's actually still owed.
   const minimumsOnlyResult = calculateMinimumsOnlyResult(debts, planStartDate);
   const interestSavedVsMinimums = Math.max(
     0,
     minimumsOnlyResult.totalInterestPaid - planResult.totalInterestPaid,
   );
   const showMinimumsLine = effectiveAcceleration > 0;
-  const projectedBalanceMap = new Map(
-    planResult.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]),
-  );
-  const minimumsBalanceMap = new Map(
-    minimumsOnlyResult.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]),
-  );
 
-  // Compute the comparison strategy result for the overlay line.
-  // When the user is on snowball, show avalanche as the comparison (and vice versa).
-  // Custom uses avalanche as comparison since it has no natural counterpart.
+  // The chart's projected lines are seeded from each debt's CREATION balance
+  // (originalBalance) so the plan line starts where the debt actually began. This
+  // makes real paydown visible — the actual line descends from the true starting
+  // total instead of being flattened against an already-paid-down baseline.
+  const chartDebts = debts.map((d) => ({
+    ...d,
+    balance:
+      d.originalBalance && d.originalBalance > 0 ? d.originalBalance : d.balance,
+  }));
+  const chartPlan = calculatePlanMetrics(chartDebts, income, expenses, {
+    method: payoffMethod,
+    accelerationAmount,
+    planStartDate,
+  });
+  const chartPlanResult = chartPlan?.result ?? planResult;
+  const chartAcceleration = chartPlan?.effectiveAcceleration ?? effectiveAcceleration;
+  const chartMinimums = calculateMinimumsOnlyResult(chartDebts, planStartDate);
+
+  // Comparison overlay (snowball↔avalanche), also seeded from creation balances.
   const comparisonResult =
     payoffMethod === "avalanche"
       ? calculateResultForAcceleration(
-          debts,
+          chartDebts,
           income,
-          planMetrics,
-          effectiveAcceleration,
+          chartPlan ?? planMetrics,
+          chartAcceleration,
           "snowball",
           planStartDate,
         )
       : calculateResultForAcceleration(
-          debts,
+          chartDebts,
           income,
-          planMetrics,
-          effectiveAcceleration,
+          chartPlan ?? planMetrics,
+          chartAcceleration,
           "avalanche",
           planStartDate,
         );
+
+  const projectedBalanceMap = new Map(
+    chartPlanResult.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]),
+  );
+  const minimumsBalanceMap = new Map(
+    chartMinimums.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]),
+  );
   const avalancheBalanceMap = new Map(
     comparisonResult.monthlyBalances.map((mb) => [mb.date, mb.totalBalance]),
   );
   const showAvalancheLine = payoffMethod !== "custom";
 
   const baseBalances =
-    minimumsOnlyResult.months >= planResult.months
-      ? minimumsOnlyResult.monthlyBalances
-      : comparisonResult.months >= planResult.months
+    chartMinimums.months >= chartPlanResult.months
+      ? chartMinimums.monthlyBalances
+      : comparisonResult.months >= chartPlanResult.months
         ? comparisonResult.monthlyBalances
-        : planResult.monthlyBalances;
+        : chartPlanResult.monthlyBalances;
   const priorityEditorDebts = [...activeDebts].sort((a, b) => {
     const aPriority = a.priorityOrder ?? Number.MAX_SAFE_INTEGER;
     const bPriority = b.priorityOrder ?? Number.MAX_SAFE_INTEGER;
@@ -291,6 +310,7 @@ export default function PayoffTab({
     (debt) => debt.priorityOrder != null,
   );
   const currentTotalDebt = debts.reduce((s, d) => s + d.balance, 0);
+  const chartStartTotal = chartDebts.reduce((s, d) => s + d.balance, 0);
   const hasRealSnapshots = actualBalanceMap.size > 0;
   const balanceChartData = baseBalances.map((mb, index) => ({
     date: mb.date,
@@ -298,12 +318,12 @@ export default function PayoffTab({
     totalBalance: projectedBalanceMap.get(mb.date),
     minimumsBalance: minimumsBalanceMap.get(mb.date),
     avalancheBalance: avalancheBalanceMap.get(mb.date),
-    // Month 0 is always anchored to current total debt so all three lines share
-    // the same starting point. Subsequent months use recorded snapshot data.
+    // Actual balances come straight from recorded snapshots for every month so the
+    // line shows true progress. With no snapshots yet, month 0 falls back to the
+    // creation total so a starting point still renders.
     actualBalance:
-      index === 0
-        ? currentTotalDebt
-        : actualBalanceMap.get(mb.date),
+      actualBalanceMap.get(mb.date) ??
+      (index === 0 ? chartStartTotal : undefined),
   }));
   const timelineData = [...planResult.payoffSchedule]
     .sort((a, b) => a.monthPaidOff - b.monthPaidOff)

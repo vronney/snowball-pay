@@ -53,3 +53,6 @@ dist
 .gstack/
 .vercel
 .env*
+
+# TypeScript incremental build cache
+tsconfig.tsbuildinfo
