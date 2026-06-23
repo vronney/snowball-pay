@@ -31,6 +31,7 @@ import { upgradeEvents } from "@/lib/upgradeEvents";
 import TrialCountdownBanner from "@/components/dashboard/TrialCountdownBanner";
 import { useSubscription } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
+import { useIdleTimeout } from "@/lib/hooks/useIdleTimeout";
 
 type UserInfo = {
   name?: string | null;
@@ -66,6 +67,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
   const router = useRouter();
   const startCheckout = useStartCheckout();
   const queryClient = useQueryClient();
+  const { warning, countdown, stayLoggedIn, logout } = useIdleTimeout();
 
   useEffect(() => {
     const handlePageShow = (event: PageTransitionEvent) => {
@@ -302,6 +304,56 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
           feature={upgradeModal.feature}
           onClose={() => setUpgradeModal({ open: false })}
         />
+      )}
+
+      {warning && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="idle-title"
+          style={{
+            position: "fixed", inset: 0, zIndex: 9999,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(15,23,42,0.5)",
+          }}
+        >
+          <div style={{
+            background: "#ffffff", borderRadius: 12, padding: "28px 32px",
+            maxWidth: 360, width: "calc(100% - 32px)",
+            boxShadow: "0 8px 32px rgba(15,23,42,0.18)",
+            textAlign: "center",
+          }}>
+            <p id="idle-title" style={{ fontWeight: 700, fontSize: 16, color: "#0f172a", marginBottom: 8 }}>
+              Still there?
+            </p>
+            <p style={{ fontSize: 14, color: "#64748b", marginBottom: 20, lineHeight: 1.5 }}>
+              You&apos;ll be logged out in{" "}
+              <span className="mono" style={{ color: "#2563eb", fontWeight: 600 }}>
+                {countdown}s
+              </span>{" "}
+              due to inactivity.
+            </p>
+            <button
+              onClick={stayLoggedIn}
+              style={{
+                width: "100%", padding: "10px 0", borderRadius: 8, border: "none",
+                background: "#2563eb", color: "#ffffff", fontWeight: 600,
+                fontSize: 14, cursor: "pointer", marginBottom: 10, fontFamily: "inherit",
+              }}
+            >
+              Stay logged in
+            </button>
+            <button
+              onClick={logout}
+              style={{
+                background: "none", border: "none", color: "#64748b",
+                fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+              }}
+            >
+              Log out now
+            </button>
+          </div>
+        </div>
       )}
 
       <style>{`

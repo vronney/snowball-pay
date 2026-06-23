@@ -7,8 +7,13 @@ export async function GET(request: NextRequest) {
   if (!auth.valid || !auth.user) return unauthorized();
 
   try {
+    // Filter to debts that still exist — orphaned snapshots from deleted debts
+    // would otherwise inflate historical totals on the chart.
     const snapshots = await prisma.balanceSnapshot.findMany({
-      where: { userId: auth.user.id },
+      where: {
+        userId: auth.user.id,
+        debt: { userId: auth.user.id },
+      },
       orderBy: { recordedAt: 'asc' },
     });
 
