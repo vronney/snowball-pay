@@ -93,30 +93,12 @@ export default function DebtCard({
 
   const togglePanel = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
 
-  const snapshotAllDebts = (updatedDebtBalance: number) => {
-    const now = new Date();
-    const recordedAt = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      1,
-    ).toISOString();
-    const entries = allDebts.map((d) => ({
-      debtId: d.id,
-      balance: d.id === debt.id ? updatedDebtBalance : d.balance,
-      recordedAt,
-    }));
-    return addBulkSnapshots.mutateAsync(entries);
-  };
-
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isPaidOff) return;
     const amount = parseFloat(paymentAmount);
     if (!amount || amount <= 0) return;
     const now = new Date();
-    // markPaid handles: paymentRecord creation, balance decrement, and snapshot for this debt.
-    // 'log' mode: each submitted payment deducts from the balance, even if one
-    // was already recorded this month (amounts accumulate into the month total).
     await markPaid.mutateAsync({
       debtId: debt.id,
       amount,
@@ -126,9 +108,7 @@ export default function DebtCard({
     });
     // snapshot remaining debts so their balances are recorded for this month too
     const recordedAt = new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      1,
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
     ).toISOString();
     const otherEntries = allDebts
       .filter((d) => d.id !== debt.id)
@@ -138,7 +118,6 @@ export default function DebtCard({
     }
     setPaymentAmount("");
     setPanel(null);
-    // Celebrate if this payment wipes out the balance
     if (amount >= debt.balance) {
       setClearedAmount(debt.balance);
       setShowPaidOffModal(true);
@@ -149,8 +128,9 @@ export default function DebtCard({
     e.preventDefault();
     const val = parseFloat(newBalance);
     if (isNaN(val) || val < 0) return;
+    // PATCH creates a per-debt snapshot automatically; no need to bulk-snapshot
+    // all debts here — that used stale prop values and corrupted prior snapshots.
     await updateDebt.mutateAsync({ id: debt.id, updates: { balance: val } });
-    await snapshotAllDebts(val);
     setPanel(null);
   };
 
