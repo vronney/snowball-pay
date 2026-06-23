@@ -165,6 +165,23 @@ export default function PrivacyPolicyPage() {
             We do not use advertising cookies, third-party tracking cookies, or behavioral analytics cookies.
             We do not serve advertisements.
           </p>
+
+          <SubHeading>2.7 Financial Data from Linked Accounts (via Plaid)</SubHeading>
+          <p>
+            If you choose to link a financial account, we use Plaid to retrieve a limited set of account
+            data so your debt records stay current without manual entry. We collect:
+          </p>
+          <ul>
+            <li><strong>Account balances, interest rates (APR), and minimum payments</strong> for the
+              accounts you link</li>
+            <li>The <strong>Plaid Item identifier and access token</strong> needed to refresh that data
+              (stored encrypted at rest; never exposed to the browser)</li>
+          </ul>
+          <p>
+            We do <strong>not</strong> receive or store your bank login credentials — you authenticate
+            directly with Plaid. Linking is optional, requires your express consent, and can be disconnected
+            at any time. See Section 4 for details.
+          </p>
         </LegalSection>
 
         {/* ─── 3. How We Use Your Information ───────────────────────────── */}
@@ -225,6 +242,12 @@ export default function PrivacyPolicyPage() {
                 'Financial data summaries for recommendations; full document content for extraction',
                 'USA',
               ],
+              [
+                'Plaid Inc.',
+                'Securely connecting to financial institutions you choose to link, to retrieve account balances, APR, and minimum payments',
+                'The bank-connection request and the account data Plaid returns (balances, interest rates, minimum payments). We never receive your bank login credentials.',
+                'USA',
+              ],
             ]}
           />
 
@@ -247,6 +270,33 @@ export default function PrivacyPolicyPage() {
             <a href="https://www.anthropic.com/legal/privacy" target="_blank" rel="noopener noreferrer"
                style={{ color: '#2563eb' }}>
               anthropic.com/legal/privacy
+            </a>.
+          </p>
+
+          <SubHeading>Important Notes on Plaid / Linked Accounts</SubHeading>
+          <p>
+            Connecting a financial account is <strong>entirely optional</strong>. If you choose to link an
+            account, we use Plaid to establish the connection. When you do:
+          </p>
+          <ul>
+            <li>You enter your bank credentials directly into <strong>Plaid&apos;s</strong> secure interface.
+              SnowballPay <strong>never sees, receives, or stores your bank login credentials</strong>.</li>
+            <li>We are shown an <strong>express consent disclosure before Plaid is launched</strong>, describing
+              the data collected (balances, APR, minimum payments), the purpose (debt payoff tracking only),
+              and that you can disconnect at any time.</li>
+            <li>Plaid acts as a <strong>data processor</strong> on our behalf to retrieve the account data you
+              authorize. We use only Plaid&apos;s Liabilities data — balances, interest rates, and minimum
+              payments — to keep your debt records current.</li>
+            <li>You can <strong>disconnect a linked account at any time</strong>. Disconnecting (and deleting
+              your account) revokes the access token with Plaid via <code>item/remove</code> so no further data
+              is retrieved.</li>
+            <li>We do not use linked-account data for advertising, profiling, or AI model training.</li>
+          </ul>
+          <p>
+            You can review Plaid&apos;s privacy practices at{' '}
+            <a href="https://plaid.com/legal/#end-user-privacy-policy" target="_blank" rel="noopener noreferrer"
+               style={{ color: '#2563eb' }}>
+              plaid.com/legal
             </a>.
           </p>
 
@@ -276,6 +326,12 @@ export default function PrivacyPolicyPage() {
               If you delete your account, all associated data — including debts, income, expenses, payoff
               plans, balance snapshots, uploaded document records, and AI recommendation caches — is
               permanently deleted from our production database within <strong>30 days</strong>.
+            </li>
+            <li>
+              <strong>Linked-account (Plaid) data:</strong> Retained only while the account stays linked.
+              When you disconnect an account or delete your SnowballPay account, we revoke the Plaid access
+              token via <code>item/remove</code> and delete the stored token, so no further account data is
+              retrieved.
             </li>
             <li>
               <strong>Database backups:</strong> Neon maintains automated database backups. Deleted data
