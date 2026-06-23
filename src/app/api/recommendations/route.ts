@@ -395,8 +395,8 @@ export async function POST(request: NextRequest) {
 
   if (!(await limits.recommendations(auth.user.id))) {
     return NextResponse.json(
-      { error: 'Too many requests. Please wait before generating new recommendations.' },
-      { status: 429 }
+      { error: 'Too many requests. Please wait before generating new recommendations.', retryAfter: 600 },
+      { status: 429, headers: { 'Retry-After': '600' } }
     );
   }
 

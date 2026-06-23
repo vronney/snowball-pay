@@ -652,20 +652,28 @@ export default function AiRecommendations({
       )}
 
       {/* Error */}
-      {activeDebts.length > 0 && generate.isError && (
-        <div
-          style={{
-            padding: "12px 14px",
-            borderRadius: "10px",
-            background: "rgba(239,68,68,0.08)",
-            border: "1px solid rgba(239,68,68,0.2)",
-            color: "#b91c1c",
-            fontSize: "13px",
-          }}
-        >
-          Could not load recommendations. Check your connection and try again.
-        </div>
-      )}
+      {activeDebts.length > 0 && generate.isError && (() => {
+        const status = (generate.error as { response?: { status?: number; data?: { retryAfter?: number } } })?.response?.status;
+        const retryMins = status === 429
+          ? Math.ceil(((generate.error as { response?: { data?: { retryAfter?: number } } })?.response?.data?.retryAfter ?? 600) / 60)
+          : null;
+        return (
+          <div
+            style={{
+              padding: "12px 14px",
+              borderRadius: "10px",
+              background: status === 429 ? "rgba(245,158,11,0.08)" : "rgba(239,68,68,0.08)",
+              border: `1px solid ${status === 429 ? "rgba(245,158,11,0.25)" : "rgba(239,68,68,0.2)"}`,
+              color: status === 429 ? "#92400e" : "#b91c1c",
+              fontSize: "13px",
+            }}
+          >
+            {status === 429
+              ? `Rate limit reached. Try again in ${retryMins} minute${retryMins === 1 ? "" : "s"}.`
+              : "Could not load recommendations. Check your connection and try again."}
+          </div>
+        );
+      })()}
 
       {/* Results */}
       {activeDebts.length > 0 && hasResults && !isGenerating && (
