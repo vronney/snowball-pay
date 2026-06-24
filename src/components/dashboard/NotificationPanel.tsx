@@ -41,6 +41,8 @@ export default function NotificationPanel({
 }: NotificationPanelProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(() => loadDismissed());
+  const [isMobile, setIsMobile] = useState(false);
+  const [panelTop, setPanelTop] = useState(0);
   const notifRef = useRef<HTMLDivElement>(null);
 
   const visible = notifications.filter((n) => !dismissed.has(n.id));
@@ -74,6 +76,32 @@ export default function NotificationPanel({
     if (notifOpen) document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, [notifOpen]);
+
+  // Track viewport so the panel can anchor to the screen (not the button) on
+  // narrow phones, where a button-anchored panel overflows the left edge.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 480px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  // On mobile, drop the fixed-position panel directly beneath the bell button.
+  useEffect(() => {
+    if (!notifOpen || !isMobile) return;
+    const sync = () => {
+      const rect = notifRef.current?.getBoundingClientRect();
+      if (rect) setPanelTop(rect.bottom + 8);
+    };
+    sync();
+    window.addEventListener("resize", sync);
+    window.addEventListener("scroll", sync, true);
+    return () => {
+      window.removeEventListener("resize", sync);
+      window.removeEventListener("scroll", sync, true);
+    };
+  }, [notifOpen, isMobile]);
 
   return (
     <div ref={notifRef} style={{ position: "relative" }}>
@@ -125,16 +153,26 @@ export default function NotificationPanel({
       {notifOpen && (
         <div
           style={{
-            position: "absolute",
-            top: "calc(100% + 8px)",
-            right: 0,
-            width: "320px",
             background: "#ffffff",
             border: "1px solid rgba(15,23,42,0.1)",
             borderRadius: "16px",
             boxShadow: "0 8px 32px rgba(15,23,42,0.12), 0 1px 4px rgba(15,23,42,0.06)",
             zIndex: 100,
             overflow: "hidden",
+            ...(isMobile
+              ? {
+                  position: "fixed" as const,
+                  top: `${panelTop}px`,
+                  left: "12px",
+                  right: "12px",
+                  width: "auto",
+                }
+              : {
+                  position: "absolute" as const,
+                  top: "calc(100% + 8px)",
+                  right: 0,
+                  width: "min(320px, calc(100vw - 24px))",
+                }),
           }}
         >
           <div
