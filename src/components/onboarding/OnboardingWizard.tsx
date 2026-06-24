@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCompleteOnboarding } from "@/lib/hooks";
+import { reportSignupConversion } from "@/components/GoogleAdsConversion";
 import { formatCurrency } from "@/lib/utils";
 import { ChevronRight, ChevronLeft, Check, DollarSign } from "lucide-react";
 
@@ -636,6 +637,9 @@ export function OnboardingWizard() {
         // Ignore storage cleanup errors
       }
       submitIdempotencyKeyRef.current = null;
+      // First plan generated — fire the Google Ads "Sign-up – Start Plan"
+      // conversion on this success state, not on the CTA click.
+      reportSignupConversion();
       router.push("/dashboard");
     } catch {
       setSubmitError(

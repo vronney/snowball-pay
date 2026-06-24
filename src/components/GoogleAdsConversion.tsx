@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 
 const GOOGLE_ADS_CLICK_CONVERSION_SEND_TO = 'AW-18159208162/vtzzCKnrx6wcEOKN_tJD';
 const GOOGLE_ADS_PAGE_VIEW_CONVERSION_SEND_TO = 'AW-18159208162/B2GpCOy7y6wcEOKN_tJD';
+const GOOGLE_ADS_SIGNUP_CONVERSION_SEND_TO = 'AW-18159208162/QQHKCLLJ_sQcEOKN_tJD';
 
 const CALCULATOR_NAMES: Record<string, string> = {
   default: 'Free Debt Payoff Calculator',
@@ -90,6 +91,29 @@ function reportCalculatorClickConversion(target: CalculatorClickTarget) {
     click_url: target.href,
     page_path: window.location.pathname,
     target_page_path: target.path,
+  });
+}
+
+/**
+ * Fires the "Sign-up – Start Plan" conversion. Call this on the success state —
+ * the moment a user actually completes onboarding and their first plan is
+ * generated — NOT on the Start Plan button click. Safe to call before a
+ * client-side redirect (gtag uses a sendBeacon transport, so it isn't lost).
+ */
+export function reportSignupConversion() {
+  const gtag = (window as any).gtag;
+
+  if (typeof gtag !== 'function') {
+    return;
+  }
+
+  gtag('event', 'conversion', {
+    send_to: GOOGLE_ADS_SIGNUP_CONVERSION_SEND_TO,
+    value: 1.0,
+    currency: 'USD',
+    event_category: 'signup',
+    event_label: 'Start Plan',
+    page_path: window.location.pathname,
   });
 }
 
