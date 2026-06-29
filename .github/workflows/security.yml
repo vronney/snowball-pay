@@ -12,3 +12,4 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm audit --audit-level=high
       - run: npx lockfile-lint --path package-lock.json --type npm --validate-https --allowed-hosts npm
+      - run: npm audit --audit-level=critical # TODO: restore --audit-level=high after Next 16 upgrade (#<issue>). 10 highs are Next/eslint-config-next, tracked.
