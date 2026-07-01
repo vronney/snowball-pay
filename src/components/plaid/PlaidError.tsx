@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface PlaidErrorAction {
   label: string;
@@ -29,13 +29,18 @@ export default function PlaidError({
 }: PlaidErrorProps) {
   const [isVisible, setIsVisible] = useState(true);
 
+  // Keep the latest onDismiss in a ref so the 8s auto-dismiss timer isn't
+  // reset by parent re-renders (the callback is recreated every render).
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsVisible(false);
-      onDismiss();
+      onDismissRef.current();
     }, 8000);
     return () => clearTimeout(timer);
-  }, [onDismiss]);
+  }, []);
 
   if (!isVisible) return null;
 

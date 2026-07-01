@@ -133,13 +133,16 @@ export async function DELETE(
             await plaidClient.itemRemove({
               access_token: decryptToken(plaidItem.accessToken),
             });
+            await prisma.plaidItem.delete({ where: { id: plaidItem.id } });
           } catch (plaidError) {
+            // Revocation failed — keep the row (it holds our only copy of the
+            // token) so a later attempt (e.g. account deletion, which revokes
+            // every stored item) can still stop billing.
             logPlaidError(
-              'Plaid itemRemove failed while deleting last linked debt (proceeding):',
+              'Plaid itemRemove failed while deleting last linked debt (keeping item row):',
               plaidError
             );
           }
-          await prisma.plaidItem.delete({ where: { id: plaidItem.id } });
         }
       }
     }

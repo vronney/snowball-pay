@@ -555,9 +555,11 @@ IMPORTANT:
       usedFallback = true;
     }
 
-    if (normalizedRecommendations.length === 0) {
-      const fallbackRecommendations = buildFallbackRecommendations(body, totalDebt, totalMin, monthChangeContext);
-      normalizedRecommendations.push(...fallbackRecommendations);
+    // normalizeRecommendations dedupes by type, so a schema-valid payload
+    // (min 4) can still shrink below the minimum. Anything under 4 is a
+    // degraded set — serve fallback instead and don't let it into the cache.
+    if (normalizedRecommendations.length < 4) {
+      normalizedRecommendations = buildFallbackRecommendations(body, totalDebt, totalMin, monthChangeContext);
       usedFallback = true;
     }
 

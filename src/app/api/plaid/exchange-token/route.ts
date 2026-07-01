@@ -104,7 +104,15 @@ export async function POST(request: NextRequest) {
       try {
         await plaidClient.itemRemove({ access_token: accessToken });
       } catch (removeError) {
+        // Revocation failed — do NOT drop our only copy of a live token.
+        // Persist it (encrypted, no debts attached) so it can still be revoked
+        // later (account deletion revokes every stored item).
         logPlaidError('Failed to remove duplicate-submission token:', removeError);
+        await prisma.plaidItem.upsert({
+          where: { itemId },
+          create: { itemId, userId, accessToken: encryptToken(accessToken) },
+          update: { accessToken: encryptToken(accessToken) },
+        });
       }
       return NextResponse.json(
         { error: 'These accounts are already connected.' },
@@ -258,6 +266,30 @@ export async function POST(request: NextRequest) {
         plaidItemId: plaidItem.id,
         lastSyncedAt: now,
       });
+    }
+
+    // Nothing to import (e.g. no qualifying accounts, or Plaid returned no
+    // balances): don't keep a live, billable token for an item with no debts.
+    // Guard on the debt count — the upsert's update branch can hit an existing
+    // item that already has linked debts, which must stay untouched.
+    if (toCreate.length + toRelink.length === 0) {
+      const attachedDebts = await prisma.debt.count({
+        where: { plaidItemId: plaidItem.id },
+      });
+      if (attachedDebts === 0) {
+        try {
+          await plaidClient.itemRemove({ access_token: accessToken });
+          await prisma.plaidItem.delete({ where: { id: plaidItem.id } });
+        } catch (removeError) {
+          // Keep the row (it holds our only copy of the token) for a later
+          // revocation attempt rather than stranding a live token.
+          logPlaidError('Failed to remove empty-import token:', removeError);
+        }
+      }
+      return NextResponse.json(
+        { error: 'No debt accounts with balances were found at this bank.' },
+        { status: 422 }
+      );
     }
 
     // Atomic: creates + re-links together, so a partial failure rolls back.

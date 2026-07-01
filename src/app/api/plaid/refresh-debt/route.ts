@@ -135,9 +135,11 @@ export async function POST(request: NextRequest) {
           create: { debtId: u.id, userId, balance: u.newBalance, recordedAt },
         });
       }
+      // A successful liabilitiesGet proves the login works again — clear any
+      // stale re-auth flag so the reconnect banner doesn't linger.
       await tx.plaidItem.update({
         where: { id: plaidItemId },
-        data: { lastSyncedAt: now },
+        data: { lastSyncedAt: now, needsReauth: false },
       });
     });
 

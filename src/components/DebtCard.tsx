@@ -651,7 +651,10 @@ export default function DebtCard({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setConfirmingDisconnect(false)}
-                      className="rounded-md cursor-pointer bg-transparent border-0 transition text-xs font-semibold px-2 py-1"
+                      // In-flight requests can't be aborted — disable instead
+                      // of pretending cancel still works mid-disconnect.
+                      disabled={disconnectItem.isPending}
+                      className="rounded-md cursor-pointer bg-transparent border-0 transition text-xs font-semibold px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ color: color.faint }}
                     >
                       Cancel

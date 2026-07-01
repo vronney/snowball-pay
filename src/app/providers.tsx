@@ -17,7 +17,11 @@ axios.interceptors.response.use(undefined, (error) => {
       window.location.pathname.startsWith('/plaid'))
   ) {
     redirecting = true;
-    window.location.href = `/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+    // Keep query + hash so deep-link state (e.g. /plaid/oauth-return?oauth_state_id=…)
+    // survives the round-trip through login.
+    const returnTo =
+      window.location.pathname + window.location.search + window.location.hash;
+    window.location.href = `/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
   }
   return Promise.reject(error);
 });

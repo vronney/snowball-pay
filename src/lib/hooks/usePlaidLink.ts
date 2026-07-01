@@ -96,7 +96,7 @@ export function usePlaidLink() {
         return;
       }
       const errorMessage =
-        err instanceof axios.AxiosError
+        axios.isAxiosError<{ error?: string }>(err)
           ? err.response?.data?.error || 'Failed to initialize link'
           : 'Failed to initialize link';
       setState((prev) => ({
@@ -145,7 +145,7 @@ export function usePlaidLink() {
         return;
       }
       const errorMessage =
-        err instanceof axios.AxiosError
+        axios.isAxiosError<{ error?: string }>(err)
           ? err.response?.data?.error || 'Failed to link account'
           : 'Failed to link account';
       setState((prev) => ({
