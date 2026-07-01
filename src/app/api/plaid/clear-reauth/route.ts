@@ -24,7 +24,9 @@ export async function POST(request: NextRequest) {
 
     if (!(await limits.plaidSync(auth.user.id))) return tooManyRequests();
 
-    const parsed = ClearReauthSchema.safeParse(await request.json());
+    const parsed = ClearReauthSchema.safeParse(
+      await request.json().catch(() => null)
+    );
     if (!parsed.success || !isValidId(parsed.data.plaidItemId)) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }

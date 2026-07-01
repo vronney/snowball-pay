@@ -3,6 +3,7 @@ import {
   PlaidApi,
   PlaidEnvironments,
   CountryCode,
+  type AccountBase,
   type LiabilitiesObject,
 } from 'plaid';
 import { isPro } from '@/lib/gates';
@@ -167,15 +168,21 @@ export function extractInterestRate(
 }
 
 /**
- * Extract the current balance (the amount owed) from a Plaid liability.
+ * Extract the current balance (the amount owed) for a Plaid account.
+ *
+ * IMPORTANT: `/liabilities/get` puts `balances` on the `accounts[]` entries
+ * (AccountBase), NOT on the liability rows — the credit/student/mortgage
+ * liability objects only carry details like APRs and payment amounts. Callers
+ * must pass the matched ACCOUNT here, and the liability to the APR/minimum-
+ * payment extractors below.
+ *
  * Returns `null` when Plaid reports no current balance — callers should treat
  * null as "unknown" and NOT import a phantom $0 debt.
  */
 export function extractCurrentBalance(
-  liability: PlaidLiability | null | undefined
+  account: AccountBase | null | undefined
 ): number | null {
-  const balances = liability?.balances as Record<string, unknown> | undefined;
-  const current = balances?.current;
+  const current = account?.balances?.current;
   if (typeof current !== 'number') return null;
   return Math.abs(current);
 }
@@ -200,12 +207,14 @@ export async function resolveInstitutionName(
   }
 }
 
-/** Extract the credit limit, if present. */
+/**
+ * Extract the credit limit, if present. Like the current balance, `limit`
+ * lives on the ACCOUNT's `balances` (AccountBase), not on the liability row.
+ */
 export function extractCreditLimit(
-  liability: PlaidLiability | null | undefined
+  account: AccountBase | null | undefined
 ): number | undefined {
-  const balances = liability?.balances as Record<string, unknown> | undefined;
-  const limit = balances?.limit;
+  const limit = account?.balances?.limit;
   return typeof limit === 'number' ? limit : undefined;
 }
 

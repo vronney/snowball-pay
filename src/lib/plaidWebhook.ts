@@ -18,16 +18,31 @@ import { plaidClient, logPlaidError } from '@/lib/plaid';
 // trip on every webhook. Keys rotate rarely, keyed by kid so rotation is safe.
 const keyCache = new Map<string, JWK>();
 
+// Negative cache: the route is public, so forged JWT headers with random kids
+// would otherwise trigger an outbound Plaid API call per request (an
+// amplification vector that could exhaust Plaid rate limits and block
+// verification of real webhooks). Remember failed kid lookups for 5 minutes.
+const FAILED_KID_TTL_MS = 5 * 60 * 1000;
+const failedKidCache = new Map<string, number>();
+
 async function getVerificationKey(kid: string): Promise<JWK | null> {
   const cached = keyCache.get(kid);
   if (cached) return cached;
+  const failedAt = failedKidCache.get(kid);
+  if (failedAt !== undefined && Date.now() - failedAt < FAILED_KID_TTL_MS) {
+    return null;
+  }
   try {
     const res = await plaidClient.webhookVerificationKeyGet({ key_id: kid });
     const jwk = res.data.key as unknown as JWK;
     keyCache.set(kid, jwk);
+    failedKidCache.delete(kid);
     return jwk;
   } catch (err) {
     logPlaidError('[plaid webhook] failed to fetch verification key', err);
+    // Bound the cache so a flood of unique forged kids can't grow it forever.
+    if (failedKidCache.size >= 1000) failedKidCache.clear();
+    failedKidCache.set(kid, Date.now());
     return null;
   }
 }

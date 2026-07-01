@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import type { PlaidLinkError } from 'react-plaid-link';
 import { handleUpgradeError } from '@/lib/hooks';
 
 /**
@@ -156,10 +157,19 @@ export function usePlaidLink() {
     }
   };
 
-  const handleOnExit = () => {
-    setState((prev) => ({ ...prev, isOpen: false }));
+  // Plaid calls onExit with (error, metadata). A null error is a plain user
+  // cancel (no toast); a non-null error is a real failure (institution down,
+  // expired session, OAuth denial) the user should see.
+  const handleOnExit = (error?: PlaidLinkError | null) => {
+    setState((prev) => ({
+      ...prev,
+      isOpen: false,
+      error: error
+        ? error.display_message ||
+          'Your bank connection was interrupted. Please try again.'
+        : prev.error,
+    }));
     localStorage.removeItem(PLAID_LINK_TOKEN_KEY);
-    // User cancelled - no error toast in this case
   };
 
   const completeTutorial = () => {

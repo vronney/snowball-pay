@@ -188,8 +188,8 @@ Use these test credentials:
    - Access tokens are stored on `PlaidItem.accessToken`, encrypted at rest with
      AES-256-GCM (`src/lib/plaidCrypto.ts`), keyed off `PLAID_TOKEN_ENCRYPTION_KEY`.
    - Encrypt on write (`exchange-token`), decrypt on read (`refresh-debt`,
-     `disconnect`, `user/data` deletion). Legacy plaintext rows pass through and
-     re-encrypt on next write.
+     `disconnect`, `user/data` deletion). Decryption fails closed: a stored
+     value not in the `enc:v1:` format is rejected, never used as-is.
    - `PLAID_TOKEN_ENCRYPTION_KEY` must be set in every environment (a 64-hex-char
      key) — set it in Vercel **before** flipping `PLAID_ENV=production`.
 
@@ -217,15 +217,14 @@ Use these test credentials:
 
 ## Cost Estimation
 
-**Pricing Model (as of 2026):**
-- Liabilities retrieval: $0.25 per successful item link
-- Auth product: $1.00 per successful verification
-- Transactions: $0.10 per 100 transactions
+Plaid doesn't publish a stable public price list — always check the
+Contracts & Rates page in the Plaid Dashboard for current per-product rates
+before changing rollout scope. Rough shape of the cost model:
 
-**Estimate:**
-- Single user, single bank: ~$0.25-$1.00 (one-time)
-- Monthly sync (if using Transactions): ~$0.10/month
-- Per 100 active users: ~$25-$100 setup, $10/month ongoing
+- Liabilities is billed per successful `liabilities/get` style retrieval /
+  connected account, so link volume and sync frequency both matter.
+- Ballpark used for planning: well under $1 per linked login one-time, cents
+  per account per month ongoing — verify against your dashboard before launch.
 
 ## Next Steps
 
@@ -233,12 +232,12 @@ Use these test credentials:
 2. ✅ Add environment variables
 3. ✅ Update database schema
 4. ✅ Add PlaidLink component to dashboard
-5. 🔄 Implement webhook handler for re-auth flows
-6. 🔄 Add sync schedule (cron) for balance updates
-7. 🔄 Implement disconnect flow (API route)
-8. 🔄 Add re-linking UI (for existing linked accounts)
-9. 🔄 Implement balance sync webhook listener
-10. 🔄 Add manual refresh button on imported debt cards
+5. ✅ Implement webhook handler for re-auth flows (`/api/plaid/webhooks`)
+6. ✅ Implement disconnect flow (`/api/plaid/disconnect`)
+7. ✅ Add re-linking UI (`PlaidReauthBanner` + `/api/plaid/update-link-token`)
+8. ✅ Add manual refresh button on linked debt cards (`/api/plaid/refresh-debt`)
+9. 🔄 Add sync schedule (cron) for balance updates
+10. 🔄 Act on `DEFAULT_UPDATE` / balance webhooks (currently acknowledged only)
 
 ## Troubleshooting
 

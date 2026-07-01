@@ -93,6 +93,12 @@ model Debt {
   paymentRecords    PaymentRecord[]
 
   @@index([userId])
+  // One debt per underlying Plaid account per user. The exchange-token route
+  // dedupes in application code, but concurrent link sessions can race past
+  // that check — these constraints make the DB the backstop (Postgres treats
+  // NULLs as distinct, so manual debts are unaffected).
+  @@unique([userId, plaidAccountId])
+  @@unique([userId, plaidPersistentAccountId])
   @@map("debts")
 }
 

@@ -4,26 +4,9 @@ import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { limits } from '@/lib/rateLimit';
 import { upgradeRequired } from '@/lib/gates';
-import {
-  Configuration,
-  PlaidApi,
-  PlaidEnvironments,
-  CountryCode,
-} from 'plaid';
+import { CountryCode } from 'plaid';
 import { decryptToken } from '@/lib/plaidCrypto';
-import { logPlaidError, canUsePlaid } from '@/lib/plaid';
-
-const configuration = new Configuration({
-  basePath: PlaidEnvironments[process.env.PLAID_ENV || 'sandbox'],
-  baseOptions: {
-    headers: {
-      'PLAID-CLIENT-ID': process.env.PLAID_CLIENT_ID,
-      'PLAID-SECRET': process.env.PLAID_SECRET,
-    },
-  },
-});
-
-const plaidClient = new PlaidApi(configuration);
+import { plaidClient, logPlaidError, canUsePlaid } from '@/lib/plaid';
 
 const UpdateLinkTokenSchema = z.object({
   plaidItemId: z.string().min(1),
@@ -48,7 +31,9 @@ export async function POST(request: NextRequest) {
 
     if (!(await limits.plaidLinkToken(auth.user.id))) return tooManyRequests();
 
-    const parsed = UpdateLinkTokenSchema.safeParse(await request.json());
+    const parsed = UpdateLinkTokenSchema.safeParse(
+      await request.json().catch(() => null)
+    );
     if (!parsed.success || !isValidId(parsed.data.plaidItemId)) {
       return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
     }

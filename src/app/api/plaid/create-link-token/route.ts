@@ -2,29 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth, unauthorized, tooManyRequests } from '@/lib/auth-server';
 import { limits } from '@/lib/rateLimit';
 import { upgradeRequired } from '@/lib/gates';
-import { logPlaidError, canUsePlaid } from '@/lib/plaid';
+import { plaidClient, logPlaidError, canUsePlaid } from '@/lib/plaid';
 import {
-  Configuration,
-  PlaidApi,
-  PlaidEnvironments,
   Products,
   CountryCode,
   CreditAccountSubtype,
   LoanAccountSubtype,
 } from 'plaid';
-
-// Initialize Plaid client
-const configuration = new Configuration({
-  basePath: PlaidEnvironments[process.env.PLAID_ENV || 'sandbox'],
-  baseOptions: {
-    headers: {
-      'PLAID-CLIENT-ID': process.env.PLAID_CLIENT_ID,
-      'PLAID-SECRET': process.env.PLAID_SECRET,
-    },
-  },
-});
-
-const plaidClient = new PlaidApi(configuration);
 
 /**
  * POST /api/plaid/create-link-token

@@ -14,6 +14,8 @@ interface PlaidLinkModalProps {
  * The actual Plaid Link modal is rendered by react-plaid-link library.
  * This component manages the backdrop (portaled to body to escape the
  * header's backdrop-filter stacking context) and close via Escape key.
+ * While the token exchange is in flight (isLoading), dismissal is blocked so
+ * the flow can't be abandoned mid-import.
  */
 export default function PlaidLinkModal({
   isOpen,
@@ -23,18 +25,18 @@ export default function PlaidLinkModal({
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape' && !isLoading) onClose();
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, isLoading, onClose]);
 
   if (!isOpen || typeof document === 'undefined') return null;
 
   return createPortal(
     <div
       className="fixed inset-0 z-[998]"
-      onClick={onClose}
+      onClick={isLoading ? undefined : onClose}
       aria-hidden="true"
       style={{ backgroundColor: 'rgba(15, 23, 42, 0.5)' }}
     />,

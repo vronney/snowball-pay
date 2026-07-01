@@ -42,7 +42,9 @@ export async function POST(request: NextRequest) {
 
     if (!(await limits.plaidDisconnect(userId))) return tooManyRequests();
 
-    const parsed = DisconnectSchema.safeParse(await request.json());
+    const parsed = DisconnectSchema.safeParse(
+      await request.json().catch(() => null)
+    );
     if (!parsed.success || !isValidId(parsed.data.plaidItemId)) {
       return NextResponse.json(
         { error: 'Invalid request body' },
@@ -73,21 +75,21 @@ export async function POST(request: NextRequest) {
       logPlaidError('Plaid itemRemove failed (proceeding with local cleanup):', plaidError);
     }
 
-    // Unlink the debts BEFORE deleting the item. They remain but become
-    // unlinked (plaidItemId is set null automatically via onDelete: SetNull).
-    // Keep plaidAccountId: a later re-link matches on it to re-attach this exact
-    // debt (preserving its history) instead of creating a duplicate.
-    await prisma.debt.updateMany({
-      where: { plaidItemId: plaidItem.id },
-      data: {
-        isLinked: false,
-      },
-    });
-
-    // Delete the PlaidItem row
-    await prisma.plaidItem.delete({
-      where: { id: plaidItem.id },
-    });
+    // Unlink the debts and delete the item atomically — the token was already
+    // revoked above, so a partial local cleanup would strand debts pointing at
+    // a dead item. Debts remain but become unlinked (plaidItemId is set null
+    // automatically via onDelete: SetNull). Keep plaidAccountId: a later
+    // re-link matches on it to re-attach this exact debt (preserving its
+    // history) instead of creating a duplicate.
+    await prisma.$transaction([
+      prisma.debt.updateMany({
+        where: { plaidItemId: plaidItem.id },
+        data: { isLinked: false },
+      }),
+      prisma.plaidItem.delete({
+        where: { id: plaidItem.id },
+      }),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError, isValidId } from '@/lib/auth-server';
+import { plaidClient, logPlaidError } from '@/lib/plaid';
+import { decryptToken } from '@/lib/plaidCrypto';
 import { z } from 'zod';
 
 const UpdateDebtSchema = z.object({
@@ -113,6 +115,34 @@ export async function DELETE(
     await prisma.debt.delete({
       where: { id: params.id },
     });
+
+    // If this was the last debt on a linked Plaid item, the disconnect UI
+    // (which lives on debt cards) is gone too — revoke the token with Plaid
+    // (stops billing) and drop the item row, or it would linger billable and
+    // unreachable. Best-effort: the debt itself is already deleted.
+    if (existingDebt.plaidItemId) {
+      const remaining = await prisma.debt.count({
+        where: { plaidItemId: existingDebt.plaidItemId },
+      });
+      if (remaining === 0) {
+        const plaidItem = await prisma.plaidItem.findUnique({
+          where: { id: existingDebt.plaidItemId },
+        });
+        if (plaidItem) {
+          try {
+            await plaidClient.itemRemove({
+              access_token: decryptToken(plaidItem.accessToken),
+            });
+          } catch (plaidError) {
+            logPlaidError(
+              'Plaid itemRemove failed while deleting last linked debt (proceeding):',
+              plaidError
+            );
+          }
+          await prisma.plaidItem.delete({ where: { id: plaidItem.id } });
+        }
+      }
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {

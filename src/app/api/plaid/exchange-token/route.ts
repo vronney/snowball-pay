@@ -16,7 +16,7 @@ import {
   extractMinimumPayment,
   resolveInstitutionName,
 } from '@/lib/plaid';
-import { encryptToken } from '@/lib/plaidCrypto';
+import { encryptToken, ensureTokenEncryptionReady } from '@/lib/plaidCrypto';
 
 const ExchangeTokenSchema = z.object({
   publicToken: z.string().min(1),
@@ -30,6 +30,12 @@ const ExchangeTokenSchema = z.object({
  * then imports each liability account as a Debt linked to that PlaidItem.
  */
 export async function POST(request: NextRequest) {
+  // From the exchange until the token row is persisted, the access token
+  // exists only in memory. If we fail in that window without revoking it,
+  // Plaid keeps the Item alive (and billable) with no stored copy to revoke
+  // later — so the catch below calls itemRemove when we never got that far.
+  let accessToken: string | undefined;
+  let tokenPersisted = false;
   try {
     // Verify authentication
     const auth = await verifyAuth(request);
@@ -41,7 +47,9 @@ export async function POST(request: NextRequest) {
 
     if (!(await limits.plaidExchange(userId))) return tooManyRequests();
 
-    const parsed = ExchangeTokenSchema.safeParse(await request.json());
+    const parsed = ExchangeTokenSchema.safeParse(
+      await request.json().catch(() => null)
+    );
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Invalid request body' },
@@ -50,12 +58,16 @@ export async function POST(request: NextRequest) {
     }
     const { publicToken } = parsed.data;
 
+    // Fail BEFORE the exchange if the encryption key is missing/malformed —
+    // otherwise we'd create a live, billable Item whose token we can't store.
+    ensureTokenEncryptionReady();
+
     // Step 1: Exchange public_token for access_token
     const itemResponse = await plaidClient.itemPublicTokenExchange({
       public_token: publicToken,
     });
 
-    const accessToken = itemResponse.data.access_token;
+    accessToken = itemResponse.data.access_token;
     const itemId = itemResponse.data.item_id;
 
     // Step 1.5: accountsGet is NOT billed (unlike liabilitiesGet below), so use it
@@ -114,6 +126,23 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
 
+    // Defense-in-depth: Plaid item_ids are unique per Item so a cross-user
+    // collision shouldn't be possible, but never silently overwrite another
+    // user's row (and attach this user's debts to it) if one ever matched.
+    const existingItem = await prisma.plaidItem.findUnique({
+      where: { itemId },
+      select: { userId: true },
+    });
+    if (existingItem && existingItem.userId !== userId) {
+      console.error(
+        `[plaid exchange] item_id collision: item ${itemId} already belongs to another user`
+      );
+      return NextResponse.json(
+        { error: 'Failed to link account' },
+        { status: 409 }
+      );
+    }
+
     // Step 3: Upsert a single PlaidItem row for this institution login.
     // The access_token lives here once — never duplicated onto each Debt — and
     // is encrypted at rest (it grants ongoing read access to the user's bank).
@@ -136,6 +165,7 @@ export async function POST(request: NextRequest) {
         ...(institutionId ? { institutionId } : {}),
       },
     });
+    tokenPersisted = true;
 
     // Step 4: Index the user's existing Plaid-associated debts so a re-link can
     // re-attach the same debt instead of duplicating it. account_id is only
@@ -185,10 +215,13 @@ export async function POST(request: NextRequest) {
       persistentId: string | null;
     }[] = [];
     for (const account of accounts) {
+      // Balance and limit live on the ACCOUNT (accounts[].balances); the
+      // liability row only adds APR / minimum-payment detail. It's optional:
+      // some supported subtypes (e.g. auto loans) get no liability row at all,
+      // and skipping them would leave an account we're billed for unimported.
       const liability = findLiabilityForAccount(liabilities, account.account_id);
-      if (!liability) continue;
 
-      const balance = extractCurrentBalance(liability);
+      const balance = extractCurrentBalance(account);
       if (balance === null) continue;
 
       const persistentId = account.persistent_account_id ?? null;
@@ -208,7 +241,7 @@ export async function POST(request: NextRequest) {
       }
 
       const minPayment = extractMinimumPayment(liability);
-      const limit = extractCreditLimit(liability);
+      const limit = extractCreditLimit(account);
       toCreate.push({
         userId,
         name: account.name || `${account.subtype} - ${account.mask}`,
@@ -263,6 +296,15 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     logPlaidError('Error exchanging Plaid token:', error);
+    // Best-effort revoke of a token we exchanged but never stored — otherwise
+    // the Item stays live and billable with no copy left to revoke.
+    if (accessToken && !tokenPersisted) {
+      try {
+        await plaidClient.itemRemove({ access_token: accessToken });
+      } catch (removeError) {
+        logPlaidError('Failed to revoke unpersisted token after error:', removeError);
+      }
+    }
     return NextResponse.json(
       { error: 'Failed to link account' },
       { status: 500 }

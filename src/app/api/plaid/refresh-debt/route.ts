@@ -9,7 +9,6 @@ import {
   plaidClient,
   logPlaidError,
   canUsePlaid,
-  findLiabilityForAccount,
   extractCurrentBalance,
 } from '@/lib/plaid';
 import { decryptToken } from '@/lib/plaidCrypto';
@@ -38,7 +37,9 @@ export async function POST(request: NextRequest) {
 
     if (!(await limits.plaidSync(userId))) return tooManyRequests();
 
-    const parsed = RefreshDebtSchema.safeParse(await request.json());
+    const parsed = RefreshDebtSchema.safeParse(
+      await request.json().catch(() => null)
+    );
     if (!parsed.success || !isValidId(parsed.data.debtId)) {
       return NextResponse.json(
         { error: 'Invalid request body' },
@@ -82,7 +83,6 @@ export async function POST(request: NextRequest) {
     });
 
     const accounts = liabilitiesResponse.data.accounts || [];
-    const liabilities = liabilitiesResponse.data.liabilities || {};
 
     // Plaid bills per liabilitiesGet (one call returns the whole item), so this
     // single response updates EVERY linked debt on this item, not just the one
@@ -98,12 +98,15 @@ export async function POST(request: NextRequest) {
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
     );
 
-    // Build per-debt updates from the single response. Skip debts Plaid gives no
-    // current balance for — don't overwrite a real balance with 0/null.
+    // Build per-debt updates from the single response. The current balance
+    // lives on the ACCOUNT entry (accounts[].balances), not the liability row.
+    // Skip debts Plaid gives no current balance for — don't overwrite a real
+    // balance with 0/null.
     const updates = itemDebts.flatMap((d) => {
-      const liability = findLiabilityForAccount(liabilities, d.plaidAccountId);
-      if (!liability) return [];
-      const newBalance = extractCurrentBalance(liability);
+      const account = accounts.find(
+        (acc: AccountBase) => acc.account_id === d.plaidAccountId
+      );
+      const newBalance = extractCurrentBalance(account);
       if (newBalance === null) return [];
       // If the balance grew past the recorded baseline (new charges since
       // linking), raise originalBalance so payoff/progress math stays consistent.

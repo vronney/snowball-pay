@@ -134,4 +134,12 @@ export const limits = {
   /** 15 disconnects per 10 min per user. */
   plaidDisconnect: (userId: string) =>
     check('plaid-disconnect', `plaid-disconnect:${userId}`, 15, '600 s', 10 * 60 * 1000),
+
+  /**
+   * 120 Plaid webhook deliveries per 10 min per IP. The route is public and
+   * unauthenticated; this caps forged-request floods while staying far above
+   * Plaid's real delivery rate.
+   */
+  plaidWebhookIp: (ip: string) =>
+    check('plaid-webhook-ip', `plaid-webhook-ip:${ip}`, 120, '600 s', 10 * 60 * 1000),
 };

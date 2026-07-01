@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 interface PlaidSuccessProps {
   institutionName: string | null;
@@ -26,13 +26,18 @@ export default function PlaidSuccess({
   onNextStep,
   onDismiss,
 }: PlaidSuccessProps) {
+  // Keep the latest onDismiss in a ref so the 6s auto-dismiss timer isn't
+  // reset by parent re-renders (the callback is recreated every render).
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
   useEffect(() => {
     if (!showTutorial) {
       // Auto-dismiss success banner after 6 seconds
-      const timer = setTimeout(onDismiss, 6000);
+      const timer = setTimeout(() => onDismissRef.current(), 6000);
       return () => clearTimeout(timer);
     }
-  }, [showTutorial, onDismiss]);
+  }, [showTutorial]);
 
   // Tutorial Step 1
   if (showTutorial && tutorialStep === 1) {
@@ -65,14 +70,6 @@ export default function PlaidSuccess({
             >
               Got It
             </button>
-            <a
-              href="/help/plaid-sync"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-6 py-3 text-sm font-medium text-[#0f172a] transition-all duration-200 hover:bg-[#f1f5f9]"
-            >
-              Learn More
-            </a>
           </div>
 
           <div className="mt-4 flex justify-center gap-1.5">

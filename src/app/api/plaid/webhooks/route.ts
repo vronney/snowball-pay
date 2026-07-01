@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { limits } from '@/lib/rateLimit';
 import { verifyPlaidWebhook } from '@/lib/plaidWebhook';
 
 // Verify the raw signature against the exact bytes Plaid sent — disable any
@@ -31,6 +32,14 @@ const REAUTH_CODES = new Set([
  * returns 400 only when the signature can't be verified.
  */
 export async function POST(request: NextRequest) {
+  // Public, unauthenticated route — rate-limit by IP before doing any work
+  // (signature verification can trigger an outbound key fetch to Plaid).
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
+  if (!(await limits.plaidWebhookIp(ip))) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+  }
+
   const rawBody = await request.text();
 
   const verified = await verifyPlaidWebhook(
