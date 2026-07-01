@@ -345,6 +345,21 @@ export default function DebtTab({
     }
   }, [debts, sortBy, filterCategory]);
 
+  // One reconnect banner per linked item that needs re-auth, hosted on the FIRST
+  // VISIBLE debt of that item (computed over visibleDebts, not the full list, so
+  // category filtering can never hide the only host and drop the banner entirely).
+  const reauthBannerHostIds = useMemo(() => {
+    const seenItems = new Set<string>();
+    const hosts = new Set<string>();
+    for (const d of visibleDebts) {
+      if (d.needsReauth && d.plaidItemId && !seenItems.has(d.plaidItemId)) {
+        seenItems.add(d.plaidItemId);
+        hosts.add(d.id);
+      }
+    }
+    return hosts;
+  }, [visibleDebts]);
+
   const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
   const totalMin = activeDebts.reduce((s, d) => s + d.minimumPayment, 0);
 
@@ -673,6 +688,7 @@ export default function DebtTab({
                       key={debt.id}
                       debt={debt}
                       allDebts={debts}
+                      isReauthBannerHost={reauthBannerHostIds.has(debt.id)}
                       onDelete={() => deleteDebt.mutate(debt.id)}
                       firstSnapshotBalance={
                         earliestBalanceByDebt.get(debt.id) ?? null

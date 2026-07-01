@@ -96,8 +96,12 @@ export const PLANS = {
   },
   pro: {
     name: 'Pro',
-    price: 9,
-    annualPrice: 79,   // $79/yr ≈ $6.58/mo — saves ~$29 vs monthly
+    price: 12,
+    // $79/yr ≈ $6.58/mo — saves ~$65 vs monthly ($144/yr at the new $12/mo
+    // price). Left unchanged when price went $9→$12 (2026-07); the discount
+    // is now ~45% off monthly instead of ~27% — revisit if that's wider than
+    // intended.
+    annualPrice: 79,
     debtLimit: Infinity,
     features: [
       'Unlimited debts',

@@ -3,6 +3,7 @@ import { Menu, X } from "lucide-react";
 import { type Tab } from "@/components/dashboard/types";
 import { type Notification } from "@/components/dashboard/types";
 import NotificationPanel from "@/components/dashboard/NotificationPanel";
+import { PlaidLink } from "@/components/plaid/PlaidLink";
 
 type UserInfo = {
   name?: string | null;
@@ -20,6 +21,7 @@ interface DashboardHeaderProps {
   onMarkPaid: (debtId: string, amount: number, year: number, month: number) => void;
   user: UserInfo | null;
   initials: string;
+  plaidEnabled?: boolean;
 }
 
 export default function DashboardHeader({
@@ -32,6 +34,7 @@ export default function DashboardHeader({
   onMarkPaid,
   user,
   initials,
+  plaidEnabled = false,
 }: DashboardHeaderProps) {
   return (
     <header
@@ -98,6 +101,8 @@ export default function DashboardHeader({
           onNavigate={onNavigate}
           onMarkPaid={onMarkPaid}
         />
+
+        {plaidEnabled && <PlaidLink />}
 
         {user && (
           <div

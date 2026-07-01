@@ -3,6 +3,24 @@
 import { ReactNode, Suspense } from 'react';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import PostHogProvider from '@/components/analytics/PostHogProvider';
+import axios from 'axios';
+
+// Global 401 handler — redirect to login when the session expires.
+// Debounced so rapid-fire 401s don't trigger multiple redirects.
+let redirecting = false;
+axios.interceptors.response.use(undefined, (error) => {
+  if (
+    !redirecting &&
+    error?.response?.status === 401 &&
+    typeof window !== 'undefined' &&
+    (window.location.pathname.startsWith('/dashboard') ||
+      window.location.pathname.startsWith('/plaid'))
+  ) {
+    redirecting = true;
+    window.location.href = `/auth/login?returnTo=${encodeURIComponent(window.location.pathname)}`;
+  }
+  return Promise.reject(error);
+});
 
 function getResponseStatus(error: unknown): number | undefined {
   if (typeof error !== 'object' || error === null) return undefined;
@@ -22,6 +40,9 @@ const queryClient = new QueryClient({
         if (status === 401 || status === 403 || status === 404) return false;
         return failureCount < 2;
       },
+    },
+    mutations: {
+      retry: false,
     },
   },
 });

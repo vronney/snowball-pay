@@ -19,10 +19,18 @@ export async function GET(request: NextRequest) {
   if (!auth.valid || !auth.user) return unauthorized();
 
   try {
-    const debts = await prisma.debt.findMany({
+    const rows = await prisma.debt.findMany({
       where: { userId: auth.user.id },
       orderBy: { createdAt: 'desc' },
+      include: { plaidItem: { select: { needsReauth: true } } },
     });
+
+    // Flatten the linked item's re-auth flag onto each debt; drop the nested
+    // relation (and never expose the access token) from the response.
+    const debts = rows.map(({ plaidItem, ...debt }) => ({
+      ...debt,
+      needsReauth: plaidItem?.needsReauth ?? false,
+    }));
 
     return NextResponse.json({ debts });
   } catch (error) {

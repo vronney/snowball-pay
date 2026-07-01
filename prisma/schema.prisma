@@ -34,6 +34,7 @@ model User {
   aiRecommendationCache   AiRecommendationCache?
   preferences             UserPreferences?
   paymentRecords          PaymentRecord[]
+  plaidItems              PlaidItem[]
 
   @@map("users")
 }
@@ -73,6 +74,17 @@ model Debt {
   priorityOrder     Int?
   dueDate           Int?     // day of month (1-31)
 
+  // Plaid linkage — the access token lives on PlaidItem, not here.
+  isLinked          Boolean?   @default(false)
+  plaidAccountId    String?    // Plaid account_id — stable only WITHIN an Item
+  // Stable ACROSS Items/re-links (survives disconnect+relink). Used to re-attach
+  // the same debt on re-link instead of creating a duplicate. Null for accounts
+  // where Plaid doesn't provide one (some loan types).
+  plaidPersistentAccountId String?
+  plaidItemId       String?
+  plaidItem         PlaidItem? @relation(fields: [plaidItemId], references: [id], onDelete: SetNull)
+  lastSyncedAt      DateTime?
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
@@ -82,6 +94,37 @@ model Debt {
 
   @@index([userId])
   @@map("debts")
+}
+
+// ---------------------------------------------------------------------------
+// Plaid Item — one row per institution login ("Item"). Plaid bills per ACCOUNT,
+// and one Item can contain many accounts (Debts). The access token is stored
+// ONCE here (not per Debt) so it can be cleanly revoked via /item/remove on
+// disconnect (Plaid's MSA requires this to stop billing).
+// ---------------------------------------------------------------------------
+model PlaidItem {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemId          String   @unique // Plaid item_id
+  accessToken     String   @db.Text // store once per institution login
+  institutionName String?
+  // Plaid institution_id (stable across re-links, unlike itemId). Informational
+  // only — NOT unique per user: Plaid explicitly supports a user having more
+  // than one legitimate connection to the same institution (e.g. two separate
+  // logins for two different cards). Duplicate-submission detection matches on
+  // ACCOUNT identity instead (see exchange-token route), not institution alone.
+  institutionId   String?
+  createdAt       DateTime @default(now())
+  lastSyncedAt    DateTime?
+  // Set true by the Plaid webhook on ITEM_LOGIN_REQUIRED / PENDING_EXPIRATION —
+  // the bank login expired and the user must re-link. Cleared on successful
+  // re-link (exchange-token upsert) or the LOGIN_REPAIRED webhook.
+  needsReauth     Boolean  @default(false)
+  debts           Debt[]
+
+  @@index([userId])
+  @@map("plaid_items")
 }
 
 model Income {
