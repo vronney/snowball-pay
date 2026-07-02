@@ -132,7 +132,11 @@ export default function DebtCard({
     }
     setPaymentAmount("");
     setPanel(null);
-    if (amount >= debt.balance) {
+    // Bank-linked debts keep their balance until the payment posts and Plaid
+    // syncs, so a full-balance payment here doesn't zero the card yet — the
+    // celebration would contradict the still-nonzero balance on screen.
+    const isBankLinked = Boolean(debt.isLinked && debt.plaidItemId);
+    if (!isBankLinked && amount >= debt.balance) {
       setClearedAmount(debt.balance);
       setShowPaidOffModal(true);
     }

@@ -71,8 +71,8 @@ export function PlaidLink() {
       <button
         onClick={() => setShowConsent(true)}
         disabled={isLoading}
-        aria-label="Link your bank account"
-        title="Link Bank Account"
+        aria-label="Link bank account"
+        title="Link bank account"
         className="plaid-link-btn group inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
       >
         {isLoading ? (
