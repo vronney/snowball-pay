@@ -463,6 +463,21 @@ export default function DebtCard({
               Last synced {formatRelativeTime(new Date(debt.lastSyncedAt))} ago
             </p>
           )}
+          {/* Some banks share balances but not APR via Plaid. 0% on a linked
+              card silently skews the payoff plan — nudge a manual entry. */}
+          {debt.isLinked && debt.interestRate === 0 && !isPaidOff && (
+            <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
+              Your bank didn&apos;t share this card&apos;s APR.{" "}
+              <button
+                onClick={() => togglePanel("edit")}
+                className="underline underline-offset-2 cursor-pointer bg-transparent border-0 p-0 text-xs"
+                style={{ color: "#475569", fontWeight: 600 }}
+              >
+                Add it
+              </button>{" "}
+              for accurate payoff math.
+            </p>
+          )}
         </div>
       </div>
 

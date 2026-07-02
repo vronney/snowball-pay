@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface PlaidErrorAction {
   label: string;
@@ -42,7 +43,7 @@ export default function PlaidError({
     return () => clearTimeout(timer);
   }, []);
 
-  if (!isVisible) return null;
+  if (!isVisible || typeof document === 'undefined') return null;
 
   const colorMap = {
     error: {
@@ -67,7 +68,10 @@ export default function PlaidError({
 
   const colors = colorMap[type];
 
-  return (
+  // Portal to document.body: this renders inside DashboardHeader, whose
+  // backdrop-filter makes it the containing block for position:fixed — without
+  // the portal this toast pins to the header instead of the viewport.
+  return createPortal(
     <div
       className="fixed top-4 left-4 right-4 z-50 mx-auto max-w-md rounded-xl border p-4 shadow-lg"
       style={{
@@ -172,6 +176,7 @@ export default function PlaidError({
           }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body
   );
 }
