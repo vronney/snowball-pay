@@ -1,6 +1,18 @@
 import { type Debt, type BalanceSnapshot } from '@/types';
 import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 
+/**
+ * A debt is bank-linked only while it has both the Plaid link flag and a
+ * live PlaidItem reference — disconnecting clears plaidItemId, at which
+ * point the debt is manual again and local balance math applies.
+ * Structural param so it works for both Prisma rows and client Debt objects.
+ */
+export function isDebtBankLinked(
+  debt: { isLinked?: boolean | null; plaidItemId?: string | null } | null | undefined,
+): boolean {
+  return Boolean(debt?.isLinked && debt?.plaidItemId);
+}
+
 export interface UpcomingPayment {
   debt: Debt;
   daysUntilDue: number;

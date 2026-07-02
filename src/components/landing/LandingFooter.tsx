@@ -128,7 +128,7 @@ export default function LandingFooter() {
           </p>
           <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
             <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>
-              No bank connection required
+              Bank connection optional
             </span>
             <span style={{ fontSize: "11px", color: "#64748b", fontWeight: 600 }}>
               Cancel anytime

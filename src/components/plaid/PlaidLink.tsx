@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Landmark } from 'lucide-react';
 import { PlaidLinkOptions, usePlaidLink as usePlaidLinkLibrary } from 'react-plaid-link';
 import { Button } from '@/components/ui/button';
 import { usePlaidLink } from '@/lib/hooks/usePlaidLink';
@@ -63,32 +64,23 @@ export function PlaidLink() {
 
   return (
     <>
-      {/* CTA Button — icon-only on mobile, full label on desktop */}
+      {/* Quiet header affordance — outlined with a bank icon; label on
+          desktop, icon-only circle on mobile (see .plaid-link-btn styles in
+          DashboardClient). Solid primary blue is reserved for real CTAs like
+          the consent dialog's Continue. */}
       <button
         onClick={() => setShowConsent(true)}
         disabled={isLoading}
-        aria-label="Link your bank account"
-        title="Link Bank Account"
-        className="plaid-link-btn group inline-flex shrink-0 items-center justify-center rounded-lg bg-[#2563eb] text-sm font-medium text-white transition-all duration-200 hover:bg-[#1d4ed8] active:shadow-[0_4px_12px_rgba(37,99,235,0.3)] disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#93c5fd]"
+        aria-label="Link bank account"
+        title="Link bank account"
+        className="plaid-link-btn group inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
       >
         {isLoading ? (
-          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
         ) : (
           <>
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 5v14M5 12h14"
-              />
-            </svg>
-            <span className="plaid-link-label">Link Bank Account</span>
+            <Landmark size={16} strokeWidth={2} aria-hidden="true" />
+            <span className="plaid-link-label">Link bank</span>
           </>
         )}
       </button>

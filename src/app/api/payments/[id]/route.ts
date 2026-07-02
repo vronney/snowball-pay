@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError, isValidId } from '@/lib/auth-server';
+import { isDebtBankLinked } from '@/lib/debtHelpers';
 import { z } from 'zod';
 
 const UpdatePaymentSchema = z.object({ amount: z.number().positive() });
@@ -17,6 +18,16 @@ export async function DELETE(
   try {
     const record = await prisma.paymentRecord.findUnique({ where: { id: params.id } });
     if (!record || record.userId !== auth.user.id) return badRequest('Record not found');
+
+    // Bank-linked debts never had their balance/snapshot adjusted when the
+    // payment was logged (Plaid sync owns them), so removing the record must
+    // not adjust them either — only the record itself goes away.
+    const debt = await prisma.debt.findUnique({ where: { id: record.debtId } });
+    const isBankLinked = isDebtBankLinked(debt);
+    if (isBankLinked) {
+      await prisma.paymentRecord.delete({ where: { id: params.id } });
+      return NextResponse.json({ ok: true });
+    }
 
     // Delete the record, restore the debt balance, and revert this month's
     // snapshot to the pre-payment balance atomically, so the Actual vs
@@ -56,6 +67,19 @@ export async function PATCH(
 
     const record = await prisma.paymentRecord.findUnique({ where: { id: params.id } });
     if (!record || record.userId !== auth.user.id) return badRequest('Record not found');
+
+    // Bank-linked debts never had their balance/snapshot adjusted when the
+    // payment was logged (Plaid sync owns them), so editing the amount only
+    // updates the record — no balance or snapshot delta to apply.
+    const debt = await prisma.debt.findUnique({ where: { id: record.debtId } });
+    const isBankLinked = isDebtBankLinked(debt);
+    if (isBankLinked) {
+      const updatedRecord = await prisma.paymentRecord.update({
+        where: { id: params.id },
+        data: { amount, paidAt: new Date() },
+      });
+      return NextResponse.json({ record: updatedRecord });
+    }
 
     // delta > 0 means new amount is larger (balance goes down more); < 0 means balance goes back up
     const delta = amount - record.amount;

@@ -368,7 +368,7 @@ export default function DashboardClient({
 
       <style>{`
         .db-main { margin-left: 220px; }
-        .plaid-link-btn { gap: 8px; padding: 12px 24px; }
+        .plaid-link-btn { gap: 7px; padding: 8px 14px; }
         .plaid-link-label { display: inline; }
         @media (max-width: 768px) {
           .db-main { margin-left: 0 !important; }
@@ -378,7 +378,7 @@ export default function DashboardClient({
           .db-page-title { display: none !important; }
           .db-username { display: none !important; }
           .db-content { padding: 16px 16px 80px !important; }
-          .plaid-link-btn { padding: 9px; border-radius: 999px; gap: 0; }
+          .plaid-link-btn { padding: 10px; border-radius: 999px; gap: 0; }
           .plaid-link-label { display: none !important; }
         }
       `}</style>

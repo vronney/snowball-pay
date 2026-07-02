@@ -14,6 +14,7 @@ import {
 } from "@/lib/utils";
 import { color, primaryButton, quietButton } from "@/lib/designTokens";
 import { useAddBulkSnapshots, useUpdateDebt, useMarkPaid } from "@/lib/hooks";
+import { isDebtBankLinked } from "@/lib/debtHelpers";
 import { useRefreshDebtFromPlaid } from "@/lib/hooks/useRefreshDebtFromPlaid";
 import { useDisconnectPlaidItem } from "@/lib/hooks/useDisconnectPlaidItem";
 import { PlaidReauthBanner } from "@/components/plaid/PlaidReauthBanner";
@@ -132,7 +133,11 @@ export default function DebtCard({
     }
     setPaymentAmount("");
     setPanel(null);
-    if (amount >= debt.balance) {
+    // Bank-linked debts keep their balance until the payment posts and Plaid
+    // syncs, so a full-balance payment here doesn't zero the card yet — the
+    // celebration would contradict the still-nonzero balance on screen.
+    const isBankLinked = isDebtBankLinked(debt);
+    if (!isBankLinked && amount >= debt.balance) {
       setClearedAmount(debt.balance);
       setShowPaidOffModal(true);
     }
@@ -613,15 +618,25 @@ export default function DebtCard({
 
         {/* Log Payment panel */}
         {panel === "payment" && (
-          <DebtCardPaymentPanel
-            debtId={debt.id}
-            minimumPayment={debt.minimumPayment}
-            paymentAmount={paymentAmount}
-            onAmountChange={setPaymentAmount}
-            onSubmit={(e) => void handlePaymentSubmit(e)}
-            onClose={() => setPanel(null)}
-            isPending={markPaid.isPending || updateDebt.isPending || addBulkSnapshots.isPending}
-          />
+          <>
+            <DebtCardPaymentPanel
+              debtId={debt.id}
+              minimumPayment={debt.minimumPayment}
+              paymentAmount={paymentAmount}
+              onAmountChange={setPaymentAmount}
+              onSubmit={(e) => void handlePaymentSubmit(e)}
+              onClose={() => setPanel(null)}
+              isPending={markPaid.isPending || updateDebt.isPending || addBulkSnapshots.isPending}
+            />
+            {/* Linked debts: logging records the payment for your plan; the
+                balance itself stays bank-truth and updates on sync. */}
+            {isDebtBankLinked(debt) && (
+              <p className="mt-1.5 text-[0.7rem]" style={{ color: "#94a3b8" }}>
+                This records your payment for the plan — the balance stays
+                synced from your bank and updates when the payment posts.
+              </p>
+            )}
+          </>
         )}
 
         {/* Update Balance panel */}
@@ -652,7 +667,7 @@ export default function DebtCard({
               isLoading={updateDebt.isPending}
             />
 
-            {debt.isLinked && debt.plaidItemId && (
+            {isDebtBankLinked(debt) && (
               <div
                 className="mt-4 pt-3"
                 style={{ borderTop: "1px solid rgba(15,23,42,0.08)" }}
