@@ -475,7 +475,13 @@ function getStepError(step: number, state: StepState): string | null {
   return null;
 }
 
-export function OnboardingWizard() {
+export function OnboardingWizard({
+  userEmail = null,
+}: {
+  /** Signed-in user's email, threaded to Google Ads Enhanced Conversions
+   *  (hashed client-side by gtag before transmission). */
+  userEmail?: string | null;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const completeOnboarding = useCompleteOnboarding();
@@ -636,10 +642,11 @@ export function OnboardingWizard() {
       } catch {
         // Ignore storage cleanup errors
       }
-      submitIdempotencyKeyRef.current = null;
       // First plan generated — fire the Google Ads "Sign-up – Start Plan"
-      // conversion on this success state, not on the CTA click.
-      reportSignupConversion();
+      // conversion on this success state, not on the CTA click. The submit's
+      // idempotency key doubles as the conversion's dedup transaction_id.
+      reportSignupConversion(userEmail, submitIdempotencyKeyRef.current);
+      submitIdempotencyKeyRef.current = null;
       router.push("/dashboard");
     } catch {
       setSubmitError(

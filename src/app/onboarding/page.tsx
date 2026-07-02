@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { auth0 } from "@/lib/auth0";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 
 export const metadata: Metadata = {
@@ -7,6 +8,8 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function OnboardingPage() {
-  return <OnboardingWizard />;
+export default async function OnboardingPage() {
+  const session = await auth0.getSession();
+
+  return <OnboardingWizard userEmail={session?.user?.email ?? null} />;
 }
