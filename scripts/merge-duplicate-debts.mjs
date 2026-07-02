@@ -15,14 +15,26 @@
  * Usage (run against the DB in .env / .env.local — use npm run db:use:prod
  * or db:use:dev first to pick the environment):
  *
- *   # 1. List a user's debts with ids and history counts
+ *   # Auto mode — detect duplicate pairs and show the merge plans (dry run)
+ *   node scripts/merge-duplicate-debts.mjs --auto --user you@example.com
+ *
+ *   # Auto mode — execute all detected merges
+ *   node scripts/merge-duplicate-debts.mjs --auto --user you@example.com --yes
+ *
+ *   # Manual mode — list a user's debts with ids and history counts
  *   node scripts/merge-duplicate-debts.mjs --user you@example.com
  *
- *   # 2. Dry-run a merge (shows the plan, writes nothing)
- *   node scripts/merge-duplicate-debts.mjs --keep <manualDebtId> --absorb <importedDebtId>
- *
- *   # 3. Execute it
+ *   # Manual mode — dry-run one merge, then execute with --yes
+ *   node scripts/merge-duplicate-debts.mjs --keep <debtId> --absorb <debtId>
  *   node scripts/merge-duplicate-debts.mjs --keep <id> --absorb <id> --yes
+ *
+ * Auto-detection pairs one LINKED debt with one manual debt when their
+ * balances match to the dollar (only for meaningful balances >= $50 with an
+ * agreeing category), or their names are clearly similar and the balances are
+ * within 15%. Ambiguous cases (a debt matching several candidates, or a
+ * linked debt with more history than its manual twin) are skipped and
+ * reported for manual --keep/--absorb handling. Auto mode always keeps the
+ * manual debt (the history holder) and moves the bank link onto it.
  *
  * What a merge does (single transaction):
  *   - moves the absorbed debt's payment records and balance snapshots onto
@@ -40,6 +52,7 @@ dotenv.config({ path: '.env.local' });
 dotenv.config();
 
 import { PrismaClient } from '@prisma/client';
+import { distance } from 'fastest-levenshtein';
 
 const prisma = new PrismaClient();
 
@@ -53,6 +66,7 @@ const userEmail = arg('user');
 const keepId = arg('keep');
 const absorbId = arg('absorb');
 const confirmed = flag('yes');
+const autoMode = flag('auto');
 
 async function listDebts(email) {
   const user = await prisma.user.findFirst({
@@ -123,6 +137,10 @@ async function merge(keep, absorb, execute) {
     console.log(`  - fill interestRate from absorbed debt: ${absorb.interestRate}%`);
   if (keep.creditLimit === 0 && absorb.creditLimit > 0)
     console.log(`  - fill creditLimit from absorbed debt: $${absorb.creditLimit.toFixed(2)}`);
+  if (!linkSource && keep.isLinked)
+    console.log(
+      `  - adopt the manual debt's progress anchor (originalBalance) so "Paid off" doesn't reset to 0%`
+    );
   console.log(`  - delete the absorbed debt row`);
 
   if (!execute) {
@@ -211,6 +229,24 @@ async function merge(keep, absorb, execute) {
       });
     }
 
+    // Progress anchor. originalBalance drives the "Paid off %" bar. When a
+    // freshly imported LINKED debt absorbs its manual twin, the kept debt's
+    // originalBalance equals the bank balance at import — showing 0% paid and
+    // erasing visible progress. Adopt the manual debt's anchor instead: its
+    // originalBalance or its earliest snapshot balance, whichever is larger,
+    // floored at the current balance so the bar never goes negative.
+    let anchor = null;
+    if (!linkSource && keep.isLinked) {
+      const earliestSnapshot = [...txAbsorbSnapshots].sort((a, b) =>
+        a.recordedAt < b.recordedAt ? -1 : 1
+      )[0];
+      const candidate = Math.max(
+        absorb.originalBalance ?? 0,
+        earliestSnapshot?.balance ?? 0
+      );
+      if (candidate > 0) anchor = Math.max(candidate, keep.balance);
+    }
+
     await tx.debt.update({
       where: { id: keep.id },
       data: {
@@ -222,8 +258,10 @@ async function merge(keep, absorb, execute) {
         ...(keep.creditLimit === 0 && absorb.creditLimit > 0
           ? { creditLimit: absorb.creditLimit }
           : {}),
-        // The kept debt's originalBalance anchors its progress history; only
-        // raise it if the bank reports MORE owed than we ever recorded.
+        ...(anchor != null ? { originalBalance: anchor } : {}),
+        // When the LINKED debt is being absorbed, its bank balance is the
+        // truth — and only raise the kept anchor if the bank reports MORE
+        // owed than we ever recorded.
         ...(link && linkSource.balance > keep.originalBalance
           ? { originalBalance: linkSource.balance }
           : {}),
@@ -236,8 +274,161 @@ async function merge(keep, absorb, execute) {
   console.log('\nMerged. The kept debt now carries the history and the bank link.');
 }
 
+/** Lowercased alphanumeric-only name for fuzzy comparison. */
+function normalizeName(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/** 0..1 similarity: containment counts as a strong match, else Levenshtein. */
+function nameSimilarity(a, b) {
+  const na = normalizeName(a);
+  const nb = normalizeName(b);
+  if (!na || !nb) return 0;
+  // Containment counts as a perfect match only when the shorter name is a
+  // substantial fraction of the longer one — otherwise generic words score 1
+  // ("card" ⊂ "creditcard" must not pair unrelated debts).
+  const shorter = Math.min(na.length, nb.length);
+  const longer = Math.max(na.length, nb.length);
+  if (shorter >= 4 && shorter / longer >= 0.6 && (na.includes(nb) || nb.includes(na))) {
+    return 1;
+  }
+  return 1 - distance(na, nb) / longer;
+}
+
+/**
+ * Pair each LINKED debt with its manual twin. A pair qualifies when the
+ * balances match to the dollar AND the balance is meaningful (>= $50, since
+ * every paid-off card sits at $0.00) AND the categories agree — bank
+ * nicknames often share nothing with manual names ("Savor" vs "CapitalOne"),
+ * which is why corroborated exact balance is accepted without name support.
+ * OR the names are clearly similar (≥ 0.55, e.g. "Citi Simplicity" vs
+ * "Citi Simplicity® Card") and the balances are within 15% (manual entries
+ * drift between statements).
+ */
+function findDuplicatePairs(debts) {
+  const linked = debts.filter((d) => d.isLinked && d.plaidItemId);
+  const manual = debts.filter(
+    (d) => !d.isLinked && !d.plaidAccountId && !d.plaidPersistentAccountId
+  );
+
+  const pairs = [];
+  const skipped = [];
+
+  // Trailing last-4 mask in a name ("CreditOne 6610"). Two DIFFERENT masks
+  // mean two different cards no matter how similar the names or balances are.
+  const maskOf = (name) => (name.match(/(\d{4})\s*$/) || [])[1];
+
+  for (const l of linked) {
+    const candidates = manual.filter((m) => {
+      const lMask = maskOf(l.name);
+      const mMask = maskOf(m.name);
+      if (lMask && mMask && lMask !== mMask) return false;
+
+      const balanceDiff = Math.abs(l.balance - m.balance);
+      // Exact balance with NO name support needs corroboration: a meaningful
+      // balance (zero/near-zero debts collide by coincidence — every paid-off
+      // card is $0.00) and an agreeing category. Bank nicknames often share
+      // nothing with manual names ("Savor" vs "CapitalOne"), so exact balance
+      // remains a valid primary signal above that floor.
+      const balanceExact =
+        balanceDiff <= 1 &&
+        Math.max(l.balance, m.balance) >= 50 &&
+        (!l.category || !m.category || l.category === m.category);
+      const balanceNear =
+        balanceDiff <= 0.15 * Math.max(l.balance, m.balance, 1);
+      const similar = nameSimilarity(l.name, m.name) >= 0.55;
+      return balanceExact || (similar && balanceNear);
+    });
+
+    if (candidates.length === 0) continue;
+    if (candidates.length > 1) {
+      skipped.push({
+        linked: l,
+        reason: `matches ${candidates.length} manual debts (${candidates
+          .map((c) => `"${c.name}"`)
+          .join(', ')}) — resolve manually with --keep/--absorb`,
+      });
+      continue;
+    }
+
+    const m = candidates[0];
+    if (l._count.snapshots > m._count.snapshots) {
+      skipped.push({
+        linked: l,
+        reason: `linked debt has MORE history than manual "${m.name}" — not a fresh import, resolve manually`,
+      });
+      continue;
+    }
+    pairs.push({ keep: m, absorb: l });
+  }
+
+  // A manual debt claimed by two different linked debts is also ambiguous.
+  const claimCounts = new Map();
+  for (const p of pairs) {
+    claimCounts.set(p.keep.id, (claimCounts.get(p.keep.id) ?? 0) + 1);
+  }
+  const unambiguous = pairs.filter((p) => claimCounts.get(p.keep.id) === 1);
+  for (const p of pairs) {
+    if (claimCounts.get(p.keep.id) > 1) {
+      skipped.push({
+        linked: p.absorb,
+        reason: `manual "${p.keep.name}" is claimed by multiple linked debts — resolve manually`,
+      });
+    }
+  }
+
+  return { pairs: unambiguous, skipped };
+}
+
+async function autoMerge(email, execute) {
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: email, mode: 'insensitive' } },
+    select: { id: true, email: true },
+  });
+  if (!user) {
+    console.error(`No user found for email: ${email}`);
+    process.exit(1);
+  }
+  const debts = await prisma.debt.findMany({
+    where: { userId: user.id },
+    include: { _count: { select: { snapshots: true, paymentRecords: true } } },
+  });
+
+  const { pairs, skipped } = findDuplicatePairs(debts);
+
+  if (pairs.length === 0 && skipped.length === 0) {
+    console.log('\nNo duplicate pairs detected. Nothing to do.');
+    return;
+  }
+
+  console.log(`\nDetected ${pairs.length} duplicate pair(s) for ${user.email}:`);
+  for (const p of pairs) {
+    console.log(
+      `  keep "${p.keep.name}" ($${p.keep.balance.toFixed(2)}, ${p.keep._count.snapshots} snapshots, ${p.keep._count.paymentRecords} payments)` +
+        `  ⇐ absorb "${p.absorb.name}" ($${p.absorb.balance.toFixed(2)}, LINKED)`
+    );
+  }
+  for (const s of skipped) {
+    console.log(`  SKIPPED "${s.linked.name}": ${s.reason}`);
+  }
+
+  for (const p of pairs) {
+    await merge(p.keep, p.absorb, execute);
+  }
+
+  if (!execute && pairs.length > 0) {
+    console.log('\nAuto mode dry run complete — re-run with --yes to execute all merges above.');
+  }
+}
+
 async function main() {
-  if (userEmail && !keepId && !absorbId) {
+  if (autoMode) {
+    if (!userEmail) {
+      console.error('--auto requires --user <email>');
+      process.exit(1);
+    }
+    await autoMerge(userEmail, confirmed);
+  } else if (userEmail && !keepId && !absorbId) {
     await listDebts(userEmail);
   } else if (keepId && absorbId) {
     const [keep, absorb] = await Promise.all([
@@ -256,8 +447,10 @@ async function main() {
   } else {
     console.log(
       'Usage:\n' +
-        '  node scripts/merge-duplicate-debts.mjs --user <email>            # list debts\n' +
-        '  node scripts/merge-duplicate-debts.mjs --keep <id> --absorb <id> # dry-run merge\n' +
+        '  node scripts/merge-duplicate-debts.mjs --auto --user <email>        # detect + dry-run all merges\n' +
+        '  node scripts/merge-duplicate-debts.mjs --auto --user <email> --yes  # detect + execute all merges\n' +
+        '  node scripts/merge-duplicate-debts.mjs --user <email>               # list debts\n' +
+        '  node scripts/merge-duplicate-debts.mjs --keep <id> --absorb <id>    # dry-run one merge\n' +
         '  node scripts/merge-duplicate-debts.mjs --keep <id> --absorb <id> --yes'
     );
     process.exit(1);
