@@ -318,7 +318,15 @@ function findDuplicatePairs(debts) {
       if (lMask && mMask && lMask !== mMask) return false;
 
       const balanceDiff = Math.abs(l.balance - m.balance);
-      const balanceExact = balanceDiff <= 1;
+      // Exact balance with NO name support needs corroboration: a meaningful
+      // balance (zero/near-zero debts collide by coincidence — every paid-off
+      // card is $0.00) and an agreeing category. Bank nicknames often share
+      // nothing with manual names ("Savor" vs "CapitalOne"), so exact balance
+      // remains a valid primary signal above that floor.
+      const balanceExact =
+        balanceDiff <= 1 &&
+        Math.max(l.balance, m.balance) >= 50 &&
+        (!l.category || !m.category || l.category === m.category);
       const balanceNear =
         balanceDiff <= 0.15 * Math.max(l.balance, m.balance, 1);
       const similar = nameSimilarity(l.name, m.name) >= 0.55;
