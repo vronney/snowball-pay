@@ -163,8 +163,14 @@ async function merge(keep, absorb, execute) {
     }
     // Snapshots upsert so a same-month collision keeps one row (bank value
     // wins when the absorbed debt is the linked one — that number came from
-    // the institution).
-    for (const snap of absorbSnapshots) {
+    // the institution). Re-read inside the transaction: the pre-transaction
+    // list above is only for the dry-run plan, and a snapshot written in the
+    // window since (e.g. a concurrent sync) would otherwise be cascade-deleted
+    // unmoved.
+    const txAbsorbSnapshots = await tx.balanceSnapshot.findMany({
+      where: { debtId: absorb.id },
+    });
+    for (const snap of txAbsorbSnapshots) {
       const existing = await tx.balanceSnapshot.findUnique({
         where: { debtId_recordedAt: { debtId: keep.id, recordedAt: snap.recordedAt } },
       });
