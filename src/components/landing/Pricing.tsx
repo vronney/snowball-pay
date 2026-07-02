@@ -49,7 +49,7 @@ const plans = [
 
 const trustItems = [
   "Setup in minutes",
-  "No bank connection required",
+  "Bank connection optional",
   "Cancel anytime",
   "Snowball and Avalanche support",
   "Debt-free progress coach",

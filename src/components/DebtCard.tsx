@@ -613,15 +613,25 @@ export default function DebtCard({
 
         {/* Log Payment panel */}
         {panel === "payment" && (
-          <DebtCardPaymentPanel
-            debtId={debt.id}
-            minimumPayment={debt.minimumPayment}
-            paymentAmount={paymentAmount}
-            onAmountChange={setPaymentAmount}
-            onSubmit={(e) => void handlePaymentSubmit(e)}
-            onClose={() => setPanel(null)}
-            isPending={markPaid.isPending || updateDebt.isPending || addBulkSnapshots.isPending}
-          />
+          <>
+            <DebtCardPaymentPanel
+              debtId={debt.id}
+              minimumPayment={debt.minimumPayment}
+              paymentAmount={paymentAmount}
+              onAmountChange={setPaymentAmount}
+              onSubmit={(e) => void handlePaymentSubmit(e)}
+              onClose={() => setPanel(null)}
+              isPending={markPaid.isPending || updateDebt.isPending || addBulkSnapshots.isPending}
+            />
+            {/* Linked debts: logging records the payment for your plan; the
+                balance itself stays bank-truth and updates on sync. */}
+            {debt.isLinked && debt.plaidItemId && (
+              <p className="mt-1.5 text-[0.7rem]" style={{ color: "#94a3b8" }}>
+                This records your payment for the plan — the balance stays
+                synced from your bank and updates when the payment posts.
+              </p>
+            )}
+          </>
         )}
 
         {/* Update Balance panel */}

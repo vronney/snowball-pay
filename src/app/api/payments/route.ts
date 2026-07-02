@@ -56,8 +56,16 @@ export async function POST(request: NextRequest) {
     const userId = auth.user.id;
     const snapshotDate = new Date(Date.UTC(dueYear, dueMonth, 1));
 
-    // Writes the payment record, deducts the balance (floored at 0), and syncs
-    // this month's snapshot in one transaction so the three can never drift apart.
+    // Bank-linked debts get their balance and snapshots from Plaid sync — the
+    // bank is the source of truth. Logging a payment on one records the
+    // payment event only: deducting locally would double-count the payment
+    // whenever the user synced first (the synced balance already reflects it),
+    // leaving the card one payment too low until the next sync.
+    const isBankLinked = Boolean(debt.isLinked && debt.plaidItemId);
+
+    // Writes the payment record and — for manual debts — deducts the balance
+    // (floored at 0) and syncs this month's snapshot in one transaction so the
+    // three can never drift apart.
     const applyPayment = (write: 'create' | 'add') =>
       prisma.$transaction(async (tx: Prisma.TransactionClient) => {
         const record = write === 'create'
@@ -68,6 +76,10 @@ export async function POST(request: NextRequest) {
               where: { debtId_dueYear_dueMonth: { debtId, dueYear, dueMonth } },
               data: { amount: { increment: amount }, paidAt: new Date() },
             });
+
+        if (isBankLinked) {
+          return { record, updatedBalance: debt.balance };
+        }
 
         const updatedDebt = await tx.debt.update({
           where: { id: debtId },

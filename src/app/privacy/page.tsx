@@ -248,6 +248,12 @@ export default function PrivacyPolicyPage() {
                 'The bank-connection request and the account data Plaid returns (balances, interest rates, minimum payments). We never receive your bank login credentials.',
                 'USA',
               ],
+              [
+                'Google LLC (Google Ads)',
+                'Measuring how many signups come from our advertising, so we can attribute ad conversions',
+                'A one-way hashed (SHA-256) version of your email address at signup, plus ad-click identifiers. Google cannot recover your email from the hash unless it already holds that address; no financial data is ever shared.',
+                'USA and global',
+              ],
             ]}
           />
 

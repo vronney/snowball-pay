@@ -19,7 +19,7 @@ const faqs = [
   },
   {
     q: "Does SnowballPay connect to my bank accounts?",
-    a: "No. SnowballPay does not require a bank connection. You can add debts manually or import statement files.",
+    a: "Only if you want it to. You can add debts manually or import statement files — no bank connection required. Pro members can optionally link accounts through Plaid to keep balances synced automatically; your bank login stays with your bank and is never shared with SnowballPay.",
   },
   {
     q: "What types of debt can I track?",
