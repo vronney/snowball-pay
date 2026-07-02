@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { AlertTriangle, CheckCircle2, RefreshCcw, Sparkles, TrendingDown } from "lucide-react";
+import { AlertTriangle, CheckCircle2, RefreshCcw, Sparkles, TrendingDown, Info } from "lucide-react";
 import {
   useCachedCoachBrief,
   useGenerateCoachBrief,
@@ -41,6 +41,9 @@ export default function CoachBriefCard({ hasDebts, hasIncome }: CoachBriefCardPr
   const generatedAt = generate.data?.generatedAt ?? cache?.generatedAt ?? null;
   const isGenerating = generate.isPending;
   const eligible = hasDebts && hasIncome;
+  // Once the user regenerates, generate.data takes over — a freshly
+  // generated brief is never stale, regardless of what the old cache said.
+  const isStale = !generate.data && Boolean(cache?.stale);
 
   // Auto-generate once on first load when Pro, eligible, and nothing cached yet.
   useEffect(() => {
@@ -176,6 +179,44 @@ export default function CoachBriefCard({ hasDebts, hasIncome }: CoachBriefCardPr
           </div>
         );
       })()}
+
+      {isStale && brief && !isGenerating && (
+        <div
+          style={{
+            marginTop: "10px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "10px",
+            padding: "8px 12px",
+            borderRadius: "8px",
+            background: "rgba(37,99,235,0.06)",
+            border: "1px solid rgba(37,99,235,0.18)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", color: "#1d4ed8" }}>
+            <Info size={13} />
+            <span>Your numbers have changed since this was generated.</span>
+          </div>
+          <button
+            onClick={handleGenerate}
+            style={{
+              flexShrink: 0,
+              padding: "4px 10px",
+              borderRadius: "6px",
+              background: "rgba(37,99,235,0.12)",
+              border: "1px solid rgba(37,99,235,0.28)",
+              color: "#2563eb",
+              cursor: "pointer",
+              fontSize: "11px",
+              fontWeight: 700,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Refresh
+          </button>
+        </div>
+      )}
 
       {brief && statusMeta && StatusIcon && !isGenerating && (
         <div style={{ marginTop: "12px" }}>

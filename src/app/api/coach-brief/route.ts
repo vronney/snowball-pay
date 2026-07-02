@@ -306,12 +306,82 @@ function buildFallbackBrief(params: {
   };
 }
 
+/**
+ * Recomputes the same dataHash fingerprint POST would produce from the
+ * user's CURRENT debts/income/expenses/snapshots/payments/Plaid state.
+ * Used by GET to tell the client when a cached brief is stale — i.e. the
+ * underlying numbers moved since the brief was generated — without
+ * requiring the client to duplicate this computation itself. Returns null
+ * when there isn't enough data to form an opinion (no debts/income), in
+ * which case staleness simply isn't reported.
+ */
+async function computeCurrentDataHash(userId: string): Promise<string | null> {
+  const [debts, income, expenses, snapshots, paymentRecords, plaidItems] = await Promise.all([
+    prisma.debt.findMany({ where: { userId } }),
+    prisma.income.findUnique({ where: { userId } }),
+    prisma.expense.findMany({ where: { userId } }),
+    prisma.balanceSnapshot.findMany({
+      where: { userId },
+      select: { debtId: true, balance: true, recordedAt: true },
+      orderBy: { recordedAt: 'asc' },
+    }),
+    prisma.paymentRecord.findMany({
+      where: { userId },
+      select: { debtId: true, dueYear: true, dueMonth: true, paidAt: true },
+      orderBy: { paidAt: 'desc' },
+      take: 60,
+    }),
+    prisma.plaidItem.findMany({
+      where: { userId },
+      select: { institutionName: true, needsReauth: true, lastSyncedAt: true },
+    }),
+  ]);
+
+  if (debts.length === 0 || !income) return null;
+
+  const typedDebts = debts as unknown as Debt[];
+  const activeDebts = typedDebts.filter(isActiveDebt);
+  const totalDebt = activeDebts.reduce((s, d) => s + d.balance, 0);
+  const totalMin = activeDebts.reduce((s, d) => s + d.minimumPayment, 0);
+  const recurringExpenses = expenses.reduce((s, e) => s + e.amount, 0);
+  const method = isPayoffMethod(income.payoffMethod) ? income.payoffMethod : 'snowball';
+
+  const planMetrics = calculatePlanMetrics(typedDebts, income, expenses, { method });
+  if (!planMetrics) return null;
+
+  const linkedDebts = typedDebts.filter((d) => d.isLinked);
+  const { hasReauthIssue, hasStaleSync } = buildPlaidSyncContext(linkedDebts, plaidItems);
+  const snapshotSeries = buildMonthlyDebtSeries(snapshots);
+
+  return buildDataHash({
+    totalDebt,
+    totalMin,
+    income: {
+      monthlyTakeHome: income.monthlyTakeHome,
+      essentialExpenses: income.essentialExpenses,
+      extraPayment: income.extraPayment,
+    },
+    recurringExpenses,
+    planMonths: planMetrics.result.months,
+    latestSnapshotMonth: snapshotSeries.length ? snapshotSeries[snapshotSeries.length - 1].month : null,
+    paymentRecordCount: paymentRecords.length,
+    plaidReauthFlag: hasReauthIssue,
+    plaidStaleFlag: hasStaleSync,
+  });
+}
+
 // ── GET — return cached brief ───────────────────────────────────────────────
 //
 // The law is re-checked here, not just at generation time. A brief that was
 // cached before this rule existed (or before a prompt/model regression was
 // fixed) must never keep being served just because it already made it into
 // the database — so every read re-validates and purges on failure.
+//
+// Staleness (P2 fix): also recomputes the CURRENT dataHash and compares it
+// against what the cached brief was generated from. If the underlying
+// numbers have moved (new balance, payment logged, income change, etc.),
+// `stale: true` is returned so the UI can prompt a refresh instead of
+// silently showing advice based on outdated figures.
 
 export async function GET(request: NextRequest) {
   const auth = await verifyAuth(request);
@@ -320,20 +390,24 @@ export async function GET(request: NextRequest) {
   try {
     const cache = await prisma.coachBriefCache.findUnique({ where: { userId: auth.user.id } });
     if (!cache) {
-      return NextResponse.json({ brief: null, dataHash: null, generatedAt: null });
+      return NextResponse.json({ brief: null, dataHash: null, generatedAt: null, stale: false });
     }
 
     const lawfulBrief = parseLawfulStoredBrief(cache.brief);
     if (!lawfulBrief) {
       console.error('Purging unlawful cached coach brief', { userId: auth.user.id, briefId: cache.id });
       await prisma.coachBriefCache.delete({ where: { userId: auth.user.id } });
-      return NextResponse.json({ brief: null, dataHash: null, generatedAt: null });
+      return NextResponse.json({ brief: null, dataHash: null, generatedAt: null, stale: false });
     }
+
+    const currentHash = await computeCurrentDataHash(auth.user.id);
+    const stale = currentHash !== null && currentHash !== cache.dataHash;
 
     return NextResponse.json({
       brief: lawfulBrief,
       dataHash: cache.dataHash,
       generatedAt: cache.generatedAt,
+      stale,
     });
   } catch (error) {
     console.error('Coach brief GET error:', error);
@@ -366,7 +440,13 @@ export async function POST(request: NextRequest) {
     let methodOverride: 'snowball' | 'avalanche' | 'custom' | undefined;
     const rawBody = await request.text();
     if (rawBody) {
-      const parsed = PostBodySchema.safeParse(JSON.parse(rawBody));
+      let parsedBody: unknown;
+      try {
+        parsedBody = JSON.parse(rawBody);
+      } catch {
+        return badRequest('Invalid request body');
+      }
+      const parsed = PostBodySchema.safeParse(parsedBody);
       if (!parsed.success) return badRequest('Invalid request body');
       methodOverride = parsed.data?.method;
     }

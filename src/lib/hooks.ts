@@ -401,6 +401,11 @@ export interface CoachBriefCache {
   brief: CoachBrief | null;
   dataHash: string | null;
   generatedAt: string | null;
+  // True when the underlying debts/income/payments/Plaid state has moved
+  // since this brief was generated (GET recomputes and compares the hash).
+  // Absent/false from POST responses — a freshly generated brief is never
+  // stale by definition.
+  stale?: boolean;
 }
 
 /** Loads the cached coach brief from the database. */

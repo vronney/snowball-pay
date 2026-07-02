@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isBriefLawful, toClientBrief, type CoachBrief, type StoredCoachBrief } from '@/lib/coachBriefSafety';
+import { CoachBriefSchema, isBriefLawful, parseLawfulStoredBrief, toClientBrief, type CoachBrief, type StoredCoachBrief } from '@/lib/coachBriefSafety';
 
 function nextAction(overrides: Partial<CoachBrief['nextAction']> = {}): CoachBrief {
   return {
@@ -44,8 +44,23 @@ describe('isBriefLawful', () => {
     'Withhold this month\'s Amex minimum',
     "Don't pay the Wells Fargo minimum this cycle",
     'Missing one minimum payment frees up cash',
+    'Reduce your CreditOne minimum to $40 this month',
+    'Lower the Discover minimum payment while cash is tight',
   ])('rejects trigger phrase: %s', (phrase) => {
     const brief = nextAction({ body: phrase, redirectAmount: 0 });
+    expect(isBriefLawful(brief, 500)).toBe(false);
+  });
+
+  it('rejects a minimum reduced outright with no reallocation proposed (CodeRabbit-flagged gap)', () => {
+    // redirectAmount 0 — nothing reallocated, so the numeric check alone
+    // would have let this through before "reduc(e|ing)" was added to the
+    // text regex. The minimum itself is what's being cut here, not moved.
+    const brief = nextAction({
+      title: 'Lower your CreditOne minimum',
+      body: 'Reduce your CreditOne minimum to $40 this month to free up cash.',
+      action: 'Call CreditOne to reduce the minimum',
+      redirectAmount: 0,
+    });
     expect(isBriefLawful(brief, 500)).toBe(false);
   });
 
@@ -89,5 +104,52 @@ describe('toClientBrief', () => {
     const client = toClientBrief(stored);
     expect(client).not.toHaveProperty('_meta');
     expect(client.nextAction.redirectAmount).toBe(500);
+  });
+});
+
+describe('CoachBriefSchema — redirectAmount must be honest, not defaulted', () => {
+  it('fails validation when redirectAmount is missing (CodeRabbit/codex-flagged gap)', () => {
+    const raw = nextAction({ redirectAmount: 565 });
+    const { redirectAmount: _omitted, ...actionWithoutRedirect } = raw.nextAction;
+    const malformed = { ...raw, nextAction: actionWithoutRedirect };
+    // Previously `.catch(0)` would have silently accepted this as redirectAmount: 0,
+    // letting the numeric law be bypassed just by omitting the field.
+    expect(CoachBriefSchema.safeParse(malformed).success).toBe(false);
+  });
+
+  it('fails validation when redirectAmount is a string instead of a number', () => {
+    const raw = nextAction({ redirectAmount: 565 });
+    const malformed = { ...raw, nextAction: { ...raw.nextAction, redirectAmount: '565' } };
+    expect(CoachBriefSchema.safeParse(malformed).success).toBe(false);
+  });
+
+  it('fails validation when redirectAmount is negative', () => {
+    const raw = nextAction({ redirectAmount: -10 });
+    expect(CoachBriefSchema.safeParse(raw).success).toBe(false);
+  });
+});
+
+describe('parseLawfulStoredBrief', () => {
+  it('returns null (not a defaulted brief) for a stored value missing redirectAmount', () => {
+    const raw = nextAction({ redirectAmount: 565 });
+    const { redirectAmount: _omitted, ...actionWithoutRedirect } = raw.nextAction;
+    const malformed = { ...raw, nextAction: actionWithoutRedirect, _meta: { effectiveAcceleration: 500 } };
+    expect(parseLawfulStoredBrief(malformed)).toBeNull();
+  });
+
+  it('returns null for a lawfully-shaped brief whose numeric ceiling was exceeded at generation time', () => {
+    const stored: StoredCoachBrief = {
+      ...nextAction({ redirectAmount: 565 }),
+      _meta: { effectiveAcceleration: 500 },
+    };
+    expect(parseLawfulStoredBrief(stored)).toBeNull();
+  });
+
+  it('returns the brief for a valid, lawful stored value', () => {
+    const stored: StoredCoachBrief = {
+      ...nextAction({ redirectAmount: 500 }),
+      _meta: { effectiveAcceleration: 500 },
+    };
+    expect(parseLawfulStoredBrief(stored)).not.toBeNull();
   });
 });

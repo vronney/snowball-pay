@@ -16,7 +16,11 @@ export const CoachBriefSchema = z.object({
     // Total EXTRA dollars (never counting any minimum payment) this action
     // proposes moving this month. This is the numeric half of the "minimums
     // are non-negotiable" law below — 0 when the action doesn't move money.
-    redirectAmount: z.number().min(0).catch(0),
+    // Deliberately NOT `.catch(0)`: a missing/malformed value must fail the
+    // whole response (→ safe deterministic fallback), not silently coerce to
+    // a "no reallocation" value that would let the numeric check pass by
+    // omission instead of by being genuinely honest.
+    redirectAmount: z.number().min(0),
   }),
 });
 
@@ -40,7 +44,7 @@ export type StoredCoachBrief = CoachBrief & { _meta: { effectiveAcceleration: nu
 //      minimum, regardless of how it phrased the sentence.
 // ─────────────────────────────────────────────────────────────────────────
 export const UNSAFE_MINIMUM_ADVICE_RE =
-  /\b(pause|stop paying|skip|don'?t pay|miss(?:ing)?|hold off|defer|delay|withhold)\b/i;
+  /\b(pause|stop paying|skip|don'?t pay|miss(?:ing)?|hold off|defer|delay|withhold|reduc(?:e|ing)|lower(?:ing)?)\b/i;
 
 export const REDIRECT_TOLERANCE = 1; // dollars — absorbs rounding only
 
