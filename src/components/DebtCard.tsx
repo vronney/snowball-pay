@@ -7,12 +7,16 @@ import {
   formatCurrency,
   formatMonths,
   formatPercent,
+  formatRelativeTime,
   getCategoryColor,
   getOrdinalDay,
   calculateUtilization,
 } from "@/lib/utils";
 import { color, primaryButton, quietButton } from "@/lib/designTokens";
 import { useAddBulkSnapshots, useUpdateDebt, useMarkPaid } from "@/lib/hooks";
+import { useRefreshDebtFromPlaid } from "@/lib/hooks/useRefreshDebtFromPlaid";
+import { useDisconnectPlaidItem } from "@/lib/hooks/useDisconnectPlaidItem";
+import { PlaidReauthBanner } from "@/components/plaid/PlaidReauthBanner";
 import DebtForm from "@/components/DebtForm";
 import {
   DebtCardPaymentPanel,
@@ -35,6 +39,8 @@ interface DebtCardProps {
   monthPaidOff?: number | null;
   /** Extra acceleration available this month — applies to the focus debt. */
   focusExtra?: number;
+  /** True on the single debt chosen to host this Plaid item's reconnect banner. */
+  isReauthBannerHost?: boolean;
 }
 
 type Panel = "payment" | "balance" | "edit" | null;
@@ -51,12 +57,17 @@ export default function DebtCard({
   paidThisMonth = false,
   monthPaidOff = null,
   focusExtra = 0,
+  isReauthBannerHost = false,
 }: DebtCardProps) {
   const util =
     debt.creditLimit > 0
       ? calculateUtilization(debt.balance, debt.creditLimit)
       : null;
   const categoryColor = getCategoryColor(debt.category);
+  // needsReauth is item-level (shared by every debt on the same bank login). The
+  // parent designates ONE visible host debt per item (isReauthBannerHost) so a
+  // multi-account login shows a single reconnect banner, never N.
+  const showReauthBanner = isReauthBannerHost && !!debt.plaidItemId;
   const isHighInterest = debt.interestRate >= 20;
   const isMedInterest = debt.interestRate >= 15 && debt.interestRate < 20;
   const isPaidOff = debt.balance <= 0.01;
@@ -66,6 +77,7 @@ export default function DebtCard({
   const [showPaidOffModal, setShowPaidOffModal] = useState(false);
   const [clearedAmount, setClearedAmount] = useState(0);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [confirmingDisconnect, setConfirmingDisconnect] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -90,6 +102,8 @@ export default function DebtCard({
   const addBulkSnapshots = useAddBulkSnapshots();
   const updateDebt = useUpdateDebt();
   const markPaid = useMarkPaid();
+  const refreshDebt = useRefreshDebtFromPlaid();
+  const disconnectItem = useDisconnectPlaidItem();
 
   const togglePanel = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
 
@@ -269,16 +283,31 @@ export default function DebtCard({
               <DollarSign size={13} />
             </button>
             <button
-              onClick={() => togglePanel("balance")}
-              title="Update balance"
+              onClick={() => {
+                if (debt.isLinked) {
+                  // Sync from Plaid; if it fails, fall back to the manual
+                  // balance panel so the user can still correct the number.
+                  refreshDebt.mutate(debt.id, {
+                    onError: () => togglePanel("balance"),
+                  });
+                } else {
+                  togglePanel("balance");
+                }
+              }}
+              title={debt.isLinked ? "Sync with bank" : "Update balance"}
               className="p-1 sm:p-1.5 rounded-md hover:bg-slate-100 cursor-pointer bg-transparent border-0 transition"
-              aria-label="Update balance"
+              aria-label={debt.isLinked ? "Sync with bank" : "Update balance"}
+              disabled={refreshDebt.isPending}
               style={{
-                color: panel === "balance" ? "#fbbf24" : undefined,
-                opacity: panel === "balance" ? 1 : 0.4,
+                color: panel === "balance" ? "#fbbf24" : debt.isLinked ? "#0ea5e9" : undefined,
+                opacity: panel === "balance" || refreshDebt.isPending ? 1 : 0.4,
+                cursor: refreshDebt.isPending ? "wait" : "pointer",
               }}
             >
-              <RefreshCw size={13} />
+              <RefreshCw
+                size={13}
+                className={refreshDebt.isPending ? "animate-spin" : undefined}
+              />
             </button>
             <button
               onClick={() => togglePanel("edit")}
@@ -340,8 +369,36 @@ export default function DebtCard({
                 <Trash2 size={13} />
               </button>
             )}
+            {debt.isLinked && (
+              <span
+                className="text-[0.65rem] font-bold px-2 py-0.5 rounded-md uppercase tracking-wide"
+                style={{
+                  background: "#10b981",
+                  color: "#ffffff",
+                }}
+              >
+                [LINKED]
+              </span>
+            )}
           </div>
         </div>
+
+        {/* Sync error — surfaced inline; the panel also opens for manual fix */}
+        {refreshDebt.isError && (
+          <p
+            role="alert"
+            className="mt-1.5 text-[0.7rem]"
+            style={{ color: color.error }}
+          >
+            Couldn&apos;t sync with your bank. Update the balance manually below.
+          </p>
+        )}
+
+        {/* Bank login expired — prompt re-authentication (Plaid update mode).
+            One banner per linked item (see showReauthBanner above). */}
+        {showReauthBanner && debt.plaidItemId && (
+          <PlaidReauthBanner plaidItemId={debt.plaidItemId} />
+        )}
 
         {/* Balance hero */}
         <div className="mt-2.5">
@@ -401,6 +458,11 @@ export default function DebtCard({
               </span>
             ) : null}
           </div>
+          {debt.lastSyncedAt && (
+            <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
+              Last synced {formatRelativeTime(new Date(debt.lastSyncedAt))} ago
+            </p>
+          )}
         </div>
       </div>
 
@@ -574,6 +636,68 @@ export default function DebtCard({
               onCancel={() => setPanel(null)}
               isLoading={updateDebt.isPending}
             />
+
+            {debt.isLinked && debt.plaidItemId && (
+              <div
+                className="mt-4 pt-3"
+                style={{ borderTop: "1px solid rgba(15,23,42,0.08)" }}
+              >
+                <p className="text-xs mb-2" style={{ color: color.faint }}>
+                  Linked via Plaid. Disconnecting stops bank syncing and removes
+                  the stored connection; this debt stays so you can track it
+                  manually.
+                </p>
+                {confirmingDisconnect ? (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setConfirmingDisconnect(false)}
+                      // In-flight requests can't be aborted — disable instead
+                      // of pretending cancel still works mid-disconnect.
+                      disabled={disconnectItem.isPending}
+                      className="rounded-md cursor-pointer bg-transparent border-0 transition text-xs font-semibold px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{ color: color.faint }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() =>
+                        disconnectItem.mutate(debt.plaidItemId as string, {
+                          onSuccess: () => {
+                            setConfirmingDisconnect(false);
+                            setPanel(null);
+                          },
+                        })
+                      }
+                      disabled={disconnectItem.isPending}
+                      className="rounded-md cursor-pointer border-0 transition text-xs font-bold px-3 py-1 text-white"
+                      style={{ background: color.error }}
+                    >
+                      {disconnectItem.isPending ? "Disconnecting…" : "Disconnect"}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmingDisconnect(true)}
+                    className="rounded-md cursor-pointer bg-transparent transition text-xs font-semibold px-3 py-1.5"
+                    style={{
+                      color: color.error,
+                      border: `1px solid ${color.error}40`,
+                    }}
+                  >
+                    Disconnect bank
+                  </button>
+                )}
+                {disconnectItem.isError && (
+                  <p
+                    role="alert"
+                    className="mt-1.5 text-[0.7rem]"
+                    style={{ color: color.error }}
+                  >
+                    Couldn&apos;t disconnect. Please try again.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

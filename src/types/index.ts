@@ -12,6 +12,16 @@ export interface Debt {
   dueDate?: number;
   createdAt: Date;
   updatedAt: Date;
+
+  // Plaid integration — present when the debt was imported/linked via Plaid
+  isLinked?: boolean | null;
+  plaidAccountId?: string | null;
+  plaidPersistentAccountId?: string | null;
+  plaidItemId?: string | null;
+  lastSyncedAt?: Date | string | null;
+  // True when the linked bank login expired and the user must reconnect
+  // (set by the Plaid webhook, surfaced via GET /api/debts).
+  needsReauth?: boolean | null;
 }
 
 export interface Income {

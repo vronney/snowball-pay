@@ -115,4 +115,31 @@ export const limits = {
   /** 10 OG card renders per hour per IP (unauthenticated route). */
   ogCardIp: (ip: string) =>
     check('og-card-ip', `og-card-ip:${ip}`, 10, '3600 s', 60 * 60 * 1000),
+
+  // ── Plaid (per user). Plaid bills per liabilitiesGet / item link, so these
+  // cap the cost of a runaway or abusive client. ──────────────────────────────
+
+  /** 20 link-token creations per 10 min per user (link + update mode). */
+  plaidLinkToken: (userId: string) =>
+    check('plaid-link', `plaid-link:${userId}`, 20, '600 s', 10 * 60 * 1000),
+
+  /** 10 public-token exchanges (item links) per 10 min per user. */
+  plaidExchange: (userId: string) =>
+    check('plaid-exchange', `plaid-exchange:${userId}`, 10, '600 s', 10 * 60 * 1000),
+
+  /** 30 balance syncs per 10 min per user (refresh-debt + clear-reauth). */
+  plaidSync: (userId: string) =>
+    check('plaid-sync', `plaid-sync:${userId}`, 30, '600 s', 10 * 60 * 1000),
+
+  /** 15 disconnects per 10 min per user. */
+  plaidDisconnect: (userId: string) =>
+    check('plaid-disconnect', `plaid-disconnect:${userId}`, 15, '600 s', 10 * 60 * 1000),
+
+  /**
+   * 120 Plaid webhook deliveries per 10 min per IP. The route is public and
+   * unauthenticated; this caps forged-request floods while staying far above
+   * Plaid's real delivery rate.
+   */
+  plaidWebhookIp: (ip: string) =>
+    check('plaid-webhook-ip', `plaid-webhook-ip:${ip}`, 120, '600 s', 10 * 60 * 1000),
 };

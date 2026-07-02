@@ -74,6 +74,13 @@ export function unauthorized() {
   );
 }
 
+export function forbidden(message = 'Not available for your account yet.') {
+  return NextResponse.json(
+    { error: message },
+    { status: 403 }
+  );
+}
+
 export function badRequest(message: string) {
   return NextResponse.json(
     { error: message },
@@ -85,6 +92,16 @@ export function serverError(message: string) {
   return NextResponse.json(
     { error: message },
     { status: 500 }
+  );
+}
+
+export function tooManyRequests(
+  message = 'Too many requests. Please wait and try again.',
+  retryAfterSeconds = 600,
+) {
+  return NextResponse.json(
+    { error: message, retryAfter: retryAfterSeconds },
+    { status: 429, headers: { 'Retry-After': String(retryAfterSeconds) } }
   );
 }
 

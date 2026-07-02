@@ -481,28 +481,36 @@ Current plan:
   - Payoff timeline: ${timeStr}
   - Total interest to be paid: $${body.totalInterestPaid.toFixed(0)}`;
 
-    let msg = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1400,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userContext }],
-    });
+    let normalizedRecommendations: NormalizedRecommendation[];
+    // True when we served generic fallback (AI error / unparsable / invalid /
+    // empty). We must NOT persist fallback to the per-user cache — doing so pins
+    // the user to it (GET only regenerates on dataHash change) and clobbers a
+    // previously cached good result.
+    let usedFallback = false;
 
-    let rawText = extractTextBlocks(msg.content);
-    let parsedJson = parseClaudeJson(rawText);
-
-    // Claude responses can truncate or occasionally return malformed JSON.
-    // Retry once with a stricter compact-output prompt before falling back.
-    if (!parsedJson) {
-      const retryReason = msg.stop_reason === 'max_tokens' ? 'truncated' : 'malformed';
-      msg = await client.messages.create({
+    try {
+      let msg = await client.messages.create({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: 2000,
+        max_tokens: 1400,
         system: SYSTEM_PROMPT,
-        messages: [
-          {
-            role: 'user',
-            content: `${userContext}
+        messages: [{ role: 'user', content: userContext }],
+      });
+
+      let rawText = extractTextBlocks(msg.content);
+      let parsedJson = parseClaudeJson(rawText);
+
+      // Claude responses can truncate or occasionally return malformed JSON.
+      // Retry once with a stricter compact-output prompt before falling back.
+      if (!parsedJson) {
+        const retryReason = msg.stop_reason === 'max_tokens' ? 'truncated' : 'malformed';
+        msg = await client.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 2000,
+          system: SYSTEM_PROMPT,
+          messages: [
+            {
+              role: 'user',
+              content: `${userContext}
 
 IMPORTANT:
 - Your previous response was ${retryReason === 'truncated' ? 'truncated' : 'not valid JSON'}.
@@ -510,42 +518,63 @@ IMPORTANT:
 - Escape all quotes inside string values.
 - Do not wrap the response in markdown fences.
 - No prose before or after the JSON object.`,
-          },
-        ],
-      });
-      rawText = extractTextBlocks(msg.content);
-      parsedJson = parseClaudeJson(rawText);
+            },
+          ],
+        });
+        rawText = extractTextBlocks(msg.content);
+        parsedJson = parseClaudeJson(rawText);
+      }
+
+      if (!parsedJson) {
+        console.warn('AI response remained unparsable', {
+          stopReason: msg.stop_reason,
+          preview: rawText.slice(0, 300),
+        });
+      }
+
+      const claudeResponse = parsedJson
+        ? z.object({ recommendations: z.array(RecommendationSchema).min(4).max(10) }).safeParse(parsedJson)
+        : null;
+
+      if (claudeResponse && !claudeResponse.success) {
+        console.error('Zod validation failed on Claude response', {
+          issues: claudeResponse.error.issues,
+          preview: JSON.stringify(parsedJson).slice(0, 500),
+        });
+      }
+
+      if (claudeResponse?.success) {
+        normalizedRecommendations = normalizeRecommendations(claudeResponse.data.recommendations);
+      } else {
+        normalizedRecommendations = buildFallbackRecommendations(body, totalDebt, totalMin, monthChangeContext);
+        usedFallback = true;
+      }
+    } catch (aiError) {
+      console.error('AI provider error, using fallback recommendations', aiError);
+      normalizedRecommendations = buildFallbackRecommendations(body, totalDebt, totalMin, monthChangeContext);
+      usedFallback = true;
     }
 
-    if (!parsedJson) {
-      console.warn('AI response remained unparsable', {
-        stopReason: msg.stop_reason,
-        preview: rawText.slice(0, 300),
-      });
-    }
-
-    const claudeResponse = parsedJson
-      ? z.object({ recommendations: z.array(RecommendationSchema).min(4).max(10) }).safeParse(parsedJson)
-      : null;
-
-    if (claudeResponse && !claudeResponse.success) {
-      console.error('Zod validation failed on Claude response', {
-        issues: claudeResponse.error.issues,
-        preview: JSON.stringify(parsedJson).slice(0, 500),
-      });
-    }
-
-    const normalizedRecommendations =
-      claudeResponse?.success
-        ? normalizeRecommendations(claudeResponse.data.recommendations)
-        : buildFallbackRecommendations(body, totalDebt, totalMin, monthChangeContext);
-
-    if (normalizedRecommendations.length === 0) {
-      const fallbackRecommendations = buildFallbackRecommendations(body, totalDebt, totalMin, monthChangeContext);
-      normalizedRecommendations.push(...fallbackRecommendations);
+    // normalizeRecommendations dedupes by type, so a schema-valid payload
+    // (min 4) can still shrink below the minimum. Anything under 4 is a
+    // degraded set — serve fallback instead and don't let it into the cache.
+    if (normalizedRecommendations.length < 4) {
+      normalizedRecommendations = buildFallbackRecommendations(body, totalDebt, totalMin, monthChangeContext);
+      usedFallback = true;
     }
 
     const dataHash = buildDataHash(body);
+
+    // Don't cache generic fallback — return it transiently so the next request
+    // retries the AI, and leave any previously cached good result intact.
+    if (usedFallback) {
+      return NextResponse.json({
+        recommendations: normalizedRecommendations,
+        dataHash,
+        generatedAt: new Date(),
+        fallback: true,
+      });
+    }
 
     // Upsert - one cache row per user
     const cache = await prisma.aiRecommendationCache.upsert({

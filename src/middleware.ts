@@ -42,6 +42,7 @@ const SENSITIVE_SCANNER_SEGMENTS = [
 const PUBLIC_API_PATHS = [
   '/api/support/contact',
   '/api/webhooks/stripe',
+  '/api/plaid/webhooks',
   '/api/unsubscribe',
 ];
 
@@ -112,7 +113,14 @@ export async function middleware(request: NextRequest) {
   }
 
   // Public API routes handle their own validation/rate limiting.
-  if (PUBLIC_API_PATHS.includes(pathname) || pathname.startsWith('/api/cron')) {
+  // /api/og/* generates share-card images from query params only (no user data)
+  // and must load unauthenticated — email clients and social crawlers fetch it
+  // with no session cookie.
+  if (
+    PUBLIC_API_PATHS.includes(pathname) ||
+    pathname.startsWith('/api/cron') ||
+    pathname.startsWith('/api/og/')
+  ) {
     return addCorsHeaders(NextResponse.next(), request);
   }
 

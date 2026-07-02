@@ -53,7 +53,13 @@ function isValidTab(value: string | null): value is Tab {
   return !!value && Object.prototype.hasOwnProperty.call(tabLabels, value);
 }
 
-export default function DashboardClient({ user }: { user: UserInfo | null }) {
+export default function DashboardClient({
+  user,
+  plaidTestAccess = false,
+}: {
+  user: UserInfo | null;
+  plaidTestAccess?: boolean;
+}) {
   const [activeTab, setActiveTab] = useState<Tab>("this-month");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openPaymentDebtId, setOpenPaymentDebtId] = useState<string | null>(null);
@@ -145,6 +151,9 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
   const { data: paymentsData } = usePaymentRecords(today.getFullYear(), today.getMonth());
   const markPaid = useMarkPaid();
   const { data: subData } = useSubscription();
+  // Real gate: allowlisted testers/loyal customers OR an active Pro subscriber.
+  // Mirrors canUsePlaid() server-side — keep both in sync if the gate changes.
+  const plaidEnabled = plaidTestAccess || subData?.paidTier === "pro";
 
   const debts = useMemo(() => debtsData?.debts ?? [], [debtsData?.debts]);
   const income = incomeData?.income;
@@ -228,6 +237,7 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
           }
           user={user}
           initials={initials}
+          plaidEnabled={plaidEnabled}
         />
 
         <TrialCountdownBanner sub={subData} />
@@ -358,6 +368,8 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
 
       <style>{`
         .db-main { margin-left: 220px; }
+        .plaid-link-btn { gap: 8px; padding: 12px 24px; }
+        .plaid-link-label { display: inline; }
         @media (max-width: 768px) {
           .db-main { margin-left: 0 !important; }
           .db-sidebar { transform: translateX(-100%); box-shadow: 24px 0 64px rgba(15,23,42,0.16); }
@@ -366,6 +378,8 @@ export default function DashboardClient({ user }: { user: UserInfo | null }) {
           .db-page-title { display: none !important; }
           .db-username { display: none !important; }
           .db-content { padding: 16px 16px 80px !important; }
+          .plaid-link-btn { padding: 9px; border-radius: 999px; gap: 0; }
+          .plaid-link-label { display: none !important; }
         }
       `}</style>
     </div>

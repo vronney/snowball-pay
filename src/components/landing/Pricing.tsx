@@ -26,7 +26,7 @@ const plans = [
   {
     name: "Pro",
     tagline: "Monthly payoff coach",
-    price: 9,
+    price: 12,
     period: "per month after trial",
     desc: "Use debt-free progress charts plus coach notes to see what changed, what it means, and which safe payment move to make next.",
     badge: `${PRO_TRIAL_DAYS}-day trial`,

@@ -20,7 +20,7 @@ export function getErrorMessage(error: unknown, fallback = 'Something went wrong
 }
 
 /** Check if an axios error is a 403 upgrade_required and dispatch event. */
-function handleUpgradeError(error: unknown): boolean {
+export function handleUpgradeError(error: unknown): boolean {
   if (error instanceof AxiosError && error.response?.status === 403) {
     const feature = (error.response.data as { feature?: string })?.feature ?? 'This feature';
     upgradeEvents.dispatch(feature);
