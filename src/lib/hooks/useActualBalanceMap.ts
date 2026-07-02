@@ -24,7 +24,10 @@ export interface ActualBalanceMonth {
 export function computeActualBalanceTotals(snapshots: BalanceSnapshot[]): ActualBalanceMonth[] {
   if (snapshots.length === 0) return [];
 
-  // Group per debt as { ym: "YYYY-MM", balance }[], sorted oldest→newest
+  // Group per debt as { ym: "YYYY-MM", balance }[], sorted oldest→newest.
+  // Sorting by ym alone is sufficient: snapshots are unique per (debtId,
+  // recordedAt) with recordedAt normalized to the 1st of the month (see
+  // prisma BalanceSnapshot), so a debt can never have two same-month rows.
   const byDebt = new Map<string, { ym: string; balance: number }[]>();
   for (const s of snapshots) {
     const ym = s.recordedAt.slice(0, 7);

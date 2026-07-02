@@ -645,7 +645,13 @@ export function OnboardingWizard({
       // First plan generated — fire the Google Ads "Sign-up – Start Plan"
       // conversion on this success state, not on the CTA click. The submit's
       // idempotency key doubles as the conversion's dedup transaction_id.
-      reportSignupConversion(userEmail, submitIdempotencyKeyRef.current);
+      // Isolated: an analytics failure must not trip the outer catch and mask
+      // a submission that already succeeded.
+      try {
+        reportSignupConversion(userEmail, submitIdempotencyKeyRef.current);
+      } catch {
+        // Analytics-only failure — continue to the dashboard regardless.
+      }
       submitIdempotencyKeyRef.current = null;
       router.push("/dashboard");
     } catch {
