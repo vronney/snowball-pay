@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { auth0 } from '@/lib/auth0';
 import { prisma } from '@/lib/prisma';
 
@@ -30,9 +31,16 @@ export async function ensureUserProvisioned(sessionUser: {
   sub: string;
   email?: unknown;
   name?: unknown;
+  email_verified?: unknown;
 }): Promise<{ id: string; email: string | null } | null> {
-  const email = typeof sessionUser.email === 'string' ? sessionUser.email : '';
+  const email =
+    typeof sessionUser.email === 'string' ? sessionUser.email.trim() : '';
   const name = typeof sessionUser.name === 'string' ? sessionUser.name : null;
+
+  // User.email is required + unique — never create a row with a blank email
+  // (the first blank-email profile would squat the '' value and every later
+  // one would collide into the relink fallback below).
+  if (!email) return null;
 
   try {
     return await prisma.user.upsert({
@@ -41,22 +49,29 @@ export async function ensureUserProvisioned(sessionUser: {
       create: { auth0Id: sessionUser.sub, email, name },
       select: { id: true, email: true },
     });
-  } catch {
-    // Upsert failed — most likely a unique constraint on email (same email,
-    // different auth0Id). Find the existing row by email and link the new sub.
+  } catch (error) {
+    // Same email under a different auth0Id (e.g. the user switched between
+    // Google and email/password). Relink ONLY on the email unique-constraint
+    // violation, and ONLY when Auth0 attests the email is verified — an
+    // unverified signup with someone else's address must never take over
+    // their account.
+    const isUniqueViolation =
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002';
+    if (!isUniqueViolation || sessionUser.email_verified !== true) {
+      return null;
+    }
     try {
-      if (email) {
-        const user = await prisma.user.findUnique({
-          where: { email },
-          select: { id: true, email: true },
+      const user = await prisma.user.findUnique({
+        where: { email },
+        select: { id: true, email: true },
+      });
+      if (user) {
+        await prisma.user.update({
+          where: { id: user.id },
+          data: { auth0Id: sessionUser.sub },
         });
-        if (user) {
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { auth0Id: sessionUser.sub },
-          });
-          return user;
-        }
+        return user;
       }
     } catch {
       // fall through to null
