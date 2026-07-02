@@ -92,6 +92,10 @@ export const limits = {
   recommendations: (userId: string) =>
     check('rec', `rec:${userId}`, 5, '600 s', 10 * 60 * 1000),
 
+  /** 5 AI coach brief requests per 10 minutes per user. */
+  coachBrief: (userId: string) =>
+    check('coach-brief', `coach-brief:${userId}`, 5, '600 s', 10 * 60 * 1000),
+
   /** 10 document uploads per 10 minutes per user. */
   documentUpload: (userId: string) =>
     check('upload', `upload:${userId}`, 10, '600 s', 10 * 60 * 1000),

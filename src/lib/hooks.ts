@@ -377,6 +377,63 @@ export function useGenerateRecommendations() {
   });
 }
 
+// ===== AI COACH BRIEF =====
+
+export interface CoachBriefVerdict {
+  status: 'on_track' | 'at_risk' | 'off_track';
+  headline: string;
+  summary: string;
+}
+
+export interface CoachBriefNextAction {
+  title: string;
+  body: string;
+  action: string;
+  impact: 'high' | 'medium' | 'low';
+}
+
+export interface CoachBrief {
+  verdict: CoachBriefVerdict;
+  nextAction: CoachBriefNextAction;
+}
+
+export interface CoachBriefCache {
+  brief: CoachBrief | null;
+  dataHash: string | null;
+  generatedAt: string | null;
+  // True when the underlying debts/income/payments/Plaid state has moved
+  // since this brief was generated (GET recomputes and compares the hash).
+  // Absent/false from POST responses — a freshly generated brief is never
+  // stale by definition.
+  stale?: boolean;
+}
+
+/** Loads the cached coach brief from the database. */
+export function useCachedCoachBrief() {
+  return useQuery<CoachBriefCache>({
+    queryKey: ['coachBrief'],
+    queryFn: async () => {
+      const { data } = await axios.get(`${API_URL}/api/coach-brief`);
+      return data;
+    },
+  });
+}
+
+/** Generates a new coach brief server-side (gathers debts/cash flow/history itself) and caches it. */
+export function useGenerateCoachBrief() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (options: { method?: 'snowball' | 'avalanche' | 'custom' } = {}): Promise<CoachBriefCache> => {
+      const { data } = await axios.post(`${API_URL}/api/coach-brief`, options);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(['coachBrief'], data);
+    },
+    onError: (error) => { handleUpgradeError(error); },
+  });
+}
+
 // ===== USER PREFERENCES =====
 
 export interface UserPreferences {

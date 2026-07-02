@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
-import { useUserSettings, useUpdatePreferences } from "@/lib/hooks";
+import { useUserSettings, useUpdatePreferences, useCachedCoachBrief, useGenerateCoachBrief } from "@/lib/hooks";
 import { Sparkles } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
 import { type PayoffMethod, type PayoffResult } from "@/lib/snowball";
@@ -231,6 +231,25 @@ export default function PlannerIntelligence({
   const { data: savedSettings } = useUserSettings();
   const updatePreferences = useUpdatePreferences();
 
+  // AI Coach Brief — same law-checked source as the This Month card. This
+  // page is already gated behind ProGate, so no separate isPro check is
+  // needed here. Auto-generate once on first load when nothing is cached yet.
+  const { data: coachBriefCache, isLoading: coachBriefCacheLoading } = useCachedCoachBrief();
+  const generateCoachBrief = useGenerateCoachBrief();
+  const coachBriefAutoTriggered = useRef(false);
+  const aiBrief = generateCoachBrief.data?.brief ?? coachBriefCache?.brief ?? null;
+  const aiBriefGeneratedAt = generateCoachBrief.data?.generatedAt ?? coachBriefCache?.generatedAt ?? null;
+  const isRefreshingAiBrief = generateCoachBrief.isPending;
+
+  useEffect(() => {
+    if (coachBriefAutoTriggered.current) return;
+    if (coachBriefCacheLoading || isRefreshingAiBrief) return;
+    if (!hasActiveDebts || aiBrief !== null || generateCoachBrief.isError) return;
+    coachBriefAutoTriggered.current = true;
+    generateCoachBrief.mutate({});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coachBriefCacheLoading, isRefreshingAiBrief, hasActiveDebts, aiBrief, generateCoachBrief.isError]);
+
   useEffect(() => {
     if (!hasActiveDebts) {
       setSandboxExtra(0);
@@ -319,6 +338,10 @@ export default function PlannerIntelligence({
           debtCoveragePct={debtCoveragePct}
           nextDebtLabel={nextMilestone.label}
           nextDebtMonth={nextMilestone.month}
+          aiBrief={aiBrief}
+          aiBriefGeneratedAt={aiBriefGeneratedAt}
+          onRefreshAiBrief={() => generateCoachBrief.mutate({})}
+          isRefreshingAiBrief={isRefreshingAiBrief}
         />
         <ForecastCard
           planResult={scenarioResult}

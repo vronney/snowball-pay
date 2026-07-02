@@ -20,6 +20,7 @@ import {
 import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
 import WeeklyProgressEmail from '@/emails/WeeklyProgressEmail';
 import { calculateResultByMethod, methodFromIncome } from '@/lib/payoffPlan';
+import { parseLawfulStoredBrief } from '@/lib/coachBriefSafety';
 import type { Debt } from '@/types';
 import * as React from 'react';
 
@@ -55,6 +56,7 @@ export async function GET(request: NextRequest) {
         where: { paidAt: { gte: monthStart } },
         select: { amount: true },
       },
+      coachBriefCache: { select: { brief: true } },
     },
   });
 
@@ -82,6 +84,20 @@ export async function GET(request: NextRequest) {
       const token         = generateUnsubscribeToken(user.id);
       const unsubscribeUrl = `${APP_BASE_URL}/api/email/unsubscribe?userId=${user.id}&token=${token}`;
 
+      // Read-only: reuses whatever was already cached/generated in-app. Never
+      // calls Claude from the cron — and re-validated against the law here
+      // too, since this reads the DB directly rather than through GET.
+      const lawfulBrief = parseLawfulStoredBrief(user.coachBriefCache?.brief);
+      const coachBrief = lawfulBrief
+        ? {
+            status: lawfulBrief.verdict.status,
+            headline: lawfulBrief.verdict.headline,
+            summary: lawfulBrief.verdict.summary,
+            actionTitle: lawfulBrief.nextAction.title,
+            action: lawfulBrief.nextAction.action,
+          }
+        : null;
+
       const html = await render(React.createElement(WeeklyProgressEmail, {
         userName:            user.name?.split(' ')[0] ?? undefined,
         totalBalance:        Math.round(totalBalance),
@@ -89,6 +105,7 @@ export async function GET(request: NextRequest) {
         paymentsCount,
         debtFreeDate,
         unsubscribeUrl,
+        coachBrief,
       }));
 
       const result = await sendEmail(
