@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError, isValidId } from '@/lib/auth-server';
+import { isDebtBankLinked } from '@/lib/debtHelpers';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     // payment event only: deducting locally would double-count the payment
     // whenever the user synced first (the synced balance already reflects it),
     // leaving the card one payment too low until the next sync.
-    const isBankLinked = Boolean(debt.isLinked && debt.plaidItemId);
+    const isBankLinked = isDebtBankLinked(debt);
 
     // Writes the payment record and — for manual debts — deducts the balance
     // (floored at 0) and syncs this month's snapshot in one transaction so the
