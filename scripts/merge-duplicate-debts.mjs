@@ -114,6 +114,7 @@ async function merge(keep, absorb, execute) {
   console.log(`  KEEP   ${keep.id}  "${keep.name}"  ($${keep.balance.toFixed(2)}, ${keep.isLinked ? 'linked' : 'manual'})`);
   console.log(`  ABSORB ${absorb.id}  "${absorb.name}"  ($${absorb.balance.toFixed(2)}, ${absorb.isLinked ? 'linked' : 'manual'})`);
   console.log(`  - move ${absorbPayments} payment record(s) and ${absorbSnapshots.length} snapshot(s) to the kept debt`);
+  console.log(`    (same-month collisions: payment amounts are combined; snapshots keep the bank value)`);
   if (linkSource) {
     console.log(`  - move Plaid link (item ${linkSource.plaidItemId}) onto the kept debt`);
     console.log(`  - set kept balance to bank-reported $${linkSource.balance.toFixed(2)}`);
@@ -130,13 +131,39 @@ async function merge(keep, absorb, execute) {
   }
 
   await prisma.$transaction(async (tx) => {
-    // History first: payments move wholesale; snapshots upsert so a
-    // same-month collision keeps one row (bank value wins when the absorbed
-    // debt is the linked one — that number came from the institution).
-    await tx.paymentRecord.updateMany({
+    // History first. Payment records are unique per (debtId, dueYear,
+    // dueMonth) — when BOTH duplicates logged a payment for the same month,
+    // those were two real payments toward the same card, so combine the
+    // amounts on the kept record instead of violating the constraint.
+    const absorbPaymentRecords = await tx.paymentRecord.findMany({
       where: { debtId: absorb.id },
-      data: { debtId: keep.id },
     });
+    for (const rec of absorbPaymentRecords) {
+      const existing = await tx.paymentRecord.findUnique({
+        where: {
+          debtId_dueYear_dueMonth: {
+            debtId: keep.id,
+            dueYear: rec.dueYear,
+            dueMonth: rec.dueMonth,
+          },
+        },
+      });
+      if (!existing) {
+        await tx.paymentRecord.update({
+          where: { id: rec.id },
+          data: { debtId: keep.id },
+        });
+      } else {
+        await tx.paymentRecord.update({
+          where: { id: existing.id },
+          data: { amount: existing.amount + rec.amount },
+        });
+        // rec stays on the absorbed debt and dies with it (cascade delete).
+      }
+    }
+    // Snapshots upsert so a same-month collision keeps one row (bank value
+    // wins when the absorbed debt is the linked one — that number came from
+    // the institution).
     for (const snap of absorbSnapshots) {
       const existing = await tx.balanceSnapshot.findUnique({
         where: { debtId_recordedAt: { debtId: keep.id, recordedAt: snap.recordedAt } },
