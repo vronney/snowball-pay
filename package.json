@@ -36,7 +36,7 @@
     "fastest-levenshtein": "^1.0.16",
     "html-to-image": "^1.11.13",
     "jose": "^6.2.3",
-    "lucide-react": "^0.294.0",
+    "lucide-react": "^1.21.0",
     "next": "14.2.35",
     "pdf-parse": "^1.1.1",
     "plaid": "^42.2.0",
