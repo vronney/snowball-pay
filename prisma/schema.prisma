@@ -32,6 +32,7 @@ model User {
   expenses                Expense[]
   payoffPlan              PayoffPlan?
   aiRecommendationCache   AiRecommendationCache?
+  coachBriefCache         CoachBriefCache?
   preferences             UserPreferences?
   paymentRecords          PaymentRecord[]
   plaidItems              PlaidItem[]
@@ -249,6 +250,26 @@ model AiRecommendationCache {
   generatedAt     DateTime @default(now())
 
   @@map("ai_recommendation_cache")
+}
+
+// ---------------------------------------------------------------------------
+// Coach Brief Cache — one row per user, upserted each time the AI coach brief
+// is regenerated. Mirrors AiRecommendationCache's caching shape: dataHash is a
+// fingerprint of the underlying financial data (debts, cash flow, payment
+// history, snapshot variance, Plaid sync state) so the UI can detect when the
+// brief is stale and needs regeneration.
+// ---------------------------------------------------------------------------
+model CoachBriefCache {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  brief       Json     // CoachBrief: { verdict, nextAction }
+  dataHash    String
+
+  generatedAt DateTime @default(now())
+
+  @@map("coach_brief_cache")
 }
 
 // ---------------------------------------------------------------------------

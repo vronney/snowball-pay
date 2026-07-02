@@ -10,6 +10,7 @@ import { usePaymentRecords, useMarkPaid } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import InterestReclaimedBanner from "@/components/dashboard/InterestReclaimedBanner";
 import RollForwardAdvice from "@/components/payoff/RollForwardAdvice";
+import CoachBriefCard from "@/components/payoff/CoachBriefCard";
 
 interface ThisMonthTabProps {
   debts: Debt[];
@@ -159,6 +160,9 @@ export default function ThisMonthTab({
           </p>
         )}
       </div>
+
+      {/* Primary coach card */}
+      <CoachBriefCard hasDebts={hasDebts} hasIncome={!!income} />
 
       {/* Interest reclaimed banner */}
       <InterestReclaimedBanner

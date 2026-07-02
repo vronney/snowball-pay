@@ -42,11 +42,19 @@ function CoachStrip({
   title,
   evidence,
   action,
+  source,
+  generatedAt,
+  onRefresh,
+  isRefreshing,
 }: {
-  tone: "good" | "warn" | "neutral";
+  tone: "good" | "warn" | "danger" | "neutral";
   title: string;
   evidence: string;
   action: string;
+  source?: "ai" | "local";
+  generatedAt?: string | null;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }) {
   const palette =
     tone === "good"
@@ -63,12 +71,29 @@ function CoachStrip({
             color: "#a16207",
             label: "Watch",
           }
-        : {
-            bg: "#f8fafc",
-            border: "rgba(15,23,42,0.10)",
-            color: "#334155",
-            label: "Read",
-          };
+        : tone === "danger"
+          ? {
+              bg: "rgba(220,38,38,0.09)",
+              border: "rgba(220,38,38,0.22)",
+              color: "#b91c1c",
+              label: "Alert",
+            }
+          : {
+              bg: "#f8fafc",
+              border: "rgba(15,23,42,0.10)",
+              color: "#334155",
+              label: "Read",
+            };
+
+  const timeAgo = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  };
 
   return (
     <div
@@ -82,9 +107,44 @@ function CoachStrip({
         >
           Coach {palette.label}
         </span>
+        {source === "ai" && (
+          <span
+            className="rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+            style={{ color: "#2563eb", border: "1px solid rgba(37,99,235,0.24)", background: "rgba(37,99,235,0.06)" }}
+          >
+            AI
+          </span>
+        )}
         <p className="text-xs font-semibold" style={{ color: "#0f172a" }}>
           {title}
         </p>
+        {source === "ai" && (generatedAt || onRefresh) && (
+          <span className="ml-auto flex items-center gap-2">
+            {generatedAt && !isRefreshing && (
+              <span className="text-[10px]" style={{ color: "#94a3b8" }}>
+                {timeAgo(generatedAt)}
+              </span>
+            )}
+            {onRefresh && (
+              <button
+                type="button"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                title="Refresh AI coach brief"
+                className="text-[10px] font-semibold"
+                style={{
+                  color: "#2563eb",
+                  background: "none",
+                  border: "none",
+                  cursor: isRefreshing ? "default" : "pointer",
+                  padding: 0,
+                }}
+              >
+                {isRefreshing ? "Refreshing…" : "Refresh"}
+              </button>
+            )}
+          </span>
+        )}
       </div>
       <div className="grid gap-2 md:grid-cols-2">
         <p className="text-xs leading-relaxed" style={{ color: "#475569" }}>
@@ -104,6 +164,11 @@ function CoachStrip({
   );
 }
 
+interface AiCoachBrief {
+  verdict: { status: "on_track" | "at_risk" | "off_track"; headline: string; summary: string };
+  nextAction: { title: string; body: string; action: string; impact: "high" | "medium" | "low" };
+}
+
 interface IntelligenceOverviewCardProps {
   planResult: PayoffResult;
   minimumsOnlyResult: PayoffResult;
@@ -112,6 +177,12 @@ interface IntelligenceOverviewCardProps {
   debtCoveragePct: number;
   nextDebtLabel: string;
   nextDebtMonth: number | null;
+  // AI Coach Brief — same law-checked source powering the This Month card.
+  // Falls back to the local heuristic below when not yet generated/loading.
+  aiBrief?: AiCoachBrief | null;
+  aiBriefGeneratedAt?: string | null;
+  onRefreshAiBrief?: () => void;
+  isRefreshingAiBrief?: boolean;
 }
 
 export function IntelligenceOverviewCard({
@@ -122,6 +193,10 @@ export function IntelligenceOverviewCard({
   debtCoveragePct,
   nextDebtLabel,
   nextDebtMonth,
+  aiBrief,
+  aiBriefGeneratedAt,
+  onRefreshAiBrief,
+  isRefreshingAiBrief,
 }: IntelligenceOverviewCardProps) {
   const monthsSaved = Math.max(
     0,
@@ -137,7 +212,10 @@ export function IntelligenceOverviewCard({
     border: "1px solid #bfdbfe",
     boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
   };
-  const coach =
+  // Local heuristic — only sees planResult/debtCoveragePct, no payment
+  // history, snapshot variance, or Plaid sync state. Used until the richer
+  // AI Coach Brief (same law-checked source as the This Month card) loads.
+  const localCoach =
     isComplete
       ? {
           tone: "good" as const,
@@ -165,6 +243,24 @@ export function IntelligenceOverviewCard({
             evidence: "The current plan does not yet show a timeline gain against minimum payments.",
             action: "Use Strategy Lab to test the first extra payment amount.",
           };
+
+  const coach = aiBrief
+    ? {
+        tone:
+          aiBrief.verdict.status === "on_track"
+            ? ("good" as const)
+            : aiBrief.verdict.status === "off_track"
+              ? ("danger" as const)
+              : ("warn" as const),
+        title: aiBrief.verdict.headline,
+        evidence: aiBrief.verdict.summary,
+        action: `${aiBrief.nextAction.action} — ${aiBrief.nextAction.body}`,
+        source: "ai" as const,
+        generatedAt: aiBriefGeneratedAt,
+        onRefresh: onRefreshAiBrief,
+        isRefreshing: isRefreshingAiBrief,
+      }
+    : { ...localCoach, source: "local" as const };
 
   return (
     <div
