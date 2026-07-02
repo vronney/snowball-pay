@@ -29,11 +29,12 @@
  *   node scripts/merge-duplicate-debts.mjs --keep <id> --absorb <id> --yes
  *
  * Auto-detection pairs one LINKED debt with one manual debt when their
- * balances match to the dollar, or their names are clearly similar and the
- * balances are within 15%. Ambiguous cases (a debt matching several
- * candidates, or a linked debt with more history than its manual twin) are
- * skipped and reported for manual --keep/--absorb handling. Auto mode always
- * keeps the manual debt (the history holder) and moves the bank link onto it.
+ * balances match to the dollar (only for meaningful balances >= $50 with an
+ * agreeing category), or their names are clearly similar and the balances are
+ * within 15%. Ambiguous cases (a debt matching several candidates, or a
+ * linked debt with more history than its manual twin) are skipped and
+ * reported for manual --keep/--absorb handling. Auto mode always keeps the
+ * manual debt (the history holder) and moves the bank link onto it.
  *
  * What a merge does (single transaction):
  *   - moves the absorbed debt's payment records and balance snapshots onto
@@ -283,20 +284,26 @@ function nameSimilarity(a, b) {
   const na = normalizeName(a);
   const nb = normalizeName(b);
   if (!na || !nb) return 0;
-  if (na.length >= 4 && nb.length >= 4 && (na.includes(nb) || nb.includes(na))) {
+  // Containment counts as a perfect match only when the shorter name is a
+  // substantial fraction of the longer one — otherwise generic words score 1
+  // ("card" ⊂ "creditcard" must not pair unrelated debts).
+  const shorter = Math.min(na.length, nb.length);
+  const longer = Math.max(na.length, nb.length);
+  if (shorter >= 4 && shorter / longer >= 0.6 && (na.includes(nb) || nb.includes(na))) {
     return 1;
   }
-  const maxLen = Math.max(na.length, nb.length);
-  return 1 - distance(na, nb) / maxLen;
+  return 1 - distance(na, nb) / longer;
 }
 
 /**
  * Pair each LINKED debt with its manual twin. A pair qualifies when the
- * balances match to the dollar (same card, freshly synced), OR the names are
- * clearly similar (≥ 0.55, e.g. "Citi Simplicity" vs "Citi Simplicity® Card")
- * and the balances are within 15% (manual entries drift between statements).
- * Bank nicknames often share nothing with manual names ("Savor" vs
- * "CapitalOne"), which is why exact balance alone is accepted.
+ * balances match to the dollar AND the balance is meaningful (>= $50, since
+ * every paid-off card sits at $0.00) AND the categories agree — bank
+ * nicknames often share nothing with manual names ("Savor" vs "CapitalOne"),
+ * which is why corroborated exact balance is accepted without name support.
+ * OR the names are clearly similar (≥ 0.55, e.g. "Citi Simplicity" vs
+ * "Citi Simplicity® Card") and the balances are within 15% (manual entries
+ * drift between statements).
  */
 function findDuplicatePairs(debts) {
   const linked = debts.filter((d) => d.isLinked && d.plaidItemId);
