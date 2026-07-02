@@ -43,8 +43,12 @@ export type StoredCoachBrief = CoachBrief & { _meta: { effectiveAcceleration: nu
 //      A model claiming to move more than that MUST be pulling from a
 //      minimum, regardless of how it phrased the sentence.
 // ─────────────────────────────────────────────────────────────────────────
+// The pause/stop/skip/etc. verbs match anywhere — there's no legitimate
+// coach-brief phrasing that uses them. "reduce"/"lower" are narrower: they're
+// only unsafe near "minimum" (bare matches would also reject benign copy like
+// "lowers your total interest paid" or "lower your APR by calling the issuer").
 export const UNSAFE_MINIMUM_ADVICE_RE =
-  /\b(pause|stop paying|skip|don'?t pay|miss(?:ing)?|hold off|defer|delay|withhold|reduc(?:e|ing)|lower(?:ing)?)\b/i;
+  /\b(pause|stop paying|skip|don'?t pay|miss(?:ing)?|hold off|defer|delay|withhold)\b|\b(?:reduc(?:e|ing)|lower(?:ing)?)\b[^.]{0,40}\bminimum\b|\bminimum\b[^.]{0,40}\b(?:reduc(?:e|ing)|lower(?:ing)?)\b/i;
 
 export const REDIRECT_TOLERANCE = 1; // dollars — absorbs rounding only
 
@@ -73,7 +77,12 @@ export function parseLawfulStoredBrief(raw: unknown): CoachBrief | null {
   const parsed = CoachBriefSchema.safeParse(raw);
   if (!parsed.success) return null;
   const meta = (raw as { _meta?: { effectiveAcceleration?: number } } | null)?._meta;
-  const effectiveAcceleration = typeof meta?.effectiveAcceleration === 'number' ? meta.effectiveAcceleration : 0;
+  // Number.isFinite (not typeof === 'number') so a NaN can't silently
+  // disable the numeric ceiling — NaN + tolerance comparisons are always
+  // false, which would make isBriefLawful's redirectAmount check a no-op.
+  const effectiveAcceleration = Number.isFinite(meta?.effectiveAcceleration)
+    ? (meta!.effectiveAcceleration as number)
+    : 0;
   if (!isBriefLawful(parsed.data, effectiveAcceleration)) return null;
   return parsed.data;
 }

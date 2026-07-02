@@ -64,6 +64,18 @@ describe('isBriefLawful', () => {
     expect(isBriefLawful(brief, 500)).toBe(false);
   });
 
+  it.each([
+    'This lowers your total interest paid by $85 over the plan.',
+    'Call the issuer and ask them to lower your APR on this card.',
+    'Reducing the balance faster saves interest over the life of the plan.',
+  ])('allows benign phrasing that is not about a minimum payment: %s', (phrase) => {
+    // Regression for the CodeRabbit nitpick: a bare "lower"/"reduce" match
+    // used to reject legitimate advice like this. The regex now only fires
+    // when "minimum" appears nearby.
+    const brief = nextAction({ body: phrase, redirectAmount: 0 });
+    expect(isBriefLawful(brief, 500)).toBe(true);
+  });
+
   it('allows a legitimate action that stays within the discretionary ceiling', () => {
     const brief = nextAction({
       title: 'Keep extra on Delta Amex',
@@ -151,5 +163,17 @@ describe('parseLawfulStoredBrief', () => {
       _meta: { effectiveAcceleration: 500 },
     };
     expect(parseLawfulStoredBrief(stored)).not.toBeNull();
+  });
+
+  it('treats a NaN effectiveAcceleration as a 0 ceiling rather than disabling the check (CodeRabbit nitpick)', () => {
+    // typeof NaN === 'number' is true, so a naive `typeof` guard would have
+    // let NaN through as the ceiling — and redirectAmount > NaN is always
+    // false, silently letting any redirectAmount pass. Number.isFinite must
+    // reject it and fall back to 0, which a positive redirectAmount then fails.
+    const stored = {
+      ...nextAction({ redirectAmount: 100 }),
+      _meta: { effectiveAcceleration: NaN },
+    } as unknown as StoredCoachBrief;
+    expect(parseLawfulStoredBrief(stored)).toBeNull();
   });
 });
