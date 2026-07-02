@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 interface PlaidSuccessProps {
   institutionName: string | null;
@@ -39,9 +40,17 @@ export default function PlaidSuccess({
     }
   }, [showTutorial]);
 
+  // This component renders inside DashboardHeader, whose backdrop-filter +
+  // position:sticky make it the containing block for position:fixed — pinning
+  // and clipping these overlays against the header instead of the viewport.
+  // Portal to document.body so "fixed" means the viewport again (same
+  // workaround as the consent dialog and Link backdrop).
+  const portal = (node: React.ReactElement) =>
+    typeof document === 'undefined' ? null : createPortal(node, document.body);
+
   // Tutorial Step 1
   if (showTutorial && tutorialStep === 1) {
-    return (
+    return portal(
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
         <div
           className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg"
@@ -83,7 +92,7 @@ export default function PlaidSuccess({
 
   // Tutorial Step 2
   if (showTutorial && tutorialStep === 2) {
-    return (
+    return portal(
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
         <div
           className="w-full max-w-sm rounded-xl bg-white p-6 shadow-lg"
@@ -131,7 +140,7 @@ export default function PlaidSuccess({
   }
 
   // Success Banner (no tutorial)
-  return (
+  return portal(
     <div
       className="fixed top-4 left-4 right-4 z-50 mx-auto max-w-md rounded-xl border border-[#e2e8f0] bg-white p-4 shadow-lg"
       style={{

@@ -215,6 +215,26 @@ export async function POST(request: NextRequest) {
     // "paid off" debt. Re-attach matched debts that are currently UNLINKED
     // (e.g. previously disconnected); skip matches that are still linked & active
     // (don't orphan their Item or disturb them); create brand-new accounts.
+    // Data-coverage diagnostic: APR/limit/min-payment availability varies by
+    // institution (many OAuth banks share balances but not liability detail).
+    // One log line per link makes "why is APR 0 on this card" answerable from
+    // production logs without exposing balances or identifiers beyond the
+    // last-4 mask already shown in the UI.
+    console.info(
+      '[plaid exchange] liability coverage:',
+      institutionName ?? institutionId ?? 'unknown institution',
+      accounts.map((a) => ({
+        subtype: a.subtype,
+        mask: a.mask,
+        hasBalance: typeof a.balances?.current === 'number',
+        hasLimit: typeof a.balances?.limit === 'number',
+        hasLiabilityRow: !!findLiabilityForAccount(liabilities, a.account_id),
+        apr: extractInterestRate(findLiabilityForAccount(liabilities, a.account_id)),
+        hasMinPayment:
+          extractMinimumPayment(findLiabilityForAccount(liabilities, a.account_id)) !== null,
+      }))
+    );
+
     const toCreate: Prisma.DebtUncheckedCreateInput[] = [];
     const toRelink: {
       id: string;
