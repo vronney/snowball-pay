@@ -36,6 +36,7 @@ import {
   calculateResultForAcceleration as calculatePayoffResultForAcceleration,
 } from "@/lib/payoffPlan";
 import { isActiveDebt } from "@/lib/monthlyFocusDebt";
+import { computeActualBalanceTotals } from "@/lib/hooks/useActualBalanceMap";
 
 interface DataInsightsProps {
   debts: Debt[];
@@ -119,14 +120,6 @@ function formatCompactCurrency(value: number) {
   return `$${Math.round(value)}`;
 }
 
-function monthLabelFromKey(key: string) {
-  const [year, month] = key.split("-").map(Number);
-  return new Date(year, month - 1, 1).toLocaleDateString("en-US", {
-    month: "short",
-    year: "numeric",
-  });
-}
-
 function shortMonthLabelFromKey(key: string) {
   const [year, month] = key.split("-").map(Number);
   return new Date(year, month - 1, 1).toLocaleDateString("en-US", {
@@ -161,22 +154,6 @@ function buildDebtMix(debts: Debt[]): DebtMixSlice[] {
     .sort((a, b) => b.value - a.value);
 }
 
-function buildMonthlySnapshotTotals(snapshots: BalanceSnapshot[]) {
-  const byMonth = new Map<string, number>();
-  for (const snapshot of snapshots) {
-    const key = snapshot.recordedAt.slice(0, 7);
-    byMonth.set(key, (byMonth.get(key) ?? 0) + snapshot.balance);
-  }
-  return Array.from(byMonth.entries())
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, balance]) => ({
-      key,
-      month: monthLabelFromKey(key),
-      tick: shortMonthLabelFromKey(key),
-      balance,
-    }));
-}
-
 function buildVarianceData(
   snapshots: BalanceSnapshot[],
   plan: PayoffResult | null,
@@ -186,15 +163,19 @@ function buildVarianceData(
     plan.monthlyBalances.map((balance) => [balance.date, balance.totalBalance]),
   );
 
-  return buildMonthlySnapshotTotals(snapshots)
+  // computeActualBalanceTotals carry-forward-fills debts with no snapshot in a
+  // given month. A raw per-month sum here silently dropped every unlogged debt
+  // (e.g. only Plaid-synced debts get a current-month snapshot), making the
+  // "actual" total a fraction of reality and the variance wildly positive.
+  return computeActualBalanceTotals(snapshots)
     .map((point) => {
-      const projected = projectionByMonth.get(point.month);
+      const projected = projectionByMonth.get(point.label);
       if (projected == null) return null;
       return {
-        month: point.tick,
-        actual: point.balance,
+        month: shortMonthLabelFromKey(point.ym),
+        actual: point.total,
         projected,
-        variance: projected - point.balance,
+        variance: projected - point.total,
       };
     })
     .filter((point): point is VariancePoint => point != null);
@@ -373,7 +354,10 @@ function buildDebtMixCoach(debts: Debt[], mix: DebtMixSlice[]): CoachTakeawayDat
 
 function buildVarianceCoach(data: VariancePoint[]): CoachTakeawayData {
   const latest = data.at(-1);
-  if (!latest) {
+  // Same 2+ month gate as the chart below — a verdict banner above an
+  // "insufficient data" chart is a contradiction, and one month of overlap is
+  // too thin to call ahead/behind.
+  if (!latest || data.length < 2) {
     return {
       tone: "neutral",
       title: "Actual tracking starts with one balance update",

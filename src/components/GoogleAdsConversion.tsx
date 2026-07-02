@@ -99,18 +99,35 @@ function reportCalculatorClickConversion(target: CalculatorClickTarget) {
  * the moment a user actually completes onboarding and their first plan is
  * generated — NOT on the Start Plan button click. Safe to call before a
  * client-side redirect (gtag uses a sendBeacon transport, so it isn't lost).
+ *
+ * @param email Enhanced Conversions: the signed-in user's email. gtag hashes it
+ *   (SHA-256) client-side before transmission — Google never receives the raw
+ *   address. Improves ad-click ↔ signup matching; omit and the conversion
+ *   still fires normally.
+ * @param transactionId Dedup key — reuse the onboarding submit's idempotency
+ *   key so a retried submission can't double-count the conversion.
  */
-export function reportSignupConversion() {
+export function reportSignupConversion(
+  email?: string | null,
+  transactionId?: string | null,
+) {
   const gtag = (window as any).gtag;
 
   if (typeof gtag !== 'function') {
     return;
   }
 
+  if (email) {
+    gtag('set', 'user_data', {
+      email: email.trim().toLowerCase(),
+    });
+  }
+
   gtag('event', 'conversion', {
     send_to: GOOGLE_ADS_SIGNUP_CONVERSION_SEND_TO,
     value: 1.0,
     currency: 'USD',
+    ...(transactionId ? { transaction_id: transactionId } : {}),
     event_category: 'signup',
     event_label: 'Start Plan',
     page_path: window.location.pathname,
