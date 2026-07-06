@@ -28,6 +28,7 @@ export default function SavePlanModal({
   onboardingPrefill,
 }: SavePlanModalProps) {
   const [email, setEmail] = useState("");
+  const [website, setWebsite] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -48,6 +49,22 @@ export default function SavePlanModal({
     setLoading(true);
     track(Events.PLAN_SAVED_EMAIL, { email_domain: trimmed.split("@")[1] });
     track(Events.SIGNUP_STARTED, { source: "save_plan_modal" });
+
+    // Persist the lead + plan summary server-side before the Auth0 redirect,
+    // so abandoning at signup/MFA doesn't lose the contact. keepalive lets the
+    // request survive the navigation; failure must never block the signup.
+    fetch("/api/leads", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: trimmed,
+        method: onboardingPrefill?.method,
+        debtFreeDate,
+        interestSaved,
+        website,
+      }),
+      keepalive: true,
+    }).catch(() => {});
 
     const returnToParams = new URLSearchParams({
       source: "calculator",
@@ -166,12 +183,30 @@ export default function SavePlanModal({
                 in interest
               </>
             )}
-            . Create a free account to track real balances and keep this
+            . Enter your email and we&apos;ll save this plan. Next, you&apos;ll
+            create a free account to open it on your dashboard and keep the
             forecast updated.
           </p>
         </div>
 
         <form onSubmit={handleSubmit}>
+          {/* Honeypot — visually hidden; real users never fill it, bots do. */}
+          <input
+            type="text"
+            name="website"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            tabIndex={-1}
+            autoComplete="off"
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              left: "-9999px",
+              width: "1px",
+              height: "1px",
+              opacity: 0,
+            }}
+          />
           <label
             htmlFor="save-plan-email"
             style={{
@@ -240,7 +275,7 @@ export default function SavePlanModal({
                   size={16}
                   style={{ animation: "spin 0.8s linear infinite" }}
                 />{" "}
-                Creating your account…
+                Saving your plan…
               </>
             ) : (
               <>

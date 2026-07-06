@@ -13,6 +13,7 @@
 /build
 /dist
 /.next
+/.lean-code
 
 # misc
 .DS_Store
