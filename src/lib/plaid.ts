@@ -7,6 +7,7 @@ import {
   type LiabilitiesObject,
 } from 'plaid';
 import { isPro } from '@/lib/gates';
+import { isDebtBankLinked } from '@/lib/debtHelpers';
 
 /**
  * Shared Plaid client.
@@ -81,6 +82,28 @@ export async function canUsePlaid(
 ): Promise<boolean> {
   if (isPlaidAllowed(email)) return true;
   return isPro(userId);
+}
+
+/**
+ * Whether a debt's balance math is deferred to Plaid sync right now: linked
+ * AND its owner can still sync (Pro or allowlist). After a Pro → free
+ * downgrade the link is dormant, so the debt behaves like a manual one.
+ *
+ * The single source of truth for the payment routes (log/edit/delete) — they
+ * must all branch on this same rule, or a payment logged in one mode could be
+ * reversed in the other. Evaluated at operation time; if the tier changes
+ * between logging and editing, the next sync after a re-upgrade restores bank
+ * truth.
+ */
+export async function isDebtBalanceBankManaged(
+  debt:
+    | { isLinked?: boolean | null; plaidItemId?: string | null; userId: string }
+    | null
+    | undefined,
+  email: string | null | undefined
+): Promise<boolean> {
+  if (!debt || !isDebtBankLinked(debt)) return false;
+  return canUsePlaid(debt.userId, email);
 }
 
 /**

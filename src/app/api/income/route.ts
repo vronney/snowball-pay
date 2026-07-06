@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
+import { isPro, upgradeRequired } from '@/lib/gates';
 import { z } from 'zod';
 
 const IncomeSchema = z.object({
@@ -36,6 +37,18 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const validated = IncomeSchema.parse(body);
+
+    // The What-if slider is Pro-only. The client hides it for free users, but
+    // gate the API too so a direct POST can't save an acceleration amount.
+    // Absent/null/0 amounts always pass — clearing a what-if (e.g. right
+    // after a downgrade) must never be paywalled.
+    if (
+      typeof validated.accelerationAmount === 'number' &&
+      validated.accelerationAmount > 0 &&
+      !(await isPro(auth.user.id))
+    ) {
+      return upgradeRequired('What-if slider');
+    }
 
     // Check if income record exists
     const existingIncome = await prisma.income.findUnique({

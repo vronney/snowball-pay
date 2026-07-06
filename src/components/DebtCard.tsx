@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Debt } from "@/types";
-import { Trash2, Pencil, DollarSign, RefreshCw, CheckCircle2, Target } from "lucide-react";
+import { Trash2, Pencil, DollarSign, RefreshCw, CheckCircle2, Target, AlertCircle } from "lucide-react";
 import {
   formatCurrency,
   formatMonths,
@@ -13,8 +13,9 @@ import {
   calculateUtilization,
 } from "@/lib/utils";
 import { color, primaryButton, quietButton } from "@/lib/designTokens";
-import { useAddBulkSnapshots, useUpdateDebt, useMarkPaid } from "@/lib/hooks";
-import { isDebtBankLinked } from "@/lib/debtHelpers";
+import { useAddBulkSnapshots, useUpdateDebt, useMarkPaid, useSubscription } from "@/lib/hooks";
+import { upgradeEvents } from "@/lib/upgradeEvents";
+import { isDebtBankLinked, isDebtOverdueThisMonth } from "@/lib/debtHelpers";
 import { useRefreshDebtFromPlaid } from "@/lib/hooks/useRefreshDebtFromPlaid";
 import { useDisconnectPlaidItem } from "@/lib/hooks/useDisconnectPlaidItem";
 import { PlaidReauthBanner } from "@/components/plaid/PlaidReauthBanner";
@@ -36,6 +37,8 @@ interface DebtCardProps {
   isActiveFocus?: boolean;
   /** Whether a payment was already logged for this debt this month. */
   paidThisMonth?: boolean;
+  /** When this month's most recent payment was logged (ISO), if any. */
+  lastPaymentAt?: string | null;
   /** Months until this debt is cleared on the current plan (payoff schedule). */
   monthPaidOff?: number | null;
   /** Extra acceleration available this month — applies to the focus debt. */
@@ -45,6 +48,10 @@ interface DebtCardProps {
 }
 
 type Panel = "payment" | "balance" | "edit" | null;
+
+// How long the "payment logged — waiting on the bank" hint stays up after a
+// payment. Banks typically post in 1–2 business days; 3 days covers weekends.
+const BANK_POSTING_HINT_MS = 3 * 24 * 60 * 60 * 1000;
 
 export default function DebtCard({
   debt,
@@ -56,6 +63,7 @@ export default function DebtCard({
   rank,
   isActiveFocus = false,
   paidThisMonth = false,
+  lastPaymentAt = null,
   monthPaidOff = null,
   focusExtra = 0,
   isReauthBannerHost = false,
@@ -72,6 +80,28 @@ export default function DebtCard({
   const isHighInterest = debt.interestRate >= 20;
   const isMedInterest = debt.interestRate >= 15 && debt.interestRate < 20;
   const isPaidOff = debt.balance <= 0.01;
+  const { data: subscription } = useSubscription();
+  // Linked debt whose owner lost Plaid eligibility (e.g. Pro → free): the
+  // bank connection still exists but no sync — manual or automatic — will run
+  // until they upgrade. Balance upkeep is a manual process now; say so instead
+  // of letting the card quietly go stale. `=== false` so the notice never
+  // flashes while the subscription query is still loading.
+  const syncPaused =
+    isDebtBankLinked(debt) && subscription?.plaidEligible === false;
+  // A logged payment doesn't move a linked balance (the bank stays the source
+  // of truth), which can read as "sync is broken". For a few days after a
+  // payment is logged, say the wait is on the bank's end — unless sync is
+  // paused, where no bank update is coming at all.
+  const showBankPostingHint =
+    !isPaidOff &&
+    !syncPaused &&
+    isDebtBankLinked(debt) &&
+    !!lastPaymentAt &&
+    Date.now() - new Date(lastPaymentAt).getTime() < BANK_POSTING_HINT_MS;
+  // This month's due date has passed with no payment logged — surface it (red
+  // badge + strip copy) until the user logs the payment or the month rolls over.
+  const isPastDue =
+    !isPaidOff && !paidThisMonth && isDebtOverdueThisMonth(debt.dueDate);
   const [panel, setPanel] = useState<Panel>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [newBalance, setNewBalance] = useState(String(debt.balance));
@@ -136,7 +166,9 @@ export default function DebtCard({
     // Bank-linked debts keep their balance until the payment posts and Plaid
     // syncs, so a full-balance payment here doesn't zero the card yet — the
     // celebration would contradict the still-nonzero balance on screen.
-    const isBankLinked = isDebtBankLinked(debt);
+    // Paused-sync debts behave like manual ones (the payment zeroes the
+    // balance immediately), so they do celebrate.
+    const isBankLinked = isDebtBankLinked(debt) && !syncPaused;
     if (!isBankLinked && amount >= debt.balance) {
       setClearedAmount(debt.balance);
       setShowPaidOffModal(true);
@@ -246,6 +278,20 @@ export default function DebtCard({
                   }}
                 >
                   #{rank}
+                </span>
+              )}
+              {isPastDue && (
+                <span
+                  className="text-[0.65rem] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
+                  title={`No payment logged — was due the ${getOrdinalDay(debt.dueDate!)}`}
+                  style={{
+                    background: "rgba(239,68,68,0.10)",
+                    color: color.error,
+                    border: "1px solid rgba(239,68,68,0.25)",
+                  }}
+                >
+                  <AlertCircle size={10} strokeWidth={2} />
+                  Past due
                 </span>
               )}
             </div>
@@ -468,6 +514,27 @@ export default function DebtCard({
               Last synced {formatRelativeTime(new Date(debt.lastSyncedAt))} ago
             </p>
           )}
+          {showBankPostingHint && (
+            <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
+              Payment logged — your bank usually takes 1–2 days to post it.
+              This balance stays synced from your bank and drops once it does.
+            </p>
+          )}
+          {syncPaused && !isPaidOff && (
+            <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
+              Bank sync is paused — automatic bank updates are a Pro feature.
+              This debt now works like a manual one: logged payments update
+              the balance directly.{" "}
+              <button
+                onClick={() => upgradeEvents.dispatch("Bank sync")}
+                className="underline underline-offset-2 cursor-pointer bg-transparent border-0 p-0 text-xs"
+                style={{ color: "#475569", fontWeight: 600 }}
+              >
+                Upgrade
+              </button>{" "}
+              to resume syncing.
+            </p>
+          )}
           {/* Some banks share balances but not APR via Plaid. 0% on a linked
               card silently skews the payoff plan — nudge a manual entry. */}
           {debt.isLinked && debt.interestRate === 0 && !isPaidOff && (
@@ -559,26 +626,41 @@ export default function DebtCard({
                   fontWeight: 700,
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
-                  color: isActiveFocus ? color.primary : color.faint,
+                  color: isPastDue
+                    ? color.error
+                    : isActiveFocus
+                      ? color.primary
+                      : color.faint,
                 }}
               >
-                {isActiveFocus ? "This month's move" : "Stay on plan"}
+                {isPastDue
+                  ? "Past due"
+                  : isActiveFocus
+                    ? "This month's move"
+                    : "Stay on plan"}
               </div>
               <div
                 style={{ fontSize: "13px", fontWeight: 600, color: color.text, marginTop: "2px" }}
               >
                 {paidThisMonth
                   ? `${monthName} payment logged — you're on plan.`
-                  : isActiveFocus
-                    ? `Pay ${formatCurrency(suggestedPayment)} here this month`
-                    : `Pay the ${formatCurrency(debt.minimumPayment)} minimum${debt.dueDate ? ` by the ${getOrdinalDay(debt.dueDate)}` : ""}`}
+                  : isPastDue
+                    ? `No ${monthName} payment logged — it was due the ${getOrdinalDay(debt.dueDate!)}.`
+                    : isActiveFocus
+                      ? `Pay ${formatCurrency(suggestedPayment)} here this month`
+                      : `Pay the ${formatCurrency(debt.minimumPayment)} minimum${debt.dueDate ? ` by the ${getOrdinalDay(debt.dueDate)}` : ""}`}
               </div>
-              {!paidThisMonth && isActiveFocus && suggestedPayment > debt.minimumPayment ? (
+              {isPastDue && (
+                <div style={{ fontSize: "11px", color: color.faint, marginTop: "2px" }}>
+                  Already paid? Log it here to stay on plan.
+                </div>
+              )}
+              {!paidThisMonth && !isPastDue && isActiveFocus && suggestedPayment > debt.minimumPayment ? (
                 <div style={{ fontSize: "11px", color: color.faint, marginTop: "2px" }}>
                   {formatCurrency(debt.minimumPayment)} minimum + {formatCurrency(suggestedPayment - debt.minimumPayment)} extra
                   {hasEta ? ` · gone in ${formatMonths(monthPaidOff!)}` : ""}
                 </div>
-              ) : hasEta ? (
+              ) : hasEta && !isPastDue ? (
                 <div style={{ fontSize: "11px", color: color.faint, marginTop: "2px" }}>
                   On your plan: cleared in {formatMonths(monthPaidOff!)}
                   {rank !== undefined ? ` · #${rank} in your snowball` : ""}
@@ -629,11 +711,14 @@ export default function DebtCard({
               isPending={markPaid.isPending || updateDebt.isPending || addBulkSnapshots.isPending}
             />
             {/* Linked debts: logging records the payment for your plan; the
-                balance itself stays bank-truth and updates on sync. */}
+                balance itself stays bank-truth and updates on sync — unless
+                sync is paused (no longer Plaid-eligible), where balance
+                upkeep is manual and the copy must not promise auto-updates. */}
             {isDebtBankLinked(debt) && (
               <p className="mt-1.5 text-[0.7rem]" style={{ color: "#94a3b8" }}>
-                This records your payment for the plan — the balance stays
-                synced from your bank and updates when the payment posts.
+                {syncPaused
+                  ? "Bank sync is paused, so this payment updates the balance directly — like a manual debt."
+                  : "This records your payment for the plan — the balance stays synced from your bank and updates when the payment posts."}
               </p>
             )}
           </>

@@ -306,6 +306,18 @@ export default function DebtTab({
     [paymentsData],
   );
 
+  // Latest payment time per debt this month. Bank-linked debts keep their
+  // balance until the bank posts the payment and a sync picks it up, so the
+  // card uses this to explain the posting delay right after a payment is logged.
+  const lastPaidAtByDebtId = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const record of paymentsData?.records ?? []) {
+      const prev = map.get(record.debtId);
+      if (!prev || record.paidAt > prev) map.set(record.debtId, record.paidAt);
+    }
+    return map;
+  }, [paymentsData]);
+
   const focusDebt = useMemo(
     () => selectMonthlyFocusDebt(debts, payoffResult, paidDebtIds),
     [debts, paidDebtIds, payoffResult],
@@ -705,6 +717,7 @@ export default function DebtTab({
                       rank={rankByDebtId.get(debt.id)}
                       isActiveFocus={debt.id === focusDebt?.id}
                       paidThisMonth={paidDebtIds.has(debt.id)}
+                      lastPaymentAt={lastPaidAtByDebtId.get(debt.id) ?? null}
                       monthPaidOff={monthPaidOffByDebtId.get(debt.id) ?? null}
                       focusExtra={planMetrics?.effectiveAcceleration ?? 0}
                     />

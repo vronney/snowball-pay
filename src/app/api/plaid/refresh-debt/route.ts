@@ -5,13 +5,8 @@ import { verifyAuth, unauthorized, isValidId, tooManyRequests } from '@/lib/auth
 import { prisma } from '@/lib/prisma';
 import { limits } from '@/lib/rateLimit';
 import { upgradeRequired } from '@/lib/gates';
-import {
-  plaidClient,
-  logPlaidError,
-  canUsePlaid,
-  extractCurrentBalance,
-} from '@/lib/plaid';
-import { decryptToken } from '@/lib/plaidCrypto';
+import { logPlaidError, canUsePlaid } from '@/lib/plaid';
+import { syncPlaidItemBalances } from '@/lib/plaidSync';
 
 const RefreshDebtSchema = z.object({
   debtId: z.string().min(1),
@@ -68,80 +63,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const storedToken = debt.plaidItem?.accessToken;
-    if (!storedToken) {
+    // The item-owner check should be implied by debt.userId above, but guard
+    // against a stale/corrupted relation before decrypting another tenant's
+    // token (least-privilege: never sync an item the caller doesn't own).
+    if (!debt.plaidItem?.accessToken || debt.plaidItem.userId !== userId) {
       return NextResponse.json(
         { error: 'Plaid access token not found for this debt' },
         { status: 400 }
       );
     }
-    const accessToken = decryptToken(storedToken);
 
-    // Fetch liabilities to get updated balance
-    const liabilitiesResponse = await plaidClient.liabilitiesGet({
-      access_token: accessToken,
-    });
-
-    const accounts = liabilitiesResponse.data.accounts || [];
-
-    // Plaid bills per liabilitiesGet (one call returns the whole item), so this
-    // single response updates EVERY linked debt on this item, not just the one
-    // clicked — avoiding N separate billed calls when a user has several debts
-    // at the same institution.
-    const plaidItemId = debt.plaidItemId;
-    const itemDebts = await prisma.debt.findMany({
-      where: { userId, plaidItemId, isLinked: true, plaidAccountId: { not: null } },
-    });
-
-    const now = new Date();
-    const recordedAt = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)
+    // One liabilitiesGet updates EVERY linked debt on this item, not just the
+    // one clicked — same shared sync the Plaid webhook uses.
+    const { accounts, updates, syncedAt: now } = await syncPlaidItemBalances(
+      debt.plaidItem
     );
-
-    // Build per-debt updates from the single response. The current balance
-    // lives on the ACCOUNT entry (accounts[].balances), not the liability row.
-    // Skip debts Plaid gives no current balance for — don't overwrite a real
-    // balance with 0/null.
-    const updates = itemDebts.flatMap((d) => {
-      const account = accounts.find(
-        (acc: AccountBase) => acc.account_id === d.plaidAccountId
-      );
-      const newBalance = extractCurrentBalance(account);
-      if (newBalance === null) return [];
-      // If the balance grew past the recorded baseline (new charges since
-      // linking), raise originalBalance so payoff/progress math stays consistent.
-      return [{
-        id: d.id,
-        newBalance,
-        newOriginalBalance: Math.max(d.originalBalance, newBalance),
-      }];
-    });
-
-    // Atomic: each debt update + its this-month snapshot (mirrors the manual
-    // edit path, or the Actual-vs-Projected chart diverges) + one item sync stamp.
-    await prisma.$transaction(async (tx) => {
-      for (const u of updates) {
-        await tx.debt.update({
-          where: { id: u.id },
-          data: {
-            balance: u.newBalance,
-            originalBalance: u.newOriginalBalance,
-            lastSyncedAt: now,
-          },
-        });
-        await tx.balanceSnapshot.upsert({
-          where: { debtId_recordedAt: { debtId: u.id, recordedAt } },
-          update: { balance: u.newBalance },
-          create: { debtId: u.id, userId, balance: u.newBalance, recordedAt },
-        });
-      }
-      // A successful liabilitiesGet proves the login works again — clear any
-      // stale re-auth flag so the reconnect banner doesn't linger.
-      await tx.plaidItem.update({
-        where: { id: plaidItemId },
-        data: { lastSyncedAt: now, needsReauth: false },
-      });
-    });
 
     // Respond about the debt the user actually clicked (preserve prior contract
     // and 404/422 semantics); sibling debts were updated above regardless.

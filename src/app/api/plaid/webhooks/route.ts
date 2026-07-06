@@ -1,18 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { limits } from '@/lib/rateLimit';
 import { verifyPlaidWebhook } from '@/lib/plaidWebhook';
+import { syncPlaidItemBalances } from '@/lib/plaidSync';
+import { logPlaidError, canUsePlaid } from '@/lib/plaid';
 
 // Verify the raw signature against the exact bytes Plaid sent — disable any
 // body parsing and read the body as text.
 export const runtime = 'nodejs';
 
-interface PlaidWebhookBody {
-  webhook_type?: string;
-  webhook_code?: string;
-  item_id?: string;
-  error?: { error_code?: string } | null;
-}
+// Every field optional: Plaid sends many payload shapes and unknown types must
+// still be acked with 200, so this only asserts the types of the fields we
+// actually branch on — it must never reject a legitimate webhook.
+const PlaidWebhookSchema = z.object({
+  webhook_type: z.string().optional(),
+  webhook_code: z.string().optional(),
+  item_id: z.string().optional(),
+  error: z.object({ error_code: z.string().optional() }).nullish(),
+});
 
 // Item webhook codes that mean "this login can no longer be used until the user
 // re-authenticates" — we flag the item so the UI can prompt a re-link.
@@ -50,12 +56,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  let body: PlaidWebhookBody;
+  let json: unknown;
   try {
-    body = JSON.parse(rawBody);
+    json = JSON.parse(rawBody);
   } catch {
     return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
   }
+  const parsed = PlaidWebhookSchema.safeParse(json);
+  if (!parsed.success) {
+    return NextResponse.json({ error: 'Invalid body' }, { status: 400 });
+  }
+  const body = parsed.data;
 
   const { webhook_type, webhook_code, item_id } = body;
 
@@ -89,7 +100,40 @@ export async function POST(request: NextRequest) {
         });
       }
     }
-    // LIABILITIES/DEFAULT_UPDATE and other types: acknowledged, no action yet.
+
+    // Plaid has fresh liability data for this item (fires when it detects
+    // changed balances/APRs after its scheduled pull from the bank). Sync all
+    // linked debts now so balances update without the user clicking refresh —
+    // e.g. a card payment drops the balance here once the bank posts it.
+    if (
+      webhook_type === 'LIABILITIES' &&
+      webhook_code === 'DEFAULT_UPDATE' &&
+      item_id
+    ) {
+      const item = await prisma.plaidItem.findUnique({
+        where: { itemId: item_id },
+        include: { user: { select: { email: true } } },
+      });
+      // Same gate as the manual refresh: every liabilitiesGet is billed, so
+      // items whose owner is no longer Plaid-eligible (e.g. downgraded from
+      // Pro after linking) must not keep syncing on the bank's schedule.
+      const eligible =
+        item && (await canUsePlaid(item.userId, item.user.email));
+      if (item && eligible) {
+        try {
+          await syncPlaidItemBalances(item);
+        } catch (error) {
+          // Ack with 200 anyway: a failed pull (e.g. login expired between
+          // the webhook firing and now) won't be fixed by Plaid re-sending
+          // the same webhook, and the manual refresh path still works.
+          logPlaidError(
+            `[plaid webhook] balance sync failed for item ${item.id}:`,
+            error
+          );
+        }
+      }
+    }
+    // Other types: acknowledged, no action.
   } catch (error) {
     console.error(
       `[plaid webhook] handler error for ${webhook_type}/${webhook_code}:`,

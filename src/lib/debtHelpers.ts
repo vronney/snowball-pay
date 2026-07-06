@@ -13,6 +13,18 @@ export function isDebtBankLinked(
   return Boolean(debt?.isLinked && debt?.plaidItemId);
 }
 
+/**
+ * True when this month's due day has already passed (the due day itself still
+ * counts as on time). Single source of truth for "overdue" — DebtCard's
+ * past-due state and getUpcomingPayments' negative daysUntilDue must agree.
+ */
+export function isDebtOverdueThisMonth(
+  dueDate: number | null | undefined,
+  today: Date = new Date(),
+): boolean {
+  return !!dueDate && today.getDate() > dueDate;
+}
+
 export interface UpcomingPayment {
   debt: Debt;
   daysUntilDue: number;
@@ -32,13 +44,12 @@ export function getUpcomingPayments(debts: Debt[]): UpcomingPayment[] {
     if (!debt.dueDate) continue;
     const dueDay = debt.dueDate;
 
-    let daysUntil: number;
-    if (dueDay >= todayDay) {
-      daysUntil = dueDay - todayDay;
-    } else {
-      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-      daysUntil = daysInMonth - todayDay + dueDay;
-    }
+    // Negative = this month's due date already passed. Callers filter out
+    // debts whose payment IS logged, so a negative entry surfaces as an
+    // "Overdue" indicator until the payment is logged or the month rolls over
+    // — it must NOT silently wrap to next month's date, which would show a
+    // missed payment as merely "upcoming".
+    const daysUntil = dueDay - todayDay;
 
     if (daysUntil > 7) continue;
 
