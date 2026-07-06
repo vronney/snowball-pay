@@ -114,11 +114,11 @@ export const limits = {
 
   /** 3 payment celebration AI calls per 24 hours per user. */
   paymentCelebration: (userId: string) =>
-    check('pay-cel', `pay-cel:${userId}`, 3, '1440 s', 24 * 60 * 60 * 1000),
+    check('pay-cel', `pay-cel:${userId}`, 3, '86400 s', 24 * 60 * 60 * 1000),
 
   /** 3 debt story generations per 24 hours per user. */
   debtStory: (userId: string) =>
-    check('debt-story', `debt-story:${userId}`, 3, '1440 s', 24 * 60 * 60 * 1000),
+    check('debt-story', `debt-story:${userId}`, 3, '86400 s', 24 * 60 * 60 * 1000),
 
   /** 10 OG card renders per hour per IP (unauthenticated route). */
   ogCardIp: (ip: string) =>
