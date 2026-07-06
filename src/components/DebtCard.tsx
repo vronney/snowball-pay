@@ -166,7 +166,9 @@ export default function DebtCard({
     // Bank-linked debts keep their balance until the payment posts and Plaid
     // syncs, so a full-balance payment here doesn't zero the card yet — the
     // celebration would contradict the still-nonzero balance on screen.
-    const isBankLinked = isDebtBankLinked(debt);
+    // Paused-sync debts behave like manual ones (the payment zeroes the
+    // balance immediately), so they do celebrate.
+    const isBankLinked = isDebtBankLinked(debt) && !syncPaused;
     if (!isBankLinked && amount >= debt.balance) {
       setClearedAmount(debt.balance);
       setShowPaidOffModal(true);
@@ -520,14 +522,15 @@ export default function DebtCard({
           )}
           {syncPaused && !isPaidOff && (
             <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
-              Bank sync is paused — automatic balance updates are a Pro
-              feature. Update this balance manually, or{" "}
+              Bank sync is paused — automatic bank updates are a Pro feature.
+              This debt now works like a manual one: logged payments update
+              the balance directly.{" "}
               <button
                 onClick={() => upgradeEvents.dispatch("Bank sync")}
                 className="underline underline-offset-2 cursor-pointer bg-transparent border-0 p-0 text-xs"
                 style={{ color: "#475569", fontWeight: 600 }}
               >
-                upgrade
+                Upgrade
               </button>{" "}
               to resume syncing.
             </p>
@@ -714,7 +717,7 @@ export default function DebtCard({
             {isDebtBankLinked(debt) && (
               <p className="mt-1.5 text-[0.7rem]" style={{ color: "#94a3b8" }}>
                 {syncPaused
-                  ? "This records your payment for the plan. Bank sync is paused, so update the balance manually to keep it accurate."
+                  ? "Bank sync is paused, so this payment updates the balance directly — like a manual debt."
                   : "This records your payment for the plan — the balance stays synced from your bank and updates when the payment posts."}
               </p>
             )}
