@@ -44,6 +44,9 @@ const PUBLIC_API_PATHS = [
   '/api/webhooks/stripe',
   '/api/plaid/webhooks',
   '/api/unsubscribe',
+  // Token-verified (HMAC) unsubscribe page — recipients click it from email
+  // with no session; without this entry they got a JSON 401.
+  '/api/email/unsubscribe',
   '/api/leads',
 ];
 

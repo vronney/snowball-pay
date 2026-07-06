@@ -49,7 +49,51 @@ const page = (title: string, body: string, color: string) => `
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const userId = searchParams.get('userId') ?? '';
+  const leadId = searchParams.get('leadId') ?? '';
   const token  = searchParams.get('token') ?? '';
+
+  // Calculator-lead unsubscribe: no account exists, so opting out means
+  // deleting the lead row (also removes the stored email/plan summary).
+  // Token is namespaced ("lead:<id>") so user tokens can't be replayed here.
+  if (leadId) {
+    if (!token || !verifyUnsubscribeToken(`lead:${leadId}`, token)) {
+      return new NextResponse(
+        page(
+          'Invalid link',
+          `<div class="icon">⚠️</div>
+           <h1>Invalid or expired link</h1>
+           <p>This unsubscribe link is invalid.</p>`,
+          '#64748b',
+        ),
+        { status: 400, headers: { 'Content-Type': 'text/html' } },
+      );
+    }
+    try {
+      // deleteMany: idempotent — a second click on the same link still succeeds.
+      await prisma.calculatorLead.deleteMany({ where: { id: leadId } });
+      return new NextResponse(
+        page(
+          'Unsubscribed',
+          `<div class="icon">✅</div>
+           <h1>You&apos;re unsubscribed</h1>
+           <p>We&apos;ve deleted your saved email and plan summary. You won&apos;t hear from us again — the free calculator is always available if you change your mind.</p>`,
+          '#2563eb',
+        ),
+        { status: 200, headers: { 'Content-Type': 'text/html' } },
+      );
+    } catch {
+      return new NextResponse(
+        page(
+          'Error',
+          `<div class="icon">❌</div>
+           <h1>Something went wrong</h1>
+           <p>We couldn&apos;t process your request. Please try again.</p>`,
+          '#ef4444',
+        ),
+        { status: 500, headers: { 'Content-Type': 'text/html' } },
+      );
+    }
+  }
 
   if (!userId || !token || !verifyUnsubscribeToken(userId, token)) {
     return new NextResponse(
