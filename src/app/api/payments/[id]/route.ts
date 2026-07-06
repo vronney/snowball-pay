@@ -1,27 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError, isValidId } from '@/lib/auth-server';
-import { isDebtBankLinked } from '@/lib/debtHelpers';
-import { canUsePlaid } from '@/lib/plaid';
+import { isDebtBalanceBankManaged } from '@/lib/plaid';
 import { z } from 'zod';
 
 const UpdatePaymentSchema = z.object({ amount: z.number().positive() });
-
-/**
- * Whether this debt's balance math is deferred to Plaid sync right now.
- * Must match the POST /api/payments rule exactly: a linked debt whose owner
- * lost Plaid eligibility (Pro → free) behaves like a manual debt, so edits
- * and deletes adjust the balance just as the original log did. Evaluated at
- * operation time — if the tier changed between logging and editing, the next
- * sync after a re-upgrade restores bank truth.
- */
-async function balanceIsBankManaged(
-  debt: { isLinked?: boolean | null; plaidItemId?: string | null; userId: string } | null,
-  email: string | null | undefined
-): Promise<boolean> {
-  if (!debt || !isDebtBankLinked(debt)) return false;
-  return canUsePlaid(debt.userId, email);
-}
 
 /** DELETE /api/payments/[id] — unmark a payment as paid */
 export async function DELETE(
@@ -40,7 +23,7 @@ export async function DELETE(
     // payment was logged (Plaid sync owns them), so removing the record must
     // not adjust them either — only the record itself goes away.
     const debt = await prisma.debt.findUnique({ where: { id: record.debtId } });
-    if (await balanceIsBankManaged(debt, auth.user.email)) {
+    if (await isDebtBalanceBankManaged(debt, auth.user.email)) {
       await prisma.paymentRecord.delete({ where: { id: params.id } });
       return NextResponse.json({ ok: true });
     }
@@ -88,7 +71,7 @@ export async function PATCH(
     // payment was logged (Plaid sync owns them), so editing the amount only
     // updates the record — no balance or snapshot delta to apply.
     const debt = await prisma.debt.findUnique({ where: { id: record.debtId } });
-    if (await balanceIsBankManaged(debt, auth.user.email)) {
+    if (await isDebtBalanceBankManaged(debt, auth.user.email)) {
       const updatedRecord = await prisma.paymentRecord.update({
         where: { id: params.id },
         data: { amount, paidAt: new Date() },
