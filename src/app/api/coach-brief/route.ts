@@ -612,14 +612,19 @@ Current plan:
       }
 
       const claudeResponse = parsedJson ? CoachBriefSchema.safeParse(parsedJson) : null;
-      if (claudeResponse?.success && !isBriefLawful(claudeResponse.data, planMetrics.effectiveAcceleration, lawDebts)) {
+      const lawful =
+        !!claudeResponse?.success &&
+        isBriefLawful(claudeResponse.data, planMetrics.effectiveAcceleration, lawDebts);
+      if (claudeResponse?.success && !lawful) {
+        // Numbers only — nextAction's free text carries debt names and dollar
+        // amounts, which must not end up in logs.
         console.error('Coach brief rejected by the law: minimum-payment advice, ceiling breach, or impossible payoff claim', {
-          nextAction: claudeResponse.data.nextAction,
+          redirectAmount: claudeResponse.data.nextAction.redirectAmount,
           effectiveAcceleration: planMetrics.effectiveAcceleration,
         });
       }
 
-      if (claudeResponse?.success && isBriefLawful(claudeResponse.data, planMetrics.effectiveAcceleration, lawDebts)) {
+      if (lawful && claudeResponse?.success) {
         brief = claudeResponse.data;
       } else {
         if (parsedJson && claudeResponse && !claudeResponse.success) {
