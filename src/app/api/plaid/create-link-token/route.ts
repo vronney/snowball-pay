@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyAuth, unauthorized, tooManyRequests } from '@/lib/auth-server';
 import { limits } from '@/lib/rateLimit';
 import { upgradeRequired } from '@/lib/gates';
+import { prisma } from '@/lib/prisma';
+import { setMfaRequired } from '@/lib/auth0-management';
 import { plaidClient, logPlaidError, canUsePlaid } from '@/lib/plaid';
 import {
   Products,
@@ -27,6 +29,19 @@ export async function POST(request: NextRequest) {
     if (!(await canUsePlaid(userId, auth.user.email))) return upgradeRequired('Bank sync');
 
     if (!(await limits.plaidLinkToken(userId))) return tooManyRequests();
+
+    // INFOSEC policy: MFA is enabled for consumers prior to surfacing Plaid
+    // Link. Flag the Auth0 account (idempotent); the Conditional MFA Action
+    // challenges from the next login on. Also covers allowlisted testers who
+    // reach Plaid without a Pro subscription. Runs concurrently with link
+    // creation and never blocks it: the flag only affects future logins, so
+    // an Auth0 hiccup shouldn't fail bank linking.
+    const mfaFlagPromise = prisma.user
+      .findUnique({ where: { id: userId }, select: { auth0Id: true } })
+      .then((user) => (user ? setMfaRequired(user.auth0Id) : undefined))
+      .catch((error) => {
+        console.error('Error setting mfa_required before Plaid Link:', error);
+      });
 
     // Create Link token
     const response = await plaidClient.linkTokenCreate({
@@ -63,6 +78,10 @@ export async function POST(request: NextRequest) {
         webhook: process.env.PLAID_WEBHOOK_URL,
       }),
     });
+
+    // Settle before responding — serverless may freeze un-awaited work after
+    // the response returns. Errors were already caught above.
+    await mfaFlagPromise;
 
     return NextResponse.json({
       linkToken: response.data.link_token,

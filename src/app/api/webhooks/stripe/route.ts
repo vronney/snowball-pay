@@ -1,10 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe, getStripeWebhookSecret } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
+import { setMfaRequired } from '@/lib/auth0-management';
 import type Stripe from 'stripe';
 
 // Required: disable body parsing so we can verify the raw signature
 export const runtime = 'nodejs';
+
+/**
+ * INFOSEC policy: MFA must be enabled before Plaid Link is surfaced, and
+ * Plaid is Pro-gated — so flag the Auth0 account when a subscription lands
+ * on Pro. Failure is logged, never thrown: an Auth0 hiccup must not 500 the
+ * billing sync (Stripe would retry the whole event). The Plaid
+ * create-link-token route re-flags as a backstop.
+ */
+async function enforceMfaForPro(paidTier: string, auth0Id: string) {
+  if (paidTier !== 'pro') return;
+  try {
+    await setMfaRequired(auth0Id);
+  } catch (error) {
+    console.error('Webhook: failed to set mfa_required:', error);
+  }
+}
 
 /**
  * Maps a Stripe subscription status to our internal tier.
@@ -55,13 +72,15 @@ export async function POST(request: NextRequest) {
           console.warn('Webhook: subscription missing userId metadata', sub.id);
           break;
         }
-        await prisma.user.update({
+        const fields = resolveSubscriptionFields(sub);
+        const user = await prisma.user.update({
           where: { id: userId },
           data: {
             stripeSubscriptionId: sub.id,
-            ...resolveSubscriptionFields(sub),
+            ...fields,
           },
         });
+        await enforceMfaForPro(fields.paidTier, user.auth0Id);
         break;
       }
 
@@ -101,7 +120,7 @@ export async function POST(request: NextRequest) {
           const sub = await getStripe().subscriptions.retrieve(subscriptionId);
           subFields = resolveSubscriptionFields(sub);
         }
-        await prisma.user.update({
+        const user = await prisma.user.update({
           where: { id: userId },
           data: {
             ...(customerId ? { stripeCustomerId: customerId } : {}),
@@ -109,6 +128,7 @@ export async function POST(request: NextRequest) {
             ...subFields,
           },
         });
+        await enforceMfaForPro(subFields.paidTier, user.auth0Id);
         break;
       }
 
