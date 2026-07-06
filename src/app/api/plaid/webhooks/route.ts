@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { limits } from '@/lib/rateLimit';
 import { verifyPlaidWebhook } from '@/lib/plaidWebhook';
 import { syncPlaidItemBalances } from '@/lib/plaidSync';
-import { logPlaidError } from '@/lib/plaid';
+import { logPlaidError, canUsePlaid } from '@/lib/plaid';
 
 // Verify the raw signature against the exact bytes Plaid sent — disable any
 // body parsing and read the body as text.
@@ -103,8 +103,14 @@ export async function POST(request: NextRequest) {
     ) {
       const item = await prisma.plaidItem.findUnique({
         where: { itemId: item_id },
+        include: { user: { select: { email: true } } },
       });
-      if (item) {
+      // Same gate as the manual refresh: every liabilitiesGet is billed, so
+      // items whose owner is no longer Plaid-eligible (e.g. downgraded from
+      // Pro after linking) must not keep syncing on the bank's schedule.
+      const eligible =
+        item && (await canUsePlaid(item.userId, item.user.email));
+      if (item && eligible) {
         try {
           await syncPlaidItemBalances(item);
         } catch (error) {
