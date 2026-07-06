@@ -13,7 +13,8 @@ import {
   calculateUtilization,
 } from "@/lib/utils";
 import { color, primaryButton, quietButton } from "@/lib/designTokens";
-import { useAddBulkSnapshots, useUpdateDebt, useMarkPaid } from "@/lib/hooks";
+import { useAddBulkSnapshots, useUpdateDebt, useMarkPaid, useSubscription } from "@/lib/hooks";
+import { upgradeEvents } from "@/lib/upgradeEvents";
 import { isDebtBankLinked, isDebtOverdueThisMonth } from "@/lib/debtHelpers";
 import { useRefreshDebtFromPlaid } from "@/lib/hooks/useRefreshDebtFromPlaid";
 import { useDisconnectPlaidItem } from "@/lib/hooks/useDisconnectPlaidItem";
@@ -124,6 +125,15 @@ export default function DebtCard({
   const markPaid = useMarkPaid();
   const refreshDebt = useRefreshDebtFromPlaid();
   const disconnectItem = useDisconnectPlaidItem();
+  const { data: subscription } = useSubscription();
+
+  // Linked debt whose owner lost Plaid eligibility (e.g. Pro → free): the
+  // bank connection still exists but no sync — manual or automatic — will run
+  // until they upgrade. Balance upkeep is a manual process now; say so instead
+  // of letting the card quietly go stale. `=== false` so the notice never
+  // flashes while the subscription query is still loading.
+  const syncPaused =
+    isDebtBankLinked(debt) && subscription?.plaidEligible === false;
 
   const togglePanel = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
 
@@ -501,10 +511,24 @@ export default function DebtCard({
               Last synced {formatRelativeTime(new Date(debt.lastSyncedAt))} ago
             </p>
           )}
-          {showBankPostingHint && (
+          {showBankPostingHint && !syncPaused && (
             <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
               Payment logged — your bank usually takes 1–2 days to post it.
               This balance stays synced from your bank and drops once it does.
+            </p>
+          )}
+          {syncPaused && !isPaidOff && (
+            <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
+              Bank sync is paused — automatic balance updates are a Pro
+              feature. Update this balance manually, or{" "}
+              <button
+                onClick={() => upgradeEvents.dispatch("Bank sync")}
+                className="underline underline-offset-2 cursor-pointer bg-transparent border-0 p-0 text-xs"
+                style={{ color: "#475569", fontWeight: 600 }}
+              >
+                upgrade
+              </button>{" "}
+              to resume syncing.
             </p>
           )}
           {/* Some banks share balances but not APR via Plaid. 0% on a linked
@@ -683,11 +707,14 @@ export default function DebtCard({
               isPending={markPaid.isPending || updateDebt.isPending || addBulkSnapshots.isPending}
             />
             {/* Linked debts: logging records the payment for your plan; the
-                balance itself stays bank-truth and updates on sync. */}
+                balance itself stays bank-truth and updates on sync — unless
+                sync is paused (no longer Plaid-eligible), where balance
+                upkeep is manual and the copy must not promise auto-updates. */}
             {isDebtBankLinked(debt) && (
               <p className="mt-1.5 text-[0.7rem]" style={{ color: "#94a3b8" }}>
-                This records your payment for the plan — the balance stays
-                synced from your bank and updates when the payment posts.
+                {syncPaused
+                  ? "This records your payment for the plan. Bank sync is paused, so update the balance manually to keep it accurate."
+                  : "This records your payment for the plan — the balance stays synced from your bank and updates when the payment posts."}
               </p>
             )}
           </>

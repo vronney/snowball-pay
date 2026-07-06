@@ -739,6 +739,8 @@ export interface SubscriptionInfo {
   isCanceling: boolean;
   hasCustomer: boolean;
   monthlyPrice?: number;
+  /** canUsePlaid() mirror: allowlisted OR Pro. False = bank sync is paused. */
+  plaidEligible?: boolean;
 }
 
 export function useSubscription() {
