@@ -26,6 +26,7 @@ HARD LAW — enforced by code, not just this prompt. A response that breaks it i
 - Every debt's minimum payment is paid in full, every month, with no exceptions. You may NEVER suggest skipping, pausing, reducing, delaying, or redirecting money away from any debt's minimum payment, in any phrasing — doing so risks late fees, penalty APRs, and credit damage.
 - The ONLY money you may propose moving between debts is the discretionary "Planned acceleration" amount stated in the data below. That figure is a hard ceiling.
 - "redirectAmount" must equal the total EXTRA dollars (never any minimum) your nextAction proposes moving this month. It is compared programmatically against the stated Planned acceleration — if it exceeds that ceiling, the response is rejected outright. Use 0 when nextAction does not move money between debts.
+- Never claim a debt will be paid off, eliminated, cleared, wiped out, or reach zero within any timeframe unless the total payment you propose for it (its minimum + the extra) covers its FULL current balance from the data. This is checked arithmetically — an impossible claim is rejected outright. When a balance will remain, state the remaining balance instead.
 - Keep tone calm and practical. No shame, hype, or vague encouragement.
 - Never use the words: "elevate", "seamless", "game-changer", "unleash", "journey", "delve"
 
@@ -570,6 +571,15 @@ Current plan:
   - Total interest to be paid: $${result.totalInterestPaid.toFixed(0)}
   - Months saved vs minimums-only: ${monthsSaved}`;
 
+    // Law context for the elimination-claim check: the most a debt can get
+    // this month is its own minimum + the proposed extra, so a "pays it off
+    // this month" claim is checked against these balances.
+    const lawDebts = activeDebts.map((d) => ({
+      name: d.name,
+      balance: d.balance,
+      minimumPayment: d.minimumPayment,
+    }));
+
     let brief: CoachBrief;
     let usedFallback = false;
 
@@ -602,14 +612,14 @@ Current plan:
       }
 
       const claudeResponse = parsedJson ? CoachBriefSchema.safeParse(parsedJson) : null;
-      if (claudeResponse?.success && !isBriefLawful(claudeResponse.data, planMetrics.effectiveAcceleration)) {
-        console.error('Coach brief rejected by the law: nextAction implied touching a minimum payment', {
+      if (claudeResponse?.success && !isBriefLawful(claudeResponse.data, planMetrics.effectiveAcceleration, lawDebts)) {
+        console.error('Coach brief rejected by the law: minimum-payment advice, ceiling breach, or impossible payoff claim', {
           nextAction: claudeResponse.data.nextAction,
           effectiveAcceleration: planMetrics.effectiveAcceleration,
         });
       }
 
-      if (claudeResponse?.success && isBriefLawful(claudeResponse.data, planMetrics.effectiveAcceleration)) {
+      if (claudeResponse?.success && isBriefLawful(claudeResponse.data, planMetrics.effectiveAcceleration, lawDebts)) {
         brief = claudeResponse.data;
       } else {
         if (parsedJson && claudeResponse && !claudeResponse.success) {
@@ -665,9 +675,15 @@ Current plan:
       return NextResponse.json({ brief, dataHash, generatedAt: new Date(), fallback: true });
     }
 
-    // effectiveAcceleration travels with the stored brief so GET can re-run
-    // the law later without recomputing the whole plan (see toClientBrief).
-    const storedBrief: StoredCoachBrief = { ...brief, _meta: { effectiveAcceleration: planMetrics.effectiveAcceleration } };
+    // The law context (ceiling + debt balances) travels with the stored brief
+    // so GET can re-run the law later without recomputing the whole plan.
+    const storedBrief: StoredCoachBrief = {
+      ...brief,
+      _meta: {
+        effectiveAcceleration: planMetrics.effectiveAcceleration,
+        debts: lawDebts,
+      },
+    };
 
     const cache = await prisma.coachBriefCache.upsert({
       where: { userId },
