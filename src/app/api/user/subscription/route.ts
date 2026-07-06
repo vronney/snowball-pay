@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getStripe } from '@/lib/stripe';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
-import { isPlaidAllowed } from '@/lib/plaid';
+import { canUsePlaid } from '@/lib/plaid';
 
 const ACTIVE_STATUSES = ['active', 'trialing'];
 const TRIAL_GRACE_MS = 2 * 60 * 60 * 1000;
@@ -55,20 +55,18 @@ export async function GET(request: NextRequest) {
     const expired = isStale(endsAt);
     const isCanceling = !expired && status === 'active' && endsAt !== null;
 
-    const effectiveTier = expired ? 'free' : paidTier;
-
     return NextResponse.json({
-      paidTier: effectiveTier,
+      paidTier: expired ? 'free' : paidTier,
       subscriptionStatus: expired ? 'canceled' : status,
       subscriptionEndsAt: endsAt,
       isCanceling,
       hasCustomer: !!user?.stripeCustomerId,
       monthlyPrice: PRO_MONTHLY_PRICE,
-      // Mirrors the server-side canUsePlaid() gate (allowlist OR Pro) so the
-      // UI can tell a downgraded user their bank sync is paused — the tier
-      // alone would wrongly flag allowlisted testers as paused.
-      plaidEligible:
-        isPlaidAllowed(auth.user.email) || effectiveTier === 'pro',
+      // The ACTUAL gate the Plaid routes enforce (allowlist OR active Pro) so
+      // the UI can tell a downgraded user their bank sync is paused. Must be
+      // this exact function — deriving from the tier fields above can diverge
+      // (e.g. past_due keeps paidTier 'pro' here but fails canUsePlaid).
+      plaidEligible: await canUsePlaid(auth.user.id, auth.user.email),
     });
   } catch (error) {
     console.error('Subscription fetch error:', error);

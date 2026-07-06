@@ -80,11 +80,21 @@ export default function DebtCard({
   const isHighInterest = debt.interestRate >= 20;
   const isMedInterest = debt.interestRate >= 15 && debt.interestRate < 20;
   const isPaidOff = debt.balance <= 0.01;
+  const { data: subscription } = useSubscription();
+  // Linked debt whose owner lost Plaid eligibility (e.g. Pro → free): the
+  // bank connection still exists but no sync — manual or automatic — will run
+  // until they upgrade. Balance upkeep is a manual process now; say so instead
+  // of letting the card quietly go stale. `=== false` so the notice never
+  // flashes while the subscription query is still loading.
+  const syncPaused =
+    isDebtBankLinked(debt) && subscription?.plaidEligible === false;
   // A logged payment doesn't move a linked balance (the bank stays the source
   // of truth), which can read as "sync is broken". For a few days after a
-  // payment is logged, say the wait is on the bank's end.
+  // payment is logged, say the wait is on the bank's end — unless sync is
+  // paused, where no bank update is coming at all.
   const showBankPostingHint =
     !isPaidOff &&
+    !syncPaused &&
     isDebtBankLinked(debt) &&
     !!lastPaymentAt &&
     Date.now() - new Date(lastPaymentAt).getTime() < BANK_POSTING_HINT_MS;
@@ -125,15 +135,6 @@ export default function DebtCard({
   const markPaid = useMarkPaid();
   const refreshDebt = useRefreshDebtFromPlaid();
   const disconnectItem = useDisconnectPlaidItem();
-  const { data: subscription } = useSubscription();
-
-  // Linked debt whose owner lost Plaid eligibility (e.g. Pro → free): the
-  // bank connection still exists but no sync — manual or automatic — will run
-  // until they upgrade. Balance upkeep is a manual process now; say so instead
-  // of letting the card quietly go stale. `=== false` so the notice never
-  // flashes while the subscription query is still loading.
-  const syncPaused =
-    isDebtBankLinked(debt) && subscription?.plaidEligible === false;
 
   const togglePanel = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
 
@@ -511,7 +512,7 @@ export default function DebtCard({
               Last synced {formatRelativeTime(new Date(debt.lastSyncedAt))} ago
             </p>
           )}
-          {showBankPostingHint && !syncPaused && (
+          {showBankPostingHint && (
             <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
               Payment logged — your bank usually takes 1–2 days to post it.
               This balance stays synced from your bank and drops once it does.
