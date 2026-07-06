@@ -11,7 +11,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { render } from '@react-email/render';
 import { prisma } from '@/lib/prisma';
-import { EMAIL_FROM } from '@/lib/constants/app';
+import { EMAIL_FROM, APP_BASE_URL } from '@/lib/constants/app';
+import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
+import PlanWaitingEmail from '@/emails/PlanWaitingEmail';
 import {
   verifyCronRequest,
   sendEmail,
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(handleMissingResendConfig());
   }
 
-  const results = { day2: 0, day5: 0, day7: 0, errors: 0 };
+  const results = { day2: 0, day5: 0, day7: 0, leadReminder: 0, errors: 0 };
 
   // ── Day 2: users created 2 days ago who haven't set up yet ───────────────
   const { start: day2Start, end: day2End } = getDateRange(2);
@@ -233,6 +235,63 @@ export async function GET(request: NextRequest) {
       }
     } catch (err) {
       console.error('[cron day7]', user.id, err);
+      results.errors++;
+    }
+  }
+
+  // ── Calculator leads: saved a plan 24h+ ago, never created an account ─────
+  // One reminder per lead, ever (remindedAt guard). Leads that converted are
+  // marked without sending so the backlog drains instead of being rechecked.
+  const leadCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const leads = await prisma.calculatorLead.findMany({
+    where: { remindedAt: null, createdAt: { lte: leadCutoff } },
+    take: 100,
+  });
+
+  for (const lead of leads) {
+    try {
+      const converted = await prisma.user.findUnique({
+        where: { email: lead.email },
+        select: { id: true },
+      });
+      if (converted) {
+        await prisma.calculatorLead.update({
+          where: { id: lead.id },
+          data: { remindedAt: new Date() },
+        });
+        continue;
+      }
+
+      // Lead unsubscribe deletes the row (no account to opt out) — token is
+      // namespaced so a user token can never be replayed against a lead.
+      const unsubscribeUrl = `${APP_BASE_URL}/api/email/unsubscribe?leadId=${lead.id}&token=${generateUnsubscribeToken(`lead:${lead.id}`)}`;
+      const signupUrl = `${APP_BASE_URL}/auth/login?screen_hint=signup&login_hint=${encodeURIComponent(lead.email)}&returnTo=%2Fonboarding`;
+
+      const html = await render(React.createElement(PlanWaitingEmail, {
+        debtFreeDate:  lead.debtFreeDate ?? undefined,
+        interestSaved: lead.interestSaved ?? undefined,
+        signupUrl,
+        unsubscribeUrl,
+      }));
+      const result = await sendEmail(
+        lead.email,
+        EMAIL_FROM,
+        lead.debtFreeDate
+          ? `Your debt-free date is waiting: ${lead.debtFreeDate}`
+          : 'Your payoff plan is waiting',
+        html,
+      );
+      if (result.success) {
+        await prisma.calculatorLead.update({
+          where: { id: lead.id },
+          data: { remindedAt: new Date() },
+        });
+        results.leadReminder++;
+      } else {
+        results.errors++;
+      }
+    } catch (err) {
+      console.error('[cron lead-reminder]', lead.id, err);
       results.errors++;
     }
   }
