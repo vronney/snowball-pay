@@ -65,8 +65,11 @@ export const REDIRECT_TOLERANCE = 1; // dollars — absorbs rounding only
 // Elimination-claim verbs: phrases asserting a specific debt hits zero.
 // Deliberately does NOT include timeline phrases like "debt-free in 11
 // months" — those describe the whole plan, not a single debt's balance.
+// "clear(s/ed/ing)" is matched broadly (minus "steer clear") on purpose: a
+// false positive only downgrades to the deterministic fallback, while a
+// missed synonym re-opens the exact bug this law exists to stop.
 export const ELIMINATION_CLAIM_RE =
-  /\b(?:eliminat\w+|paid\s+off|pay(?:s|ing)?\s+off|pay(?:s|ing)?\s+\w+(?:\s+\w+)?\s+off|zero(?:s|ed)?\s+out|(?:reach(?:es)?|hits?|down\s+to)\s+\$?(?:0|zero)\b|wipe[sd]?\s+out|knock(?:s|ed|ing)?\s+out|gone\s+by)\b/i;
+  /\b(?:eliminat\w+|paid\s+off|pay(?:s|ing)?\s+off|pay(?:s|ing)?\s+\w+(?:\s+\w+)?\s+off|(?<!steer\s)clear(?:s|ed|ing)?\b|zero(?:s|ed)?\s+out|(?:reach(?:es)?|hits?|down\s+to)\s+\$?(?:0|zero)\b|wipe[sd]?\s+out|knock(?:s|ed|ing)?\s+out|gone\s+by)\b/i;
 
 /**
  * Third law: an "eliminates it this month"-style claim must be arithmetically
@@ -91,10 +94,23 @@ function makesUnverifiedEliminationClaim(
   const canEliminate = (d: EliminationCheckDebt) =>
     brief.nextAction.redirectAmount + d.minimumPayment + REDIRECT_TOLERANCE >= d.balance;
 
-  const lower = text.toLowerCase();
-  const named = debts.filter(
-    (d) => d.name.trim().length > 0 && lower.includes(d.name.trim().toLowerCase()),
-  );
+  // Attribute debt names longest-first, blanking out each match before
+  // checking shorter names — otherwise "Chase" would count as named whenever
+  // "Chase Sapphire" appears, and its small balance could vouch for an
+  // impossible claim about the bigger card.
+  let remaining = text.toLowerCase();
+  const named: EliminationCheckDebt[] = [];
+  const byNameLengthDesc = debts
+    .filter((d) => d.name.trim().length > 0)
+    .sort((a, b) => b.name.trim().length - a.name.trim().length);
+  for (const debt of byNameLengthDesc) {
+    const needle = debt.name.trim().toLowerCase();
+    if (remaining.includes(needle)) {
+      named.push(debt);
+      remaining = remaining.split(needle).join(' ');
+    }
+  }
+
   const candidates = named.length > 0 ? named : debts;
   return !candidates.some(canEliminate);
 }

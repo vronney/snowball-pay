@@ -156,6 +156,48 @@ describe('isBriefLawful — elimination claims must be arithmetically possible',
     const brief = nextAction({ redirectAmount: 500 });
     expect(isBriefLawful(brief, 500)).toBe(true);
   });
+
+  it('catches the "clears" synonym (Codex-flagged gap)', () => {
+    const brief = nextAction({
+      body: 'Paying $565 clears CreditOne 6610 by month-end.',
+      action: 'Pay $565 to CreditOne 6610',
+      redirectAmount: 500,
+    });
+    expect(isBriefLawful(brief, 500, [CREDIT_ONE])).toBe(false);
+  });
+
+  it('does not treat "steer clear" as a payoff claim', () => {
+    const brief = nextAction({
+      body: 'Steer clear of new charges on CreditOne 6610 while paying it down.',
+      redirectAmount: 500,
+    });
+    expect(isBriefLawful(brief, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(true);
+  });
+
+  it('does not let an overlapping shorter name vouch for a longer one (Codex-flagged gap)', () => {
+    // "Chase" is a substring of "Chase Sapphire": naive matching would mark
+    // both as named and let the eliminable small Chase balance validate an
+    // impossible claim about the $8,000 Chase Sapphire.
+    const chase = { name: 'Chase', balance: 300, minimumPayment: 35 };
+    const chaseSapphire = { name: 'Chase Sapphire', balance: 8000, minimumPayment: 160 };
+    const brief = nextAction({
+      body: 'Pay $600 to Chase Sapphire; this eliminates it this month.',
+      action: 'Pay $600 to Chase Sapphire',
+      redirectAmount: 565,
+    });
+    expect(isBriefLawful(brief, 565, [chase, chaseSapphire])).toBe(false);
+  });
+
+  it('still credits a shorter overlapping name when it is mentioned on its own', () => {
+    const chase = { name: 'Chase', balance: 300, minimumPayment: 35 };
+    const chaseSapphire = { name: 'Chase Sapphire', balance: 8000, minimumPayment: 160 };
+    const brief = nextAction({
+      body: 'Send $335 to Chase to eliminate it, then keep Chase Sapphire on its minimum.',
+      action: 'Pay $335 to Chase this month',
+      redirectAmount: 300,
+    });
+    expect(isBriefLawful(brief, 300, [chase, chaseSapphire])).toBe(true);
+  });
 });
 
 describe('toClientBrief', () => {
