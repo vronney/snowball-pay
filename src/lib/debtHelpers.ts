@@ -13,6 +13,18 @@ export function isDebtBankLinked(
   return Boolean(debt?.isLinked && debt?.plaidItemId);
 }
 
+/**
+ * True when this month's due day has already passed (the due day itself still
+ * counts as on time). Single source of truth for "overdue" — DebtCard's
+ * past-due state and getUpcomingPayments' negative daysUntilDue must agree.
+ */
+export function isDebtOverdueThisMonth(
+  dueDate: number | null | undefined,
+  today: Date = new Date(),
+): boolean {
+  return !!dueDate && today.getDate() > dueDate;
+}
+
 export interface UpcomingPayment {
   debt: Debt;
   daysUntilDue: number;

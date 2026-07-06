@@ -14,7 +14,7 @@ import {
 } from "@/lib/utils";
 import { color, primaryButton, quietButton } from "@/lib/designTokens";
 import { useAddBulkSnapshots, useUpdateDebt, useMarkPaid } from "@/lib/hooks";
-import { isDebtBankLinked } from "@/lib/debtHelpers";
+import { isDebtBankLinked, isDebtOverdueThisMonth } from "@/lib/debtHelpers";
 import { useRefreshDebtFromPlaid } from "@/lib/hooks/useRefreshDebtFromPlaid";
 import { useDisconnectPlaidItem } from "@/lib/hooks/useDisconnectPlaidItem";
 import { PlaidReauthBanner } from "@/components/plaid/PlaidReauthBanner";
@@ -90,10 +90,7 @@ export default function DebtCard({
   // This month's due date has passed with no payment logged — surface it (red
   // badge + strip copy) until the user logs the payment or the month rolls over.
   const isPastDue =
-    !isPaidOff &&
-    !paidThisMonth &&
-    !!debt.dueDate &&
-    new Date().getDate() > debt.dueDate;
+    !isPaidOff && !paidThisMonth && isDebtOverdueThisMonth(debt.dueDate);
   const [panel, setPanel] = useState<Panel>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [newBalance, setNewBalance] = useState(String(debt.balance));

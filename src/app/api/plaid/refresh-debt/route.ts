@@ -63,7 +63,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!debt.plaidItem?.accessToken) {
+    // The item-owner check should be implied by debt.userId above, but guard
+    // against a stale/corrupted relation before decrypting another tenant's
+    // token (least-privilege: never sync an item the caller doesn't own).
+    if (!debt.plaidItem?.accessToken || debt.plaidItem.userId !== userId) {
       return NextResponse.json(
         { error: 'Plaid access token not found for this debt' },
         { status: 400 }

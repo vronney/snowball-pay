@@ -79,14 +79,25 @@ export async function syncPlaidItemBalances(item: {
   // edit path, or the Actual-vs-Projected chart diverges) + one item sync stamp.
   await prisma.$transaction(async (tx) => {
     for (const u of updates) {
-      await tx.debt.update({
-        where: { id: u.id },
+      // Re-assert ownership/linkage inside the transaction: itemDebts was read
+      // outside it, so a debt disconnected or re-assigned in the gap must not
+      // be overwritten (updateMany is a no-op then, unlike update which throws
+      // only on missing ids, not on stale linkage).
+      const updated = await tx.debt.updateMany({
+        where: {
+          id: u.id,
+          userId: item.userId,
+          plaidItemId: item.id,
+          isLinked: true,
+        },
         data: {
           balance: u.newBalance,
           originalBalance: u.newOriginalBalance,
           lastSyncedAt: now,
         },
       });
+      // Debt no longer eligible — skip its snapshot too.
+      if (updated.count === 0) continue;
       await tx.balanceSnapshot.upsert({
         where: { debtId_recordedAt: { debtId: u.id, recordedAt } },
         update: { balance: u.newBalance },
