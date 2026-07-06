@@ -7,6 +7,8 @@ interface ProGateProps {
   feature: string;
   children: React.ReactNode;
   isPro: boolean;
+  /** Optional truthful stake line, e.g. real interest dollars the plan protects. */
+  stakes?: string;
 }
 
 /**
@@ -14,7 +16,7 @@ interface ProGateProps {
  * Free users see a blurred preview with an upgrade prompt.
  * Always renders children so no layout shift on upgrade.
  */
-export default function ProGate({ feature, children, isPro }: ProGateProps) {
+export default function ProGate({ feature, children, isPro, stakes }: ProGateProps) {
   if (isPro) return <>{children}</>;
 
   return (
@@ -54,7 +56,7 @@ export default function ProGate({ feature, children, isPro }: ProGateProps) {
             Pro feature
           </p>
           <p style={{ fontSize: "12px", color: "#64748b", margin: "0 0 12px", lineHeight: 1.4 }}>
-            {feature} is available on the Pro plan.
+            {stakes ?? `${feature} is available on the Pro plan.`}
           </p>
           <button
             onClick={() => upgradeEvents.dispatch(feature)}

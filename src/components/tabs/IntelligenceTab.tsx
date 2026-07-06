@@ -8,6 +8,7 @@ import {
   calculatePlanMetrics,
 } from "@/lib/payoffPlan";
 import { useAllSnapshots } from "@/lib/hooks";
+import { formatCurrency } from "@/lib/utils";
 import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
 import PlannerIntelligence from "@/components/payoff/PlannerIntelligence";
 import ProGate from "@/components/billing/ProGate";
@@ -108,9 +109,22 @@ export default function IntelligenceTab({
     totalEssential,
   } = planMetrics!;
 
+  const interestReclaimed = Math.max(
+    0,
+    minimumsOnlyResult.totalInterestPaid - planResult.totalInterestPaid,
+  );
+
   return (
     <section id="section-intelligence" className="space-y-6">
-      <ProGate feature="Intelligence" isPro={isPro}>
+      <ProGate
+        feature="Intelligence"
+        isPro={isPro}
+        stakes={
+          interestReclaimed > 0
+            ? `Your plan is on track to reclaim ${formatCurrency(interestReclaimed)} in interest — Pro's coach and forecasts help you keep it that way.`
+            : undefined
+        }
+      >
       <PlannerIntelligence
         debts={debts}
         income={income}

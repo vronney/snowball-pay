@@ -695,7 +695,9 @@ export function OnboardingWizard({
           </a>
         </div>
 
-        <StepIndicator current={step} total={STEPS} />
+        {/* Account creation counts as the first completed step so the
+            indicator never starts at zero (endowed progress). */}
+        <StepIndicator current={step + 1} total={STEPS + 1} />
 
         {/* Step content */}
         <div className="tab-fade-in">
