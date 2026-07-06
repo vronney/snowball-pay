@@ -36,6 +36,8 @@ interface DebtCardProps {
   isActiveFocus?: boolean;
   /** Whether a payment was already logged for this debt this month. */
   paidThisMonth?: boolean;
+  /** When this month's most recent payment was logged (ISO), if any. */
+  lastPaymentAt?: string | null;
   /** Months until this debt is cleared on the current plan (payoff schedule). */
   monthPaidOff?: number | null;
   /** Extra acceleration available this month — applies to the focus debt. */
@@ -45,6 +47,10 @@ interface DebtCardProps {
 }
 
 type Panel = "payment" | "balance" | "edit" | null;
+
+// How long the "payment logged — waiting on the bank" hint stays up after a
+// payment. Banks typically post in 1–2 business days; 3 days covers weekends.
+const BANK_POSTING_HINT_MS = 3 * 24 * 60 * 60 * 1000;
 
 export default function DebtCard({
   debt,
@@ -56,6 +62,7 @@ export default function DebtCard({
   rank,
   isActiveFocus = false,
   paidThisMonth = false,
+  lastPaymentAt = null,
   monthPaidOff = null,
   focusExtra = 0,
   isReauthBannerHost = false,
@@ -72,6 +79,14 @@ export default function DebtCard({
   const isHighInterest = debt.interestRate >= 20;
   const isMedInterest = debt.interestRate >= 15 && debt.interestRate < 20;
   const isPaidOff = debt.balance <= 0.01;
+  // A logged payment doesn't move a linked balance (the bank stays the source
+  // of truth), which can read as "sync is broken". For a few days after a
+  // payment is logged, say the wait is on the bank's end.
+  const showBankPostingHint =
+    !isPaidOff &&
+    isDebtBankLinked(debt) &&
+    !!lastPaymentAt &&
+    Date.now() - new Date(lastPaymentAt).getTime() < BANK_POSTING_HINT_MS;
   const [panel, setPanel] = useState<Panel>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [newBalance, setNewBalance] = useState(String(debt.balance));
@@ -466,6 +481,12 @@ export default function DebtCard({
           {debt.lastSyncedAt && (
             <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
               Last synced {formatRelativeTime(new Date(debt.lastSyncedAt))} ago
+            </p>
+          )}
+          {showBankPostingHint && (
+            <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
+              Payment logged — your bank usually takes 1–2 days to post it.
+              This balance stays synced from your bank and drops once it does.
             </p>
           )}
           {/* Some banks share balances but not APR via Plaid. 0% on a linked
