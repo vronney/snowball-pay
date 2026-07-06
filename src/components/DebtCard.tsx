@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Debt } from "@/types";
-import { Trash2, Pencil, DollarSign, RefreshCw, CheckCircle2, Target } from "lucide-react";
+import { Trash2, Pencil, DollarSign, RefreshCw, CheckCircle2, Target, AlertCircle } from "lucide-react";
 import {
   formatCurrency,
   formatMonths,
@@ -87,6 +87,13 @@ export default function DebtCard({
     isDebtBankLinked(debt) &&
     !!lastPaymentAt &&
     Date.now() - new Date(lastPaymentAt).getTime() < BANK_POSTING_HINT_MS;
+  // This month's due date has passed with no payment logged — surface it (red
+  // badge + strip copy) until the user logs the payment or the month rolls over.
+  const isPastDue =
+    !isPaidOff &&
+    !paidThisMonth &&
+    !!debt.dueDate &&
+    new Date().getDate() > debt.dueDate;
   const [panel, setPanel] = useState<Panel>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [newBalance, setNewBalance] = useState(String(debt.balance));
@@ -261,6 +268,20 @@ export default function DebtCard({
                   }}
                 >
                   #{rank}
+                </span>
+              )}
+              {isPastDue && (
+                <span
+                  className="text-[0.65rem] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1"
+                  title={`No payment logged — was due the ${getOrdinalDay(debt.dueDate!)}`}
+                  style={{
+                    background: "rgba(239,68,68,0.10)",
+                    color: color.error,
+                    border: "1px solid rgba(239,68,68,0.25)",
+                  }}
+                >
+                  <AlertCircle size={10} strokeWidth={2} />
+                  Past due
                 </span>
               )}
             </div>
@@ -580,26 +601,41 @@ export default function DebtCard({
                   fontWeight: 700,
                   letterSpacing: "0.08em",
                   textTransform: "uppercase",
-                  color: isActiveFocus ? color.primary : color.faint,
+                  color: isPastDue
+                    ? color.error
+                    : isActiveFocus
+                      ? color.primary
+                      : color.faint,
                 }}
               >
-                {isActiveFocus ? "This month's move" : "Stay on plan"}
+                {isPastDue
+                  ? "Past due"
+                  : isActiveFocus
+                    ? "This month's move"
+                    : "Stay on plan"}
               </div>
               <div
                 style={{ fontSize: "13px", fontWeight: 600, color: color.text, marginTop: "2px" }}
               >
                 {paidThisMonth
                   ? `${monthName} payment logged — you're on plan.`
-                  : isActiveFocus
-                    ? `Pay ${formatCurrency(suggestedPayment)} here this month`
-                    : `Pay the ${formatCurrency(debt.minimumPayment)} minimum${debt.dueDate ? ` by the ${getOrdinalDay(debt.dueDate)}` : ""}`}
+                  : isPastDue
+                    ? `No ${monthName} payment logged — it was due the ${getOrdinalDay(debt.dueDate!)}.`
+                    : isActiveFocus
+                      ? `Pay ${formatCurrency(suggestedPayment)} here this month`
+                      : `Pay the ${formatCurrency(debt.minimumPayment)} minimum${debt.dueDate ? ` by the ${getOrdinalDay(debt.dueDate)}` : ""}`}
               </div>
-              {!paidThisMonth && isActiveFocus && suggestedPayment > debt.minimumPayment ? (
+              {isPastDue && (
+                <div style={{ fontSize: "11px", color: color.faint, marginTop: "2px" }}>
+                  Already paid? Log it here to stay on plan.
+                </div>
+              )}
+              {!paidThisMonth && !isPastDue && isActiveFocus && suggestedPayment > debt.minimumPayment ? (
                 <div style={{ fontSize: "11px", color: color.faint, marginTop: "2px" }}>
                   {formatCurrency(debt.minimumPayment)} minimum + {formatCurrency(suggestedPayment - debt.minimumPayment)} extra
                   {hasEta ? ` · gone in ${formatMonths(monthPaidOff!)}` : ""}
                 </div>
-              ) : hasEta ? (
+              ) : hasEta && !isPastDue ? (
                 <div style={{ fontSize: "11px", color: color.faint, marginTop: "2px" }}>
                   On your plan: cleared in {formatMonths(monthPaidOff!)}
                   {rank !== undefined ? ` · #${rank} in your snowball` : ""}

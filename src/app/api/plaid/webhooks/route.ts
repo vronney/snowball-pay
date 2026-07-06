@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { limits } from '@/lib/rateLimit';
 import { verifyPlaidWebhook } from '@/lib/plaidWebhook';
+import { syncPlaidItemBalances } from '@/lib/plaidSync';
+import { logPlaidError } from '@/lib/plaid';
 
 // Verify the raw signature against the exact bytes Plaid sent — disable any
 // body parsing and read the body as text.
@@ -89,7 +91,34 @@ export async function POST(request: NextRequest) {
         });
       }
     }
-    // LIABILITIES/DEFAULT_UPDATE and other types: acknowledged, no action yet.
+
+    // Plaid has fresh liability data for this item (fires when it detects
+    // changed balances/APRs after its scheduled pull from the bank). Sync all
+    // linked debts now so balances update without the user clicking refresh —
+    // e.g. a card payment drops the balance here once the bank posts it.
+    if (
+      webhook_type === 'LIABILITIES' &&
+      webhook_code === 'DEFAULT_UPDATE' &&
+      item_id
+    ) {
+      const item = await prisma.plaidItem.findUnique({
+        where: { itemId: item_id },
+      });
+      if (item) {
+        try {
+          await syncPlaidItemBalances(item);
+        } catch (error) {
+          // Ack with 200 anyway: a failed pull (e.g. login expired between
+          // the webhook firing and now) won't be fixed by Plaid re-sending
+          // the same webhook, and the manual refresh path still works.
+          logPlaidError(
+            `[plaid webhook] balance sync failed for item ${item.id}:`,
+            error
+          );
+        }
+      }
+    }
+    // Other types: acknowledged, no action.
   } catch (error) {
     console.error(
       `[plaid webhook] handler error for ${webhook_type}/${webhook_code}:`,

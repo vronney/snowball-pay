@@ -32,13 +32,12 @@ export function getUpcomingPayments(debts: Debt[]): UpcomingPayment[] {
     if (!debt.dueDate) continue;
     const dueDay = debt.dueDate;
 
-    let daysUntil: number;
-    if (dueDay >= todayDay) {
-      daysUntil = dueDay - todayDay;
-    } else {
-      const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-      daysUntil = daysInMonth - todayDay + dueDay;
-    }
+    // Negative = this month's due date already passed. Callers filter out
+    // debts whose payment IS logged, so a negative entry surfaces as an
+    // "Overdue" indicator until the payment is logged or the month rolls over
+    // — it must NOT silently wrap to next month's date, which would show a
+    // missed payment as merely "upcoming".
+    const daysUntil = dueDay - todayDay;
 
     if (daysUntil > 7) continue;
 
