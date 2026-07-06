@@ -16,9 +16,11 @@ function daysUntil(dateStr: string): number | null {
 
 interface TrialCountdownBannerProps {
   sub: SubscriptionInfo | undefined;
+  /** True when any debt is Plaid-linked — gates the "bank sync" loss mention. */
+  hasLinkedBankDebt?: boolean;
 }
 
-export default function TrialCountdownBanner({ sub }: TrialCountdownBannerProps) {
+export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }: TrialCountdownBannerProps) {
   const [dismissed, setDismissed] = useState(false);
 
   if (dismissed) return null;
@@ -48,7 +50,12 @@ export default function TrialCountdownBanner({ sub }: TrialCountdownBannerProps)
         color: urgent ? "#92400e" : "#1e40af",
       }}
     >
-      <span style={{ fontWeight: 600 }}>{label}</span>
+      <span>
+        <span style={{ fontWeight: 600 }}>{label}</span>
+        {hasLinkedBankDebt
+          ? " — after that, coach notes, what-if scenarios, and bank sync pause."
+          : " — after that, coach notes and what-if scenarios pause."}
+      </span>
 
       <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
         <button

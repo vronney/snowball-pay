@@ -6,9 +6,12 @@ import { getErrorMessage, useStartCheckout } from "@/lib/hooks";
 import { PLANS } from "@/lib/stripe";
 import { PRO_TRIAL_DAYS } from "@/lib/billing";
 import { track, Events } from "@/lib/analytics";
+import { formatCurrency } from "@/lib/utils";
 
 interface UpgradeModalProps {
   feature?: string;
+  /** Projected interest reclaimed vs minimums-only — real plan data for loss framing. */
+  interestAtStake?: number;
   onClose: () => void;
 }
 
@@ -23,7 +26,7 @@ const proBenefits = [
 
 type Billing = "monthly" | "annual";
 
-export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
+export default function UpgradeModal({ feature, interestAtStake = 0, onClose }: UpgradeModalProps) {
   const [billing, setBilling] = useState<Billing>("monthly");
   const checkout = useStartCheckout();
   const checkoutError = checkout.isError
@@ -100,7 +103,9 @@ export default function UpgradeModal({ feature, onClose }: UpgradeModalProps) {
         </h2>
         <p style={{ fontSize: "14px", color: "#64748b", margin: "0 0 20px", lineHeight: 1.55 }}>
           {feature ? `${feature} is a Pro feature. ` : ""}
-          Upgrade to unlock document import, AI coaching, unlimited debts, and full payoff history.
+          {interestAtStake > 0
+            ? `Your plan is on track to reclaim ${formatCurrency(interestAtStake)} in interest vs paying minimums. Pro keeps that follow-through with monthly coach notes, what-if scenarios, and unlimited debts.`
+            : "Upgrade to unlock unlimited debts, monthly coach notes, what-if scenarios, and full payoff history."}
         </p>
 
         {/* Billing toggle */}

@@ -28,6 +28,7 @@ import DashboardLoadingScreen from "@/components/dashboard/DashboardLoadingScree
 import { type Tab } from "@/components/dashboard/types";
 import IntelligenceTab from "@/components/tabs/IntelligenceTab";
 import { upgradeEvents } from "@/lib/upgradeEvents";
+import { calculateMinimumsOnlyResult, calculatePlanMetrics } from "@/lib/payoffPlan";
 import TrialCountdownBanner from "@/components/dashboard/TrialCountdownBanner";
 import { useSubscription } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
@@ -176,6 +177,25 @@ export default function DashboardClient({
     }
   }, [debtsLoading, incomeLoading, debtsFetching, incomeFetching, income, debts.length, router]);
 
+  // Real interest reclaimed vs minimums-only, for loss framing in the upgrade
+  // modal. Only computed while the modal is open — plan simulation is not free.
+  const interestAtStake = useMemo(() => {
+    if (!upgradeModal.open || !debts.length || !income) return 0;
+    try {
+      const method =
+        (income.payoffMethod as "snowball" | "avalanche" | "custom") ?? "snowball";
+      const plan = calculatePlanMetrics(debts, income, expenses, { method });
+      const minimums = calculateMinimumsOnlyResult(debts);
+      if (!plan || !minimums) return 0;
+      return Math.max(
+        0,
+        minimums.totalInterestPaid - plan.result.totalInterestPaid,
+      );
+    } catch {
+      return 0;
+    }
+  }, [upgradeModal.open, debts, income, expenses]);
+
   const paidThisMonth = useMemo(() => {
     const map = new Map<string, string>();
     for (const r of paymentsData?.records ?? []) map.set(r.debtId, r.id);
@@ -240,7 +260,10 @@ export default function DashboardClient({
           plaidEnabled={plaidEnabled}
         />
 
-        <TrialCountdownBanner sub={subData} />
+        <TrialCountdownBanner
+          sub={subData}
+          hasLinkedBankDebt={debts.some((d) => d.isLinked)}
+        />
         <main style={{ flex: 1, padding: "32px", width: "100%" }} className="db-content">
           {activeTab === "progress" && debts.length > 0 && (
             <div className="mb-4">
@@ -312,6 +335,7 @@ export default function DashboardClient({
       {upgradeModal.open && (
         <UpgradeModal
           feature={upgradeModal.feature}
+          interestAtStake={interestAtStake}
           onClose={() => setUpgradeModal({ open: false })}
         />
       )}

@@ -314,3 +314,22 @@ model DebtStory {
   @@index([userId, createdAt(sort: Desc)])
   @@map("debt_stories")
 }
+
+// ---------------------------------------------------------------------------
+// Calculator Lead — email captured by the SavePlanModal before the Auth0
+// redirect, so an MFA/signup abandon doesn't lose the contact or plan summary.
+// Upserted by email; no relation to User (pre-auth by definition).
+// ---------------------------------------------------------------------------
+model CalculatorLead {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  source        String   @default("calculator")
+  method        String?
+  debtFreeDate  String?
+  interestSaved Float?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("calculator_leads")
+}

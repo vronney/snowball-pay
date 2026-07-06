@@ -57,27 +57,31 @@ describe('detectFrequencyFromDateRange', () => {
     });
 
     it('detects weekly from dash-separated inline range', () => {
-      expect(detectFrequencyFromDateRange('04-07-2026 - 04-13-2026')).toBe('weekly');
+      expect(detectFrequencyFromDateRange('Period: 04-07-2026 - 04-13-2026')).toBe('weekly');
     });
 
     it('detects bi-weekly from 14-day inline range', () => {
-      expect(detectFrequencyFromDateRange('03/01/2026 - 03/14/2026')).toBe('bi-weekly');
+      expect(detectFrequencyFromDateRange('Pay period: 03/01/2026 - 03/14/2026')).toBe('bi-weekly');
     });
 
     it('detects semi-monthly from 15-day inline range', () => {
-      expect(detectFrequencyFromDateRange('03/01/2026 - 03/15/2026')).toBe('semi-monthly');
+      expect(detectFrequencyFromDateRange('Pay period: 03/01/2026 - 03/15/2026')).toBe('semi-monthly');
     });
 
     it('detects monthly from 30-day inline range', () => {
-      expect(detectFrequencyFromDateRange('03/01/2026 - 03/30/2026')).toBe('monthly');
+      expect(detectFrequencyFromDateRange('Pay period: 03/01/2026 - 03/30/2026')).toBe('monthly');
     });
 
     it('supports "to" as separator', () => {
-      expect(detectFrequencyFromDateRange('04/07/2026 to 04/13/2026')).toBe('weekly');
+      expect(detectFrequencyFromDateRange('Pay period: 04/07/2026 to 04/13/2026')).toBe('weekly');
     });
 
     it('supports en-dash as separator', () => {
-      expect(detectFrequencyFromDateRange('04/07/2026 – 04/13/2026')).toBe('weekly');
+      expect(detectFrequencyFromDateRange('Pay period: 04/07/2026 – 04/13/2026')).toBe('weekly');
+    });
+
+    it('returns null for a bare unlabeled range (v2: labels required to avoid advice-date false matches)', () => {
+      expect(detectFrequencyFromDateRange('04-07-2026 - 04-13-2026')).toBeNull();
     });
 
     it('does not match "t" or "o" as separators (no character class bug)', () => {
@@ -123,7 +127,7 @@ describe('detectFrequencyFromDateRange', () => {
     it('handles DST boundary correctly (uses UTC, not local time)', () => {
       // March 8, 2026 is a DST transition in the US (clocks spring forward)
       // A weekly period starting Mar 2 should still count as 7 days
-      const text = '03/02/2026 - 03/08/2026';
+      const text = 'Pay period: 03/02/2026 - 03/08/2026';
       expect(detectFrequencyFromDateRange(text)).toBe('weekly');
     });
   });
@@ -149,7 +153,7 @@ describe('extractIncome — frequency precedence', () => {
 
   it('date range beats bi-weekly keyword — a 7-day range wins even with "bi-weekly" text', () => {
     // Date-range inference now runs first; a 7-day span overrides keyword noise
-    const text = `${netPayLine}Bi-Weekly Pay Advice\n04/07/2026 - 04/13/2026`;
+    const text = `${netPayLine}Bi-Weekly Pay Advice\nPay period: 04/07/2026 - 04/13/2026`;
     const result = extractIncome(text);
     expect(result.items[0]?.frequency).toBe('weekly');
   });

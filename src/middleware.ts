@@ -44,6 +44,7 @@ const PUBLIC_API_PATHS = [
   '/api/webhooks/stripe',
   '/api/plaid/webhooks',
   '/api/unsubscribe',
+  '/api/leads',
 ];
 
 function normalizePathname(pathname: string): string {
