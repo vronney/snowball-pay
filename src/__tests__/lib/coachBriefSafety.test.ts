@@ -107,6 +107,99 @@ describe('isBriefLawful', () => {
   });
 });
 
+describe('isBriefLawful — elimination claims must be arithmetically possible', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+  const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+
+  it('rejects the reported incident: claiming $565 eliminates a $1,209 balance', () => {
+    const brief = nextAction({
+      title: 'Attack CreditOne 6610 now',
+      body: 'CreditOne 6610 carries 27.49% APR on $1,209. Paying $565 total ($65 min + $500) this month eliminates it by month-end.',
+      action: 'Pay $565 to CreditOne 6610 this month',
+      redirectAmount: 500,
+    });
+    expect(isBriefLawful(brief, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(false);
+  });
+
+  it('allows the same claim when minimum + extra actually covers the balance', () => {
+    const smallCreditOne = { ...CREDIT_ONE, balance: 550 };
+    const brief = nextAction({
+      title: 'Finish off CreditOne 6610',
+      body: 'Paying $565 total ($65 min + $500) this month eliminates CreditOne 6610 by month-end.',
+      action: 'Pay $565 to CreditOne 6610 this month',
+      redirectAmount: 500,
+    });
+    expect(isBriefLawful(brief, 500, [smallCreditOne, DELTA_AMEX])).toBe(true);
+  });
+
+  it.each([
+    'This eliminates the smallest balance this month.',
+    'That pays off your smallest card by the end of the month.',
+    'One payment wipes out the balance entirely.',
+  ])('unattributed claim "%s" passes only when SOME debt is eliminable', (phrase) => {
+    const brief = nextAction({ body: phrase, redirectAmount: 500 });
+    // $500 extra + $65 min covers a $550 balance → plausible for smallCreditOne.
+    expect(isBriefLawful(brief, 500, [{ ...CREDIT_ONE, balance: 550 }, DELTA_AMEX])).toBe(true);
+    // No debt is coverable → hallucinated claim.
+    expect(isBriefLawful(brief, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(false);
+  });
+
+  it('does not treat whole-plan timeline phrasing as a per-debt elimination claim', () => {
+    const brief = nextAction({
+      body: 'Staying on this plan makes you debt-free 11 months sooner and saves $5,714 in interest.',
+      redirectAmount: 0,
+    });
+    expect(isBriefLawful(brief, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(true);
+  });
+
+  it('ignores claim-free briefs regardless of debt context (default arg)', () => {
+    const brief = nextAction({ redirectAmount: 500 });
+    expect(isBriefLawful(brief, 500)).toBe(true);
+  });
+
+  it('catches the "clears" synonym (Codex-flagged gap)', () => {
+    const brief = nextAction({
+      body: 'Paying $565 clears CreditOne 6610 by month-end.',
+      action: 'Pay $565 to CreditOne 6610',
+      redirectAmount: 500,
+    });
+    expect(isBriefLawful(brief, 500, [CREDIT_ONE])).toBe(false);
+  });
+
+  it('does not treat "steer clear" as a payoff claim', () => {
+    const brief = nextAction({
+      body: 'Steer clear of new charges on CreditOne 6610 while paying it down.',
+      redirectAmount: 500,
+    });
+    expect(isBriefLawful(brief, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(true);
+  });
+
+  it('does not let an overlapping shorter name vouch for a longer one (Codex-flagged gap)', () => {
+    // "Chase" is a substring of "Chase Sapphire": naive matching would mark
+    // both as named and let the eliminable small Chase balance validate an
+    // impossible claim about the $8,000 Chase Sapphire.
+    const chase = { name: 'Chase', balance: 300, minimumPayment: 35 };
+    const chaseSapphire = { name: 'Chase Sapphire', balance: 8000, minimumPayment: 160 };
+    const brief = nextAction({
+      body: 'Pay $600 to Chase Sapphire; this eliminates it this month.',
+      action: 'Pay $600 to Chase Sapphire',
+      redirectAmount: 565,
+    });
+    expect(isBriefLawful(brief, 565, [chase, chaseSapphire])).toBe(false);
+  });
+
+  it('still credits a shorter overlapping name when it is mentioned on its own', () => {
+    const chase = { name: 'Chase', balance: 300, minimumPayment: 35 };
+    const chaseSapphire = { name: 'Chase Sapphire', balance: 8000, minimumPayment: 160 };
+    const brief = nextAction({
+      body: 'Send $335 to Chase to eliminate it, then keep Chase Sapphire on its minimum.',
+      action: 'Pay $335 to Chase this month',
+      redirectAmount: 300,
+    });
+    expect(isBriefLawful(brief, 300, [chase, chaseSapphire])).toBe(true);
+  });
+});
+
 describe('toClientBrief', () => {
   it('strips server-only _meta before the brief reaches the client', () => {
     const stored: StoredCoachBrief = {
@@ -161,6 +254,34 @@ describe('parseLawfulStoredBrief', () => {
     const stored: StoredCoachBrief = {
       ...nextAction({ redirectAmount: 500 }),
       _meta: { effectiveAcceleration: 500 },
+    };
+    expect(parseLawfulStoredBrief(stored)).not.toBeNull();
+  });
+
+  it('purges a pre-rule cached brief that makes an elimination claim (no debt context stored)', () => {
+    // Cached before _meta.debts existed: the claim can't be verified, so the
+    // brief must be discarded — this is exactly how the live incident brief
+    // ("$565 eliminates a $1,209 balance") gets purged on its next read.
+    const stored: StoredCoachBrief = {
+      ...nextAction({
+        body: 'Paying $565 total this month eliminates CreditOne 6610 by month-end.',
+        redirectAmount: 500,
+      }),
+      _meta: { effectiveAcceleration: 500 },
+    };
+    expect(parseLawfulStoredBrief(stored)).toBeNull();
+  });
+
+  it('keeps a cached brief whose elimination claim verifies against stored debts', () => {
+    const stored: StoredCoachBrief = {
+      ...nextAction({
+        body: 'Paying $565 total this month eliminates CreditOne 6610 by month-end.',
+        redirectAmount: 500,
+      }),
+      _meta: {
+        effectiveAcceleration: 500,
+        debts: [{ name: 'CreditOne 6610', balance: 550, minimumPayment: 65 }],
+      },
     };
     expect(parseLawfulStoredBrief(stored)).not.toBeNull();
   });
