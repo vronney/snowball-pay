@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { auth0 } from "@/lib/auth0";
 import { ensureUserProvisioned } from "@/lib/auth-server";
+import { prisma } from "@/lib/prisma";
+import { planSnapshotSchema, snapshotToDraft } from "@/lib/planSnapshot";
+import type { CalculatorDraft } from "@/lib/calculatorDraft";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 
 export const metadata: Metadata = {
@@ -8,6 +11,34 @@ export const metadata: Metadata = {
   description: "Set up your debt payoff plan in minutes.",
   robots: { index: false, follow: false },
 };
+
+/**
+ * Cross-device rehydration: the SavePlanModal stored the full plan on the
+ * lead row keyed by email. If the signed-in user's email matches a lead
+ * with a snapshot, the wizard can skip straight to the express screen even
+ * though this browser never ran the calculator. Best-effort — onboarding
+ * must render no matter what.
+ */
+async function loadServerDraft(
+  email: string | null | undefined,
+): Promise<CalculatorDraft | null> {
+  if (!email) return null;
+  try {
+    const lead = await prisma.calculatorLead.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
+    if (!lead?.planSnapshot) return null;
+    const parsed = planSnapshotSchema.safeParse(lead.planSnapshot);
+    if (!parsed.success) return null;
+    return snapshotToDraft(parsed.data, {
+      savedAt: lead.updatedAt.getTime(),
+      debtFreeDate: lead.debtFreeDate,
+      interestSaved: lead.interestSaved,
+    });
+  } catch {
+    return null;
+  }
+}
 
 export default async function OnboardingPage() {
   const session = await auth0.getSession();
@@ -19,5 +50,12 @@ export default async function OnboardingPage() {
     await ensureUserProvisioned(session.user);
   }
 
-  return <OnboardingWizard userEmail={session?.user?.email ?? null} />;
+  const serverDraft = await loadServerDraft(session?.user?.email);
+
+  return (
+    <OnboardingWizard
+      userEmail={session?.user?.email ?? null}
+      serverDraft={serverDraft}
+    />
+  );
 }

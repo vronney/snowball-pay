@@ -7,6 +7,7 @@ import {
   saveCalculatorDraft,
   type CalculatorDraftInput,
 } from "@/lib/calculatorDraft";
+import { buildPlanSnapshot } from "@/lib/planSnapshot";
 
 interface SavePlanModalProps {
   onClose: () => void;
@@ -50,8 +51,11 @@ export default function SavePlanModal({
     track(Events.SIGNUP_STARTED, { source: "save_plan_modal" });
 
     // Persist the lead + plan summary server-side before the Auth0 redirect,
-    // so abandoning at signup/MFA doesn't lose the contact. keepalive lets the
-    // request survive the navigation; failure must never block the signup.
+    // so abandoning at signup/MFA doesn't lose the contact. The snapshot of
+    // the full plan rides along so onboarding can rehydrate it even on a
+    // different device (e.g. finishing signup from the reminder email on a
+    // phone). keepalive lets the request survive the navigation; failure
+    // must never block the signup.
     fetch("/api/leads", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -60,6 +64,9 @@ export default function SavePlanModal({
         method: calculatorState?.method,
         debtFreeDate,
         interestSaved,
+        planSnapshot: calculatorState
+          ? buildPlanSnapshot(calculatorState)
+          : undefined,
         website,
       }),
       keepalive: true,

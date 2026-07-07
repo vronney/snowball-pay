@@ -1,14 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { badRequest, serverError } from '@/lib/auth-server';
 import { limits } from '@/lib/rateLimit';
+import { planSnapshotSchema } from '@/lib/planSnapshot';
 
 const leadSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(180),
   method: z.string().trim().max(20).optional(),
   debtFreeDate: z.string().trim().max(40).optional(),
   interestSaved: z.number().finite().nonnegative().optional(),
+  // Validated separately below: a malformed snapshot is stripped, never a
+  // reason to lose the contact.
+  planSnapshot: z.unknown().optional(),
   // Honeypot field: real users should leave this empty. Must accept content
   // so filled values reach the fake-success branch instead of failing Zod.
   website: z.string().max(200).optional(),
@@ -47,11 +52,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const snapshotParsed = planSnapshotSchema.safeParse(parsed.data.planSnapshot);
+  // Only overwrite a stored snapshot when this request carries a valid one.
+  const snapshotData = snapshotParsed.success
+    ? { planSnapshot: snapshotParsed.data as Prisma.InputJsonValue }
+    : {};
+
   try {
     await prisma.calculatorLead.upsert({
       where: { email },
-      create: { email, method, debtFreeDate, interestSaved },
-      update: { method, debtFreeDate, interestSaved },
+      create: { email, method, debtFreeDate, interestSaved, ...snapshotData },
+      update: { method, debtFreeDate, interestSaved, ...snapshotData },
     });
     return NextResponse.json({ saved: true });
   } catch (error) {

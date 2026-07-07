@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
 import { getUserTier, FREE_DEBT_LIMIT, upgradeRequired } from '@/lib/gates';
@@ -158,6 +159,21 @@ export async function POST(request: NextRequest) {
 
     if (idempotencyKey) {
       setCachedReplay(auth.user.id, idempotencyKey, result);
+    }
+
+    // The lead's plan snapshot exists to survive the signup gap; the plan is
+    // now committed, so drop the stored copy (PII minimization). Best-effort:
+    // a cleanup failure must never fail a completed onboarding.
+    if (auth.user.email) {
+      try {
+        await prisma.calculatorLead.updateMany({
+          where: { email: auth.user.email.trim().toLowerCase() },
+          data: { planSnapshot: Prisma.DbNull },
+        });
+      } catch {
+        // Snapshot cleanup is non-critical; the lifecycle cron marks the
+        // lead converted independently.
+      }
     }
 
     return NextResponse.json(result);

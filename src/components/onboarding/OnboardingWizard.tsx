@@ -468,7 +468,9 @@ function draftDebtsToPayload(draft: CalculatorDraft): OnboardingDebtPayload[] {
       name: d.name.trim() || `Debt ${i + 1}`,
       category,
       balance: parseFloat(d.balance) || 0,
-      interestRate: parseFloat(d.rate) || 0,
+      // The complete endpoint caps APR at 100 — clamp rather than let a
+      // hand-typed 120% APR fail the whole express submit.
+      interestRate: Math.min(parseFloat(d.rate) || 0, 100),
       minimumPayment: parseFloat(d.minimum) || 0,
       creditLimit: 0,
     }))
@@ -509,10 +511,14 @@ function getStepError(step: number, state: StepState): string | null {
 
 export function OnboardingWizard({
   userEmail = null,
+  serverDraft = null,
 }: {
   /** Signed-in user's email, threaded to Google Ads Enhanced Conversions
    *  (hashed client-side by gtag before transmission). */
   userEmail?: string | null;
+  /** Plan snapshot recovered from the lead row (cross-device); competes
+   *  with the localStorage draft by savedAt — the fresher one wins. */
+  serverDraft?: CalculatorDraft | null;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -533,11 +539,20 @@ export function OnboardingWizard({
   const stepError = getStepError(step, state);
 
   useEffect(() => {
-    const calc = loadCalculatorDraft();
-    if (calc && isExpressEligible(calc)) {
+    // Two possible sources for the calculator session: this browser's
+    // localStorage, or the snapshot saved on the lead row (another device).
+    // Freshest wins — a plan re-saved on a phone beats yesterday's desktop.
+    const localDraft = loadCalculatorDraft();
+    const calc = [localDraft, serverDraft]
+      .filter((d): d is CalculatorDraft => d !== null && isExpressEligible(d))
+      .sort((a, b) => b.savedAt - a.savedAt)[0];
+    if (calc) {
       setCalcDraft(calc);
       setMode("express");
-      track(Events.ONBOARDING_EXPRESS_VIEWED, { debts: calc.debts.length });
+      track(Events.ONBOARDING_EXPRESS_VIEWED, {
+        debts: calc.debts.length,
+        source: calc === localDraft ? "local" : "server",
+      });
       // Prefill the wizard too, so "Review details" starts fully filled in.
       const first = calc.debts[0];
       setState((current) => ({
@@ -580,7 +595,7 @@ export function OnboardingWizard({
     } catch {
       // Ignore corrupted draft data
     }
-  }, []);
+  }, [serverDraft]);
 
   useEffect(() => {
     const strategy = sanitizeStrategy(searchParams.get("method"));

@@ -11,6 +11,9 @@ const { mockPrisma } = vi.hoisted(() => {
     income: {
       upsert: vi.fn(),
     },
+    calculatorLead: {
+      updateMany: vi.fn(),
+    },
     $transaction: vi.fn(),
   };
   return { mockPrisma };
@@ -78,6 +81,7 @@ describe('POST /api/onboarding/complete', () => {
     mockPrisma.debt.count.mockResolvedValue(0);
     mockPrisma.debt.findFirst.mockResolvedValue(null);
     mockPrisma.income.upsert.mockResolvedValue({ id: 'income-1' });
+    mockPrisma.calculatorLead.updateMany.mockResolvedValue({ count: 0 });
     let debtSeq = 0;
     mockPrisma.debt.create.mockImplementation(async ({ data }: { data: { name: string } }) => ({
       id: `debt-${++debtSeq}`,
@@ -171,6 +175,25 @@ describe('POST /api/onboarding/complete', () => {
     expect(body.skippedDebts).toBe(0);
     // Pro path never needs the count query
     expect(mockPrisma.debt.count).not.toHaveBeenCalled();
+  });
+
+  it('clears the lead plan snapshot after a successful completion', async () => {
+    const res = await POST(makeRequest({ income: INCOME, debts: [debt('Visa', 1000)] }));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.calculatorLead.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { email: 'test@example.com' } })
+    );
+  });
+
+  it('still succeeds when the snapshot cleanup fails', async () => {
+    mockPrisma.calculatorLead.updateMany.mockRejectedValue(new Error('DB down'));
+
+    const res = await POST(makeRequest({ income: INCOME, debts: [debt('Visa', 1000)] }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.debtIds).toHaveLength(1);
   });
 
   it('skips re-creating matching debts on an idempotent replay', async () => {
