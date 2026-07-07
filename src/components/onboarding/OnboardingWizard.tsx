@@ -2,9 +2,20 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCompleteOnboarding } from "@/lib/hooks";
+import {
+  useCompleteOnboarding,
+  type OnboardingCompletePayload,
+  type OnboardingDebtPayload,
+} from "@/lib/hooks";
 import { reportSignupConversion } from "@/components/GoogleAdsConversion";
 import { formatCurrency } from "@/lib/utils";
+import {
+  loadCalculatorDraft,
+  clearCalculatorDraft,
+  isExpressEligible,
+  type CalculatorDraft,
+} from "@/lib/calculatorDraft";
+import { track, Events } from "@/lib/analytics";
 import { ChevronRight, ChevronLeft, Check, DollarSign } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -443,6 +454,27 @@ function sanitizeStrategy(value: string | null): Strategy | null {
     : null;
 }
 
+function sanitizeCategory(value: string): OnboardingDebtPayload["category"] {
+  return CATEGORIES.includes(value)
+    ? (value as OnboardingDebtPayload["category"])
+    : "Other";
+}
+
+/** Every debt from the calculator session, ready for the complete endpoint. */
+function draftDebtsToPayload(draft: CalculatorDraft): OnboardingDebtPayload[] {
+  const category = sanitizeCategory(draft.debtCategory);
+  return draft.debts
+    .map((d, i) => ({
+      name: d.name.trim() || `Debt ${i + 1}`,
+      category,
+      balance: parseFloat(d.balance) || 0,
+      interestRate: parseFloat(d.rate) || 0,
+      minimumPayment: parseFloat(d.minimum) || 0,
+      creditLimit: 0,
+    }))
+    .filter((d) => d.balance > 0);
+}
+
 function getStepError(step: number, state: StepState): string | null {
   if (step === 0) {
     return state.goal ? null : "Choose a primary goal to continue.";
@@ -491,11 +523,38 @@ export function OnboardingWizard({
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showValidation, setShowValidation] = useState(false);
+  // Full calculator session restored from localStorage: when present, the
+  // user already answered everything the wizard would ask — show the express
+  // confirmation instead of re-collecting it (their plan, not a form).
+  const [calcDraft, setCalcDraft] = useState<CalculatorDraft | null>(null);
+  const [mode, setMode] = useState<"express" | "wizard">("wizard");
   const submitIdempotencyKeyRef = useRef<string | null>(null);
 
   const stepError = getStepError(step, state);
 
   useEffect(() => {
+    const calc = loadCalculatorDraft();
+    if (calc && isExpressEligible(calc)) {
+      setCalcDraft(calc);
+      setMode("express");
+      track(Events.ONBOARDING_EXPRESS_VIEWED, { debts: calc.debts.length });
+      // Prefill the wizard too, so "Review details" starts fully filled in.
+      const first = calc.debts[0];
+      setState((current) => ({
+        ...current,
+        strategy: calc.method,
+        monthlyIncome: calc.monthlyIncome || current.monthlyIncome,
+        essentialExpenses: calc.essentialExpenses || current.essentialExpenses,
+        extraPayment: calc.extraPayment || current.extraPayment,
+        debtName: first?.name || current.debtName,
+        debtBalance: first?.balance || current.debtBalance,
+        debtApr: first?.rate || current.debtApr,
+        debtMin: first?.minimum || current.debtMin,
+        debtCategory: sanitizeCategory(calc.debtCategory),
+      }));
+      setStep(1);
+      return;
+    }
     try {
       const raw = localStorage.getItem(ONBOARDING_DRAFT_KEY);
       if (!raw) return;
@@ -580,15 +639,17 @@ export function OnboardingWizard({
     }
   }, [state, step]);
 
-  // Warn before accidental tab close / navigation during wizard
+  // Warn before accidental tab close / navigation during wizard.
+  // The express screen has nothing to lose (the plan is persisted), so
+  // don't nag there.
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
-      if (submitting) return; // already finishing — let it through
+      if (submitting || mode === "express") return;
       e.preventDefault();
     };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
-  }, [submitting]);
+  }, [submitting, mode]);
 
   function onField(k: keyof StepState, v: string) {
     if (submitError) setSubmitError(null);
@@ -599,7 +660,7 @@ export function OnboardingWizard({
     return getStepError(step, state) == null;
   }
 
-  async function handleFinish() {
+  async function submitOnboarding(payload: OnboardingCompletePayload) {
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -613,35 +674,14 @@ export function OnboardingWizard({
 
       await completeOnboarding.mutateAsync({
         idempotencyKey: submitIdempotencyKeyRef.current,
-        payload: {
-          income: {
-            monthlyTakeHome: parseFloat(state.monthlyIncome) || 0,
-            essentialExpenses: parseFloat(state.essentialExpenses) || 0,
-            extraPayment: parseFloat(state.extraPayment) || 0,
-            payoffMethod: state.strategy,
-          },
-          firstDebt: {
-            name: state.debtName.trim(),
-            category: state.debtCategory as
-              | "Credit Card"
-              | "Student Loan"
-              | "Auto Loan"
-              | "Mortgage"
-              | "Personal Loan"
-              | "Medical Debt"
-              | "Other",
-            balance: parseFloat(state.debtBalance) || 0,
-            interestRate: parseFloat(state.debtApr) || 0,
-            minimumPayment: parseFloat(state.debtMin) || 0,
-            creditLimit: 0,
-          },
-        },
+        payload,
       });
       try {
         localStorage.removeItem(ONBOARDING_DRAFT_KEY);
       } catch {
         // Ignore storage cleanup errors
       }
+      clearCalculatorDraft();
       // First plan generated — fire the Google Ads "Sign-up – Start Plan"
       // conversion on this success state, not on the CTA click. The submit's
       // idempotency key doubles as the conversion's dedup transaction_id.
@@ -660,6 +700,49 @@ export function OnboardingWizard({
       );
       setSubmitting(false);
     }
+  }
+
+  function buildIncomePayload(): OnboardingCompletePayload["income"] {
+    return {
+      monthlyTakeHome: parseFloat(state.monthlyIncome) || 0,
+      essentialExpenses: parseFloat(state.essentialExpenses) || 0,
+      extraPayment: parseFloat(state.extraPayment) || 0,
+      payoffMethod: state.strategy,
+    };
+  }
+
+  async function handleFinish() {
+    const wizardDebt: OnboardingDebtPayload = {
+      name: state.debtName.trim(),
+      category: sanitizeCategory(state.debtCategory),
+      balance: parseFloat(state.debtBalance) || 0,
+      interestRate: parseFloat(state.debtApr) || 0,
+      minimumPayment: parseFloat(state.debtMin) || 0,
+      creditLimit: 0,
+    };
+    // The wizard edits the first debt; the rest of the calculator session
+    // (if any) still comes along so reviewing never costs the user data.
+    const extraDebts = calcDraft ? draftDebtsToPayload(calcDraft).slice(1) : [];
+    await submitOnboarding({
+      income: buildIncomePayload(),
+      debts: [wizardDebt, ...extraDebts],
+    });
+  }
+
+  async function handleExpressFinish() {
+    if (!calcDraft) return;
+    track(Events.ONBOARDING_EXPRESS_COMPLETED, {
+      debts: calcDraft.debts.length,
+    });
+    await submitOnboarding({
+      income: {
+        monthlyTakeHome: parseFloat(calcDraft.monthlyIncome) || 0,
+        essentialExpenses: parseFloat(calcDraft.essentialExpenses) || 0,
+        extraPayment: parseFloat(calcDraft.extraPayment) || 0,
+        payoffMethod: calcDraft.method,
+      },
+      debts: draftDebtsToPayload(calcDraft),
+    });
   }
 
   const handleContinue = () => {
@@ -697,8 +780,155 @@ export function OnboardingWizard({
 
         {/* Account creation counts as the first completed step so the
             indicator never starts at zero (endowed progress). */}
-        <StepIndicator current={step + 1} total={STEPS + 1} />
+        <StepIndicator
+          current={mode === "express" ? STEPS : step + 1}
+          total={STEPS + 1}
+        />
 
+        {mode === "express" && calcDraft ? (
+          /* Express path: the calculator session answered everything the
+             wizard would ask, so the last step is a confirmation, not a form.
+             Endowed progress is honest here — the user really did the work. */
+          <div className="tab-fade-in">
+            <h2 className="text-2xl font-bold mb-1" style={{ color: "#111827" }}>
+              Your plan is ready
+            </h2>
+            <p className="text-sm mb-6" style={{ color: "#6B7280" }}>
+              Everything you entered in the calculator is saved — nothing to
+              re-type.
+            </p>
+
+            <div
+              className="rounded-xl p-4 mb-4"
+              style={{
+                background: "rgba(37,99,235,0.06)",
+                border: "1px solid rgba(37,99,235,0.14)",
+              }}
+            >
+              {calcDraft.debtFreeDate && (
+                <p
+                  className="font-semibold text-base mb-1"
+                  style={{ color: "#111827" }}
+                >
+                  Debt-free by{" "}
+                  <span style={{ color: "#2563eb" }}>
+                    {calcDraft.debtFreeDate}
+                  </span>
+                </p>
+              )}
+              {typeof calcDraft.interestSaved === "number" &&
+                calcDraft.interestSaved > 0 && (
+                  <p className="text-sm mb-2" style={{ color: "#374151" }}>
+                    Saving{" "}
+                    <strong style={{ color: "#27AE60" }}>
+                      {formatCurrency(calcDraft.interestSaved)}
+                    </strong>{" "}
+                    in interest vs. minimum payments
+                  </p>
+                )}
+              <ul className="text-sm space-y-1" style={{ color: "#374151" }}>
+                <li>
+                  <Check
+                    size={14}
+                    style={{
+                      color: "#2563eb",
+                      display: "inline",
+                      marginRight: 6,
+                      verticalAlign: "-2px",
+                    }}
+                  />
+                  {calcDraft.debts.length}{" "}
+                  {calcDraft.debts.length === 1 ? "debt" : "debts"} totaling{" "}
+                  {formatCurrency(
+                    calcDraft.debts.reduce(
+                      (s, d) => s + (parseFloat(d.balance) || 0),
+                      0,
+                    ),
+                  )}
+                </li>
+                <li>
+                  <Check
+                    size={14}
+                    style={{
+                      color: "#2563eb",
+                      display: "inline",
+                      marginRight: 6,
+                      verticalAlign: "-2px",
+                    }}
+                  />
+                  {formatCurrency(
+                    parseFloat(calcDraft.monthlyIncome) || 0,
+                  )}/mo take-home budget
+                </li>
+                <li>
+                  <Check
+                    size={14}
+                    style={{
+                      color: "#2563eb",
+                      display: "inline",
+                      marginRight: 6,
+                      verticalAlign: "-2px",
+                    }}
+                  />
+                  {calcDraft.method === "avalanche"
+                    ? "Avalanche"
+                    : calcDraft.method === "custom"
+                      ? "Custom"
+                      : "Snowball"}{" "}
+                  strategy
+                </li>
+              </ul>
+            </div>
+
+            <button
+              onClick={() => void handleExpressFinish()}
+              disabled={submitting}
+              className="w-full flex items-center justify-center gap-1.5 rounded-xl px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                background: submitting
+                  ? "#94a3b8"
+                  : "linear-gradient(135deg, #27AE60, #2ecc71)",
+                border: "none",
+                cursor: submitting ? "not-allowed" : "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              {submitting ? "Saving…" : "Open my dashboard"}
+              {!submitting && <ChevronRight size={15} />}
+            </button>
+
+            <p className="text-center text-xs mt-3">
+              <button
+                onClick={() => setMode("wizard")}
+                style={{
+                  color: "#6B7280",
+                  textDecoration: "underline",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                  fontSize: "inherit",
+                }}
+              >
+                Review details first
+              </button>
+            </p>
+
+            {submitError && (
+              <div
+                className="mt-3 rounded-lg px-3 py-2 text-xs"
+                style={{
+                  background: "rgba(239,68,68,0.08)",
+                  border: "1px solid rgba(239,68,68,0.18)",
+                  color: "#b91c1c",
+                }}
+              >
+                {submitError}
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
         {/* Step content */}
         <div className="tab-fade-in">
           {step === 0 && (
@@ -793,6 +1023,8 @@ export function OnboardingWizard({
           >
             {submitError}
           </div>
+        )}
+          </>
         )}
 
         {/* Skip to dashboard link */}

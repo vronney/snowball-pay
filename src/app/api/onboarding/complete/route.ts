@@ -4,23 +4,32 @@ import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
 import { getUserTier, FREE_DEBT_LIMIT, upgradeRequired } from '@/lib/gates';
 
-const COMPLETE_SCHEMA = z.object({
-  income: z.object({
-    monthlyTakeHome: z.number().min(0),
-    essentialExpenses: z.number().min(0),
-    extraPayment: z.number().min(0),
-    payoffMethod: z.enum(['snowball', 'avalanche', 'custom']).default('snowball'),
-  }),
-  firstDebt: z.object({
-    name: z.string().min(1, 'Debt name required'),
-    category: z.enum(['Credit Card', 'Student Loan', 'Auto Loan', 'Mortgage', 'Personal Loan', 'Medical Debt', 'Other']),
-    balance: z.number().min(0),
-    interestRate: z.number().min(0).max(100),
-    minimumPayment: z.number().min(0),
-    creditLimit: z.number().min(0).optional(),
-    dueDate: z.number().min(1).max(31).optional(),
-  }),
+const DEBT_SCHEMA = z.object({
+  name: z.string().min(1, 'Debt name required'),
+  category: z.enum(['Credit Card', 'Student Loan', 'Auto Loan', 'Mortgage', 'Personal Loan', 'Medical Debt', 'Other']),
+  balance: z.number().min(0),
+  interestRate: z.number().min(0).max(100),
+  minimumPayment: z.number().min(0),
+  creditLimit: z.number().min(0).optional(),
+  dueDate: z.number().min(1).max(31).optional(),
 });
+
+const COMPLETE_SCHEMA = z
+  .object({
+    income: z.object({
+      monthlyTakeHome: z.number().min(0),
+      essentialExpenses: z.number().min(0),
+      extraPayment: z.number().min(0),
+      payoffMethod: z.enum(['snowball', 'avalanche', 'custom']).default('snowball'),
+    }),
+    // Legacy single-debt shape, still sent by clients loaded before this deploy.
+    firstDebt: DEBT_SCHEMA.optional(),
+    // Preferred shape: every debt from the calculator session in payoff-input order.
+    debts: z.array(DEBT_SCHEMA).min(1).max(30).optional(),
+  })
+  .refine((data) => data.firstDebt || (data.debts && data.debts.length > 0), {
+    message: 'At least one debt is required',
+  });
 
 const IDEMPOTENCY_TTL_MS = 10 * 60 * 1000;
 const replayCache = new Map<string, { expiresAt: number; response: unknown }>();
@@ -62,11 +71,21 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const parsed = COMPLETE_SCHEMA.parse(body);
 
+    const incomingDebts = parsed.debts ?? (parsed.firstDebt ? [parsed.firstDebt] : []);
+
     const tier = await getUserTier(auth.user.id);
+    let debtCapacity = Infinity;
     if (tier === 'free') {
       const debtCount = await prisma.debt.count({ where: { userId: auth.user.id } });
       if (debtCount >= FREE_DEBT_LIMIT) return upgradeRequired('Unlimited debts');
+      debtCapacity = FREE_DEBT_LIMIT - debtCount;
     }
+
+    // Never fail the whole onboarding because the calculator carried more
+    // debts than the free tier allows — save what fits and report the rest
+    // so the dashboard can surface the upgrade path.
+    const debtsToCreate = incomingDebts.slice(0, debtCapacity);
+    const skippedDebts = incomingDebts.length - debtsToCreate.length;
 
     const result = await prisma.$transaction(async (tx) => {
       const income = await tx.income.upsert({
@@ -86,42 +105,54 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Best-effort duplicate guard for replayed onboarding submits.
-      // This avoids accidental duplicate first debt rows when users double-submit.
-      const existingDebt = idempotencyKey
-        ? await tx.debt.findFirst({
-            where: {
-              userId: auth.user!.id,
-              name: parsed.firstDebt.name,
-              category: parsed.firstDebt.category,
-              balance: parsed.firstDebt.balance,
-              interestRate: parsed.firstDebt.interestRate,
-              minimumPayment: parsed.firstDebt.minimumPayment,
-            },
-            orderBy: { createdAt: 'desc' },
-          })
-        : null;
+      const debtIds: string[] = [];
+      let dedupedCount = 0;
 
-      const debt = existingDebt
-        ? existingDebt
-        : await tx.debt.create({
-            data: {
-              userId: auth.user!.id,
-              name: parsed.firstDebt.name,
-              category: parsed.firstDebt.category,
-              balance: parsed.firstDebt.balance,
-              originalBalance: parsed.firstDebt.balance,
-              interestRate: parsed.firstDebt.interestRate,
-              minimumPayment: parsed.firstDebt.minimumPayment,
-              creditLimit: parsed.firstDebt.creditLimit ?? 0,
-              dueDate: parsed.firstDebt.dueDate,
-            },
-          });
+      for (const debtInput of debtsToCreate) {
+        // Best-effort duplicate guard for replayed onboarding submits.
+        // This avoids accidental duplicate debt rows when users double-submit.
+        const existingDebt = idempotencyKey
+          ? await tx.debt.findFirst({
+              where: {
+                userId: auth.user!.id,
+                name: debtInput.name,
+                category: debtInput.category,
+                balance: debtInput.balance,
+                interestRate: debtInput.interestRate,
+                minimumPayment: debtInput.minimumPayment,
+              },
+              orderBy: { createdAt: 'desc' },
+            })
+          : null;
+
+        if (existingDebt) {
+          dedupedCount++;
+          debtIds.push(existingDebt.id);
+          continue;
+        }
+
+        const debt = await tx.debt.create({
+          data: {
+            userId: auth.user!.id,
+            name: debtInput.name,
+            category: debtInput.category,
+            balance: debtInput.balance,
+            originalBalance: debtInput.balance,
+            interestRate: debtInput.interestRate,
+            minimumPayment: debtInput.minimumPayment,
+            creditLimit: debtInput.creditLimit ?? 0,
+            dueDate: debtInput.dueDate,
+          },
+        });
+        debtIds.push(debt.id);
+      }
 
       return {
         incomeId: income.id,
-        debtId: debt.id,
-        dedupedDebt: Boolean(existingDebt),
+        debtId: debtIds[0],
+        debtIds,
+        skippedDebts,
+        dedupedDebt: dedupedCount > 0,
       };
     });
 

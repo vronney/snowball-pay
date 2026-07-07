@@ -58,6 +58,8 @@ export const Events = {
   PRICING_PRO_CLICKED: 'pricing_pro_clicked',
   UPGRADE_MODAL_VIEWED: 'upgrade_modal_viewed',
   SAVE_PLAN_MODAL_VIEWED: 'save_plan_modal_viewed',
+  ONBOARDING_EXPRESS_VIEWED: 'onboarding_express_viewed',
+  ONBOARDING_EXPRESS_COMPLETED: 'onboarding_express_completed',
   CHECKOUT_STARTED: 'checkout_started',
   PLAN_SAVED_EMAIL:  'plan_saved_email_captured',
   SHARE_CARD_OPENED: 'share_card_opened',

@@ -3,29 +3,28 @@
 import { useEffect, useState } from "react";
 import { X, ArrowRight, Loader2 } from "lucide-react";
 import { track, Events } from "@/lib/analytics";
+import {
+  saveCalculatorDraft,
+  type CalculatorDraftInput,
+} from "@/lib/calculatorDraft";
 
 interface SavePlanModalProps {
   onClose: () => void;
   debtFreeDate: string;
   interestSaved: number;
-  onboardingPrefill?: {
-    method: string;
-    monthlyIncome: string;
-    essentialExpenses: string;
-    extraPayment: string;
-    debtName: string;
-    debtBalance: string;
-    debtApr: string;
-    debtMin: string;
-    debtCategory: string;
-  };
+  /** Full calculator session — persisted locally so the exact plan (every
+   *  debt, not just the first) survives the Auth0 signup round trip. */
+  calculatorState?: Omit<
+    CalculatorDraftInput,
+    "debtFreeDate" | "interestSaved"
+  >;
 }
 
 export default function SavePlanModal({
   onClose,
   debtFreeDate,
   interestSaved,
-  onboardingPrefill,
+  calculatorState,
 }: SavePlanModalProps) {
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
@@ -58,7 +57,7 @@ export default function SavePlanModal({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email: trimmed,
-        method: onboardingPrefill?.method,
+        method: calculatorState?.method,
         debtFreeDate,
         interestSaved,
         website,
@@ -66,26 +65,20 @@ export default function SavePlanModal({
       keepalive: true,
     }).catch(() => {});
 
-    const returnToParams = new URLSearchParams({
-      source: "calculator",
-      email: trimmed,
-    });
-
-    if (onboardingPrefill) {
-      returnToParams.set("method", onboardingPrefill.method);
-      returnToParams.set("income", onboardingPrefill.monthlyIncome);
-      returnToParams.set("expenses", onboardingPrefill.essentialExpenses);
-      returnToParams.set("extra", onboardingPrefill.extraPayment);
-      returnToParams.set("debtName", onboardingPrefill.debtName);
-      returnToParams.set("debtBalance", onboardingPrefill.debtBalance);
-      returnToParams.set("debtApr", onboardingPrefill.debtApr);
-      returnToParams.set("debtMin", onboardingPrefill.debtMin);
-      returnToParams.set("debtCategory", onboardingPrefill.debtCategory);
+    // Persist the FULL plan (every debt + budget) in localStorage so
+    // onboarding can skip the wizard and commit it verbatim after signup.
+    // Nothing financial rides the URL through the Auth0 round trip.
+    if (calculatorState) {
+      saveCalculatorDraft({
+        ...calculatorState,
+        debtFreeDate,
+        interestSaved,
+      });
     }
 
     // Redirect to Auth0 signup with login_hint pre-filled so the email
     // is already in the signup form — reduces friction.
-    const loginUrl = `/auth/login?returnTo=${encodeURIComponent(`/onboarding?${returnToParams.toString()}`)}&screen_hint=signup&login_hint=${encodeURIComponent(trimmed)}`;
+    const loginUrl = `/auth/login?returnTo=${encodeURIComponent("/onboarding?source=calculator")}&screen_hint=signup&login_hint=${encodeURIComponent(trimmed)}`;
     window.location.href = loginUrl;
   };
 
@@ -183,9 +176,8 @@ export default function SavePlanModal({
                 in interest
               </>
             )}
-            . Enter your email and we&apos;ll save this plan. Next, you&apos;ll
-            create a free account to open it on your dashboard and keep the
-            forecast updated.
+            . Enter your email and create a free account — this exact plan,
+            with every debt you entered, will be waiting on your dashboard.
           </p>
         </div>
 
@@ -279,7 +271,7 @@ export default function SavePlanModal({
               </>
             ) : (
               <>
-                Save Plan and Continue <ArrowRight size={15} />
+                Create Free Account and Save Plan <ArrowRight size={15} />
               </>
             )}
           </button>
