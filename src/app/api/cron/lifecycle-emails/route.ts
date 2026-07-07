@@ -63,7 +63,13 @@ export async function GET(request: NextRequest) {
   }
 
   if (!process.env.RESEND_API_KEY) {
-    return NextResponse.json({ ...handleMissingResendConfig(), snapshotsPurged });
+    // Surface the failure flag so monitoring can tell "nothing to purge"
+    // apart from "purge broke" even when the email config is missing.
+    return NextResponse.json({
+      ...handleMissingResendConfig(),
+      snapshotsPurged,
+      snapshotPurgeFailed,
+    });
   }
 
   const results = { day2: 0, day5: 0, day7: 0, leadReminder: 0, errors: 0 };

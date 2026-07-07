@@ -98,6 +98,30 @@ describe('GET /api/cron/lifecycle-emails — calculator lead reminders', () => {
     expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
+  it('reports a failed purge without failing the cron run', async () => {
+    mockPrisma.calculatorLead.findMany.mockResolvedValue([]);
+    mockPrisma.calculatorLead.updateMany.mockRejectedValue(new Error('DB down'));
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.ok).toBe(true);
+    expect(body.snapshotsPurged).toBe(0);
+    expect(body.errors).toBe(1);
+  });
+
+  it('flags a failed purge on the missing-Resend-key path', async () => {
+    delete process.env.RESEND_API_KEY;
+    mockPrisma.calculatorLead.updateMany.mockRejectedValue(new Error('DB down'));
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(body.snapshotsPurged).toBe(0);
+    expect(body.snapshotPurgeFailed).toBe(true);
+  });
+
   it('purges plan snapshots older than the 14-day retention window', async () => {
     mockPrisma.calculatorLead.findMany.mockResolvedValue([]);
     mockPrisma.calculatorLead.updateMany.mockResolvedValue({ count: 3 });
