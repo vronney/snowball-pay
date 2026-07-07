@@ -129,7 +129,7 @@ export default function FinalCTA({ isLoggedIn }: { isLoggedIn: boolean }) {
             ) : (
               <>
                 <a
-                  href="/auth/login?returnTo=/dashboard"
+                  href="/auth/login?returnTo=/dashboard&screen_hint=signup"
                   className="lp-btn lp-btn-primary"
                   style={{ fontSize: "17px", padding: "17px 40px" }}
                   onClick={() =>

@@ -401,7 +401,7 @@ export default function HowItWorks() {
               </p>
             </div>
             <a
-              href="/auth/login?returnTo=/dashboard"
+              href="/auth/login?returnTo=/dashboard&screen_hint=signup"
               className="lp-btn lp-btn-primary lp-btn-with-icon"
               style={{ fontSize: "15px", padding: "12px 10px 12px 24px", flexShrink: 0 }}
             >
