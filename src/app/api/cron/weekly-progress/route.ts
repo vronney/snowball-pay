@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   if (authError) return authError;
 
   if (!process.env.RESEND_API_KEY) {
-    return NextResponse.json(handleMissingResendConfig());
+    return handleMissingResendConfig();
   }
   const now     = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
