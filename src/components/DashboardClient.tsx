@@ -30,6 +30,7 @@ import IntelligenceTab from "@/components/tabs/IntelligenceTab";
 import { upgradeEvents } from "@/lib/upgradeEvents";
 import { SKIPPED_DEBTS_FLAG } from "@/lib/calculatorDraft";
 import { calculateMinimumsOnlyResult, calculatePlanMetrics } from "@/lib/payoffPlan";
+import { shouldStartOnboarding } from "@/lib/onboardingGate";
 import TrialCountdownBanner from "@/components/dashboard/TrialCountdownBanner";
 import { useSubscription } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
@@ -54,6 +55,7 @@ const tabLabels: Record<Tab, string> = {
 function isValidTab(value: string | null): value is Tab {
   return !!value && Object.prototype.hasOwnProperty.call(tabLabels, value);
 }
+
 
 export default function DashboardClient({
   user,
@@ -157,8 +159,8 @@ export default function DashboardClient({
     }
   }, []);
 
-  const { data: debtsData, isLoading: debtsLoading, isFetching: debtsFetching } = useDebts();
-  const { data: incomeData, isLoading: incomeLoading, isFetching: incomeFetching } = useIncome();
+  const { data: debtsData, isLoading: debtsLoading, isFetching: debtsFetching, isError: debtsError } = useDebts();
+  const { data: incomeData, isLoading: incomeLoading, isFetching: incomeFetching, isError: incomeError } = useIncome();
   const { data: expensesData, isLoading: expensesLoading } = useExpenses();
   const { data: settingsData } = useUserSettings();
   // Evaluated per render so a session left open across midnight / a month
@@ -187,10 +189,16 @@ export default function DashboardClient({
         return;
       }
     } catch { /* ignore */ }
-    if (!income && debts.length === 0) {
+    if (
+      shouldStartOnboarding({
+        hasIncome: !!income,
+        debtCount: debts.length,
+        hadError: debtsError || incomeError,
+      })
+    ) {
       router.replace("/onboarding");
     }
-  }, [debtsLoading, incomeLoading, debtsFetching, incomeFetching, income, debts.length, router]);
+  }, [debtsLoading, incomeLoading, debtsFetching, incomeFetching, income, debts.length, debtsError, incomeError, router]);
 
   // Real interest reclaimed vs minimums-only, for loss framing in the upgrade
   // modal. Only computed while the modal is open — plan simulation is not free.
@@ -242,6 +250,56 @@ export default function DashboardClient({
     else if (debtsLoading) loadingLabel = "Loading debts...";
     else if (incomeLoading || expensesLoading) loadingLabel = "Loading your budget...";
     return <DashboardLoadingScreen label={loadingLabel} />;
+  }
+
+  // Session exists but the account can't be loaded (every core query failed).
+  // The most common cause: the signup email is already registered under a
+  // different sign-in method, so the account can't be linked until the email
+  // is verified. Show a way out instead of a dead dashboard.
+  if (debtsError && incomeError) {
+    return (
+      <div
+        style={{
+          minHeight: "100dvh", background: "#f8fafc",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: "24px",
+        }}
+      >
+        <div
+          style={{
+            background: "#ffffff", borderRadius: 12, padding: "40px 36px",
+            maxWidth: 440, width: "100%", textAlign: "center",
+            border: "1px solid rgba(15,23,42,0.08)",
+            boxShadow: "0 8px 24px rgba(17,24,39,0.08)",
+          }}
+        >
+          <p style={{ fontSize: 40, margin: "0 0 12px" }}>🔒</p>
+          <h1 style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", margin: "0 0 10px" }}>
+            We couldn&apos;t load your account
+          </h1>
+          <p style={{ fontSize: 14, color: "#475569", lineHeight: 1.65, margin: "0 0 24px" }}>
+            This usually means the email you signed up with is already
+            registered under a different sign-in method (like Google). Sign
+            out and log in with the method you used originally — or, if this
+            is a new account, verify your email first and log in again.
+          </p>
+          <a
+            href="/auth/logout"
+            style={{
+              display: "inline-block", background: "#2563eb", color: "#ffffff",
+              borderRadius: 8, padding: "12px 24px", fontSize: 14,
+              fontWeight: 600, textDecoration: "none", marginBottom: 12,
+            }}
+          >
+            Sign Out
+          </a>
+          <p style={{ fontSize: 12, color: "#94a3b8", margin: 0 }}>
+            Still stuck?{" "}
+            <a href="/support" style={{ color: "#64748b" }}>Contact support</a>
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
