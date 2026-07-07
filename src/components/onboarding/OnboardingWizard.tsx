@@ -1100,6 +1100,9 @@ export function OnboardingWizard({
             onClick={() => {
               try {
                 sessionStorage.setItem("sp_onboarding_skipped", "1");
+                // Session cookie too: the dashboard now decides onboarding
+                // server-side, and the server can't read sessionStorage.
+                document.cookie = "sp_onboarding_skipped=1; path=/; SameSite=Lax";
               } catch {
                 /* ignore */
               }
