@@ -121,9 +121,11 @@ export interface CronResult {
  * Handle missing Resend configuration
  * Returns error response for cron
  */
+export const MISSING_RESEND_CONFIG = {
+  skipped: true,
+  reason: 'email_not_configured',
+} as const;
+
 export function handleMissingResendConfig(): NextResponse {
-  return NextResponse.json({
-    skipped: true,
-    reason: 'email_not_configured',
-  });
+  return NextResponse.json(MISSING_RESEND_CONFIG);
 }

@@ -29,6 +29,7 @@ vi.mock('@/lib/services/emailService', () => ({
   markEmailSent: vi.fn(),
   isEmailAlreadySent: vi.fn(() => false),
   handleMissingResendConfig: vi.fn(),
+  MISSING_RESEND_CONFIG: { skipped: true, reason: 'email_not_configured' },
 }));
 
 vi.mock('@react-email/render', () => ({
@@ -92,9 +93,13 @@ describe('GET /api/cron/lifecycle-emails — calculator lead reminders', () => {
     const res = await GET(makeRequest());
     const body = await res.json();
 
+    expect(res.status).toBe(200);
     expect(mockPrisma.calculatorLead.updateMany).toHaveBeenCalledTimes(1);
     expect(body.snapshotsPurged).toBe(2);
-    // Email work is still skipped without the key.
+    expect(body.snapshotPurgeFailed).toBe(false);
+    // The skipped-email contract still holds without the key.
+    expect(body.skipped).toBe(true);
+    expect(body.reason).toBe('email_not_configured');
     expect(mockSendEmail).not.toHaveBeenCalled();
   });
 
@@ -118,6 +123,8 @@ describe('GET /api/cron/lifecycle-emails — calculator lead reminders', () => {
     const res = await GET(makeRequest());
     const body = await res.json();
 
+    expect(res.status).toBe(200);
+    expect(body.skipped).toBe(true);
     expect(body.snapshotsPurged).toBe(0);
     expect(body.snapshotPurgeFailed).toBe(true);
   });

@@ -20,7 +20,7 @@ import {
   sendEmail,
   markEmailSent,
   isEmailAlreadySent,
-  handleMissingResendConfig,
+  MISSING_RESEND_CONFIG,
 } from '@/lib/services/emailService';
 import { getDateRange, formatDateMonthYear } from '@/lib/utils/date';
 import IncompleteSetupEmail from '@/emails/IncompleteSetupEmail';
@@ -63,10 +63,12 @@ export async function GET(request: NextRequest) {
   }
 
   if (!process.env.RESEND_API_KEY) {
-    // Surface the failure flag so monitoring can tell "nothing to purge"
-    // apart from "purge broke" even when the email config is missing.
+    // Spread the payload constant, NOT handleMissingResendConfig() — that
+    // returns a NextResponse, which spreads to nothing. Surface the failure
+    // flag so monitoring can tell "nothing to purge" apart from "purge
+    // broke" even when the email config is missing.
     return NextResponse.json({
-      ...handleMissingResendConfig(),
+      ...MISSING_RESEND_CONFIG,
       snapshotsPurged,
       snapshotPurgeFailed,
     });
