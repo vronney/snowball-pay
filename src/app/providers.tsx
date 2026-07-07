@@ -4,24 +4,50 @@ import { ReactNode, Suspense } from 'react';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import PostHogProvider from '@/components/analytics/PostHogProvider';
 import axios from 'axios';
+import { shouldRedirectOn401 } from '@/lib/authRedirect';
 
 // Global 401 handler — redirect to login when the session expires.
-// Debounced so rapid-fire 401s don't trigger multiple redirects.
+// Debounced so rapid-fire 401s don't trigger multiple redirects, and
+// loop-broken via sessionStorage: if we already sent this tab through
+// login within the last couple of minutes and it's 401ing again, the
+// session isn't expired — re-login can't fix it (e.g. email conflict),
+// so let the page's error UI render instead of redirect-looping until
+// the rate limiter 429s the Auth0 callback.
+const RELOGIN_AT_KEY = 'sp_relogin_at';
 let redirecting = false;
 axios.interceptors.response.use(undefined, (error) => {
   if (
     !redirecting &&
     error?.response?.status === 401 &&
-    typeof window !== 'undefined' &&
-    (window.location.pathname.startsWith('/dashboard') ||
-      window.location.pathname.startsWith('/plaid'))
+    typeof window !== 'undefined'
   ) {
-    redirecting = true;
-    // Keep query + hash so deep-link state (e.g. /plaid/oauth-return?oauth_state_id=…)
-    // survives the round-trip through login.
-    const returnTo =
-      window.location.pathname + window.location.search + window.location.hash;
-    window.location.href = `/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+    let lastReloginAt: number | null = null;
+    try {
+      const raw = sessionStorage.getItem(RELOGIN_AT_KEY);
+      if (raw) lastReloginAt = Number.parseInt(raw, 10) || null;
+    } catch {
+      // Storage unavailable — fall through with null (redirect allowed once
+      // per page load via the `redirecting` flag).
+    }
+    if (
+      shouldRedirectOn401({
+        pathname: window.location.pathname,
+        lastReloginAt,
+        now: Date.now(),
+      })
+    ) {
+      redirecting = true;
+      try {
+        sessionStorage.setItem(RELOGIN_AT_KEY, String(Date.now()));
+      } catch {
+        // ignore
+      }
+      // Keep query + hash so deep-link state (e.g. /plaid/oauth-return?oauth_state_id=…)
+      // survives the round-trip through login.
+      const returnTo =
+        window.location.pathname + window.location.search + window.location.hash;
+      window.location.href = `/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+    }
   }
   return Promise.reject(error);
 });
