@@ -38,11 +38,36 @@ export async function GET(request: NextRequest) {
   const authError = verifyCronRequest(request);
   if (authError) return authError;
 
+  // ── Snapshot retention: abandoned leads keep full debt/budget details in
+  // planSnapshot. Successful onboarding clears it; for everyone else, purge
+  // after 14 days — matching the localStorage draft TTL, and comfortably past
+  // the 24h reminder window. The contact row itself stays for conversion
+  // tracking; only the financial snapshot expires. Runs BEFORE the email
+  // config gate: retention is a privacy obligation, not an email concern,
+  // and must not stop because a Resend key is missing or revoked.
+  let snapshotsPurged = 0;
+  let snapshotPurgeFailed = false;
+  try {
+    const snapshotCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    const purged = await prisma.calculatorLead.updateMany({
+      where: {
+        createdAt: { lte: snapshotCutoff },
+        NOT: { planSnapshot: { equals: Prisma.AnyNull } },
+      },
+      data: { planSnapshot: Prisma.DbNull },
+    });
+    snapshotsPurged = purged.count;
+  } catch (err) {
+    console.error('[cron snapshot-purge]', err);
+    snapshotPurgeFailed = true;
+  }
+
   if (!process.env.RESEND_API_KEY) {
-    return NextResponse.json(handleMissingResendConfig());
+    return NextResponse.json({ ...handleMissingResendConfig(), snapshotsPurged });
   }
 
   const results = { day2: 0, day5: 0, day7: 0, leadReminder: 0, errors: 0 };
+  if (snapshotPurgeFailed) results.errors++;
 
   // ── Day 2: users created 2 days ago who haven't set up yet ───────────────
   const { start: day2Start, end: day2End } = getDateRange(2);
@@ -295,27 +320,6 @@ export async function GET(request: NextRequest) {
       console.error('[cron lead-reminder]', lead.id, err);
       results.errors++;
     }
-  }
-
-  // ── Snapshot retention: abandoned leads keep full debt/budget details in
-  // planSnapshot. Successful onboarding clears it; for everyone else, purge
-  // after 14 days — matching the localStorage draft TTL, and comfortably past
-  // the 24h reminder window. The contact row itself stays for conversion
-  // tracking; only the financial snapshot expires.
-  let snapshotsPurged = 0;
-  try {
-    const snapshotCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
-    const purged = await prisma.calculatorLead.updateMany({
-      where: {
-        createdAt: { lte: snapshotCutoff },
-        NOT: { planSnapshot: { equals: Prisma.AnyNull } },
-      },
-      data: { planSnapshot: Prisma.DbNull },
-    });
-    snapshotsPurged = purged.count;
-  } catch (err) {
-    console.error('[cron snapshot-purge]', err);
-    results.errors++;
   }
 
   return NextResponse.json({ ok: true, ...results, snapshotsPurged });

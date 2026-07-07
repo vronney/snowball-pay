@@ -85,6 +85,19 @@ describe('GET /api/cron/lifecycle-emails — calculator lead reminders', () => {
     mockSendEmail.mockResolvedValue({ success: true });
   });
 
+  it('purges snapshots even when RESEND_API_KEY is missing (retention is not an email concern)', async () => {
+    delete process.env.RESEND_API_KEY;
+    mockPrisma.calculatorLead.updateMany.mockResolvedValue({ count: 2 });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(mockPrisma.calculatorLead.updateMany).toHaveBeenCalledTimes(1);
+    expect(body.snapshotsPurged).toBe(2);
+    // Email work is still skipped without the key.
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
   it('purges plan snapshots older than the 14-day retention window', async () => {
     mockPrisma.calculatorLead.findMany.mockResolvedValue([]);
     mockPrisma.calculatorLead.updateMany.mockResolvedValue({ count: 3 });
