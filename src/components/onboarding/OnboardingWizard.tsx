@@ -722,9 +722,15 @@ export function OnboardingWizard({
       }
       submitIdempotencyKeyRef.current = null;
       router.push("/dashboard");
-    } catch {
+    } catch (err) {
+      const status =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { status?: number } }).response?.status
+          : undefined;
       setSubmitError(
-        "Could not save your setup. Check your connection and try again.",
+        status === 401
+          ? "We couldn't link this account. If this email is already registered with a different sign-in method (like Google), log out and sign in with that method — or verify your email and log in again."
+          : "Could not save your setup. Check your connection and try again.",
       );
       setSubmitting(false);
     }
