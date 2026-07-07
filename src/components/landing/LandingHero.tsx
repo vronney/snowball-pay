@@ -149,7 +149,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                     <ArrowIsland />
                   </a>
                   <a
-                    href="/auth/login?returnTo=/onboarding"
+                    href="/auth/login?returnTo=/onboarding&screen_hint=signup"
                     className="lp-btn lp-btn-ghost"
                     style={{ fontSize: "15px" }}
                     onClick={() =>

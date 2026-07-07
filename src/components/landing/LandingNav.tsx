@@ -85,7 +85,7 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
                   Sign In
                 </a>
                 <a
-                  href="/auth/login?returnTo=/dashboard"
+                  href="/auth/login?returnTo=/dashboard&screen_hint=signup"
                   className="lp-btn lp-btn-primary lp-btn-with-icon"
                   onClick={() => track(Events.SIGNUP_STARTED, { source: "nav" })}
                 >
@@ -98,7 +98,7 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
 
           <div className="lp-show-sm lp-nav-mobile">
             <a
-              href={isLoggedIn ? "/dashboard" : "/auth/login?returnTo=/dashboard"}
+              href={isLoggedIn ? "/dashboard" : "/auth/login?returnTo=/dashboard&screen_hint=signup"}
               className="lp-btn lp-btn-primary lp-nav-mobile-cta"
               onClick={
                 isLoggedIn
@@ -164,7 +164,7 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
             ) : (
               <>
                 <a
-                  href="/auth/login?returnTo=/dashboard"
+                  href="/auth/login?returnTo=/dashboard&screen_hint=signup"
                   className="lp-btn lp-btn-primary lp-btn-with-icon"
                   onClick={() => {
                     track(Events.SIGNUP_STARTED, { source: "nav_mobile_overlay" });

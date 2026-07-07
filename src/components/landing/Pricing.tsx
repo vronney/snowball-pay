@@ -13,7 +13,7 @@ const plans = [
     badge: "No card required",
     featured: false,
     cta: "Start Free",
-    href: "/auth/login?returnTo=/dashboard",
+    href: "/auth/login?returnTo=/dashboard&screen_hint=signup",
     analyticsSource: "pricing_free",
     features: [
       "Free calculators before signup",
@@ -32,7 +32,7 @@ const plans = [
     badge: `${PRO_TRIAL_DAYS}-day trial`,
     featured: true,
     cta: "Start Pro Trial",
-    href: "/auth/login?returnTo=%2Fdashboard%3Fcheckout%3Dpro",
+    href: "/auth/login?returnTo=%2Fdashboard%3Fcheckout%3Dpro&screen_hint=signup",
     analyticsSource: "pricing_pro",
     features: [
       "Unlimited debts",
