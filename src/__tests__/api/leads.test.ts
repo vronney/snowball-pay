@@ -123,6 +123,73 @@ describe('POST /api/leads', () => {
     });
   });
 
+  // --- Plan snapshot ---
+
+  const VALID_SNAPSHOT = {
+    version: 1,
+    method: 'snowball',
+    monthlyIncome: 5200,
+    essentialExpenses: 2400,
+    extraPayment: 200,
+    debtCategory: 'Credit Card',
+    debts: [
+      { name: 'Visa', balance: 14200, rate: 24.99, minimum: 285 },
+      { name: 'Car Loan', balance: 4800, rate: 6.9, minimum: 145 },
+    ],
+  };
+
+  it('stores a valid plan snapshot on the lead', async () => {
+    mockPrisma.calculatorLead.upsert.mockResolvedValue({});
+
+    const res = await POST(makeRequest({ ...VALID_BODY, planSnapshot: VALID_SNAPSHOT }));
+
+    expect(res.status).toBe(200);
+    const call = mockPrisma.calculatorLead.upsert.mock.calls[0][0];
+    expect(call.create.planSnapshot).toEqual(VALID_SNAPSHOT);
+    expect(call.update.planSnapshot).toEqual(VALID_SNAPSHOT);
+  });
+
+  it('strips a malformed snapshot but still saves the lead', async () => {
+    mockPrisma.calculatorLead.upsert.mockResolvedValue({});
+
+    const res = await POST(
+      makeRequest({
+        ...VALID_BODY,
+        planSnapshot: { version: 99, debts: 'not-an-array' },
+      })
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body).toEqual({ saved: true });
+    const call = mockPrisma.calculatorLead.upsert.mock.calls[0][0];
+    expect(call.create.planSnapshot).toBeUndefined();
+    expect(call.update.planSnapshot).toBeUndefined();
+  });
+
+  it('rejects an oversized snapshot (31 debts) without losing the lead', async () => {
+    mockPrisma.calculatorLead.upsert.mockResolvedValue({});
+
+    const res = await POST(
+      makeRequest({
+        ...VALID_BODY,
+        planSnapshot: {
+          ...VALID_SNAPSHOT,
+          debts: Array.from({ length: 31 }, (_, i) => ({
+            name: `Debt ${i}`,
+            balance: 100,
+            rate: 5,
+            minimum: 10,
+          })),
+        },
+      })
+    );
+
+    expect(res.status).toBe(200);
+    const call = mockPrisma.calculatorLead.upsert.mock.calls[0][0];
+    expect(call.create.planSnapshot).toBeUndefined();
+  });
+
   // --- DB error ---
 
   it('returns 500 when prisma upsert throws', async () => {

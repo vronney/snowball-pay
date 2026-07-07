@@ -327,6 +327,11 @@ model CalculatorLead {
   method        String?
   debtFreeDate  String?
   interestSaved Float?
+  // Full calculator inputs (debts + budget), validated against
+  // planSnapshotSchema on write. Lets onboarding rehydrate the exact plan
+  // on a different device than the one that ran the calculator. Cleared
+  // once onboarding completes — it has served its purpose by then.
+  planSnapshot  Json?
   // Set when the one-and-only "your plan is waiting" reminder was sent,
   // or when the lead converted to a User before the reminder fired.
   remindedAt    DateTime?

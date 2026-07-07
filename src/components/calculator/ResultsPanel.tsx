@@ -9,18 +9,7 @@ import BalanceOverTimeChart, {
 import type { PayoffResult } from "@/lib/snowball";
 import SavePlanModal from "./SavePlanModal";
 import { track, Events } from "@/lib/analytics";
-
-interface OnboardingPrefill {
-  method: string;
-  monthlyIncome: string;
-  essentialExpenses: string;
-  extraPayment: string;
-  debtName: string;
-  debtBalance: string;
-  debtApr: string;
-  debtMin: string;
-  debtCategory: string;
-}
+import type { CalculatorSessionState } from "@/lib/calculatorDraft";
 
 interface ResultsPanelProps {
   planResult: PayoffResult | null;
@@ -32,7 +21,7 @@ interface ResultsPanelProps {
   method?: "snowball" | "avalanche" | "custom";
   savePlanLabel?: string;
   savePlanHelperText?: string;
-  onboardingPrefill?: OnboardingPrefill;
+  calculatorState?: CalculatorSessionState;
 }
 
 export default function ResultsPanel({
@@ -45,7 +34,7 @@ export default function ResultsPanel({
   method = "snowball",
   savePlanLabel = "Save This Plan and Track Progress",
   savePlanHelperText = "Free account - no card required",
-  onboardingPrefill,
+  calculatorState,
 }: ResultsPanelProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const resultTrackedRef = useRef(false);
@@ -281,7 +270,7 @@ export default function ResultsPanel({
             year: "numeric",
           })}
           interestSaved={Math.round(interestSaved)}
-          onboardingPrefill={onboardingPrefill}
+          calculatorState={calculatorState}
         />
       )}
     </div>

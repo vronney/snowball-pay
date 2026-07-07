@@ -129,6 +129,16 @@ export function useSaveIncome() {
   });
 }
 
+export interface OnboardingDebtPayload {
+  name: string;
+  category: 'Credit Card' | 'Student Loan' | 'Auto Loan' | 'Mortgage' | 'Personal Loan' | 'Medical Debt' | 'Other';
+  balance: number;
+  interestRate: number;
+  minimumPayment: number;
+  creditLimit?: number;
+  dueDate?: number;
+}
+
 export interface OnboardingCompletePayload {
   income: {
     monthlyTakeHome: number;
@@ -136,15 +146,10 @@ export interface OnboardingCompletePayload {
     extraPayment: number;
     payoffMethod: 'snowball' | 'avalanche' | 'custom';
   };
-  firstDebt: {
-    name: string;
-    category: 'Credit Card' | 'Student Loan' | 'Auto Loan' | 'Mortgage' | 'Personal Loan' | 'Medical Debt' | 'Other';
-    balance: number;
-    interestRate: number;
-    minimumPayment: number;
-    creditLimit?: number;
-    dueDate?: number;
-  };
+  /** Legacy single-debt shape; prefer `debts`. */
+  firstDebt?: OnboardingDebtPayload;
+  /** All debts from the calculator session, in payoff-input order. */
+  debts?: OnboardingDebtPayload[];
 }
 
 export function useCompleteOnboarding() {

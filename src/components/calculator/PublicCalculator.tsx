@@ -20,8 +20,10 @@ import {
   type CalculatorConfig,
   type DebtRowSeed,
 } from "./configs";
+import { saveCalculatorDraft } from "@/lib/calculatorDraft";
 
 const LOGIN_URL = "/auth/login?returnTo=/dashboard";
+const SIGNUP_URL = `/auth/login?screen_hint=signup&returnTo=${encodeURIComponent("/onboarding?source=calculator")}`;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -259,6 +261,31 @@ export default function PublicCalculator({
     setMethod(config.defaultMethod);
   };
 
+  // Every debt with a balance, in table order — this is what survives the
+  // signup round trip, so a 4-debt session stays a 4-debt plan.
+  const calculatorState = {
+    method,
+    monthlyIncome: takeHome,
+    essentialExpenses: essential,
+    extraPayment: extra,
+    debtCategory: config.debtCategory,
+    debts: debtRows
+      .filter((r) => (parseFloat(r.balance) || 0) > 0)
+      .map((r, i) => ({
+        name: r.name.trim() || `Debt ${i + 1}`,
+        balance: r.balance,
+        rate: r.rate,
+        minimum: r.minimum,
+      })),
+  };
+
+  // Signup CTAs outside the results panel must not discard the session:
+  // stash whatever the user has entered before navigating to Auth0.
+  const persistSessionForSignup = () => {
+    if (calculatorState.debts.length === 0) return;
+    saveCalculatorDraft(calculatorState);
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
@@ -305,7 +332,8 @@ export default function PublicCalculator({
               Sign In
             </a>
             <a
-              href={LOGIN_URL}
+              href={SIGNUP_URL}
+              onClick={persistSessionForSignup}
               className="text-sm px-5 py-2 rounded-full font-semibold"
               style={{
                 background: "#0b1220",
@@ -358,6 +386,11 @@ export default function PublicCalculator({
           >
             Load sample numbers
           </button>
+          {/* Deferred-signup reassurance: tell repeat-intent users upfront
+              that a save option comes at the end, so nobody hunts for one. */}
+          <p className="mt-4 text-xs" style={{ color: "#8b96a9" }}>
+            No account needed to calculate — you can save your plan at the end.
+          </p>
         </div>
 
         {/* Calculator grid — the tool comes first */}
@@ -446,22 +479,7 @@ export default function PublicCalculator({
             method={method}
             savePlanLabel={config.ctaLabel}
             savePlanHelperText={config.ctaHelperText}
-            onboardingPrefill={{
-              method,
-              monthlyIncome: takeHome,
-              essentialExpenses: essential,
-              extraPayment: extra,
-              debtName:
-                debtRows[0]?.name ||
-                config.seedDebts[0]?.name ||
-                config.debtCategory,
-              debtBalance:
-                debtRows[0]?.balance || config.seedDebts[0]?.balance || "",
-              debtApr: debtRows[0]?.rate || config.seedDebts[0]?.rate || "",
-              debtMin:
-                debtRows[0]?.minimum || config.seedDebts[0]?.minimum || "",
-              debtCategory: config.debtCategory,
-            }}
+            calculatorState={calculatorState}
           />
         </div>
       </main>
@@ -579,7 +597,8 @@ export default function PublicCalculator({
               </p>
             </div>
             <a
-              href={LOGIN_URL}
+              href={SIGNUP_URL}
+              onClick={persistSessionForSignup}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
