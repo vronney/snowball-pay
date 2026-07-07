@@ -77,8 +77,61 @@ export async function POST(request: NextRequest) {
     let subject = '';
 
     if (type === 'day0') {
-      html    = await render(React.createElement(WelcomeEmail, { userName: user.name?.split(' ')[0] ?? undefined }));
-      subject = 'Welcome to SnowballPay — here\'s your first move';
+      // Plan-aware welcome: calculator signups arrive with a complete plan,
+      // so the welcome email doubles as their "here's your plan" email
+      // (debt-free date + interest reclaimed) instead of telling them to add
+      // a first debt they already added. Partial/blank accounts get the
+      // matching next-step copy.
+      const hasDebts  = user.debts.length > 0;
+      const hasIncome = !!user.income;
+      let planProps: {
+        debtFreeDate?: string;
+        interestSaved?: number;
+        debtCount?: number;
+      } = {};
+
+      if (hasDebts && hasIncome && user.income) {
+        try {
+          const activeDebts = user.debts.filter((debt) => debt.balance > 0.01);
+          if (activeDebts.length > 0) {
+            const method: PayoffMethod = (user.income.payoffMethod as PayoffMethod) || 'snowball';
+            const calc = method === 'avalanche' ? calculateDebtAvalanche
+              : method === 'custom'   ? calculateDebtCustom
+              : calculateDebtSnowball;
+            const plan = calc(
+              activeDebts as Parameters<typeof calc>[0],
+              user.income.monthlyTakeHome,
+              user.income.essentialExpenses,
+              0,
+              user.income.extraPayment ?? 0,
+            );
+            const minimumsOnly = calculateDebtSnowball(
+              activeDebts as Parameters<typeof calculateDebtSnowball>[0],
+              activeDebts.reduce((s, d) => s + d.minimumPayment, 0),
+              0, 0, 0,
+            );
+            planProps = {
+              debtFreeDate: plan.debtFreeDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+              interestSaved: Math.round(Math.max(0, minimumsOnly.totalInterestPaid - plan.totalInterestPaid)),
+              debtCount: activeDebts.length,
+            };
+          }
+        } catch (err) {
+          // Plan math must never block the welcome email — fall back to the
+          // generic variant.
+          console.error('[lifecycle day0] plan calc failed', err);
+        }
+      }
+
+      html = await render(React.createElement(WelcomeEmail, {
+        userName: user.name?.split(' ')[0] ?? undefined,
+        hasDebts,
+        hasIncome,
+        ...planProps,
+      }));
+      subject = planProps.debtFreeDate
+        ? `Welcome to SnowballPay — debt-free by ${planProps.debtFreeDate}`
+        : 'Welcome to SnowballPay — here\'s your first move';
     }
 
     if (type === 'day2') {
