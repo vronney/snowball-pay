@@ -14,6 +14,7 @@ const { mockPrisma, mockSendEmail } = vi.hoisted(() => {
     calculatorLead: {
       findMany: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
   };
   const mockSendEmail = vi.fn();
@@ -80,7 +81,24 @@ describe('GET /api/cron/lifecycle-emails — calculator lead reminders', () => {
     // Day 2/5/7 segments: no users in any window.
     mockPrisma.user.findMany.mockResolvedValue([]);
     mockPrisma.calculatorLead.update.mockResolvedValue({});
+    mockPrisma.calculatorLead.updateMany.mockResolvedValue({ count: 0 });
     mockSendEmail.mockResolvedValue({ success: true });
+  });
+
+  it('purges plan snapshots older than the 14-day retention window', async () => {
+    mockPrisma.calculatorLead.findMany.mockResolvedValue([]);
+    mockPrisma.calculatorLead.updateMany.mockResolvedValue({ count: 3 });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(body.snapshotsPurged).toBe(3);
+    const arg = mockPrisma.calculatorLead.updateMany.mock.calls[0][0];
+    expect(arg.where.createdAt.lte).toBeInstanceOf(Date);
+    // ~14 days ago (allow slack for test runtime)
+    const ageMs = Date.now() - arg.where.createdAt.lte.getTime();
+    expect(ageMs).toBeGreaterThan(13.9 * 24 * 60 * 60 * 1000);
+    expect(ageMs).toBeLessThan(14.1 * 24 * 60 * 60 * 1000);
   });
 
   it('sends one reminder per unconverted lead and marks remindedAt', async () => {

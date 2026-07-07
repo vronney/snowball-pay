@@ -28,6 +28,7 @@ import DashboardLoadingScreen from "@/components/dashboard/DashboardLoadingScree
 import { type Tab } from "@/components/dashboard/types";
 import IntelligenceTab from "@/components/tabs/IntelligenceTab";
 import { upgradeEvents } from "@/lib/upgradeEvents";
+import { SKIPPED_DEBTS_FLAG } from "@/lib/calculatorDraft";
 import { calculateMinimumsOnlyResult, calculatePlanMetrics } from "@/lib/payoffPlan";
 import TrialCountdownBanner from "@/components/dashboard/TrialCountdownBanner";
 import { useSubscription } from "@/lib/hooks";
@@ -140,6 +141,20 @@ export default function DashboardClient({
     return upgradeEvents.subscribe((feature) => {
       setUpgradeModal({ open: true, feature });
     });
+  }, []);
+
+  // Onboarding committed what the free tier allows but had to skip some
+  // calculator debts — surface the upgrade path instead of staying silent
+  // about the debts that didn't make it in.
+  useEffect(() => {
+    try {
+      const skipped = sessionStorage.getItem(SKIPPED_DEBTS_FLAG);
+      if (!skipped) return;
+      sessionStorage.removeItem(SKIPPED_DEBTS_FLAG);
+      setUpgradeModal({ open: true, feature: "Unlimited debts" });
+    } catch {
+      // ignore
+    }
   }, []);
 
   const { data: debtsData, isLoading: debtsLoading, isFetching: debtsFetching } = useDebts();

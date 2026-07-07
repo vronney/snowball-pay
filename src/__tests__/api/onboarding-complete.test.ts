@@ -196,6 +196,30 @@ describe('POST /api/onboarding/complete', () => {
     expect(body.debtIds).toHaveLength(1);
   });
 
+  it('keeps two identical debts in one submit distinct (dedupe excludes same-request rows)', async () => {
+    // Two genuinely identical debts in a single payload must both be created
+    // even with an idempotency key — the replay guard may only match rows
+    // that existed before this request.
+    const res = await POST(
+      makeRequest(
+        { income: INCOME, debts: [debt('Chase Visa', 1000), debt('Chase Visa', 1000)] },
+        'same-request-key'
+      )
+    );
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.debt.create).toHaveBeenCalledTimes(2);
+    expect(body.debtIds).toEqual(['debt-1', 'debt-2']);
+    // The second dedupe lookup must exclude the row created moments earlier.
+    expect(mockPrisma.debt.findFirst.mock.calls[1][0].where.id).toEqual({
+      notIn: ['debt-1'],
+    });
+    // And be bounded to the idempotency window so an unrelated old debt with
+    // identical values is never mistaken for a replay.
+    expect(mockPrisma.debt.findFirst.mock.calls[1][0].where.createdAt.gte).toBeInstanceOf(Date);
+  });
+
   it('skips re-creating matching debts on an idempotent replay', async () => {
     mockPrisma.debt.findFirst.mockResolvedValue({ id: 'debt-existing' });
 

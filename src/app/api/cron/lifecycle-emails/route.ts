@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { render } from '@react-email/render';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { EMAIL_FROM, APP_BASE_URL } from '@/lib/constants/app';
 import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
@@ -296,5 +297,26 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true, ...results });
+  // ── Snapshot retention: abandoned leads keep full debt/budget details in
+  // planSnapshot. Successful onboarding clears it; for everyone else, purge
+  // after 14 days — matching the localStorage draft TTL, and comfortably past
+  // the 24h reminder window. The contact row itself stays for conversion
+  // tracking; only the financial snapshot expires.
+  let snapshotsPurged = 0;
+  try {
+    const snapshotCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    const purged = await prisma.calculatorLead.updateMany({
+      where: {
+        createdAt: { lte: snapshotCutoff },
+        NOT: { planSnapshot: { equals: Prisma.AnyNull } },
+      },
+      data: { planSnapshot: Prisma.DbNull },
+    });
+    snapshotsPurged = purged.count;
+  } catch (err) {
+    console.error('[cron snapshot-purge]', err);
+    results.errors++;
+  }
+
+  return NextResponse.json({ ok: true, ...results, snapshotsPurged });
 }

@@ -5,7 +5,7 @@ import { X, ArrowRight, Loader2 } from "lucide-react";
 import { track, Events } from "@/lib/analytics";
 import {
   saveCalculatorDraft,
-  type CalculatorDraftInput,
+  type CalculatorSessionState,
 } from "@/lib/calculatorDraft";
 import { buildPlanSnapshot } from "@/lib/planSnapshot";
 
@@ -15,10 +15,7 @@ interface SavePlanModalProps {
   interestSaved: number;
   /** Full calculator session — persisted locally so the exact plan (every
    *  debt, not just the first) survives the Auth0 signup round trip. */
-  calculatorState?: Omit<
-    CalculatorDraftInput,
-    "debtFreeDate" | "interestSaved"
-  >;
+  calculatorState?: CalculatorSessionState;
 }
 
 export default function SavePlanModal({

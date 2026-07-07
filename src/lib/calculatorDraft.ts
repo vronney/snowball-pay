@@ -9,6 +9,11 @@
 export const CALCULATOR_DRAFT_KEY = "sp_calculator_draft_v1";
 const CALCULATOR_DRAFT_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
+/** sessionStorage flag set by onboarding when the free tier couldn't hold
+ *  every calculator debt; DashboardClient reads it to surface the upgrade
+ *  path instead of dropping the overflow silently. */
+export const SKIPPED_DEBTS_FLAG = "sp_onboarding_skipped_debts";
+
 export interface CalculatorDraftDebt {
   name: string;
   balance: string;
@@ -30,6 +35,13 @@ export interface CalculatorDraft {
 }
 
 export type CalculatorDraftInput = Omit<CalculatorDraft, "version" | "savedAt">;
+
+/** Live calculator session as the UI holds it — the shared contract between
+ *  PublicCalculator, ResultsPanel, SavePlanModal, and buildPlanSnapshot. */
+export type CalculatorSessionState = Omit<
+  CalculatorDraftInput,
+  "debtFreeDate" | "interestSaved"
+>;
 
 function isFiniteNonNegative(value: string): boolean {
   if (value === "") return true;

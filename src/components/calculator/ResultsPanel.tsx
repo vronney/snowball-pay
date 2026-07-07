@@ -9,12 +9,7 @@ import BalanceOverTimeChart, {
 import type { PayoffResult } from "@/lib/snowball";
 import SavePlanModal from "./SavePlanModal";
 import { track, Events } from "@/lib/analytics";
-import type { CalculatorDraftInput } from "@/lib/calculatorDraft";
-
-type CalculatorSessionState = Omit<
-  CalculatorDraftInput,
-  "debtFreeDate" | "interestSaved"
->;
+import type { CalculatorSessionState } from "@/lib/calculatorDraft";
 
 interface ResultsPanelProps {
   planResult: PayoffResult | null;

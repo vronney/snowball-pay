@@ -1,5 +1,8 @@
 import { z } from "zod";
-import type { CalculatorDraft, CalculatorDraftInput } from "./calculatorDraft";
+import type {
+  CalculatorDraft,
+  CalculatorSessionState,
+} from "@/lib/calculatorDraft";
 
 /**
  * Server-side twin of the localStorage calculator draft. Stored on the
@@ -46,7 +49,7 @@ function toAmount(value: string): number {
  * there is nothing worth storing (no debt with a balance).
  */
 export function buildPlanSnapshot(
-  input: Omit<CalculatorDraftInput, "debtFreeDate" | "interestSaved">,
+  input: CalculatorSessionState,
 ): PlanSnapshot | null {
   const debts = input.debts
     .map((d, i) => ({

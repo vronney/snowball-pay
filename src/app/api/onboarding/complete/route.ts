@@ -110,8 +110,14 @@ export async function POST(request: NextRequest) {
       let dedupedCount = 0;
 
       for (const debtInput of debtsToCreate) {
-        // Best-effort duplicate guard for replayed onboarding submits.
-        // This avoids accidental duplicate debt rows when users double-submit.
+        // Best-effort duplicate guard for replayed onboarding submits (the
+        // in-memory replayCache doesn't survive restarts or other instances).
+        // Two constraints keep it from eating legitimate debts:
+        // - `id notIn` excludes rows already claimed by THIS request, so two
+        //   genuinely identical debts in one payload don't collapse into one.
+        // - `createdAt` bounds the match to the idempotency window, so an
+        //   unrelated old debt with coincidentally identical values is never
+        //   mistaken for a replay.
         const existingDebt = idempotencyKey
           ? await tx.debt.findFirst({
               where: {
@@ -121,6 +127,9 @@ export async function POST(request: NextRequest) {
                 balance: debtInput.balance,
                 interestRate: debtInput.interestRate,
                 minimumPayment: debtInput.minimumPayment,
+                // Copy: the live array keeps growing as the loop proceeds.
+                id: { notIn: [...debtIds] },
+                createdAt: { gte: new Date(Date.now() - IDEMPOTENCY_TTL_MS) },
               },
               orderBy: { createdAt: 'desc' },
             })

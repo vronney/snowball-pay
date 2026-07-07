@@ -13,10 +13,14 @@ import {
   loadCalculatorDraft,
   clearCalculatorDraft,
   isExpressEligible,
+  SKIPPED_DEBTS_FLAG,
   type CalculatorDraft,
 } from "@/lib/calculatorDraft";
 import { track, Events } from "@/lib/analytics";
+import { PLANS } from "@/lib/stripe";
 import { ChevronRight, ChevronLeft, Check, DollarSign } from "lucide-react";
+
+const FREE_DEBT_LIMIT = PLANS.free.debtLimit;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -687,16 +691,25 @@ export function OnboardingWizard({
             : `ob_${Date.now()}_${Math.random().toString(36).slice(2)}`;
       }
 
-      await completeOnboarding.mutateAsync({
+      const result = (await completeOnboarding.mutateAsync({
         idempotencyKey: submitIdempotencyKeyRef.current,
         payload,
-      });
+      })) as { skippedDebts?: number } | undefined;
       try {
         localStorage.removeItem(ONBOARDING_DRAFT_KEY);
       } catch {
         // Ignore storage cleanup errors
       }
       clearCalculatorDraft();
+      // Free tier couldn't hold every debt — tell the dashboard so it can
+      // surface the upgrade path instead of dropping them silently.
+      if (result?.skippedDebts && result.skippedDebts > 0) {
+        try {
+          sessionStorage.setItem(SKIPPED_DEBTS_FLAG, String(result.skippedDebts));
+        } catch {
+          // Storage unavailable — the add-debt gate still upsells later.
+        }
+      }
       // First plan generated — fire the Google Ads "Sign-up – Start Plan"
       // conversion on this success state, not on the CTA click. The submit's
       // idempotency key doubles as the conversion's dedup transaction_id.
@@ -825,17 +838,20 @@ export function OnboardingWizard({
                   className="font-semibold text-base mb-1"
                   style={{ color: "#111827" }}
                 >
-                  Debt-free by{" "}
-                  <span style={{ color: "#2563eb" }}>
-                    {calcDraft.debtFreeDate}
-                  </span>
+                  Debt-free by {calcDraft.debtFreeDate}
                 </p>
               )}
               {typeof calcDraft.interestSaved === "number" &&
                 calcDraft.interestSaved > 0 && (
                   <p className="text-sm mb-2" style={{ color: "#374151" }}>
                     Saving{" "}
-                    <strong style={{ color: "#27AE60" }}>
+                    <strong
+                      className="mono"
+                      style={{
+                        color: "#27AE60",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
                       {formatCurrency(calcDraft.interestSaved)}
                     </strong>{" "}
                     in interest vs. minimum payments
@@ -846,40 +862,54 @@ export function OnboardingWizard({
                   <Check
                     size={14}
                     style={{
-                      color: "#2563eb",
+                      color: "#27AE60",
                       display: "inline",
                       marginRight: 6,
                       verticalAlign: "-2px",
                     }}
                   />
-                  {calcDraft.debts.length}{" "}
+                  <span
+                    className="mono"
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {calcDraft.debts.length}
+                  </span>{" "}
                   {calcDraft.debts.length === 1 ? "debt" : "debts"} totaling{" "}
-                  {formatCurrency(
-                    calcDraft.debts.reduce(
-                      (s, d) => s + (parseFloat(d.balance) || 0),
-                      0,
-                    ),
-                  )}
+                  <span
+                    className="mono"
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {formatCurrency(
+                      calcDraft.debts.reduce(
+                        (s, d) => s + (parseFloat(d.balance) || 0),
+                        0,
+                      ),
+                    )}
+                  </span>
                 </li>
                 <li>
                   <Check
                     size={14}
                     style={{
-                      color: "#2563eb",
+                      color: "#27AE60",
                       display: "inline",
                       marginRight: 6,
                       verticalAlign: "-2px",
                     }}
                   />
-                  {formatCurrency(
-                    parseFloat(calcDraft.monthlyIncome) || 0,
-                  )}/mo take-home budget
+                  <span
+                    className="mono"
+                    style={{ fontVariantNumeric: "tabular-nums" }}
+                  >
+                    {formatCurrency(parseFloat(calcDraft.monthlyIncome) || 0)}
+                  </span>
+                  /mo take-home budget
                 </li>
                 <li>
                   <Check
                     size={14}
                     style={{
-                      color: "#2563eb",
+                      color: "#27AE60",
                       display: "inline",
                       marginRight: 6,
                       verticalAlign: "-2px",
@@ -895,14 +925,28 @@ export function OnboardingWizard({
               </ul>
             </div>
 
+            {calcDraft.debts.length > FREE_DEBT_LIMIT && (
+              <p
+                className="rounded-lg px-3 py-2 text-xs mb-3"
+                style={{
+                  background: "rgba(180,83,9,0.07)",
+                  border: "1px solid rgba(180,83,9,0.16)",
+                  color: "#92400e",
+                }}
+              >
+                Free accounts track up to {FREE_DEBT_LIMIT} debts — your first{" "}
+                {FREE_DEBT_LIMIT} will be added now. Upgrade to Pro anytime to
+                track the rest.
+              </p>
+            )}
+
             <button
               onClick={() => void handleExpressFinish()}
               disabled={submitting}
               className="w-full flex items-center justify-center gap-1.5 rounded-xl px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
-                background: submitting
-                  ? "#94a3b8"
-                  : "linear-gradient(135deg, #27AE60, #2ecc71)",
+                // Solid fill — DESIGN.md disallows gradient CTA buttons.
+                background: submitting ? "#94a3b8" : "#27AE60",
                 border: "none",
                 cursor: submitting ? "not-allowed" : "pointer",
                 fontFamily: "inherit",
