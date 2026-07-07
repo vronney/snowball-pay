@@ -112,7 +112,11 @@ export async function middleware(request: NextRequest) {
     request.headers.get('x-forwarded-for')?.split(',')[0].trim() ??
     request.headers.get('x-real-ip') ??
     'unknown';
-  if (isRateLimited(ip)) {
+  // Never 429 the Auth0 callback: it's the one request that must not fail
+  // mid-handshake (a 429 here strands the user with a broken login and no
+  // recovery path). It's state-validated by the SDK and Auth0-initiated, so
+  // it can't be replayed as a flood vector.
+  if (pathname !== '/auth/callback' && isRateLimited(ip)) {
     return new NextResponse(null, { status: 429 });
   }
 
