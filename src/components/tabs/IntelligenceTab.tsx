@@ -12,6 +12,7 @@ import { formatCurrency } from "@/lib/utils";
 import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
 import PlannerIntelligence from "@/components/payoff/PlannerIntelligence";
 import ProGate from "@/components/billing/ProGate";
+import { AprNegotiationCard } from "@/components/AprNegotiationCard";
 import { useSubscription } from "@/lib/hooks";
 import { type ChartEntry } from "@/components/payoff/BalanceOverTimeChart";
 
@@ -139,6 +140,7 @@ export default function IntelligenceTab({
         balanceChartData={balanceChartData}
         hasRealSnapshots={hasRealSnapshots}
       />
+      <AprNegotiationCard />
       </ProGate>
     </section>
   );

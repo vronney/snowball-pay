@@ -36,6 +36,8 @@ interface Props {
   planMonths: number;
   totalInterestPaid: number;
   onAccelerationChange?: (amount: number) => void;
+  /** Opens the full APR negotiation scripts panel (Intelligence tab). */
+  onOpenScripts?: () => void;
 }
 
 const TYPE_META: Record<
@@ -146,14 +148,15 @@ function RecommendationCard({
   index,
   onDismiss,
   onApply,
+  onOpenScripts,
 }: {
   rec: AiRecommendation;
   index: number;
   onDismiss?: () => void;
   onApply?: () => void;
+  onOpenScripts?: () => void;
 }) {
   const [whyOpen, setWhyOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [applied, setApplied] = useState(false);
   const meta = TYPE_META[rec.type] ?? TYPE_META.payoff_advice;
   const Icon = meta.icon;
@@ -278,13 +281,9 @@ function RecommendationCard({
         {rec.action}
       </div>
 
-      {rec.type === "negotiation_suggestion" && (
+      {rec.type === "negotiation_suggestion" && onOpenScripts && (
         <button
-          onClick={() => {
-            void navigator.clipboard.writeText(rec.body);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          }}
+          onClick={() => onOpenScripts()}
           style={{
             display: "inline-flex",
             alignItems: "center",
@@ -292,10 +291,8 @@ function RecommendationCard({
             marginBottom: rec.why || onApply ? "8px" : "0",
             padding: "5px 12px",
             borderRadius: "7px",
-            background: copied
-              ? "rgba(16,185,129,0.1)"
-              : "rgba(16,185,129,0.08)",
-            border: `1px solid ${copied ? "rgba(16,185,129,0.35)" : "rgba(16,185,129,0.2)"}`,
+            background: "rgba(16,185,129,0.08)",
+            border: "1px solid rgba(16,185,129,0.2)",
             color: "#059669",
             fontSize: "12px",
             fontWeight: 600,
@@ -304,7 +301,7 @@ function RecommendationCard({
           }}
         >
           <ClipboardCopy size={11} />
-          {copied ? "Copied!" : "Copy Script"}
+          Open full scripts
         </button>
       )}
 
@@ -397,6 +394,7 @@ export default function AiRecommendations({
   planMonths,
   totalInterestPaid,
   onAccelerationChange,
+  onOpenScripts,
 }: Props) {
   const activeDebts = debts.filter(isActiveDebt);
   const recurringExpenses = expenses.reduce((s, e) => s + e.amount, 0);
@@ -711,6 +709,7 @@ export default function AiRecommendations({
                     setDismissed((prev) => new Set([...prev, originalIndex]))
                   }
                   onApply={onApply}
+                  onOpenScripts={onOpenScripts}
                 />
               );
             })}

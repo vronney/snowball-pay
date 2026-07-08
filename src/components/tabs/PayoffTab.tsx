@@ -474,6 +474,15 @@ export default function PayoffTab({
         planMonths={planResult.months}
         totalInterestPaid={planResult.totalInterestPaid}
         onAccelerationChange={setAccelerationAmount}
+        onOpenScripts={() => {
+          // Deep-link into the full APR negotiation scripts panel. Set the
+          // hash first so IntelligenceTab's AprNegotiationCard scrolls itself
+          // into view once the tab renders.
+          if (typeof window !== "undefined") {
+            window.location.hash = "apr-negotiation";
+          }
+          onNavigate("intelligence");
+        }}
       />
 
       <StrategyExplanation payoffMethod={payoffMethod} />
