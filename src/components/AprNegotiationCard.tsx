@@ -220,7 +220,7 @@ export function AprNegotiationCard() {
               )}{" "}
               on <span className="font-medium">{card.name}</span> could save
               roughly{" "}
-              <span className="font-semibold text-emerald-600">
+              <span className="mono font-semibold text-emerald-600">
                 ${n.estimatedAnnualSavings.toLocaleString()}/yr
               </span>{" "}
               in interest.
