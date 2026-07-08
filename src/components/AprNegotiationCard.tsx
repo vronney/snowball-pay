@@ -240,7 +240,9 @@ export function AprNegotiationCard() {
             variant={expanded ? "outline" : "default"}
             size="sm"
             aria-expanded={expanded}
-            aria-controls="apr-negotiation-details"
+            // Only reference the region while it exists in the DOM — a
+            // dangling aria-controls id is an ARIA validation error.
+            aria-controls={expanded ? "apr-negotiation-details" : undefined}
             onClick={() => setExpanded((v) => !v)}
           >
             <ChevronDown
