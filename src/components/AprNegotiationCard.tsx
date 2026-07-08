@@ -20,13 +20,14 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Phone, ClipboardList, FileText, ShieldAlert, CheckCircle2,
-  Copy, ChevronRight, AlertTriangle, Sparkles, Info,
+  Copy, ChevronRight, ChevronDown, AlertTriangle, Sparkles, Info,
 } from "lucide-react";
 import {
   Card, CardHeader, CardTitle, CardDescription, CardContent,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAprNegotiation } from "@/lib/apr-negotiation/useAprNegotiation";
+import { computeRateTargets } from "@/lib/apr-negotiation/apr-negotiation-adapter";
 import type { Guardrail } from "@/lib/apr-negotiation/apr-negotiation";
 
 const toneStyles: Record<Guardrail["tone"], { wrap: string; icon: JSX.Element }> = {
@@ -44,10 +45,67 @@ const toneStyles: Record<Guardrail["tone"], { wrap: string; icon: JSX.Element }>
   },
 };
 
-function copy(text: string) {
-  if (typeof navigator !== "undefined" && navigator.clipboard) {
-    void navigator.clipboard.writeText(text);
-  }
+function CopyButton({
+  text,
+  label = "Copy",
+  className,
+}: {
+  text: string;
+  label?: string;
+  className?: string;
+}) {
+  const [status, setStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const resetTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resetTimer.current != null) window.clearTimeout(resetTimer.current);
+    };
+  }, []);
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus("copied");
+    } catch {
+      // Clipboard API unavailable (insecure context) or permission denied.
+      setStatus("failed");
+    }
+    if (resetTimer.current != null) window.clearTimeout(resetTimer.current);
+    resetTimer.current = window.setTimeout(() => setStatus("idle"), 2000);
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className={className}
+      onClick={handleCopy}
+    >
+      {status === "copied" ? (
+        <>
+          <CheckCircle2 className="mr-1 h-3 w-3 text-emerald-600" /> Copied!
+        </>
+      ) : status === "failed" ? (
+        <>
+          <AlertTriangle className="mr-1 h-3 w-3 text-amber-600" /> Copy failed
+          — select the text manually
+        </>
+      ) : (
+        <>
+          <Copy className="mr-1 h-3 w-3" /> {label}
+        </>
+      )}
+      <span aria-live="polite" className="sr-only">
+        {status === "copied"
+          ? "Copied to clipboard"
+          : status === "failed"
+            ? "Copy failed"
+            : ""}
+      </span>
+    </Button>
+  );
 }
 
 /** Anchor id used by the payoff coach to deep-link into this panel. */
@@ -56,16 +114,22 @@ export const APR_NEGOTIATION_ANCHOR = "apr-negotiation";
 export function AprNegotiationCard() {
   const n = useAprNegotiation();
   const [activeScript, setActiveScript] = useState(0);
+  // Collapsed by default: the Intelligence tab already stacks a full
+  // analytics grid above this panel, so the 7-card workspace only renders
+  // when the user opens it (or arrives via the coach's deep link).
+  const [expanded, setExpanded] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   // Deep-link support: when the payoff coach navigates here with
-  // `#apr-negotiation` in the URL, scroll this panel into view once it mounts.
-  // The dashboard resets scroll-to-top on every tab switch, so we run this
-  // after mount (and after content has loaded) to win that race.
+  // `#apr-negotiation` in the URL, expand the full workspace and scroll it
+  // into view once it mounts. The dashboard resets scroll-to-top on every
+  // tab switch, so we run this after mount (and after content has loaded)
+  // to win that race.
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (window.location.hash !== `#${APR_NEGOTIATION_ANCHOR}`) return;
     if (n.isLoading) return;
+    setExpanded(true);
     const el = rootRef.current;
     if (!el) return;
     // rAF ensures layout is settled before we scroll.
@@ -107,6 +171,9 @@ export function AprNegotiationCard() {
 
   const card = n.selectedCard!;
   const script = n.filledScripts[activeScript];
+  // Suggested ask, shown as the Target APR placeholder so the user always
+  // sees the number the scripts and savings estimate are built on.
+  const suggestedTargetApr = computeRateTargets(card.interestRate).targetApr;
 
   return (
     <div ref={rootRef} id={APR_NEGOTIATION_ANCHOR} className="scroll-mt-20 space-y-4">
@@ -122,26 +189,38 @@ export function AprNegotiationCard() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            {n.cards.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => n.selectCard(c.id)}
-                className={`rounded-full border px-3 py-1 text-sm transition ${
-                  c.id === card.id
-                    ? "border-primary bg-primary/10 font-medium"
-                    : "border-border hover:bg-muted"
-                }`}
-              >
-                {c.name} · {c.interestRate}% APR
-              </button>
-            ))}
-          </div>
+          {expanded && (
+            <div className="flex flex-wrap gap-2">
+              {n.cards.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  aria-pressed={c.id === card.id}
+                  onClick={() => n.selectCard(c.id)}
+                  className={`rounded-full border px-3 py-1 text-sm transition ${
+                    c.id === card.id
+                      ? "border-primary bg-primary/10 font-medium"
+                      : "border-border hover:bg-muted"
+                  }`}
+                >
+                  {c.name} · {c.interestRate}% APR
+                </button>
+              ))}
+            </div>
+          )}
 
           {n.estimatedAnnualSavings != null && n.estimatedAnnualSavings > 0 && (
             <p className="text-sm text-muted-foreground">
-              Hitting your target rate on{" "}
-              <span className="font-medium">{card.name}</span> could save roughly{" "}
+              Hitting your target rate
+              {n.inputs?.targetApr && (
+                <>
+                  {" "}
+                  of{" "}
+                  <span className="mono font-medium">{n.inputs.targetApr}%</span>
+                </>
+              )}{" "}
+              on <span className="font-medium">{card.name}</span> could save
+              roughly{" "}
               <span className="font-semibold text-emerald-600">
                 ${n.estimatedAnnualSavings.toLocaleString()}/yr
               </span>{" "}
@@ -149,6 +228,32 @@ export function AprNegotiationCard() {
             </p>
           )}
 
+          {!expanded && (
+            <p className="text-sm text-muted-foreground">
+              Inside: word-for-word call scripts, rebuttals for pushback,
+              written letter templates, and know-your-rights guardrails —
+              prefilled from your card details.
+            </p>
+          )}
+
+          <Button
+            type="button"
+            variant={expanded ? "outline" : "default"}
+            size="sm"
+            aria-expanded={expanded}
+            aria-controls="apr-negotiation-details"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            <ChevronDown
+              className={`mr-1 h-3.5 w-3.5 transition-transform ${
+                expanded ? "rotate-180" : ""
+              }`}
+            />
+            {expanded ? "Hide full scripts" : "Open full scripts"}
+          </Button>
+
+          {expanded && (
+          <>
           {/* ---- Fields we can't derive ---- */}
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <label className="text-sm">
@@ -198,11 +303,33 @@ export function AprNegotiationCard() {
               <input
                 className="w-full rounded-md border border-border px-2 py-1"
                 value={String(n.context.creditScore ?? "")}
-                onChange={(e) => n.setContext({ creditScore: e.target.value })}
+                onChange={(e) =>
+                  n.setContext({
+                    creditScore: e.target.value.replace(/\D/g, "").slice(0, 3),
+                  })
+                }
+                inputMode="numeric"
+                maxLength={3}
                 placeholder="740"
               />
             </label>
-            <label className="text-sm sm:col-span-2 lg:col-span-1">
+            <label className="text-sm">
+              <span className="mb-1 block text-muted-foreground">
+                Target APR (%)
+              </span>
+              <input
+                className="w-full rounded-md border border-border px-2 py-1"
+                value={String(n.context.targetAprOverride ?? "")}
+                onChange={(e) =>
+                  n.setContext({
+                    targetAprOverride: e.target.value.replace(/[^\d.]/g, ""),
+                  })
+                }
+                inputMode="decimal"
+                placeholder={suggestedTargetApr}
+              />
+            </label>
+            <label className="text-sm">
               <span className="mb-1 block text-muted-foreground">
                 Competing offer
               </span>
@@ -220,9 +347,13 @@ export function AprNegotiationCard() {
               [brackets] still need your input.
             </p>
           )}
+          </>
+          )}
         </CardContent>
       </Card>
 
+      {expanded && (
+      <div id="apr-negotiation-details" className="space-y-4">
       {/* ---- Guardrails: the "unknown unknowns" ---- */}
       <Card>
         <CardHeader>
@@ -270,6 +401,8 @@ export function AprNegotiationCard() {
             {n.filledScripts.map((s, i) => (
               <button
                 key={s.id}
+                type="button"
+                aria-pressed={i === activeScript}
                 onClick={() => setActiveScript(i)}
                 className={`rounded-md border px-2.5 py-1 text-xs transition ${
                   i === activeScript
@@ -301,15 +434,10 @@ export function AprNegotiationCard() {
               </div>
             ))}
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              copy(script.lines.map((l) => l.text).join("\n"))
-            }
-          >
-            <Copy className="mr-1 h-3 w-3" /> Copy script
-          </Button>
+          <CopyButton
+            text={script.lines.map((l) => l.text).join("\n")}
+            label="Copy script"
+          />
         </CardContent>
       </Card>
 
@@ -347,14 +475,7 @@ export function AprNegotiationCard() {
                 </p>
               )}
               <pre className="mt-2 whitespace-pre-wrap text-sm">{t.body}</pre>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-2"
-                onClick={() => copy(t.body)}
-              >
-                <Copy className="mr-1 h-3 w-3" /> Copy
-              </Button>
+              <CopyButton className="mt-2" text={t.body} />
             </details>
           ))}
         </CardContent>
@@ -423,6 +544,8 @@ export function AprNegotiationCard() {
           ))}
         </CardContent>
       </Card>
+      </div>
+      )}
     </div>
   );
 }

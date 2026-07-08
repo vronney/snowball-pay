@@ -112,7 +112,9 @@ export function guessIssuer(debtName: string): string {
     "Bank of America", "Wells Fargo", "Barclays", "Synchrony", "US Bank",
     "Navy Federal", "USAA", "PNC", "TD", "HSBC", "Apple",
   ];
-  const hit = known.find((k) => new RegExp(k, "i").test(debtName));
+  // Word boundaries prevent substring false positives ("Outdoor" → TD,
+  // "Applebee's" → Apple).
+  const hit = known.find((k) => new RegExp(`\\b${k}\\b`, "i").test(debtName));
   if (hit) return hit === "Amex" ? "American Express" : hit;
   return debtName.trim() || "your issuer";
 }
