@@ -147,10 +147,14 @@ export function useAprNegotiation(): UseAprNegotiationResult {
   const estimatedAnnualSavings = useMemo<number | null>(() => {
     if (!selectedCard) return null;
     const { targetApr } = computeRateTargets(selectedCard.interestRate);
+    // A cleared override is "", and Number("") is 0 — which would inflate the
+    // estimate to the card's entire annual interest. Fall back like the
+    // adapter does: only use the override when it's a non-empty value.
+    const override = String(context.targetAprOverride ?? "").trim();
     return estimateAnnualSavings(
       selectedCard.balance,
       selectedCard.interestRate,
-      Number(context.targetAprOverride ?? targetApr)
+      Number(override !== "" ? override : targetApr)
     );
   }, [selectedCard, context.targetAprOverride]);
 

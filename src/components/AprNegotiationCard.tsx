@@ -320,11 +320,19 @@ export function AprNegotiationCard() {
               <input
                 className="w-full rounded-lg border border-border px-2 py-1"
                 value={String(n.context.targetAprOverride ?? "")}
-                onChange={(e) =>
+                onChange={(e) => {
+                  // Digits plus at most one decimal point ("18.9.9" would
+                  // parse to NaN and silently drop the savings estimate).
+                  const raw = e.target.value.replace(/[^\d.]/g, "");
+                  const dot = raw.indexOf(".");
                   n.setContext({
-                    targetAprOverride: e.target.value.replace(/[^\d.]/g, ""),
-                  })
-                }
+                    targetAprOverride:
+                      dot === -1
+                        ? raw
+                        : raw.slice(0, dot + 1) +
+                          raw.slice(dot + 1).replace(/\./g, ""),
+                  });
+                }}
                 inputMode="decimal"
                 placeholder={suggestedTargetApr}
               />
