@@ -57,6 +57,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
+      url: `${BASE_URL}/learn/when-expenses-exceed-income`,
+      lastModified,
+      changeFrequency: 'monthly',
+      priority: 0.8,
+    },
+    {
       url: `${BASE_URL}/contact`,
       lastModified,
       changeFrequency: 'monthly',

@@ -249,7 +249,9 @@ export default function PayoffTab({
   const chartDebts = debts.map((d) => ({
     ...d,
     balance:
-      d.originalBalance && d.originalBalance > 0 ? d.originalBalance : d.balance,
+      d.originalBalance && d.originalBalance > 0
+        ? d.originalBalance
+        : d.balance,
   }));
   const chartPlan = calculatePlanMetrics(chartDebts, income, expenses, {
     method: payoffMethod,
@@ -257,7 +259,8 @@ export default function PayoffTab({
     planStartDate,
   });
   const chartPlanResult = chartPlan?.result ?? planResult;
-  const chartAcceleration = chartPlan?.effectiveAcceleration ?? effectiveAcceleration;
+  const chartAcceleration =
+    chartPlan?.effectiveAcceleration ?? effectiveAcceleration;
   const chartMinimums = calculateMinimumsOnlyResult(chartDebts, planStartDate);
 
   // Comparison overlay (snowball↔avalanche), also seeded from creation balances.
@@ -490,7 +493,15 @@ export default function PayoffTab({
       <ReferralPrompt />
 
       {/* Share card trigger */}
-      <div style={{ textAlign: "center", paddingBottom: "8px" }}>
+      <div
+        style={{
+          textAlign: "center",
+          paddingBottom: "8px",
+          gap: "8px",
+          display: "flex",
+          justifyContent: "center",
+        }}
+      >
         <button
           onClick={() => {
             track(Events.SHARE_CARD_OPENED);
@@ -543,7 +554,6 @@ export default function PayoffTab({
         </button>
       </div>
 
-
       {shareCardOpen && (
         <ShareDebtFreeCard
           debtFreeDate={planResult.debtFreeDate.toLocaleDateString("en-US", {
@@ -556,7 +566,6 @@ export default function PayoffTab({
           onClose={() => setShareCardOpen(false)}
         />
       )}
-
     </section>
   );
 }
