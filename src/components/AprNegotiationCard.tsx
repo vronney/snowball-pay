@@ -85,12 +85,11 @@ function CopyButton({
     >
       {status === "copied" ? (
         <>
-          <CheckCircle2 className="mr-1 h-3 w-3 text-emerald-600" /> Copied!
+          <CheckCircle2 className="mr-1 h-3 w-3 text-emerald-600" /> Copied
         </>
       ) : status === "failed" ? (
         <>
           <AlertTriangle className="mr-1 h-3 w-3 text-amber-600" /> Copy failed
-          — select the text manually
         </>
       ) : (
         <>
@@ -101,7 +100,7 @@ function CopyButton({
         {status === "copied"
           ? "Copied to clipboard"
           : status === "failed"
-            ? "Copy failed"
+            ? "Copy failed. Select the text and copy it manually."
             : ""}
       </span>
     </Button>
