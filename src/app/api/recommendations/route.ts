@@ -29,7 +29,7 @@ Rules:
 - Be direct and specific - never generic. Do not recommend a habit, reminder, or review unless the user's numbers explain why.
 - Prefer advice that changes the next dollar: payoff order, payment amount, due-date risk, APR/fee negotiation, or one concrete expense tradeoff.
 - Keep the tone calm and practical. No shame, hype, or vague encouragement.
-- For "negotiation_suggestion", provide a mini call plan with 4 parts: (1) opener script in quotes, (2) exact APR/fee ask, (3) fallback ask if denied, (4) what to confirm before ending the call.
+- For "negotiation_suggestion": name the single best negotiation target (usually the highest-APR card) and quantify the stakes (its APR, balance, and rough annual interest cost at that rate). Do NOT write call scripts, quoted openers, or specific rate asks — the app has a dedicated negotiation panel with full prefilled call scripts, rebuttals, and letter templates, and this card's button opens it. End the body by pointing the user to that panel.
 - When relevant, include timing guidance (for example after 6+ on-time payments) and a credit-reporting cue (for example lender reports monthly to bureaus).
 - Never use the words: "elevate", "seamless", "game-changer", "unleash", "journey", "delve"
 - Include one recommendation for each type and do not repeat types:
@@ -47,7 +47,7 @@ Return ONLY valid JSON - no markdown fences, no explanation:
       "type": "payoff_advice | spending_insight | month_change | behavior_nudge | debt_risk_alert | negotiation_suggestion",
       "impact": "high | medium | low",
       "title": "short headline under 8 words",
-      "body": "For non-negotiation types: 1-2 specific sentences referencing actual numbers (max 35 words). For negotiation_suggestion: 2-4 short sentences (max 95 words) including quoted opener, primary ask, fallback ask, and close confirmation.",
+      "body": "For non-negotiation types: 1-2 specific sentences referencing actual numbers (max 35 words). For negotiation_suggestion: 2-3 sentences (max 55 words) naming the target debt with evidence and pointing to the full scripts panel — no quoted scripts or specific rate asks.",
       "action": "one clear next step under 12 words",
       "why": "one sentence explaining why this applies to THIS user based on their specific numbers (max 22 words)",
       "action_payload": {"action_type": "reallocate_funds", "source_amount": 54}
@@ -225,9 +225,9 @@ function buildFallbackRecommendations(
       impact: highestAprDebt?.interestRate >= 20 ? 'high' : 'medium',
       title: 'Ask for APR relief',
       body: highestAprDebt
-        ? `Call ${highestAprDebt.name} and open with: "I've made on-time payments and want to discuss a lower APR on my ${dollars(highestAprDebt.balance)} balance." If you have 6+ on-time payments, mention that history first. Ask directly for a rate reduction or temporary hardship rate. If denied, ask for a 6-12 month promo APR or fee waiver and a review date. If they report monthly to bureaus, ask when the updated terms will be reflected. Before ending, confirm the new rate, effective date, and when it appears on your statement.`
-        : `Call your highest-rate lender and open with: "I've been paying consistently and want to discuss lowering my APR." Ask for a lower ongoing rate first. If denied, ask for a temporary hardship rate, fee waiver, or review date. Before ending, confirm what changed, when it starts, and how it appears on your next statement.`,
-      action: 'Use script, ask, fallback, confirm',
+        ? `${highestAprDebt.name} charges ${highestAprDebt.interestRate}% APR on ${dollars(highestAprDebt.balance)} — roughly ${dollars((highestAprDebt.balance * highestAprDebt.interestRate) / 100)}/yr in interest at that rate. Most cardholders who ask get a reduction. The negotiation panel has the full call script, rebuttals, and letter templates prefilled for this card.`
+        : `Your highest-rate lender is the strongest negotiation target. The negotiation panel has the full call script, rebuttals, and letter templates prefilled from your tracked cards.`,
+      action: 'Open the full scripts panel',
       why: highestAprDebt
         ? `${highestAprDebt.interestRate}% APR makes this a strong negotiation target.`
         : `Lower rates can reduce total interest paid.`,
