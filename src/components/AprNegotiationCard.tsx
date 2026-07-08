@@ -150,7 +150,7 @@ export function AprNegotiationCard() {
           )}
 
           {/* ---- Fields we can't derive ---- */}
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <label className="text-sm">
               <span className="mb-1 block text-muted-foreground">Your name</span>
               <input
@@ -158,6 +158,39 @@ export function AprNegotiationCard() {
                 value={n.context.fullName ?? ""}
                 onChange={(e) => n.setContext({ fullName: e.target.value })}
                 placeholder="Ronney Vargas"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block text-muted-foreground">
+                Card last 4
+              </span>
+              <input
+                className="w-full rounded-md border border-border px-2 py-1"
+                value={n.context.cardLast4 ?? ""}
+                onChange={(e) =>
+                  n.setContext({
+                    cardLast4: e.target.value.replace(/\D/g, "").slice(0, 4),
+                  })
+                }
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="1234"
+              />
+            </label>
+            <label className="text-sm">
+              <span className="mb-1 block text-muted-foreground">
+                Years with issuer
+              </span>
+              <input
+                className="w-full rounded-md border border-border px-2 py-1"
+                value={String(n.context.yearsAsCustomer ?? "")}
+                onChange={(e) =>
+                  n.setContext({
+                    yearsAsCustomer: e.target.value.replace(/[^\d]/g, ""),
+                  })
+                }
+                inputMode="numeric"
+                placeholder="5"
               />
             </label>
             <label className="text-sm">
@@ -169,7 +202,7 @@ export function AprNegotiationCard() {
                 placeholder="740"
               />
             </label>
-            <label className="text-sm">
+            <label className="text-sm sm:col-span-2 lg:col-span-1">
               <span className="mb-1 block text-muted-foreground">
                 Competing offer
               </span>

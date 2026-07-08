@@ -55,6 +55,15 @@ export interface UserSuppliedContext {
   targetAprOverride?: string | number | null;
   /** Override the auto-computed walk-away APR. */
   walkAwayAprOverride?: string | number | null;
+  /** Last 4 digits of the card, when not derivable from the debt name. */
+  cardLast4?: string | null;
+  /**
+   * How long the user has actually held the account with the issuer, in years.
+   * The Debt model only stores when the card was added to Snowball Pay
+   * (`createdAt`), which is NOT the true account-open date, so we never guess
+   * tenure — we only use this value when the user supplies it.
+   */
+  yearsAsCustomer?: string | number | null;
 }
 
 /* -------------------------------------------------------------------------
@@ -194,12 +203,21 @@ export function buildNegotiationInputs(
   return {
     fullName: (ctx.fullName ?? "").trim() || "[your name]",
     issuerName: guessIssuer(debt.name) || opts.defaultIssuer || "your issuer",
-    cardLast4: extractLast4(debt.name) || "[last 4]",
+    cardLast4:
+      (ctx.cardLast4 ?? "").trim() ||
+      extractLast4(debt.name) ||
+      "[last 4]",
     cardProductName: debt.name?.trim() || "my credit card",
     currentApr: formatRate(current),
     targetApr,
     walkAwayApr,
-    yearsAsCustomer: yearsSince(debt.createdAt, now) || "[years]",
+    // Tenure is user-supplied only. `createdAt` is the Snowball Pay tracking
+    // date, not the account-open date, so using it here would misrepresent a
+    // long-held card as new and weaken the negotiation script.
+    yearsAsCustomer:
+      ctx.yearsAsCustomer != null && String(ctx.yearsAsCustomer).trim() !== ""
+        ? String(ctx.yearsAsCustomer).trim()
+        : "[years]",
     creditScore:
       ctx.creditScore != null && ctx.creditScore !== ""
         ? String(ctx.creditScore)

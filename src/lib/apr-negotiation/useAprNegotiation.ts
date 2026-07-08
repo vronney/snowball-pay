@@ -24,6 +24,7 @@ import {
   fillTemplate,
   type CallScript,
   type WrittenTemplate,
+  type Rebuttal,
   type NegotiationInputs,
 } from "./apr-negotiation";
 import {
@@ -59,11 +60,12 @@ export interface UseAprNegotiationResult {
   /** Content, with {{placeholders}} already interpolated for the selected card. */
   filledScripts: CallScript[];
   filledTemplates: WrittenTemplate[];
+  /** Rebuttals with {{placeholders}} interpolated for the selected card. */
+  rebuttals: Rebuttal[];
 
   /** Static content (no interpolation needed). */
   preCallChecklist: typeof aprNegotiationContent.preCallChecklist;
   postCallChecklist: typeof aprNegotiationContent.postCallChecklist;
-  rebuttals: typeof aprNegotiationContent.rebuttals;
   guardrails: typeof aprNegotiationContent.guardrails;
   quickFacts: typeof aprNegotiationContent.quickFacts;
   sources: typeof aprNegotiationContent.sources;
@@ -84,6 +86,14 @@ function fillTemplateDoc(doc: WrittenTemplate, inputs: NegotiationInputs): Writt
     ...doc,
     subject: doc.subject ? fillTemplate(doc.subject, inputs) : doc.subject,
     body: fillTemplate(doc.body, inputs),
+  };
+}
+
+function fillRebuttal(r: Rebuttal, inputs: NegotiationInputs): Rebuttal {
+  return {
+    ...r,
+    situation: fillTemplate(r.situation, inputs),
+    response: fillTemplate(r.response, inputs),
   };
 }
 
@@ -129,6 +139,11 @@ export function useAprNegotiation(): UseAprNegotiationResult {
     return aprNegotiationContent.writtenTemplates.map((t) => fillTemplateDoc(t, inputs));
   }, [inputs]);
 
+  const filledRebuttals = useMemo<Rebuttal[]>(() => {
+    if (!inputs) return aprNegotiationContent.rebuttals;
+    return aprNegotiationContent.rebuttals.map((r) => fillRebuttal(r, inputs));
+  }, [inputs]);
+
   const estimatedAnnualSavings = useMemo<number | null>(() => {
     if (!selectedCard) return null;
     const { targetApr } = computeRateTargets(selectedCard.interestRate);
@@ -151,9 +166,9 @@ export function useAprNegotiation(): UseAprNegotiationResult {
     missingFields: inputs ? missingInputFields(inputs) : [],
     filledScripts,
     filledTemplates,
+    rebuttals: filledRebuttals,
     preCallChecklist: aprNegotiationContent.preCallChecklist,
     postCallChecklist: aprNegotiationContent.postCallChecklist,
-    rebuttals: aprNegotiationContent.rebuttals,
     guardrails: aprNegotiationContent.guardrails,
     quickFacts: aprNegotiationContent.quickFacts,
     sources: aprNegotiationContent.sources,
