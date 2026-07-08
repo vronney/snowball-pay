@@ -259,7 +259,7 @@ export function AprNegotiationCard() {
             <label className="text-sm">
               <span className="mb-1 block text-muted-foreground">Your name</span>
               <input
-                className="w-full rounded-md border border-border px-2 py-1"
+                className="w-full rounded-lg border border-border px-2 py-1"
                 value={n.context.fullName ?? ""}
                 onChange={(e) => n.setContext({ fullName: e.target.value })}
                 placeholder="Ronney Vargas"
@@ -270,7 +270,7 @@ export function AprNegotiationCard() {
                 Card last 4
               </span>
               <input
-                className="w-full rounded-md border border-border px-2 py-1"
+                className="w-full rounded-lg border border-border px-2 py-1"
                 value={n.context.cardLast4 ?? ""}
                 onChange={(e) =>
                   n.setContext({
@@ -287,7 +287,7 @@ export function AprNegotiationCard() {
                 Years with issuer
               </span>
               <input
-                className="w-full rounded-md border border-border px-2 py-1"
+                className="w-full rounded-lg border border-border px-2 py-1"
                 value={String(n.context.yearsAsCustomer ?? "")}
                 onChange={(e) =>
                   n.setContext({
@@ -301,7 +301,7 @@ export function AprNegotiationCard() {
             <label className="text-sm">
               <span className="mb-1 block text-muted-foreground">Credit score</span>
               <input
-                className="w-full rounded-md border border-border px-2 py-1"
+                className="w-full rounded-lg border border-border px-2 py-1"
                 value={String(n.context.creditScore ?? "")}
                 onChange={(e) =>
                   n.setContext({
@@ -318,7 +318,7 @@ export function AprNegotiationCard() {
                 Target APR (%)
               </span>
               <input
-                className="w-full rounded-md border border-border px-2 py-1"
+                className="w-full rounded-lg border border-border px-2 py-1"
                 value={String(n.context.targetAprOverride ?? "")}
                 onChange={(e) =>
                   n.setContext({
@@ -334,7 +334,7 @@ export function AprNegotiationCard() {
                 Competing offer
               </span>
               <input
-                className="w-full rounded-md border border-border px-2 py-1"
+                className="w-full rounded-lg border border-border px-2 py-1"
                 value={n.context.competingOffer ?? ""}
                 onChange={(e) => n.setContext({ competingOffer: e.target.value })}
                 placeholder="a credit union at 14.99%"
