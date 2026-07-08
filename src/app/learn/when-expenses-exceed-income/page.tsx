@@ -7,102 +7,127 @@ import LearnInlineCTA from "@/components/learn/LearnInlineCTA";
 const BASE_URL = "https://getsnowballpay.com";
 
 export const metadata: Metadata = {
-  title: "The Fastest Way to Become Debt Free Without Earning More",
+  title: "When Your Expenses Are More Than Your Income: What to Do",
   description:
-    "You don't need a bigger income to become debt free faster. These five strategies can cut months or years off your payoff timeline starting this month.",
+    "If your essential expenses exceed your take-home pay, you're not alone and it's not a math mistake to fix. Here's the real order to pay bills in, and the free help available right now.",
   alternates: {
-    canonical: `${BASE_URL}/learn/fastest-way-to-become-debt-free`,
+    canonical: `${BASE_URL}/learn/when-expenses-exceed-income`,
   },
   openGraph: {
-    title: "The Fastest Way to Become Debt Free Without Earning More",
+    title: "When Your Expenses Are More Than Your Income: What to Do",
     description:
-      "Five practical strategies that reduce interest, increase principal payments, and help you protect your debt-free date.",
-    url: `${BASE_URL}/learn/fastest-way-to-become-debt-free`,
+      "A practical, judgment-free guide: which bills to protect first, and the free nonprofit and government programs that can create real breathing room.",
+    url: `${BASE_URL}/learn/when-expenses-exceed-income`,
   },
   twitter: {
     card: "summary_large_image",
-    title: "The Fastest Way to Become Debt Free Without Earning More",
+    title: "When Your Expenses Are More Than Your Income: What to Do",
     description:
-      "Cut months or years off your payoff timeline with five focused tactics.",
+      "Which bills to pay first, and the free help available when the math doesn't work yet.",
   },
 };
 
-const tactics = [
+const priorityBills = [
   {
-    tactic: "Pick a structured payoff method",
-    lever: "Focus every extra dollar",
-    result:
-      "Snowball and avalanche both keep extra payments aimed at one target instead of spreading them randomly.",
+    rank: "1",
+    category: "Housing",
+    examples: "Rent or mortgage",
+    why: "Missing this risks eviction or foreclosure — the highest-stakes bill you have.",
+  },
+  {
+    rank: "2",
+    category: "Utilities",
+    examples: "Electricity, gas, water",
+    why: "Losing power or water affects safety and health, and reconnection often costs more than the original bill.",
+  },
+  {
+    rank: "3",
+    category: "Food & essential medicine",
+    examples: "Groceries, prescriptions",
+    why: "Non-negotiable for day-to-day health — and often where assistance programs can free up cash fastest.",
+  },
+  {
+    rank: "4",
+    category: "Court-ordered payments",
+    examples: "Child support",
+    why: "Can carry legal consequences, including wage garnishment, that other missed bills don't.",
+  },
+  {
+    rank: "5",
+    category: "Insurance",
+    examples: "Health, auto, renters",
+    why: "Protects you from a much larger loss later — a lapse now can cost far more than the premium.",
+  },
+  {
+    rank: "6",
+    category: "Transportation for work",
+    examples: "Car payment, gas, transit",
+    why: "Losing your way to work turns a cash-flow problem into an income problem.",
+  },
+  {
+    rank: "7",
+    category: "Unsecured debt",
+    examples: "Credit cards, personal loans, medical bills",
+    why: "Missing a payment here costs fees and credit score — real, but rarely as urgent as losing your home or utilities.",
     highlight: true,
-  },
-  {
-    tactic: "Make one extra payment per year",
-    lever: "Increase principal",
-    result:
-      "A tax refund, bonus, or three-paycheck month can knock down your focus debt immediately.",
-    highlight: false,
-  },
-  {
-    tactic: "Negotiate a lower APR",
-    lever: "Reduce interest",
-    result:
-      "A 3 to 5 point APR reduction on a $5,000 balance can save hundreds over the payoff period.",
-    highlight: false,
-  },
-  {
-    tactic: "Stop adding to the balances",
-    lever: "Protect progress",
-    result:
-      "Every new charge extends the timeline, so active payoff mode needs a temporary spending firewall.",
-    highlight: false,
-  },
-  {
-    tactic: "Use a planner with a debt-free date",
-    lever: "Create a deadline",
-    result:
-      "A specific date turns a vague goal into a monthly target you can protect and measure.",
-    highlight: false,
   },
 ];
 
-const insights = [
+const helpOptions = [
   {
-    icon: "01",
-    title: "Speed comes from two levers",
-    body: "Getting debt-free faster means reducing the interest that accrues and increasing the amount that reaches principal. Everything else is secondary.",
+    icon: "🧭",
+    tag: "Free budget review",
+    title: "Nonprofit credit counseling",
+    body: "NFCC-member agencies review your full budget for free and can set up a Debt Management Plan — one consolidated payment, often at a reduced interest rate, with collector calls stopped. NFCC's own data shows counseled clients cut revolving debt by about $3,600 more over 18 months than people who didn't get counseling.",
+    linkLabel: "nfcc.org →",
+    linkHref: "https://www.nfcc.org/",
   },
   {
-    icon: "02",
-    title: "Freed minimums create acceleration",
-    body: "The payoff gets faster in the back half because every paid-off account sends its old minimum payment to the next target.",
+    icon: "☎️",
+    tag: "Ask your issuer directly",
+    title: "Creditor hardship programs",
+    body: "Most major card issuers (Amex, Chase, Citi, Discover, and others) have a hardship or forbearance program — a reduced APR, lower minimum payment, paused payments, or waived fees for a period, sometimes up to a few years. Nobody offers this automatically; you have to call and ask, and be ready to describe what changed.",
+    linkLabel: "Call the number on the back of your card and ask.",
+    linkHref: null,
   },
   {
-    icon: "03",
-    title: "A real date changes behavior",
-    body: "Seeing October 2027 or March 2028 makes the goal concrete, which makes it easier to protect your extra payment budget.",
+    icon: "🏠",
+    tag: "Frees up the bills themselves",
+    title: "Rent, utility & food assistance",
+    body: "211 is the free, nationwide front door to rent, utility, and food assistance — a live person matches you to local programs in about 10 minutes, no cost, no commitment. LIHEAP covers home energy bills specifically. Hospitals are required to have financial-assistance policies for medical bills, and the nonprofit Dollar For will do that paperwork for you at no cost.",
+    linkLabel: "211.org →",
+    linkHref: "https://www.211.org/get-help/i-need-help-paying-my-bills",
+  },
+  {
+    icon: "🎓",
+    tag: "If a student loan is on your list",
+    title: "Income-driven repayment & deferment",
+    body: "Federal student loan servicers offer income-driven repayment plans that recalculate your payment against what you actually earn, plus deferment or forbearance options for short-term hardship. Log into your servicer's account or call them directly — this is a phone call, not a formal application process, for most options.",
+    linkLabel: null,
+    linkHref: null,
   },
 ];
 
 const actionPlan = [
   {
-    step: "Choose",
-    desc: "Pick snowball, avalanche, or custom order and commit to one focus debt.",
+    step: "List",
+    desc: "Write your bills in the priority order above — not in the order the loudest collector is calling.",
   },
   {
-    step: "Call",
-    desc: "Ask each credit card issuer whether they can lower your APR.",
+    step: "Call 211",
+    desc: "Ten minutes, free, no commitment. Ask what rent, utility, or food assistance you qualify for right now.",
   },
   {
-    step: "Freeze",
-    desc: "Remove payoff cards from your wallet and digital wallets during active payoff mode.",
+    step: "Book counseling",
+    desc: "Contact an NFCC member agency for a free budget review — they've seen this exact situation many times.",
   },
   {
-    step: "Apply",
-    desc: "Send any refund, bonus, or extra paycheck directly to your focus debt.",
+    step: "Ask issuers",
+    desc: "Call each card company and literally ask: “Do you have a hardship program?” Document whatever they offer.",
   },
   {
-    step: "Track",
-    desc: "Use a planner to see your debt-free date and update your balances monthly.",
+    step: "Recheck loans",
+    desc: "If a federal student loan is in the mix, ask your servicer about income-driven repayment before anything else.",
   },
 ];
 
@@ -111,11 +136,11 @@ const jsonLd = {
   "@graph": [
     {
       "@type": "WebPage",
-      "@id": `${BASE_URL}/learn/fastest-way-to-become-debt-free#webpage`,
-      url: `${BASE_URL}/learn/fastest-way-to-become-debt-free`,
-      name: "The Fastest Way to Become Debt Free Without Earning More",
+      "@id": `${BASE_URL}/learn/when-expenses-exceed-income#webpage`,
+      url: `${BASE_URL}/learn/when-expenses-exceed-income`,
+      name: "When Your Expenses Are More Than Your Income: What to Do",
       inLanguage: "en-US",
-      dateModified: "2026-05-25",
+      dateModified: "2026-07-08",
       isPartOf: { "@id": `${BASE_URL}#website` },
       breadcrumb: {
         "@type": "BreadcrumbList",
@@ -130,21 +155,21 @@ const jsonLd = {
           {
             "@type": "ListItem",
             position: 3,
-            name: "Fastest Way to Become Debt Free",
-            item: `${BASE_URL}/learn/fastest-way-to-become-debt-free`,
+            name: "When Expenses Exceed Income",
+            item: `${BASE_URL}/learn/when-expenses-exceed-income`,
           },
         ],
       },
     },
     {
       "@type": "Article",
-      "@id": `${BASE_URL}/learn/fastest-way-to-become-debt-free#article`,
-      headline: "The Fastest Way to Become Debt Free Without Earning More",
+      "@id": `${BASE_URL}/learn/when-expenses-exceed-income#article`,
+      headline: "When Your Expenses Are More Than Your Income: What to Do",
       description:
-        "Five strategies that can cut months or years off your payoff timeline without requiring a bigger income.",
-      url: `${BASE_URL}/learn/fastest-way-to-become-debt-free`,
-      datePublished: "2026-05-25",
-      dateModified: "2026-05-25",
+        "A practical, judgment-free guide to prioritizing bills and finding free help when essential expenses exceed take-home pay.",
+      url: `${BASE_URL}/learn/when-expenses-exceed-income`,
+      datePublished: "2026-07-08",
+      dateModified: "2026-07-08",
       author: {
         "@type": "Organization",
         name: "SnowballPay Editorial Team",
@@ -158,25 +183,25 @@ const jsonLd = {
       },
       mainEntityOfPage: {
         "@type": "WebPage",
-        "@id": `${BASE_URL}/learn/fastest-way-to-become-debt-free#webpage`,
+        "@id": `${BASE_URL}/learn/when-expenses-exceed-income#webpage`,
       },
     },
     {
       "@type": "HowTo",
-      "@id": `${BASE_URL}/learn/fastest-way-to-become-debt-free#howto`,
-      name: "How to Become Debt Free Faster",
+      "@id": `${BASE_URL}/learn/when-expenses-exceed-income#howto`,
+      name: "What to Do When Expenses Exceed Income",
       description:
-        "A five-step approach to speed up debt payoff by choosing a method, making extra payments, lowering APR, stopping new balances, and tracking a debt-free date.",
-      step: tactics.map((item) => ({
+        "A five-step approach: prioritize bills correctly, call 211, get free nonprofit counseling, ask creditors for hardship programs, and check student loan repayment options.",
+      step: actionPlan.map((item) => ({
         "@type": "HowToStep",
-        name: item.tactic,
-        text: item.result,
+        name: item.step,
+        text: item.desc,
       })),
     },
   ],
 };
 
-export default async function FastestWayToBecomeDebtFreePage() {
+export default async function WhenExpensesExceedIncomePage() {
   const session = await auth0.getSession();
   const isLoggedIn = !!session;
   const ctaHref = isLoggedIn
@@ -235,7 +260,7 @@ export default async function FastestWayToBecomeDebtFreePage() {
                 Learn
               </a>
               <span>&rsaquo;</span>
-              <span>Fastest Way to Become Debt Free</span>
+              <span>When Expenses Exceed Income</span>
             </div>
 
             <div
@@ -263,7 +288,7 @@ export default async function FastestWayToBecomeDebtFreePage() {
                   display: "inline-block",
                 }}
               />
-              Debt Payoff Acceleration
+              A Judgment-Free Guide
             </div>
 
             <h1
@@ -276,9 +301,8 @@ export default async function FastestWayToBecomeDebtFreePage() {
                 marginBottom: "22px",
               }}
             >
-              The Fastest Way to Become{" "}
-              <span style={{ color: "#1d4ed8" }}>Debt Free</span> Without
-              Earning More
+              When Your Expenses Are{" "}
+              <span style={{ color: "#1d4ed8" }}>More Than Your Income</span>
             </h1>
 
             <p
@@ -291,9 +315,10 @@ export default async function FastestWayToBecomeDebtFreePage() {
                 margin: "0 auto 40px",
               }}
             >
-              You don&apos;t need a bigger income to become debt free faster.
-              These five strategies can cut months or years off your payoff
-              timeline starting this month.
+              If your essential expenses use up your whole paycheck, that
+              &apos;s a real financial situation, not a mistake you made. Here
+              &apos;s the order to protect your bills in, and the free help
+              that actually exists.
             </p>
 
             <div
@@ -310,13 +335,13 @@ export default async function FastestWayToBecomeDebtFreePage() {
                 fontWeight: 600,
               }}
             >
-              <span>Two levers:</span>
-              Lower interest plus more money toward principal
+              <span>Start here:</span>
+              Protect housing and utilities before anything else
             </div>
           </div>
         </section>
 
-        {/* Tactics table */}
+        {/* Priority order table */}
         <section style={{ padding: "80px 24px", backgroundColor: "#ffffff" }}>
           <div style={{ maxWidth: "920px", margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: "48px" }}>
@@ -324,7 +349,7 @@ export default async function FastestWayToBecomeDebtFreePage() {
                 className="lp-section-tag"
                 style={{ display: "inline-flex", marginBottom: "16px" }}
               >
-                Five Tactics
+                If You Can&apos;t Pay Everything
               </div>
               <h2
                 style={{
@@ -334,7 +359,7 @@ export default async function FastestWayToBecomeDebtFreePage() {
                   lineHeight: 1.1,
                 }}
               >
-                What Actually Shortens Your Payoff Timeline
+                The Order That Actually Protects You
               </h2>
             </div>
 
@@ -348,9 +373,9 @@ export default async function FastestWayToBecomeDebtFreePage() {
                 textAlign: "center",
               }}
             >
-              Getting out of debt faster comes down to reducing the interest
-              accruing on your balances and increasing the amount you pay toward
-              principal each month. Everything below moves one of those levers.
+              This is the order consumer-finance counselors recommend when
+              every bill can&apos;t be paid on time. It has nothing to do with
+              who calls the most — it&apos;s about which risk is worse.
             </p>
 
             <div
@@ -367,13 +392,13 @@ export default async function FastestWayToBecomeDebtFreePage() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "1.2fr 0.8fr 1.5fr",
+                    gridTemplateColumns: "0.5fr 1fr 1fr 1.8fr",
                     background: "#0f172a",
                     padding: "16px 24px",
                     gap: "8px",
                   }}
                 >
-                  {["Tactic", "Primary Lever", "Why It Works"].map((h) => (
+                  {["#", "Category", "Examples", "Why This Order"].map((h) => (
                     <div
                       key={h}
                       style={{
@@ -389,41 +414,43 @@ export default async function FastestWayToBecomeDebtFreePage() {
                   ))}
                 </div>
 
-                {tactics.map((item, i) => (
+                {priorityBills.map((item, i) => (
                   <div
-                    key={item.tactic}
+                    key={item.category}
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1.2fr 0.8fr 1.5fr",
+                      gridTemplateColumns: "0.5fr 1fr 1fr 1.8fr",
                       padding: "18px 24px",
                       gap: "8px",
                       alignItems: "center",
                       backgroundColor: item.highlight
-                        ? "rgba(37,99,235,0.04)"
+                        ? "rgba(100,116,139,0.06)"
                         : i % 2 === 0
                         ? "#ffffff"
                         : "#f8fafc",
                       borderTop: "1px solid rgba(15,23,42,0.07)",
-                      borderLeft: item.highlight ? "3px solid #2563eb" : undefined,
                     }}
                   >
                     <span
                       style={{
                         fontSize: "14px",
-                        fontWeight: item.highlight ? 700 : 500,
-                        color: item.highlight ? "#1d4ed8" : "#0f172a",
+                        fontWeight: 800,
+                        color: item.highlight ? "#64748b" : "#2563eb",
                       }}
                     >
-                      {item.tactic}
+                      {item.rank}
                     </span>
                     <span
                       style={{
-                        fontSize: "13px",
-                        color: item.highlight ? "#1d4ed8" : "#334155",
-                        fontWeight: item.highlight ? 700 : 500,
+                        fontSize: "14px",
+                        fontWeight: 700,
+                        color: "#0f172a",
                       }}
                     >
-                      {item.lever}
+                      {item.category}
+                    </span>
+                    <span style={{ fontSize: "13px", color: "#334155" }}>
+                      {item.examples}
                     </span>
                     <span
                       style={{
@@ -432,7 +459,7 @@ export default async function FastestWayToBecomeDebtFreePage() {
                         lineHeight: 1.5,
                       }}
                     >
-                      {item.result}
+                      {item.why}
                     </span>
                   </div>
                 ))}
@@ -446,19 +473,20 @@ export default async function FastestWayToBecomeDebtFreePage() {
                 color: "#94a3b8",
               }}
             >
-              Start with the tactic you can act on this week, then layer in the
-              rest as your plan gets steadier.
+              Credit card and personal loan minimums are last on purpose —
+              missing one costs money and credit score, but it&apos;s rarely
+              as urgent as losing your home or utilities.
             </p>
           </div>
         </section>
 
         <LearnInlineCTA
-          headline="Want to see your fastest path to debt-free?"
-          body="Enter your balances, pick a strategy, and get your exact payoff order and debt-free date — free, no account required."
+          headline="See what a plan looks like at your real numbers"
+          body="Even with $0 extra some months, SnowballPay builds a minimum-payments plan and shows your debt-free date — free, no account required."
           isLoggedIn={isLoggedIn}
         />
 
-        {/* Key insights */}
+        {/* Help options */}
         <section style={{ padding: "80px 24px", backgroundColor: "#f8fafc" }}>
           <div style={{ maxWidth: "960px", margin: "0 auto" }}>
             <div style={{ textAlign: "center", marginBottom: "48px" }}>
@@ -466,7 +494,7 @@ export default async function FastestWayToBecomeDebtFreePage() {
                 className="lp-section-tag"
                 style={{ display: "inline-flex", marginBottom: "16px" }}
               >
-                Why This Works
+                Real, Free Help
               </div>
               <h2
                 style={{
@@ -476,20 +504,20 @@ export default async function FastestWayToBecomeDebtFreePage() {
                   lineHeight: 1.1,
                 }}
               >
-                Three Things That Speed Up Payoff
+                Programs That Exist for Exactly This
               </h2>
             </div>
 
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
                 gap: "20px",
               }}
             >
-              {insights.map((insight) => (
+              {helpOptions.map((opt) => (
                 <div
-                  key={insight.title}
+                  key={opt.title}
                   className="lp-glass lp-card-hover"
                   style={{ borderRadius: "20px", padding: "32px" }}
                 >
@@ -500,40 +528,92 @@ export default async function FastestWayToBecomeDebtFreePage() {
                       borderRadius: "12px",
                       background: "rgba(37,99,235,0.08)",
                       border: "1px solid rgba(37,99,235,0.18)",
-                      color: "#1d4ed8",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: "13px",
-                      fontWeight: 900,
+                      fontSize: "18px",
                       marginBottom: "16px",
                     }}
                   >
-                    {insight.icon}
+                    {opt.icon}
                   </div>
+                  <p
+                    style={{
+                      fontSize: "11px",
+                      fontWeight: 800,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      color: "#2563eb",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    {opt.tag}
+                  </p>
                   <h3
                     style={{
-                      fontSize: "15px",
+                      fontSize: "16px",
                       fontWeight: 800,
                       color: "#0f172a",
                       marginBottom: "10px",
                       lineHeight: 1.4,
                     }}
                   >
-                    {insight.title}
+                    {opt.title}
                   </h3>
                   <p
                     style={{
                       fontSize: "14px",
                       color: "#64748b",
                       lineHeight: 1.7,
+                      marginBottom: opt.linkHref || opt.linkLabel ? "16px" : 0,
                     }}
                   >
-                    {insight.body}
+                    {opt.body}
                   </p>
+                  {opt.linkHref ? (
+                    <a
+                      href={opt.linkHref}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: 700,
+                        color: "#1d4ed8",
+                        textDecoration: "none",
+                      }}
+                    >
+                      {opt.linkLabel}
+                    </a>
+                  ) : opt.linkLabel ? (
+                    <span
+                      style={{
+                        fontSize: "13px",
+                        fontWeight: 600,
+                        color: "#94a3b8",
+                      }}
+                    >
+                      {opt.linkLabel}
+                    </span>
+                  ) : null}
                 </div>
               ))}
             </div>
+
+            <p
+              style={{
+                textAlign: "center",
+                fontSize: "12px",
+                color: "#94a3b8",
+                maxWidth: "640px",
+                margin: "32px auto 0",
+                lineHeight: 1.6,
+              }}
+            >
+              SnowballPay isn&apos;t affiliated with NFCC, 211, LIHEAP, or any
+              card issuer, and doesn&apos;t provide credit counseling itself.
+              Eligibility and offerings vary and change — confirm details
+              directly with each organization.
+            </p>
           </div>
         </section>
 
@@ -551,7 +631,7 @@ export default async function FastestWayToBecomeDebtFreePage() {
             >
               <div>
                 <div className="lp-section-tag" style={{ marginBottom: "16px" }}>
-                  Start this month
+                  Start this week
                 </div>
                 <h2
                   style={{
@@ -562,7 +642,7 @@ export default async function FastestWayToBecomeDebtFreePage() {
                     marginBottom: "18px",
                   }}
                 >
-                  Turn the Five Tactics Into a Real Payoff System
+                  Five Calls That Create Real Breathing Room
                 </h2>
                 <p
                   style={{
@@ -572,10 +652,9 @@ export default async function FastestWayToBecomeDebtFreePage() {
                     marginBottom: "20px",
                   }}
                 >
-                  Random extra payments are better than nothing, but they are
-                  less efficient than a deliberate strategy. Pick one payoff
-                  method and stay with it so freed minimums roll forward as each
-                  balance disappears.
+                  None of these require a perfect credit score or a lawyer.
+                  Most take one phone call and cost nothing to try — the
+                  worst outcome is being told no.
                 </p>
                 <p
                   style={{
@@ -584,9 +663,9 @@ export default async function FastestWayToBecomeDebtFreePage() {
                     lineHeight: 1.72,
                   }}
                 >
-                  Then protect the plan. Lower APRs where you can, stop adding
-                  new charges to cards you are paying off, and give every
-                  windfall a job before it turns into ordinary spending.
+                  Do them in this order, and revisit your SnowballPay plan
+                  once anything changes — a lower minimum payment or a freed-
+                  up utility bill both mean more room to pay down debt.
                 </p>
               </div>
 
@@ -604,7 +683,7 @@ export default async function FastestWayToBecomeDebtFreePage() {
                     letterSpacing: "0.08em",
                   }}
                 >
-                  This Month&apos;s Acceleration Plan
+                  This Week&apos;s Plan
                 </h3>
                 {actionPlan.map((item) => (
                   <div
@@ -674,19 +753,14 @@ export default async function FastestWayToBecomeDebtFreePage() {
                   desc: "Compare both methods side-by-side",
                 },
                 {
-                  href: "/learn/pay-off-10k-credit-card-debt",
-                  label: "Pay Off $10k Credit Card Debt →",
-                  desc: "See payoff timelines by payment amount",
+                  href: "/learn/fastest-way-to-become-debt-free",
+                  label: "Fastest Way to Become Debt Free →",
+                  desc: "5 tactics that actually work",
                 },
                 {
                   href: "/learn/debt-payoff-plan-template",
                   label: "Debt Payoff Plan Template →",
                   desc: "Build your plan in 5 steps",
-                },
-                {
-                  href: "/learn/when-expenses-exceed-income",
-                  label: "When Expenses Exceed Income →",
-                  desc: "The right bill order, and free help that exists",
                 },
               ].map((link) => (
                 <a
@@ -730,7 +804,7 @@ export default async function FastestWayToBecomeDebtFreePage() {
           }}
         >
           <div style={{ maxWidth: "600px", margin: "0 auto" }}>
-            <div style={{ fontSize: "48px", marginBottom: "20px" }}>2</div>
+            <div style={{ fontSize: "48px", marginBottom: "20px" }}>🌱</div>
             <h2
               style={{
                 fontSize: "clamp(1.7rem, 4vw, 2.5rem)",
@@ -740,8 +814,8 @@ export default async function FastestWayToBecomeDebtFreePage() {
                 marginBottom: "18px",
               }}
             >
-              Find Your{" "}
-              <span className="lp-text-blue">Debt-Free Date</span>
+              Whatever Your Numbers Look Like{" "}
+              <span className="lp-text-blue">Today</span>
             </h2>
             <p
               style={{
@@ -751,9 +825,9 @@ export default async function FastestWayToBecomeDebtFreePage() {
                 marginBottom: "36px",
               }}
             >
-              Add your debts, pick a strategy, and see the exact payoff schedule
-              SnowballPay calculates for your balances, APRs, and extra payment
-              amount.
+              SnowballPay builds a real plan even when there&apos;s $0 extra
+              some months — add your debts and see your minimum-payments
+              timeline, then watch it improve as things change.
             </p>
             <div
               style={{
@@ -768,9 +842,7 @@ export default async function FastestWayToBecomeDebtFreePage() {
                 className="lp-btn lp-btn-primary"
                 style={{ fontSize: "16px", padding: "15px 34px" }}
               >
-                {isLoggedIn
-                  ? "Open Dashboard →"
-                  : "Build My Free Plan →"}
+                {isLoggedIn ? "Open Dashboard →" : "Build My Free Plan →"}
               </a>
               <a
                 href="/calculator"

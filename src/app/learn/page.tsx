@@ -1889,6 +1889,11 @@ export default async function LearnPage({
                   desc: "5 tactics that actually work",
                 },
                 {
+                  href: "/learn/when-expenses-exceed-income",
+                  label: "When Expenses Exceed Income →",
+                  desc: "The right bill order, and free help that exists",
+                },
+                {
                   href: "/calculator",
                   label: "Free Debt Calculator →",
                   desc: "Estimate your personal debt-free date",

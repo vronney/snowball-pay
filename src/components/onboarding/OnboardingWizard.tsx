@@ -18,7 +18,7 @@ import {
 } from "@/lib/calculatorDraft";
 import { track, Events } from "@/lib/analytics";
 import { PLANS } from "@/lib/stripe";
-import { ChevronRight, ChevronLeft, Check, DollarSign } from "lucide-react";
+import { ChevronRight, ChevronLeft, Check, DollarSign, Info } from "lucide-react";
 
 const FREE_DEBT_LIMIT = PLANS.free.debtLimit;
 
@@ -159,11 +159,16 @@ function NumberInput({
   value,
   onChange,
   hint,
+  invalid = false,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   hint?: string;
+  /** Red border when this specific field is the cause of the step's
+   *  validation error — matches the --error (#ef4444) token in DESIGN.md
+   *  and the existing pattern in SavePlanModal's email field. */
+  invalid?: boolean;
 }) {
   return (
     <div className="space-y-1">
@@ -172,7 +177,10 @@ function NumberInput({
       </label>
       <div
         className="flex items-center rounded-xl border overflow-hidden"
-        style={{ borderColor: "rgba(15,23,42,0.15)", background: "#ffffff" }}
+        style={{
+          borderColor: invalid ? "#ef4444" : "rgba(15,23,42,0.15)",
+          background: "#ffffff",
+        }}
       >
         <span
           className="px-3 py-3 text-sm font-semibold"
@@ -210,14 +218,29 @@ function NumberInput({
 function StepBudget({
   state,
   onField,
+  showErrors,
 }: {
   state: StepState;
   onField: (k: keyof StepState, v: string) => void;
+  /** Only apply field-level red borders once the user has interacted with
+   *  this step — see `touchedSteps` in OnboardingWizard. */
+  showErrors: boolean;
 }) {
   const income = parseFloat(state.monthlyIncome) || 0;
   const essential = parseFloat(state.essentialExpenses) || 0;
   const extra = parseFloat(state.extraPayment) || 0;
-  const available = Math.max(0, income - essential - extra);
+  // Surplus can be negative — that's a real financial state (essential
+  // expenses eating the whole paycheck), not an error condition. Clamp only
+  // the "leftover after essentials" leg to 0 before adding the separate,
+  // explicit "extra" contribution, so this always resolves to an honest,
+  // non-negative number without silently dropping either input.
+  const surplus = income - essential;
+  const overBudget = income > 0 && surplus < 0;
+  const totalForDebtPayoff = Math.max(0, surplus) + extra;
+
+  const incomeInvalid = showErrors && income <= 0;
+  const essentialInvalid = showErrors && essential < 0;
+  const extraInvalid = showErrors && extra < 0;
 
   return (
     <div>
@@ -232,37 +255,73 @@ function StepBudget({
           label="Monthly take-home pay"
           value={state.monthlyIncome}
           onChange={(v) => onField("monthlyIncome", v)}
+          invalid={incomeInvalid}
         />
         <NumberInput
           label="Essential monthly expenses"
           value={state.essentialExpenses}
           onChange={(v) => onField("essentialExpenses", v)}
           hint="Rent, utilities, groceries, insurance…"
+          invalid={essentialInvalid}
         />
         <NumberInput
           label="Extra payment budget (optional)"
           value={state.extraPayment}
           onChange={(v) => onField("extraPayment", v)}
           hint="Any extra amount you can put toward debt."
+          invalid={extraInvalid}
         />
       </div>
-      {income > 0 && (
+      {showErrors && overBudget ? (
         <div
           className="mt-4 rounded-xl px-4 py-3 flex items-center gap-3"
           style={{
-            background: "rgba(37,99,235,0.06)",
-            border: "1px solid rgba(37,99,235,0.14)",
+            background: "rgba(14,165,233,0.08)",
+            border: "1px solid rgba(14,165,233,0.2)",
           }}
         >
-          <DollarSign size={16} style={{ color: "#2563eb", flexShrink: 0 }} />
+          <Info size={16} style={{ color: "#0ea5e9", flexShrink: 0 }} />
           <span className="text-sm" style={{ color: "#374151" }}>
-            Available for debt payoff:{" "}
-            <strong style={{ color: "#2563eb" }}>
-              {formatCurrency(available + extra)}
-            </strong>
-            /mo
+            Your essential expenses use up all of your take-home pay right
+            now — that&apos;s okay. We&apos;ll build your plan around
+            minimum payments, and you can add extra funds any time things
+            change.{" "}
+            <a
+              href="/learn/when-expenses-exceed-income"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: "#0ea5e9",
+                fontWeight: 700,
+                textDecoration: "underline",
+              }}
+            >
+              See your options →
+            </a>
           </span>
         </div>
+      ) : (
+        income > 0 && (
+          <div
+            className="mt-4 rounded-xl px-4 py-3 flex items-center gap-3"
+            style={{
+              background: "rgba(37,99,235,0.06)",
+              border: "1px solid rgba(37,99,235,0.14)",
+            }}
+          >
+            <DollarSign
+              size={16}
+              style={{ color: "#2563eb", flexShrink: 0 }}
+            />
+            <span className="text-sm" style={{ color: "#374151" }}>
+              Available for debt payoff:{" "}
+              <strong style={{ color: "#2563eb" }}>
+                {formatCurrency(totalForDebtPayoff)}
+              </strong>
+              /mo
+            </span>
+          </div>
+        )
       )}
     </div>
   );
@@ -366,10 +425,17 @@ const CATEGORIES = [
 function StepFirstDebt({
   state,
   onField,
+  showErrors,
 }: {
   state: StepState;
   onField: (k: keyof StepState, v: string) => void;
+  showErrors: boolean;
 }) {
+  const nameInvalid = showErrors && !state.debtName.trim();
+  const balanceInvalid = showErrors && (parseFloat(state.debtBalance) || 0) <= 0;
+  const aprInvalid = showErrors && (parseFloat(state.debtApr) || 0) < 0;
+  const minInvalid = showErrors && (parseFloat(state.debtMin) || 0) < 0;
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-1" style={{ color: "#111827" }}>
@@ -390,7 +456,7 @@ function StepFirstDebt({
             placeholder="e.g. Chase Visa, Student Loan"
             className="w-full rounded-xl border px-3 py-3 text-sm outline-none"
             style={{
-              borderColor: "rgba(15,23,42,0.15)",
+              borderColor: nameInvalid ? "#ef4444" : "rgba(15,23,42,0.15)",
               fontFamily: "inherit",
               color: "#111827",
             }}
@@ -423,16 +489,19 @@ function StepFirstDebt({
             label="Current balance"
             value={state.debtBalance}
             onChange={(v) => onField("debtBalance", v)}
+            invalid={balanceInvalid}
           />
           <NumberInput
             label="APR (%)"
             value={state.debtApr}
             onChange={(v) => onField("debtApr", v)}
+            invalid={aprInvalid}
           />
           <NumberInput
             label="Minimum payment"
             value={state.debtMin}
             onChange={(v) => onField("debtMin", v)}
+            invalid={minInvalid}
           />
         </div>
       </div>
@@ -493,8 +562,12 @@ function getStepError(step: number, state: StepState): string | null {
 
     if (income <= 0) return "Enter your monthly take-home pay.";
     if (essential < 0 || extra < 0) return "Amounts cannot be negative.";
-    if (essential > income)
-      return "Essential expenses should not exceed take-home pay.";
+    // Essential expenses exceeding income is NOT a blocking error — it's a
+    // real financial situation for a lot of people carrying debt, not a
+    // mistake to correct. The calc engine (snowball.ts) already clamps
+    // negative cash flow to a minimum-payments-only plan instead of crashing
+    // or looping, so there's nothing here that requires stopping the user.
+    // StepBudget shows a non-blocking, non-shaming heads-up instead.
     return null;
   }
 
@@ -532,15 +605,27 @@ export function OnboardingWizard({
   const [state, setState] = useState<StepState>(INITIAL_STATE);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [showValidation, setShowValidation] = useState(false);
   // Full calculator session restored from localStorage: when present, the
   // user already answered everything the wizard would ask — show the express
   // confirmation instead of re-collecting it (their plan, not a form).
   const [calcDraft, setCalcDraft] = useState<CalculatorDraft | null>(null);
   const [mode, setMode] = useState<"express" | "wizard">("wizard");
   const submitIdempotencyKeyRef = useRef<string | null>(null);
+  // Which steps the user has actually interacted with (typed in a field,
+  // picked a goal/strategy). Gates when validation becomes *visible* —
+  // canProceed()/getStepError() below are unaffected, so the Continue button
+  // stays correctly disabled from the first render. This only controls the
+  // message + red-border styling, so a step never scolds the user before
+  // they've done anything on it.
+  const [touchedSteps, setTouchedSteps] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const markTouched = (s: number) =>
+    setTouchedSteps((prev) => (prev.has(s) ? prev : new Set(prev).add(s)));
 
   const stepError = getStepError(step, state);
+  const showStepErrors = touchedSteps.has(step);
+  const visibleStepError = showStepErrors ? stepError : null;
 
   useEffect(() => {
     // Two possible sources for the calculator session: this browser's
@@ -673,6 +758,7 @@ export function OnboardingWizard({
   function onField(k: keyof StepState, v: string) {
     if (submitError) setSubmitError(null);
     setState((s) => ({ ...s, [k]: v }));
+    markTouched(step);
   }
 
   function canProceed() {
@@ -780,12 +866,11 @@ export function OnboardingWizard({
   }
 
   const handleContinue = () => {
+    // The button is `disabled` when this is false, so this is a defensive
+    // guard, not the primary gate — see the Continue button below.
     if (canProceed()) {
-      setShowValidation(false);
       setStep((s) => s + 1);
-      return;
     }
-    setShowValidation(true);
   };
 
   return (
@@ -999,27 +1084,39 @@ export function OnboardingWizard({
           {step === 0 && (
             <StepGoals
               state={state}
-              onChange={(g) => setState((s) => ({ ...s, goal: g }))}
+              onChange={(g) => {
+                setState((s) => ({ ...s, goal: g }));
+                markTouched(0);
+              }}
             />
           )}
-          {step === 1 && <StepBudget state={state} onField={onField} />}
+          {step === 1 && (
+            <StepBudget
+              state={state}
+              onField={onField}
+              showErrors={showStepErrors}
+            />
+          )}
           {step === 2 && (
             <StepStrategy
               state={state}
               onChange={(s) => setState((st) => ({ ...st, strategy: s }))}
             />
           )}
-          {step === 3 && <StepFirstDebt state={state} onField={onField} />}
+          {step === 3 && (
+            <StepFirstDebt
+              state={state}
+              onField={onField}
+              showErrors={showStepErrors}
+            />
+          )}
         </div>
 
         {/* Navigation */}
         <div className="flex items-center justify-between mt-8 gap-3">
           {step > 0 ? (
             <button
-              onClick={() => {
-                setShowValidation(false);
-                setStep((s) => s - 1);
-              }}
+              onClick={() => setStep((s) => s - 1)}
               className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium transition hover:bg-slate-50"
               style={{
                 color: "#6B7280",
@@ -1039,12 +1136,12 @@ export function OnboardingWizard({
           {step < STEPS - 1 ? (
             <button
               onClick={handleContinue}
-              className="flex items-center gap-1.5 rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+              disabled={!canProceed()}
+              className="flex items-center gap-1.5 rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
                 background: "linear-gradient(135deg, #2563eb, #3b82f6)",
                 border: "none",
-                cursor: "pointer",
-                opacity: canProceed() ? 1 : 0.55,
+                cursor: canProceed() ? "pointer" : "not-allowed",
                 fontFamily: "inherit",
               }}
             >
@@ -1071,9 +1168,9 @@ export function OnboardingWizard({
           )}
         </div>
 
-        {showValidation && stepError && (
-          <p className="text-xs mt-3" style={{ color: "#b45309" }}>
-            {stepError}
+        {visibleStepError && (
+          <p className="text-xs mt-3" style={{ color: "#b91c1c" }}>
+            {visibleStepError}
           </p>
         )}
 

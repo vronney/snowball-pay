@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSaveIncome, useCreateExpense, useDeleteExpense } from "@/lib/hooks";
 import { Income, Expense, Debt } from "@/types";
-import { Calculator, Repeat, Plus, X, ChevronDown, Pencil } from "lucide-react";
+import { Calculator, Repeat, Plus, X, ChevronDown, Pencil, Info } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { track, Events } from "@/lib/analytics";
 import { isActiveDebt } from "@/lib/monthlyFocusDebt";
@@ -48,10 +48,12 @@ export default function IncomeTab({
     .reduce((s, e) => s + e.amount, 0);
   const effectiveRecurringTotal = recurringTotal - cancelledTotal;
   const totalEssential = essential + effectiveRecurringTotal;
-  const availableCashFlow = Math.max(
-    0,
-    takeHome - totalEssential - totalMinPayments,
-  );
+  // Honest, unclamped number — essential expenses + minimums exceeding
+  // take-home pay is a real situation, not one to hide behind Math.max(0, ...).
+  // The bar chart segments below still cap visually at 100%, but this figure
+  // is what actually gets displayed and colored.
+  const trueRemaining = takeHome - totalEssential - totalMinPayments;
+  const overBudget = takeHome > 0 && trueRemaining < 0;
 
   const toggleCancel = (id: string) =>
     setCancelledIds((prev) => {
@@ -232,17 +234,16 @@ export default function IncomeTab({
                 </span>
                 <span
                   style={{
-                    color: availableCashFlow >= 0 ? "#10b981" : "#ef4444",
+                    color: trueRemaining >= 0 ? "#10b981" : "#ef4444",
                   }}
                 >
                   <span
                     className="inline-block w-2 h-2 rounded-full mr-1"
                     style={{
-                      background:
-                        availableCashFlow >= 0 ? "#10b981" : "#ef4444",
+                      background: trueRemaining >= 0 ? "#10b981" : "#ef4444",
                     }}
                   />
-                  Remaining {formatCurrency(availableCashFlow)}
+                  Remaining {formatCurrency(trueRemaining)}
                 </span>
                 {cancelledTotal > 0 && (
                   <span style={{ color: "#059669" }}>
@@ -250,6 +251,37 @@ export default function IncomeTab({
                   </span>
                 )}
               </div>
+              {overBudget && (
+                <div
+                  className="mt-3 rounded-lg p-3 flex items-start gap-2"
+                  style={{
+                    background: "rgba(14,165,233,0.08)",
+                    border: "1px solid rgba(14,165,233,0.2)",
+                  }}
+                >
+                  <Info
+                    size={14}
+                    style={{ color: "#0ea5e9", flexShrink: 0, marginTop: 2 }}
+                  />
+                  <span className="text-xs" style={{ color: "#374151" }}>
+                    Your essentials and minimum payments use up all of your
+                    take-home pay right now — that&apos;s okay, your plan
+                    still works with $0 extra.{" "}
+                    <a
+                      href="/learn/when-expenses-exceed-income"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: "#0ea5e9",
+                        fontWeight: 700,
+                        textDecoration: "underline",
+                      }}
+                    >
+                      See your options →
+                    </a>
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

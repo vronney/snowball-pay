@@ -205,6 +205,7 @@ export default async function DebtPayoffPlanTemplatePage() {
                 { href: "/learn", label: "Debt Snowball vs. Avalanche →", desc: "Compare both methods side-by-side" },
                 { href: "/learn/pay-off-10k-credit-card-debt", label: "Pay Off $10k Credit Card Debt →", desc: "See payoff timelines by payment amount" },
                 { href: "/learn/fastest-way-to-become-debt-free", label: "Fastest Way to Become Debt Free →", desc: "5 tactics that actually work" },
+                { href: "/learn/when-expenses-exceed-income", label: "When Expenses Exceed Income →", desc: "The right bill order, and free help that exists" },
               ].map((link) => (
                 <a key={link.href} href={link.href} style={{ display: "block", padding: "20px 24px", borderRadius: "14px", background: "#ffffff", border: "1px solid rgba(15,23,42,0.08)", textDecoration: "none" }}>
                   <div style={{ fontSize: "14px", fontWeight: 700, color: "#1d4ed8", marginBottom: "4px" }}>{link.label}</div>

@@ -649,6 +649,11 @@ export default async function PayOff10kPage() {
                   label: "Fastest Way to Become Debt Free →",
                   desc: "5 tactics that actually work",
                 },
+                {
+                  href: "/learn/when-expenses-exceed-income",
+                  label: "When Expenses Exceed Income →",
+                  desc: "The right bill order, and free help that exists",
+                },
               ].map((link) => (
                 <a
                   key={link.href}
