@@ -29,7 +29,7 @@ Rules:
 - Be direct and specific - never generic. Do not recommend a habit, reminder, or review unless the user's numbers explain why.
 - Prefer advice that changes the next dollar: payoff order, payment amount, due-date risk, APR/fee negotiation, or one concrete expense tradeoff.
 - Keep the tone calm and practical. No shame, hype, or vague encouragement.
-- For "negotiation_suggestion": name the single best negotiation target (usually the highest-APR card) and quantify the stakes (its APR, balance, and rough annual interest cost at that rate). Do NOT write call scripts, quoted openers, or specific rate asks — the app has a dedicated negotiation panel with full prefilled call scripts, rebuttals, and letter templates, and this card's button opens it. End the body by pointing the user to that panel.
+- For "negotiation_suggestion": name the single best negotiation target — the highest-APR debt with category "Credit Card" (the negotiation panel only covers credit cards; never name a loan or mortgage here) — and quantify the stakes (its APR, balance, and rough annual interest cost at that rate). If the user has no credit-card debt, say the panel activates once they track one. Do NOT write call scripts, quoted openers, or specific rate asks — the app has a dedicated negotiation panel with full prefilled call scripts, rebuttals, and letter templates, and this card's button opens it. End the body by pointing the user to that panel.
 - When relevant, include timing guidance (for example after 6+ on-time payments) and a credit-reporting cue (for example lender reports monthly to bureaus).
 - Never use the words: "elevate", "seamless", "game-changer", "unleash", "journey", "delve"
 - Include one recommendation for each type and do not repeat types:
@@ -141,6 +141,11 @@ function buildFallbackRecommendations(
   const highestAprDebt = [...activeDebts].sort(
     (a, b) => b.interestRate - a.interestRate || b.balance - a.balance,
   )[0];
+  // The negotiation panel only covers credit cards (isNegotiableCard), so the
+  // negotiation tip must not point at a loan it can't build scripts for.
+  const highestAprCard = [...activeDebts]
+    .filter((debt) => debt.category === 'Credit Card')
+    .sort((a, b) => b.interestRate - a.interestRate || b.balance - a.balance)[0];
   const topExpense = [...body.expenseItems]
     .filter((expense) => expense.amount > 0)
     .sort((a, b) => b.amount - a.amount)[0];
@@ -222,14 +227,16 @@ function buildFallbackRecommendations(
     },
     {
       type: 'negotiation_suggestion',
-      impact: highestAprDebt?.interestRate >= 20 ? 'high' : 'medium',
+      impact: highestAprCard?.interestRate >= 20 ? 'high' : 'medium',
       title: 'Ask for APR relief',
-      body: highestAprDebt
-        ? `${highestAprDebt.name} charges ${highestAprDebt.interestRate}% APR on ${dollars(highestAprDebt.balance)} — roughly ${dollars((highestAprDebt.balance * highestAprDebt.interestRate) / 100)}/yr in interest at that rate. Most cardholders who ask get a reduction. The negotiation panel has the full call script, rebuttals, and letter templates prefilled for this card.`
-        : `Your highest-rate lender is the strongest negotiation target. The negotiation panel has the full call script, rebuttals, and letter templates prefilled from your tracked cards.`,
-      action: 'Open the full scripts panel',
-      why: highestAprDebt
-        ? `${highestAprDebt.interestRate}% APR makes this a strong negotiation target.`
+      body: highestAprCard
+        ? `${highestAprCard.name} charges ${highestAprCard.interestRate}% APR on ${dollars(highestAprCard.balance)} — roughly ${dollars((highestAprCard.balance * highestAprCard.interestRate) / 100)}/yr in interest at that rate. Most cardholders who ask get a reduction. The negotiation panel has the full call script, rebuttals, and letter templates prefilled for this card.`
+        : `APR negotiation works best on credit cards. Add a credit card to your tracked debts and the negotiation panel will build prefilled call scripts and letter templates for it.`,
+      action: highestAprCard
+        ? 'Open the full scripts panel'
+        : 'Track a credit card to unlock scripts',
+      why: highestAprCard
+        ? `${highestAprCard.interestRate}% APR makes this a strong negotiation target.`
         : `Lower rates can reduce total interest paid.`,
     },
   ];
