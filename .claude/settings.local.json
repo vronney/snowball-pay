@@ -63,7 +63,8 @@
       "Skill(design-consultation)",
       "Bash(start \"\" \"/tmp/design-consultation-preview-1777488689.html\")",
       "Bash(cmd.exe /c start \"\" \"C:/Users/ronne/AppData/Local/Temp/design-consultation-preview-1777488689.html\")",
-      "Bash(explorer \"C:/Users/ronne/AppData/Local/Temp/design-consultation-preview-1777488689.html\")"
+      "Bash(explorer \"C:/Users/ronne/AppData/Local/Temp/design-consultation-preview-1777488689.html\")",
+      "Bash(git pull *)"
     ],
     "deny": [
       "Bash(rm:*)",
