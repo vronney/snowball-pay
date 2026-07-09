@@ -152,6 +152,14 @@ export async function POST(request: NextRequest) {
       ? validated.data.message
       : `${body.debtName} — payment logged.`;
 
+    // Persist the celebration so the weekly-digest cron has an audience and the
+    // Journey timeline has history. Own try/catch inside — a DB blip must never
+    // turn a logged payment into a user-facing error. Reached whenever the AI
+    // call completes (a valid message, or the generic fallback on unparseable
+    // JSON — the payment happened, so we keep the user in the digest). Only the
+    // outer catch below (AI timeout/network error) skips persistence entirely.
+    await persistDebtStory({ userId: auth.user.id, body, message, milestone, highlightStat });
+
     return NextResponse.json({
       message,
       milestoneLabel: milestone,
@@ -181,4 +189,36 @@ function buildPayoffExtras(
     ? undefined
     : Math.round((Date.now() - createdMs) / (1000 * 60 * 60 * 24 * 30));
   return { paidTotal, monthsElapsed };
+}
+
+// ── DebtStory persistence ─────────────────────────────────────────────────────
+
+/**
+ * Record this celebration as a DebtStory row. This is the ONLY writer for the
+ * debt_stories table; the weekly-digest cron and the Journey timeline both read
+ * from it. Wrapped in its own try/catch so a DB failure degrades to a logged
+ * warning instead of failing the celebration response.
+ */
+async function persistDebtStory(args: {
+  userId: string;
+  body: CelebrationRequest;
+  message: string;
+  milestone: MilestoneTier;
+  highlightStat: string;
+}): Promise<void> {
+  try {
+    await prisma.debtStory.create({
+      data: {
+        userId:         args.userId,
+        debtId:         args.body.debtId,
+        debtName:       args.body.debtName,
+        amountPaid:     args.body.amountPaid,
+        message:        args.message,
+        milestoneLabel: args.milestone ?? null,
+        highlightStat:  args.highlightStat,
+      },
+    });
+  } catch (e) {
+    console.error('[payment-celebration] failed to persist DebtStory:', e);
+  }
 }
