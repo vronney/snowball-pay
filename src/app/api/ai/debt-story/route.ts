@@ -78,9 +78,24 @@ export async function GET(request: NextRequest) {
     `Progress: ${totalOriginal > 0 ? ((1 - totalRemaining / totalOriginal) * 100).toFixed(0) : 0}% paid down`,
   ].join('\n');
 
+  // Deterministic fallback used whenever the AI story is unavailable
+  // (timeout, upstream error, or an unexpected response shape). This is a
+  // nice-to-have narrative, so a transient AI blip should degrade to a plain
+  // summary — never a user-facing 503.
+  const fallback = {
+    headline: 'Your Debt Journey',
+    body: `You've logged ${paymentCount} payment${paymentCount !== 1 ? 's' : ''} and paid down $${Math.round(totalPaid).toLocaleString()} so far. Keep going.`,
+    stats: { paymentCount, totalPaid, uniqueMonths, paidOff },
+  };
+
   try {
     const ac = new AbortController();
-    const timeout = setTimeout(() => ac.abort(), 5000);
+    // Give Haiku more room than the old 5s (which clipped normal responses),
+    // but stay well under maxDuration (15s). Auth + rate-limit + two Prisma
+    // queries run before this and can cost a few seconds cold, so the abort
+    // must leave margin — otherwise a platform timeout (hard 504) fires before
+    // our graceful catch below can serve the fallback.
+    const timeout = setTimeout(() => ac.abort(), 9000);
 
     let rawText: string;
     try {
@@ -109,16 +124,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Claude returned unexpected shape — surface a safe fallback
-    return NextResponse.json({
-      headline: 'Your Debt Journey',
-      body: `You've logged ${paymentCount} payment${paymentCount !== 1 ? 's' : ''} and paid down $${Math.round(totalPaid).toLocaleString()} so far. Keep going.`,
-      stats: { paymentCount, totalPaid, uniqueMonths, paidOff },
-    });
+    // Claude returned an unexpected shape — surface the safe fallback.
+    return NextResponse.json(fallback);
   } catch {
-    return NextResponse.json(
-      { error: 'story_unavailable' },
-      { status: 503 },
-    );
+    // Timeout or upstream failure — degrade gracefully rather than 503.
+    return NextResponse.json(fallback);
   }
 }
