@@ -30,7 +30,6 @@ model User {
   debts                   Debt[]
   income                  Income?
   expenses                Expense[]
-  payoffPlan              PayoffPlan?
   aiRecommendationCache   AiRecommendationCache?
   coachBriefCache         CoachBriefCache?
   preferences             UserPreferences?
@@ -89,7 +88,6 @@ model Debt {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  payoffSchedule    PayoffStep[]
   snapshots         BalanceSnapshot[]
   paymentRecords    PaymentRecord[]
 
@@ -196,42 +194,6 @@ model BalanceSnapshot {
   @@unique([debtId, recordedAt])
   @@index([userId])
   @@map("balance_snapshots")
-}
-
-model PayoffPlan {
-  id                String   @id @default(cuid())
-  userId            String   @unique
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  debtFreeDate      DateTime
-  totalInterestPaid Float    @default(0)
-  totalAmountPaid   Float    @default(0)
-  monthlyPayment    Float    @default(0)
-
-  payoffSteps       PayoffStep[]
-
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  @@map("payoff_plans")
-}
-
-model PayoffStep {
-  id                String   @id @default(cuid())
-  debtId            String
-  debt              Debt     @relation(fields: [debtId], references: [id], onDelete: Cascade)
-
-  payoffPlanId      String
-  payoffPlan        PayoffPlan @relation(fields: [payoffPlanId], references: [id], onDelete: Cascade)
-
-  stepNumber        Int      // order in payoff sequence
-  startBalance      Float
-  payoffMonth       Int      // month when this debt is paid off
-  interestPaid      Float    @default(0)
-
-  @@index([debtId])
-  @@index([payoffPlanId])
-  @@map("payoff_steps")
 }
 
 // ---------------------------------------------------------------------------

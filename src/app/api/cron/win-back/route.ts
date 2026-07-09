@@ -55,7 +55,6 @@ export async function GET(request: NextRequest) {
       preferences: true,
       debts:  { select: { id: true, balance: true } },
       income: { select: { monthlyTakeHome: true } },
-      payoffPlan: { select: { debtFreeDate: true } },
       paymentRecords: {
         where:   { paidAt: { gte: inactiveCutoff } },
         select:  { id: true },
@@ -89,10 +88,6 @@ export async function GET(request: NextRequest) {
         (now.getTime() - user.createdAt.getTime()) / 86400000,
       );
 
-      const debtFreeDate = user.payoffPlan?.debtFreeDate
-        ? user.payoffPlan.debtFreeDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-        : undefined;
-
       const token = generateUnsubscribeToken(user.id);
       const unsubscribeUrl = `${APP_BASE_URL}/api/email/unsubscribe?userId=${user.id}&token=${token}`;
 
@@ -100,7 +95,7 @@ export async function GET(request: NextRequest) {
         React.createElement(WinBackEmail, {
           userName:          user.name?.split(' ')[0] ?? undefined,
           totalBalance,
-          debtFreeDate,
+          debtFreeDate:      undefined,
           daysSinceActivity: Math.min(daysSinceActivity, 90),
           unsubscribeUrl,
         }),
