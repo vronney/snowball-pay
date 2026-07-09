@@ -2,10 +2,11 @@
  * Debt-story cache (Upstash Redis).
  *
  * The Journey tab regenerates its AI story on every cache-miss, and each
- * generation consumes one of the user's 3/24h `debtStory` rate-limit tokens.
- * Without a cache, ordinary repeat-viewing (or a page reload) burns the daily
- * budget and users hit a 429. This cache lets the route serve a previously
- * generated story WITHOUT calling Claude or consuming a token.
+ * generation consumes one of the user's `debtStory` rate-limit tokens. Without a
+ * cache, ordinary repeat-viewing (or a page reload) burns the daily budget and
+ * users hit a 429. This cache lets the route serve a previously generated story
+ * WITHOUT calling Claude or consuming a token — including fallback stories, so a
+ * transient AI outage can't drain the budget across reloads (see FALLBACK_TTL).
  *
  * Invalidation is data-driven, not time-driven: the cached entry carries a
  * `dataHash` fingerprint of the underlying financial figures (mirrors
@@ -19,7 +20,13 @@
 
 import { Redis } from '@upstash/redis';
 
-const TTL_SECONDS = 24 * 60 * 60; // 24h backstop; dataHash drives real invalidation
+const TTL_SECONDS = 24 * 60 * 60; // successful story: 24h backstop; dataHash drives real invalidation
+
+// Fallback stories (AI timeout/error) get a short TTL: long enough that a burst
+// of reloads during an AI blip is served from cache instead of each one draining
+// a rate-limit token, but short enough to refresh to the real AI story soon
+// after Claude recovers.
+export const FALLBACK_TTL_SECONDS = 10 * 60;
 
 // Bump when the shape of the cached story payload changes. dataHash only tracks
 // the user's *financial* inputs, not the *response shape* — so without this, a
@@ -69,12 +76,21 @@ export async function getCachedStory(userId: string, dataHash: string): Promise<
   }
 }
 
-/** Stores a freshly generated story under the user's key with its fingerprint. */
-export async function setCachedStory(userId: string, dataHash: string, payload: unknown): Promise<void> {
+/**
+ * Stores a story under the user's key with its fingerprint. Pass
+ * `FALLBACK_TTL_SECONDS` for fallback stories so they expire quickly; omit for a
+ * successful AI story (default 24h).
+ */
+export async function setCachedStory(
+  userId: string,
+  dataHash: string,
+  payload: unknown,
+  ttlSeconds: number = TTL_SECONDS,
+): Promise<void> {
   const redis = makeRedis();
   if (!redis) return;
   try {
-    await redis.set(cacheKey(userId), { version: CACHE_VERSION, dataHash, payload } satisfies CachedStory, { ex: TTL_SECONDS });
+    await redis.set(cacheKey(userId), { version: CACHE_VERSION, dataHash, payload } satisfies CachedStory, { ex: ttlSeconds });
   } catch {
     /* non-blocking: a failed cache write just means the next view regenerates */
   }
