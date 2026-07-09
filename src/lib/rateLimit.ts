@@ -116,9 +116,14 @@ export const limits = {
   paymentCelebration: (userId: string) =>
     check('pay-cel', `pay-cel:${userId}`, 3, '86400 s', 24 * 60 * 60 * 1000),
 
-  /** 3 debt story generations per 24 hours per user. */
+  /**
+   * 20 debt story generations per 24 hours per user. Only genuine cache misses
+   * (data changed, or the cached story expired) reach this limiter — repeat
+   * views, including during an AI outage, are served from the story cache — so
+   * this is a cost cap on Claude calls, not a per-view budget.
+   */
   debtStory: (userId: string) =>
-    check('debt-story', `debt-story:${userId}`, 3, '86400 s', 24 * 60 * 60 * 1000),
+    check('debt-story', `debt-story:${userId}`, 20, '86400 s', 24 * 60 * 60 * 1000),
 
   /** 10 OG card renders per hour per IP (unauthenticated route). */
   ogCardIp: (ip: string) =>

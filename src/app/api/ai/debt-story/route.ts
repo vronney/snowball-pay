@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized } from '@/lib/auth-server';
 import { limits } from '@/lib/rateLimit';
 import { anthropic, parseClaudeJson, extractTextBlocks } from '@/lib/claude';
-import { getCachedStory, setCachedStory } from '@/lib/storyCache';
+import { getCachedStory, setCachedStory, FALLBACK_TTL_SECONDS } from '@/lib/storyCache';
 
 export const maxDuration = 15;
 
@@ -126,8 +126,10 @@ export async function GET(request: NextRequest) {
   // Deterministic fallback used whenever the AI story is unavailable
   // (timeout, upstream error, or an unexpected response shape). This is a
   // nice-to-have narrative, so a transient AI blip should degrade to a plain
-  // summary — never a user-facing 503. Fallbacks are NOT cached, so the next
-  // view regenerates once the AI recovers.
+  // summary — never a user-facing 503. The fallback is cached with a SHORT TTL
+  // (see below) so a burst of reloads during an AI outage is served from cache
+  // instead of each one draining a rate-limit token; it refreshes to the real
+  // AI story within FALLBACK_TTL_SECONDS once Claude recovers.
   const fallback = {
     headline: 'Your Debt Journey',
     body: `You've logged ${paymentCount} payment${paymentCount !== 1 ? 's' : ''} and paid down $${Math.round(totalPaid).toLocaleString()} so far. Keep going.`,
@@ -136,11 +138,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const ac = new AbortController();
-    // Give Haiku more room than the old 5s (which clipped normal responses),
-    // but stay well under maxDuration (15s). Auth, two Prisma queries, the cache
+    // Give Haiku more room than the old 5s (which clipped normal responses), but
+    // stay well under maxDuration (15s). Auth, two Prisma queries, the cache
     // check and the rate-limit check run before this and can cost a few seconds
-    // cold, so the abort must leave margin — otherwise a platform timeout (hard
-    // 504) fires before our graceful catch below can serve the fallback.
+    // cold; the cache write that follows is hard-bounded (see storyCache
+    // WRITE_TIMEOUT_MS), so it can't extend the request past this by more than
+    // that cap — otherwise a platform timeout would pre-empt our graceful catch.
     const timeout = setTimeout(() => ac.abort(), 9000);
 
     let rawText: string;
@@ -174,10 +177,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(payload);
     }
 
-    // Claude returned an unexpected shape — surface the safe fallback.
+    // Claude returned an unexpected shape — surface the safe fallback, cached
+    // briefly so reloads during the blip don't each burn a token.
+    await setCachedStory(userId, dataHash, fallback, FALLBACK_TTL_SECONDS);
     return NextResponse.json(fallback);
   } catch {
-    // Timeout or upstream failure — degrade gracefully rather than 503.
+    // Timeout or upstream failure — degrade gracefully rather than 503, and
+    // cache the fallback briefly so reloads don't each burn a token.
+    await setCachedStory(userId, dataHash, fallback, FALLBACK_TTL_SECONDS);
     return NextResponse.json(fallback);
   }
 }

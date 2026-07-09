@@ -2,10 +2,11 @@
  * Debt-story cache (Upstash Redis).
  *
  * The Journey tab regenerates its AI story on every cache-miss, and each
- * generation consumes one of the user's 3/24h `debtStory` rate-limit tokens.
- * Without a cache, ordinary repeat-viewing (or a page reload) burns the daily
- * budget and users hit a 429. This cache lets the route serve a previously
- * generated story WITHOUT calling Claude or consuming a token.
+ * generation consumes one of the user's `debtStory` rate-limit tokens. Without a
+ * cache, ordinary repeat-viewing (or a page reload) burns the daily budget and
+ * users hit a 429. This cache lets the route serve a previously generated story
+ * WITHOUT calling Claude or consuming a token — including fallback stories, so a
+ * transient AI outage can't drain the budget across reloads (see FALLBACK_TTL).
  *
  * Invalidation is data-driven, not time-driven: the cached entry carries a
  * `dataHash` fingerprint of the underlying financial figures (mirrors
@@ -19,7 +20,20 @@
 
 import { Redis } from '@upstash/redis';
 
-const TTL_SECONDS = 24 * 60 * 60; // 24h backstop; dataHash drives real invalidation
+const TTL_SECONDS = 24 * 60 * 60; // successful story: 24h backstop; dataHash drives real invalidation
+
+// Fallback stories (AI timeout/error) get a short TTL: long enough that a burst
+// of reloads during an AI blip is served from cache instead of each one draining
+// a rate-limit token, but short enough to refresh to the real AI story soon
+// after Claude recovers.
+export const FALLBACK_TTL_SECONDS = 10 * 60;
+
+// Hard cap on a cache write. The fallback write runs after the AI abort budget is
+// already spent, so an unbounded Upstash `set` that stalls (network blip, cold
+// start) could block to the route's maxDuration and turn graceful degradation
+// into a hard 504. We enforce this by ABORTING the request (not detaching it, which
+// serverless can't reliably finish) via an AbortSignal on the client.
+const WRITE_TIMEOUT_MS = 500;
 
 // Bump when the shape of the cached story payload changes. dataHash only tracks
 // the user's *financial* inputs, not the *response shape* — so without this, a
@@ -34,11 +48,11 @@ interface CachedStory {
   payload: unknown; // the story response: { headline, body, stats }
 }
 
-function makeRedis(): Redis | null {
+function makeRedis(signal?: AbortSignal): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
-  return new Redis({ url, token });
+  return new Redis(signal ? { url, token, signal } : { url, token });
 }
 
 function cacheKey(userId: string): string {
@@ -69,13 +83,27 @@ export async function getCachedStory(userId: string, dataHash: string): Promise<
   }
 }
 
-/** Stores a freshly generated story under the user's key with its fingerprint. */
-export async function setCachedStory(userId: string, dataHash: string, payload: unknown): Promise<void> {
-  const redis = makeRedis();
+/**
+ * Stores a story under the user's key with its fingerprint. Pass
+ * `FALLBACK_TTL_SECONDS` for fallback stories so they expire quickly; omit for a
+ * successful AI story (default 24h).
+ */
+export async function setCachedStory(
+  userId: string,
+  dataHash: string,
+  payload: unknown,
+  ttlSeconds: number = TTL_SECONDS,
+): Promise<void> {
+  // Bound the write with an AbortSignal so a stalled Upstash request is aborted
+  // at WRITE_TIMEOUT_MS instead of blocking to maxDuration. Unlike a detached
+  // write the request genuinely ends (nothing dangling in a reclaimed serverless
+  // context); unlike an unbounded await it can't hang the response. A
+  // normal-speed write still completes and lands before the response is sent.
+  const redis = makeRedis(AbortSignal.timeout(WRITE_TIMEOUT_MS));
   if (!redis) return;
   try {
-    await redis.set(cacheKey(userId), { version: CACHE_VERSION, dataHash, payload } satisfies CachedStory, { ex: TTL_SECONDS });
+    await redis.set(cacheKey(userId), { version: CACHE_VERSION, dataHash, payload } satisfies CachedStory, { ex: ttlSeconds });
   } catch {
-    /* non-blocking: a failed cache write just means the next view regenerates */
+    /* swallow: a timed-out or failed write just means the next view regenerates */
   }
 }

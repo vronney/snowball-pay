@@ -78,13 +78,32 @@ describe('storyCache — getCachedStory', () => {
 });
 
 describe('storyCache — setCachedStory', () => {
-  it('writes the versioned entry with the fingerprint and a TTL', async () => {
+  it('writes the versioned entry with the fingerprint and the default 24h TTL', async () => {
     await setCachedStory('user_1', 'h1', PAYLOAD);
 
     expect(mockSet).toHaveBeenCalledWith(
       KEY,
       { version: 1, dataHash: 'h1', payload: PAYLOAD },
       { ex: 24 * 60 * 60 },
+    );
+  });
+
+  it('bounds the write by constructing the client with an abort signal', async () => {
+    await setCachedStory('user_1', 'h1', PAYLOAD);
+    // The write path must pass an AbortSignal so a stalled Upstash request is
+    // aborted rather than blocking to maxDuration.
+    expect(RedisMock).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
+  it('honors a custom TTL (used for short-lived fallback stories)', async () => {
+    await setCachedStory('user_1', 'h1', PAYLOAD, 600);
+
+    expect(mockSet).toHaveBeenCalledWith(
+      KEY,
+      { version: 1, dataHash: 'h1', payload: PAYLOAD },
+      { ex: 600 },
     );
   });
 

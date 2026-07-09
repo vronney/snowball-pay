@@ -44,6 +44,7 @@ vi.mock('@/lib/claude', async () => {
 vi.mock('@/lib/storyCache', () => ({
   getCachedStory: mockGetCache,
   setCachedStory: mockSetCache,
+  FALLBACK_TTL_SECONDS: 600,
 }));
 
 import { GET } from '@/app/api/ai/debt-story/route';
@@ -104,7 +105,7 @@ describe('GET /api/ai/debt-story — cache', () => {
     }));
   });
 
-  it('does not cache the fallback when Claude fails, and still returns 200', async () => {
+  it('caches the fallback with a SHORT TTL when Claude fails (so reloads during a blip do not each burn a token)', async () => {
     mockGetCache.mockResolvedValue(null);
     mockCreate.mockRejectedValue(Object.assign(new Error('aborted'), { name: 'AbortError' }));
 
@@ -113,7 +114,13 @@ describe('GET /api/ai/debt-story — cache', () => {
 
     expect(res.status).toBe(200);
     expect(json.headline).toBe('Your Debt Journey'); // deterministic fallback
-    expect(mockSetCache).not.toHaveBeenCalled();       // fallback is not cached
+    // Fallback is cached, but with the short fallback TTL (600s), not the 24h default.
+    expect(mockSetCache).toHaveBeenCalledWith(
+      'user_1',
+      expect.any(String),
+      expect.objectContaining({ headline: 'Your Debt Journey' }),
+      600,
+    );
   });
 
   it('returns 429 on a cache miss when the user is over their generation limit', async () => {
