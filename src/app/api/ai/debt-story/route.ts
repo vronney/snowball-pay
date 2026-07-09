@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized } from '@/lib/auth-server';
 import { limits } from '@/lib/rateLimit';
 import { anthropic, parseClaudeJson, extractTextBlocks } from '@/lib/claude';
+import { getCachedStory, setCachedStory } from '@/lib/storyCache';
 
 export const maxDuration = 15;
 
@@ -13,6 +14,32 @@ const StoryResponseSchema = z.object({
   headline: z.string().min(1).max(100),
   body:     z.string().min(1).max(400),
 });
+
+// ── Cache fingerprint ─────────────────────────────────────────────────────────
+
+/**
+ * Fingerprints the financial figures the story is built from, so a cache hit
+ * only counts while those figures are unchanged (mirrors the dataHash approach
+ * in the recommendations / coach-brief caches). Rounded to whole dollars so
+ * float noise doesn't churn the hash.
+ */
+function buildStoryDataHash(s: {
+  paymentCount: number;
+  totalPaid: number;
+  uniqueMonths: number;
+  paidOff: number;
+  totalOriginal: number;
+  totalRemaining: number;
+}): string {
+  return [
+    s.paymentCount,
+    Math.round(s.totalPaid),
+    s.uniqueMonths,
+    s.paidOff,
+    Math.round(s.totalOriginal),
+    Math.round(s.totalRemaining),
+  ].join('|');
+}
 
 // ── System prompt ─────────────────────────────────────────────────────────────
 
@@ -31,16 +58,15 @@ Based on the user's payment data, write a 2-3 sentence summary of their debt-fre
 export async function GET(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!auth.valid || !auth.user) return unauthorized();
+  const userId = auth.user.id;
 
-  const allowed = await limits.debtStory(auth.user.id);
-  if (!allowed) {
-    return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
-  }
-
-  // Pull the data we need to build the story prompt
+  // Pull the data the story is built from. This runs before the rate-limit check
+  // because we need it to compute the cache fingerprint — a cache hit must NOT
+  // consume a rate-limit token (repeat views / reloads shouldn't burn the 3/24h
+  // budget when nothing has changed).
   const [debts, recentPayments] = await Promise.all([
     prisma.debt.findMany({
-      where: { userId: auth.user.id },
+      where: { userId },
       select: {
         name: true,
         balance: true,
@@ -49,7 +75,7 @@ export async function GET(request: NextRequest) {
       },
     }),
     prisma.paymentRecord.findMany({
-      where: { userId: auth.user.id },
+      where: { userId },
       orderBy: { paidAt: 'desc' },
       take: 50,
       select: { amount: true, dueYear: true, dueMonth: true, paidAt: true },
@@ -60,13 +86,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ empty: true });
   }
 
-  // Compute summary stats for the prompt
+  // Compute summary stats for the prompt + fingerprint
   const totalPaid      = recentPayments.reduce((s, p) => s + p.amount, 0);
   const paymentCount   = recentPayments.length;
   const uniqueMonths   = new Set(recentPayments.map((p) => `${p.dueYear}-${p.dueMonth}`)).size;
   const totalOriginal  = debts.reduce((s, d) => s + (d.originalBalance ?? d.balance), 0);
   const totalRemaining = debts.reduce((s, d) => s + d.balance, 0);
   const paidOff        = debts.filter((d) => d.balance <= 0).length;
+
+  const stats = { paymentCount, totalPaid, uniqueMonths, paidOff };
+  const dataHash = buildStoryDataHash({
+    paymentCount, totalPaid, uniqueMonths, paidOff, totalOriginal, totalRemaining,
+  });
+
+  // Serve the previously generated story when the financials are unchanged —
+  // no Claude call, no rate-limit token consumed.
+  const cached = await getCachedStory(userId, dataHash);
+  if (cached) {
+    return NextResponse.json(cached);
+  }
+
+  // Cache miss (first view or the data changed) — this is a real AI generation,
+  // so it's rate-limited. The 429 is still handled gracefully by the client.
+  const allowed = await limits.debtStory(userId);
+  if (!allowed) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 });
+  }
 
   const context = [
     `Payments logged: ${paymentCount}`,
@@ -81,20 +126,21 @@ export async function GET(request: NextRequest) {
   // Deterministic fallback used whenever the AI story is unavailable
   // (timeout, upstream error, or an unexpected response shape). This is a
   // nice-to-have narrative, so a transient AI blip should degrade to a plain
-  // summary — never a user-facing 503.
+  // summary — never a user-facing 503. Fallbacks are NOT cached, so the next
+  // view regenerates once the AI recovers.
   const fallback = {
     headline: 'Your Debt Journey',
     body: `You've logged ${paymentCount} payment${paymentCount !== 1 ? 's' : ''} and paid down $${Math.round(totalPaid).toLocaleString()} so far. Keep going.`,
-    stats: { paymentCount, totalPaid, uniqueMonths, paidOff },
+    stats,
   };
 
   try {
     const ac = new AbortController();
     // Give Haiku more room than the old 5s (which clipped normal responses),
-    // but stay well under maxDuration (15s). Auth + rate-limit + two Prisma
-    // queries run before this and can cost a few seconds cold, so the abort
-    // must leave margin — otherwise a platform timeout (hard 504) fires before
-    // our graceful catch below can serve the fallback.
+    // but stay well under maxDuration (15s). Auth, two Prisma queries, the cache
+    // check and the rate-limit check run before this and can cost a few seconds
+    // cold, so the abort must leave margin — otherwise a platform timeout (hard
+    // 504) fires before our graceful catch below can serve the fallback.
     const timeout = setTimeout(() => ac.abort(), 9000);
 
     let rawText: string;
@@ -117,11 +163,15 @@ export async function GET(request: NextRequest) {
     const validated = StoryResponseSchema.safeParse(parsed);
 
     if (validated.success) {
-      return NextResponse.json({
+      const payload = {
         headline: validated.data.headline,
         body:     validated.data.body,
-        stats: { paymentCount, totalPaid, uniqueMonths, paidOff },
-      });
+        stats,
+      };
+      // Cache the successful story so subsequent views (until the data changes)
+      // are served without a Claude call or a rate-limit token.
+      await setCachedStory(userId, dataHash, payload);
+      return NextResponse.json(payload);
     }
 
     // Claude returned an unexpected shape — surface the safe fallback.
