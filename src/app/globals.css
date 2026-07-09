@@ -1012,6 +1012,10 @@ input[type="number"] {
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
     --radius: 0.625rem;
+    /* Referenced by ui/button.tsx size variants (xs/sm/icon). Undefined it
+       makes min(var(--radius-md),12px) invalid, so small buttons render
+       square. 8px matches the DESIGN.md button radius. */
+    --radius-md: calc(var(--radius) - 2px);
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.205 0 0);

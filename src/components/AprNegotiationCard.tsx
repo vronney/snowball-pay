@@ -85,12 +85,11 @@ function CopyButton({
     >
       {status === "copied" ? (
         <>
-          <CheckCircle2 className="mr-1 h-3 w-3 text-emerald-600" /> Copied!
+          <CheckCircle2 className="mr-1 h-3 w-3 text-emerald-600" /> Copied
         </>
       ) : status === "failed" ? (
         <>
           <AlertTriangle className="mr-1 h-3 w-3 text-amber-600" /> Copy failed
-          — select the text manually
         </>
       ) : (
         <>
@@ -101,7 +100,7 @@ function CopyButton({
         {status === "copied"
           ? "Copied to clipboard"
           : status === "failed"
-            ? "Copy failed"
+            ? "Copy failed. Select the text and copy it manually."
             : ""}
       </span>
     </Button>
@@ -221,7 +220,7 @@ export function AprNegotiationCard() {
               )}{" "}
               on <span className="font-medium">{card.name}</span> could save
               roughly{" "}
-              <span className="font-semibold text-emerald-600">
+              <span className="mono font-semibold text-emerald-600">
                 ${n.estimatedAnnualSavings.toLocaleString()}/yr
               </span>{" "}
               in interest.
@@ -241,7 +240,9 @@ export function AprNegotiationCard() {
             variant={expanded ? "outline" : "default"}
             size="sm"
             aria-expanded={expanded}
-            aria-controls="apr-negotiation-details"
+            // Only reference the region while it exists in the DOM — a
+            // dangling aria-controls id is an ARIA validation error.
+            aria-controls={expanded ? "apr-negotiation-details" : undefined}
             onClick={() => setExpanded((v) => !v)}
           >
             <ChevronDown
@@ -259,7 +260,7 @@ export function AprNegotiationCard() {
             <label className="text-sm">
               <span className="mb-1 block text-muted-foreground">Your name</span>
               <input
-                className="w-full rounded-md border border-border px-2 py-1"
+                className="w-full rounded-lg border border-border px-2 py-1"
                 value={n.context.fullName ?? ""}
                 onChange={(e) => n.setContext({ fullName: e.target.value })}
                 placeholder="Ronney Vargas"
@@ -270,7 +271,7 @@ export function AprNegotiationCard() {
                 Card last 4
               </span>
               <input
-                className="w-full rounded-md border border-border px-2 py-1"
+                className="w-full rounded-lg border border-border px-2 py-1"
                 value={n.context.cardLast4 ?? ""}
                 onChange={(e) =>
                   n.setContext({
@@ -287,7 +288,7 @@ export function AprNegotiationCard() {
                 Years with issuer
               </span>
               <input
-                className="w-full rounded-md border border-border px-2 py-1"
+                className="w-full rounded-lg border border-border px-2 py-1"
                 value={String(n.context.yearsAsCustomer ?? "")}
                 onChange={(e) =>
                   n.setContext({
@@ -301,7 +302,7 @@ export function AprNegotiationCard() {
             <label className="text-sm">
               <span className="mb-1 block text-muted-foreground">Credit score</span>
               <input
-                className="w-full rounded-md border border-border px-2 py-1"
+                className="w-full rounded-lg border border-border px-2 py-1"
                 value={String(n.context.creditScore ?? "")}
                 onChange={(e) =>
                   n.setContext({
@@ -318,13 +319,21 @@ export function AprNegotiationCard() {
                 Target APR (%)
               </span>
               <input
-                className="w-full rounded-md border border-border px-2 py-1"
+                className="w-full rounded-lg border border-border px-2 py-1"
                 value={String(n.context.targetAprOverride ?? "")}
-                onChange={(e) =>
+                onChange={(e) => {
+                  // Digits plus at most one decimal point ("18.9.9" would
+                  // parse to NaN and silently drop the savings estimate).
+                  const raw = e.target.value.replace(/[^\d.]/g, "");
+                  const dot = raw.indexOf(".");
                   n.setContext({
-                    targetAprOverride: e.target.value.replace(/[^\d.]/g, ""),
-                  })
-                }
+                    targetAprOverride:
+                      dot === -1
+                        ? raw
+                        : raw.slice(0, dot + 1) +
+                          raw.slice(dot + 1).replace(/\./g, ""),
+                  });
+                }}
                 inputMode="decimal"
                 placeholder={suggestedTargetApr}
               />
@@ -334,7 +343,7 @@ export function AprNegotiationCard() {
                 Competing offer
               </span>
               <input
-                className="w-full rounded-md border border-border px-2 py-1"
+                className="w-full rounded-lg border border-border px-2 py-1"
                 value={n.context.competingOffer ?? ""}
                 onChange={(e) => n.setContext({ competingOffer: e.target.value })}
                 placeholder="a credit union at 14.99%"
