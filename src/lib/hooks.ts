@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Debt, Income, Expense, DebtSummary, BudgetSummary, PayoffPlan, BalanceSnapshot } from '@/types';
+import { Debt, Income, Expense, DebtSummary, BudgetSummary, BalanceSnapshot } from '@/types';
 import axios, { AxiosError } from 'axios';
 import { upgradeEvents } from '@/lib/upgradeEvents';
 import { track, Events } from '@/lib/analytics';
@@ -213,30 +213,6 @@ export function useDeleteExpense() {
   });
 }
 
-
-// ===== PAYOFF PLAN =====
-export function useCalculatePayoffPlan() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (options: { method?: 'snowball' | 'avalanche' | 'custom' } = {}) => {
-      const { data } = await axios.post(`${API_URL}/api/plan/calculate`, options);
-      return data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['payoffPlan'] });
-    },
-  });
-}
-
-export function usePayoffPlan() {
-  return useQuery<{ payoffPlan: PayoffPlan }>({
-    queryKey: ['payoffPlan'],
-    queryFn: async () => {
-      const { data } = await axios.get(`${API_URL}/api/plan`);
-      return data;
-    },
-  });
-}
 
 // ===== BALANCE SNAPSHOTS =====
 

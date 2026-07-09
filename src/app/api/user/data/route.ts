@@ -112,10 +112,6 @@ export async function DELETE(request: NextRequest) {
     await prisma.$transaction(async (tx) => {
       await tx.paymentRecord.deleteMany({ where: { userId } });
       await tx.balanceSnapshot.deleteMany({ where: { userId } });
-      await tx.payoffStep.deleteMany({
-        where: { payoffPlan: { userId } },
-      });
-      await tx.payoffPlan.deleteMany({ where: { userId } });
       await tx.aiRecommendationCache.deleteMany({ where: { userId } });
       await tx.userPreferences.deleteMany({ where: { userId } });
       await tx.debt.deleteMany({ where: { userId } });
