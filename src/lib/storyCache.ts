@@ -28,6 +28,13 @@ const TTL_SECONDS = 24 * 60 * 60; // successful story: 24h backstop; dataHash dr
 // after Claude recovers.
 export const FALLBACK_TTL_SECONDS = 10 * 60;
 
+// Hard cap on a cache write. The fallback write runs after the AI abort budget is
+// already spent, so an unbounded Upstash `set` that stalls (network blip, cold
+// start) could block to the route's maxDuration and turn graceful degradation
+// into a hard 504. We enforce this by ABORTING the request (not detaching it, which
+// serverless can't reliably finish) via an AbortSignal on the client.
+const WRITE_TIMEOUT_MS = 500;
+
 // Bump when the shape of the cached story payload changes. dataHash only tracks
 // the user's *financial* inputs, not the *response shape* — so without this, a
 // deploy that renames/adds/removes a field could serve an old-shaped entry
@@ -41,11 +48,11 @@ interface CachedStory {
   payload: unknown; // the story response: { headline, body, stats }
 }
 
-function makeRedis(): Redis | null {
+function makeRedis(signal?: AbortSignal): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
-  return new Redis({ url, token });
+  return new Redis(signal ? { url, token, signal } : { url, token });
 }
 
 function cacheKey(userId: string): string {
@@ -87,15 +94,16 @@ export async function setCachedStory(
   payload: unknown,
   ttlSeconds: number = TTL_SECONDS,
 ): Promise<void> {
-  const redis = makeRedis();
+  // Bound the write with an AbortSignal so a stalled Upstash request is aborted
+  // at WRITE_TIMEOUT_MS instead of blocking to maxDuration. Unlike a detached
+  // write the request genuinely ends (nothing dangling in a reclaimed serverless
+  // context); unlike an unbounded await it can't hang the response. A
+  // normal-speed write still completes and lands before the response is sent.
+  const redis = makeRedis(AbortSignal.timeout(WRITE_TIMEOUT_MS));
   if (!redis) return;
-  // Awaited (not detached): a fire-and-forget write is not guaranteed to finish
-  // in serverless — the platform can reclaim the context once the response is
-  // sent, so the entry would never land. The route instead leaves deadline
-  // headroom for this write by keeping the AI abort budget below maxDuration.
   try {
     await redis.set(cacheKey(userId), { version: CACHE_VERSION, dataHash, payload } satisfies CachedStory, { ex: ttlSeconds });
   } catch {
-    /* non-blocking: a failed cache write just means the next view regenerates */
+    /* swallow: a timed-out or failed write just means the next view regenerates */
   }
 }

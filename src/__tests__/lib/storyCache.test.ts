@@ -88,6 +88,15 @@ describe('storyCache — setCachedStory', () => {
     );
   });
 
+  it('bounds the write by constructing the client with an abort signal', async () => {
+    await setCachedStory('user_1', 'h1', PAYLOAD);
+    // The write path must pass an AbortSignal so a stalled Upstash request is
+    // aborted rather than blocking to maxDuration.
+    expect(RedisMock).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+  });
+
   it('honors a custom TTL (used for short-lived fallback stories)', async () => {
     await setCachedStory('user_1', 'h1', PAYLOAD, 600);
 
