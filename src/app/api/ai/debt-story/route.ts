@@ -138,12 +138,13 @@ export async function GET(request: NextRequest) {
 
   try {
     const ac = new AbortController();
-    // Give Haiku more room than the old 5s (which clipped normal responses),
-    // but stay well under maxDuration (15s). Auth, two Prisma queries, the cache
+    // Give Haiku more room than the old 5s (which clipped normal responses), but
+    // stay well under maxDuration (15s). Auth, two Prisma queries, the cache
     // check and the rate-limit check run before this and can cost a few seconds
-    // cold, so the abort must leave margin — otherwise a platform timeout (hard
-    // 504) fires before our graceful catch below can serve the fallback.
-    const timeout = setTimeout(() => ac.abort(), 9000);
+    // cold, AND both the success and fallback paths await a cache write after —
+    // so the abort must leave margin for all of it, or a platform timeout (hard
+    // 504) fires before our graceful catch can serve (and cache) the fallback.
+    const timeout = setTimeout(() => ac.abort(), 8000);
 
     let rawText: string;
     try {
