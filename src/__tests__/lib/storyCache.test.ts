@@ -49,6 +49,14 @@ describe('storyCache — getCachedStory', () => {
     expect(await getCachedStory('user_1', 'h1')).toBeNull();
   });
 
+  it('treats a legacy entry with no version as v1 and serves it (no migration miss)', async () => {
+    // Entries written before versioning have no `version` field but the same
+    // payload shape — they must stay valid, or rate-limited users could 429 on
+    // reload during the deploy window.
+    mockGet.mockResolvedValue({ dataHash: 'h1', payload: PAYLOAD });
+    expect(await getCachedStory('user_1', 'h1')).toEqual(PAYLOAD);
+  });
+
   it('misses when there is no cached entry', async () => {
     mockGet.mockResolvedValue(null);
     expect(await getCachedStory('user_1', 'h1')).toBeNull();

@@ -54,7 +54,13 @@ export async function getCachedStory(userId: string, dataHash: string): Promise<
   if (!redis) return null;
   try {
     const cached = await redis.get<CachedStory>(cacheKey(userId));
-    if (cached && cached.version === CACHE_VERSION && cached.dataHash === dataHash) {
+    // A nullish version means the entry predates versioning (written by the
+    // original cache release) — its payload shape IS version 1, so treat it as
+    // such rather than forcing a miss. Otherwise every legacy entry would miss
+    // for a full TTL after this ships, and a rate-limited user could 429 on
+    // reload despite having a still-valid cached story. A real shape change
+    // still invalidates both legacy and v1 entries by bumping CACHE_VERSION.
+    if (cached && (cached.version ?? 1) === CACHE_VERSION && cached.dataHash === dataHash) {
       return cached.payload;
     }
     return null;
