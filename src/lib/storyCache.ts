@@ -28,6 +28,13 @@ const TTL_SECONDS = 24 * 60 * 60; // successful story: 24h backstop; dataHash dr
 // after Claude recovers.
 export const FALLBACK_TTL_SECONDS = 10 * 60;
 
+// Cap how long a cache write may block the response. The fallback path writes
+// after the AI abort budget is already spent, so an uncapped slow Upstash `set`
+// could push the request past the route's maxDuration and turn graceful
+// degradation into a hard timeout. A write that outruns this still completes in
+// the background — we just stop awaiting it.
+const WRITE_TIMEOUT_MS = 500;
+
 // Bump when the shape of the cached story payload changes. dataHash only tracks
 // the user's *financial* inputs, not the *response shape* — so without this, a
 // deploy that renames/adds/removes a field could serve an old-shaped entry
@@ -89,9 +96,21 @@ export async function setCachedStory(
 ): Promise<void> {
   const redis = makeRedis();
   if (!redis) return;
+
+  // Errors are swallowed on the write itself so a late rejection (after the race
+  // below has already resolved via timeout) can't surface as an unhandled
+  // rejection. A failed write just means the next view regenerates.
+  const write = Promise.resolve(
+    redis.set(cacheKey(userId), { version: CACHE_VERSION, dataHash, payload } satisfies CachedStory, { ex: ttlSeconds }),
+  ).catch(() => {});
+
+  // Bound the blocking time (see WRITE_TIMEOUT_MS): stop awaiting a slow write so
+  // it can never push the response past the route's platform deadline.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => { timer = setTimeout(resolve, WRITE_TIMEOUT_MS); });
   try {
-    await redis.set(cacheKey(userId), { version: CACHE_VERSION, dataHash, payload } satisfies CachedStory, { ex: ttlSeconds });
-  } catch {
-    /* non-blocking: a failed cache write just means the next view regenerates */
+    await Promise.race([write, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }

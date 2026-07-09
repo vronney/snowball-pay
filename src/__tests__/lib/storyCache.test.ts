@@ -112,4 +112,16 @@ describe('storyCache — setCachedStory', () => {
     mockSet.mockRejectedValue(new Error('redis down'));
     await expect(setCachedStory('user_1', 'h1', PAYLOAD)).resolves.toBeUndefined();
   });
+
+  it('stops awaiting a slow write instead of blocking past the bound', async () => {
+    vi.useFakeTimers();
+    try {
+      mockSet.mockReturnValue(new Promise(() => {})); // never resolves
+      const pending = setCachedStory('user_1', 'h1', PAYLOAD);
+      await vi.advanceTimersByTimeAsync(600); // past WRITE_TIMEOUT_MS (500ms)
+      await expect(pending).resolves.toBeUndefined();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
