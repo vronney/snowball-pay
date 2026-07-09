@@ -21,7 +21,15 @@ import { Redis } from '@upstash/redis';
 
 const TTL_SECONDS = 24 * 60 * 60; // 24h backstop; dataHash drives real invalidation
 
+// Bump when the shape of the cached story payload changes. dataHash only tracks
+// the user's *financial* inputs, not the *response shape* — so without this, a
+// deploy that renames/adds/removes a field could serve an old-shaped entry
+// (valid for up to TTL_SECONDS under an unchanged hash). A version mismatch is
+// treated as a miss, so stale-shaped entries are silently regenerated.
+const CACHE_VERSION = 1;
+
 interface CachedStory {
+  version: number;
   dataHash: string;
   payload: unknown; // the story response: { headline, body, stats }
 }
@@ -46,7 +54,9 @@ export async function getCachedStory(userId: string, dataHash: string): Promise<
   if (!redis) return null;
   try {
     const cached = await redis.get<CachedStory>(cacheKey(userId));
-    if (cached && cached.dataHash === dataHash) return cached.payload;
+    if (cached && cached.version === CACHE_VERSION && cached.dataHash === dataHash) {
+      return cached.payload;
+    }
     return null;
   } catch {
     return null; // cache errors must never break the request
@@ -58,7 +68,7 @@ export async function setCachedStory(userId: string, dataHash: string, payload: 
   const redis = makeRedis();
   if (!redis) return;
   try {
-    await redis.set(cacheKey(userId), { dataHash, payload } satisfies CachedStory, { ex: TTL_SECONDS });
+    await redis.set(cacheKey(userId), { version: CACHE_VERSION, dataHash, payload } satisfies CachedStory, { ex: TTL_SECONDS });
   } catch {
     /* non-blocking: a failed cache write just means the next view regenerates */
   }
