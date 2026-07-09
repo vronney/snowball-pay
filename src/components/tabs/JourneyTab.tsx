@@ -107,8 +107,18 @@ function JourneyInner() {
     useQuery<StoryResponse>({
       queryKey: ["debtStory"],
       queryFn: async () => {
-        const { data } = await axios.get<StoryResponse>("/api/ai/debt-story");
-        return data;
+        try {
+          const { data } = await axios.get<StoryResponse>("/api/ai/debt-story");
+          return data;
+        } catch (err) {
+          // Rate limiting is an expected, graceful state — surface the payload
+          // as data so the "Your story is resting" branch renders instead of the
+          // generic error card. Re-throw anything else so isError still fires.
+          if (axios.isAxiosError(err) && err.response?.status === 429) {
+            return err.response.data as StoryResponse;
+          }
+          throw err;
+        }
       },
       retry: false,
       staleTime: 5 * 60 * 1000, // 5 min — don't re-fetch on every tab switch
