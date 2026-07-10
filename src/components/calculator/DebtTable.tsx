@@ -14,10 +14,10 @@ export default function DebtTable({ rows, onRowChange, onRowRemove, onRowAdd }: 
       <h2 className="font-semibold text-base mb-4">Your Debts</h2>
 
       <div className="overflow-x-auto">
-      <div style={{ minWidth: '340px' }}>
+      <div style={{ minWidth: '380px' }}>
       <div
         className="mb-2 text-xs"
-        style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 20px', gap: '8px', color: '#64748b' }}
+        style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 32px', gap: '8px', color: '#64748b' }}
       >
         <span>Name</span>
         <span>Balance ($)</span>
@@ -30,39 +30,43 @@ export default function DebtTable({ rows, onRowChange, onRowRemove, onRowAdd }: 
         {rows.map((row) => (
           <div
             key={row.id}
-            style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 20px', gap: '8px', alignItems: 'center' }}
+            style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 32px', gap: '8px', alignItems: 'center' }}
           >
             <input
               type="text"
               placeholder="Credit Card"
               value={row.name}
               onChange={(e) => onRowChange(row.id, 'name', e.target.value)}
-              className="input-field text-[13px]"
+              className="input-field text-base sm:text-[13px] sm:leading-5"
             />
             <input
               type="number"
+              inputMode="decimal"
               placeholder="5000"
               value={row.balance}
               onChange={(e) => onRowChange(row.id, 'balance', e.target.value)}
-              className="input-field text-[13px]"
+              className="input-field text-base sm:text-[13px] sm:leading-5"
             />
             <input
               type="number"
+              inputMode="decimal"
               placeholder="19.99"
               value={row.rate}
               onChange={(e) => onRowChange(row.id, 'rate', e.target.value)}
-              className="input-field text-[13px]"
+              className="input-field text-base sm:text-[13px] sm:leading-5"
             />
             <input
               type="number"
+              inputMode="decimal"
               placeholder="100"
               value={row.minimum}
               onChange={(e) => onRowChange(row.id, 'minimum', e.target.value)}
-              className="input-field text-[13px]"
+              className="input-field text-base sm:text-[13px] sm:leading-5"
             />
             <button
               onClick={() => onRowRemove(row.id)}
-              className="cursor-pointer bg-transparent border-0 p-0"
+              aria-label="Remove debt"
+              className="cursor-pointer bg-transparent border-0 p-0 w-8 h-8 flex items-center justify-center"
               style={{ color: '#94a3b8', lineHeight: 1 }}
             >
               <X size={14} />
@@ -73,7 +77,7 @@ export default function DebtTable({ rows, onRowChange, onRowRemove, onRowAdd }: 
 
       <button
         onClick={onRowAdd}
-        className="mt-3 flex items-center gap-1.5 text-sm cursor-pointer bg-transparent border-0 p-0 transition"
+        className="mt-3 flex items-center gap-1.5 text-sm cursor-pointer bg-transparent border-0 py-2 transition"
         style={{ color: '#64748b' }}
       >
         <Plus size={14} />

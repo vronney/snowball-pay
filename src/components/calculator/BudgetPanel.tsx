@@ -37,10 +37,11 @@ export default function BudgetPanel({
           </label>
           <input
             type="number"
+            inputMode="decimal"
             placeholder="4500"
             value={takeHome}
             onChange={(e) => onTakeHomeChange(e.target.value)}
-            className="input-field"
+            className="input-field text-base sm:text-sm"
           />
         </div>
         <div>
@@ -49,10 +50,11 @@ export default function BudgetPanel({
           </label>
           <input
             type="number"
+            inputMode="decimal"
             placeholder="2500"
             value={essential}
             onChange={(e) => onEssentialChange(e.target.value)}
-            className="input-field"
+            className="input-field text-base sm:text-sm"
           />
         </div>
         <div>

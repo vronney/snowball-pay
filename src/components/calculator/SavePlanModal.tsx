@@ -218,6 +218,8 @@ export default function SavePlanModal({
           <input
             id="save-plan-email"
             type="email"
+            inputMode="email"
+            autoComplete="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@example.com"
@@ -227,7 +229,9 @@ export default function SavePlanModal({
               padding: "12px 14px",
               borderRadius: "10px",
               border: `1px solid ${error ? "#ef4444" : "rgba(15,23,42,0.15)"}`,
-              fontSize: "15px",
+              // 16px avoids iOS Safari/Chrome auto-zooming on focus (this input
+              // autoFocuses when the modal opens on mobile).
+              fontSize: "16px",
               outline: "none",
               boxSizing: "border-box",
               marginBottom: error ? "6px" : "16px",
