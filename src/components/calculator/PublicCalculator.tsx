@@ -43,7 +43,12 @@ function cloneSeedRows(rows: DebtRowSeed[]): DebtRow[] {
 
 function newRow(): DebtRow {
   return {
-    id: Date.now().toString(),
+    // Unique per row — Date.now() collides when two rows are added within the
+    // same millisecond, which duplicates React keys and drops input focus.
+    id:
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`,
     name: "",
     balance: "",
     rate: "",
