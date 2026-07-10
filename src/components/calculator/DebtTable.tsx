@@ -27,7 +27,7 @@ export default function DebtTable({ rows, onRowChange, onRowRemove, onRowAdd }: 
       </div>
 
       <div className="space-y-2">
-        {rows.map((row) => (
+        {rows.map((row, i) => (
           <div
             key={row.id}
             style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 32px', gap: '8px', alignItems: 'center' }}
@@ -65,7 +65,7 @@ export default function DebtTable({ rows, onRowChange, onRowRemove, onRowAdd }: 
             />
             <button
               onClick={() => onRowRemove(row.id)}
-              aria-label="Remove debt"
+              aria-label={`Remove ${row.name.trim() || `debt ${i + 1}`}`}
               className="cursor-pointer bg-transparent border-0 p-0 w-8 h-8 flex items-center justify-center"
               style={{ color: '#94a3b8', lineHeight: 1 }}
             >
