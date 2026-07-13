@@ -25,17 +25,13 @@ export function reportSignupConversion(
 ): void {
   if (typeof window === 'undefined') return;
   const gtag = getGoogleTag();
-
-  if (email) {
-    gtag('set', 'user_data', {
-      email: email.trim().toLowerCase(),
-    });
-  }
+  const normalizedEmail = email?.trim().toLowerCase();
 
   gtag('event', 'conversion', {
     send_to: GOOGLE_ADS_SIGNUP_CONVERSION_SEND_TO,
     value: 1,
     currency: 'USD',
+    ...(normalizedEmail ? { user_data: { email: normalizedEmail } } : {}),
     ...(transactionId ? { transaction_id: transactionId } : {}),
     event_category: 'signup',
     event_label: 'Start Plan',

@@ -15,11 +15,8 @@ describe('Google Ads signup conversion', () => {
 
     reportSignupConversion(' Person@Example.com ', 'onboarding-123');
 
-    expect(gtag).toHaveBeenNthCalledWith(1, 'set', 'user_data', {
-      email: 'person@example.com',
-    });
-    expect(gtag).toHaveBeenNthCalledWith(
-      2,
+    expect(gtag).toHaveBeenCalledTimes(1);
+    expect(gtag).toHaveBeenCalledWith(
       'event',
       'conversion',
       expect.objectContaining({
@@ -28,15 +25,16 @@ describe('Google Ads signup conversion', () => {
         page_path: '/onboarding',
         send_to: 'AW-18159208162/QQHKCLLJ_sQcEOKN_tJD',
         transaction_id: 'onboarding-123',
+        user_data: { email: 'person@example.com' },
         value: 1,
       }),
     );
   });
 
-  it('queues the conversion when the Google tag is not ready yet', () => {
+  it('queues the conversion without stale user data when the tag is not ready', () => {
     vi.stubGlobal('window', { location: { pathname: '/onboarding' } });
 
-    reportSignupConversion(null, 'onboarding-123');
+    reportSignupConversion('   ', 'onboarding-123');
 
     expect(window.dataLayer).toEqual([
       [
@@ -48,5 +46,6 @@ describe('Google Ads signup conversion', () => {
         }),
       ],
     ]);
+    expect(window.dataLayer?.[0]?.[2]).not.toHaveProperty('user_data');
   });
 });
