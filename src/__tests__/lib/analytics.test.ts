@@ -38,4 +38,16 @@ describe('analytics client', () => {
       posthog.identify.mock.invocationCallOrder[0],
     );
   });
+
+  it('keeps analytics disabled when the public key is absent', async () => {
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_KEY', '');
+    const { identify, track } = await import('@/lib/analytics');
+
+    identify('user-1');
+    track('signup_completed');
+
+    expect(posthog.init).not.toHaveBeenCalled();
+    expect(posthog.identify).not.toHaveBeenCalled();
+    expect(posthog.capture).not.toHaveBeenCalled();
+  });
 });

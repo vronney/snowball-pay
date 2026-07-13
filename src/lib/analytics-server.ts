@@ -1,4 +1,5 @@
 import type { AnalyticsEvent } from '@/lib/analyticsEvents';
+import { sanitiseAnalyticsProperties } from '@/lib/analyticsPrivacy';
 
 const CAPTURE_TIMEOUT_MS = 1_500;
 
@@ -33,9 +34,9 @@ export async function captureServerEvent({
         api_key: apiKey,
         event,
         properties: {
+          ...sanitiseAnalyticsProperties(properties),
           distinct_id: distinctId,
           ...(insertId ? { $insert_id: insertId } : {}),
-          ...properties,
         },
       }),
     });
