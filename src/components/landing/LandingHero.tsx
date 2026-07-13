@@ -155,7 +155,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                       })
                     }
                   >
-                    Try the Free Calculator
+                    See my debt-free date
                     <ArrowIsland />
                   </a>
                   <a
@@ -311,6 +311,16 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                       }}
                     >
                       Mar 2027
+                    </p>
+                    <p
+                      style={{
+                        marginTop: "6px",
+                        fontSize: "11px",
+                        fontWeight: 800,
+                        color: "#0f9f6e",
+                      }}
+                    >
+                      Saves $2,140 interest
                     </p>
                   </div>
                 </div>
