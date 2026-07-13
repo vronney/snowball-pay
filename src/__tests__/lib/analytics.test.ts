@@ -23,17 +23,20 @@ describe('analytics client', () => {
     vi.unstubAllGlobals();
   });
 
-  it('initialises before identifying and only initialises once', async () => {
+  it('initialises before events and identity, and only initialises once', async () => {
     const { identify, track } = await import('@/lib/analytics');
 
-    identify('user-1', { is_authenticated: true });
     track('signup_completed');
+    identify('user-1', { is_authenticated: true });
 
     expect(posthog.init).toHaveBeenCalledTimes(1);
     expect(posthog.identify).toHaveBeenCalledWith('user-1', {
       is_authenticated: true,
     });
     expect(posthog.capture).toHaveBeenCalledWith('signup_completed', undefined);
+    expect(posthog.init.mock.invocationCallOrder[0]).toBeLessThan(
+      posthog.capture.mock.invocationCallOrder[0],
+    );
     expect(posthog.init.mock.invocationCallOrder[0]).toBeLessThan(
       posthog.identify.mock.invocationCallOrder[0],
     );

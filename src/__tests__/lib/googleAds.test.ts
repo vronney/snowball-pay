@@ -33,8 +33,20 @@ describe('Google Ads signup conversion', () => {
     );
   });
 
-  it('is a no-op when the Google tag is unavailable', () => {
+  it('queues the conversion when the Google tag is not ready yet', () => {
     vi.stubGlobal('window', { location: { pathname: '/onboarding' } });
-    expect(() => reportSignupConversion()).not.toThrow();
+
+    reportSignupConversion(null, 'onboarding-123');
+
+    expect(window.dataLayer).toEqual([
+      [
+        'event',
+        'conversion',
+        expect.objectContaining({
+          send_to: 'AW-18159208162/QQHKCLLJ_sQcEOKN_tJD',
+          transaction_id: 'onboarding-123',
+        }),
+      ],
+    ]);
   });
 });

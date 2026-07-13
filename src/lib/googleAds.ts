@@ -5,8 +5,17 @@ const GOOGLE_ADS_SIGNUP_CONVERSION_SEND_TO =
 
 declare global {
   interface Window {
+    dataLayer?: unknown[][];
     gtag?: (...args: unknown[]) => void;
   }
+}
+
+function getGoogleTag(): (...args: unknown[]) => void {
+  window.dataLayer ??= [];
+  window.gtag ??= (...args: unknown[]) => {
+    window.dataLayer?.push(args);
+  };
+  return window.gtag;
 }
 
 /** Report the single primary Google Ads conversion after plan creation. */
@@ -14,15 +23,16 @@ export function reportSignupConversion(
   email?: string | null,
   transactionId?: string | null,
 ): void {
-  if (typeof window === 'undefined' || typeof window.gtag !== 'function') return;
+  if (typeof window === 'undefined') return;
+  const gtag = getGoogleTag();
 
   if (email) {
-    window.gtag('set', 'user_data', {
+    gtag('set', 'user_data', {
       email: email.trim().toLowerCase(),
     });
   }
 
-  window.gtag('event', 'conversion', {
+  gtag('event', 'conversion', {
     send_to: GOOGLE_ADS_SIGNUP_CONVERSION_SEND_TO,
     value: 1,
     currency: 'USD',
