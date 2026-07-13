@@ -7,7 +7,7 @@ import {
   type OnboardingCompletePayload,
   type OnboardingDebtPayload,
 } from "@/lib/hooks";
-import { reportSignupConversion } from "@/components/GoogleAdsConversion";
+import { reportSignupConversion } from "@/lib/googleAds";
 import { formatCurrency } from "@/lib/utils";
 import {
   loadCalculatorDraft,
@@ -765,7 +765,10 @@ export function OnboardingWizard({
     return getStepError(step, state) == null;
   }
 
-  async function submitOnboarding(payload: OnboardingCompletePayload) {
+  async function submitOnboarding(
+    payload: OnboardingCompletePayload,
+    completionMode: "express" | "wizard",
+  ) {
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -796,6 +799,21 @@ export function OnboardingWizard({
           // Storage unavailable — the add-debt gate still upsells later.
         }
       }
+      const debtCount = payload.debts?.length ?? (payload.firstDebt ? 1 : 0);
+      const analyticsProperties = {
+        debt_count: debtCount,
+        method: payload.income.payoffMethod,
+        mode: completionMode,
+        source: searchParams.get("source") === "calculator"
+          ? "calculator"
+          : "direct",
+      };
+
+      track(Events.SIGNUP_COMPLETED, analyticsProperties);
+      if (completionMode === "express") {
+        track(Events.ONBOARDING_EXPRESS_COMPLETED, analyticsProperties);
+      }
+
       // First plan generated — fire the Google Ads "Sign-up – Start Plan"
       // conversion on this success state, not on the CTA click. The submit's
       // idempotency key doubles as the conversion's dedup transaction_id.
@@ -843,26 +861,29 @@ export function OnboardingWizard({
     // The wizard edits the first debt; the rest of the calculator session
     // (if any) still comes along so reviewing never costs the user data.
     const extraDebts = calcDraft ? draftDebtsToPayload(calcDraft).slice(1) : [];
-    await submitOnboarding({
-      income: buildIncomePayload(),
-      debts: [wizardDebt, ...extraDebts],
-    });
+    await submitOnboarding(
+      {
+        income: buildIncomePayload(),
+        debts: [wizardDebt, ...extraDebts],
+      },
+      "wizard",
+    );
   }
 
   async function handleExpressFinish() {
     if (!calcDraft) return;
-    track(Events.ONBOARDING_EXPRESS_COMPLETED, {
-      debts: calcDraft.debts.length,
-    });
-    await submitOnboarding({
-      income: {
-        monthlyTakeHome: parseFloat(calcDraft.monthlyIncome) || 0,
-        essentialExpenses: parseFloat(calcDraft.essentialExpenses) || 0,
-        extraPayment: parseFloat(calcDraft.extraPayment) || 0,
-        payoffMethod: calcDraft.method,
+    await submitOnboarding(
+      {
+        income: {
+          monthlyTakeHome: parseFloat(calcDraft.monthlyIncome) || 0,
+          essentialExpenses: parseFloat(calcDraft.essentialExpenses) || 0,
+          extraPayment: parseFloat(calcDraft.extraPayment) || 0,
+          payoffMethod: calcDraft.method,
+        },
+        debts: draftDebtsToPayload(calcDraft),
       },
-      debts: draftDebtsToPayload(calcDraft),
-    });
+      "express",
+    );
   }
 
   const handleContinue = () => {

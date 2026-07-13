@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { planSnapshotSchema, snapshotToDraft } from "@/lib/planSnapshot";
 import type { CalculatorDraft } from "@/lib/calculatorDraft";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
+import { AuthenticatedAnalytics } from "@/components/analytics/AuthenticatedAnalytics";
 
 export const metadata: Metadata = {
   title: "Get Started",
@@ -52,9 +53,9 @@ export default async function OnboardingPage() {
   // Provision the DB user row at first page load, not first API call — a
   // signup who bounces mid-wizard should still exist in our DB (admin counts,
   // lifecycle emails). Never throws; page renders regardless.
-  if (session?.user?.sub) {
-    await ensureUserProvisioned(session.user);
-  }
+  const provisioned = session?.user?.sub
+    ? await ensureUserProvisioned(session.user)
+    : null;
 
   const serverDraft = await loadServerDraft(
     session?.user?.email,
@@ -62,9 +63,12 @@ export default async function OnboardingPage() {
   );
 
   return (
-    <OnboardingWizard
-      userEmail={session?.user?.email ?? null}
-      serverDraft={serverDraft}
-    />
+    <>
+      <AuthenticatedAnalytics userId={provisioned?.id ?? null} />
+      <OnboardingWizard
+        userEmail={session?.user?.email ?? null}
+        serverDraft={serverDraft}
+      />
+    </>
   );
 }

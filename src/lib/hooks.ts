@@ -741,7 +741,8 @@ export function useStartCheckout() {
       const { data } = await axios.post(`${API_URL}/api/stripe/checkout`, { billing });
       return data as { url: string };
     },
-    onSuccess: ({ url }) => {
+    onSuccess: ({ url }, billing) => {
+      track(Events.CHECKOUT_SESSION_CREATED, { billing });
       window.location.href = url;
     },
   });

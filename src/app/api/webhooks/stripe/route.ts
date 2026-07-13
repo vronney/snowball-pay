@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStripe, getStripeWebhookSecret } from '@/lib/stripe';
 import { prisma } from '@/lib/prisma';
 import { setMfaRequired } from '@/lib/auth0-management';
+import { captureServerEvent } from '@/lib/analytics-server';
+import { Events } from '@/lib/analyticsEvents';
 import type Stripe from 'stripe';
 
 // Required: disable body parsing so we can verify the raw signature
@@ -129,6 +131,16 @@ export async function POST(request: NextRequest) {
           },
         });
         await enforceMfaForPro(subFields.paidTier, user.auth0Id);
+        await captureServerEvent({
+          distinctId: userId,
+          event: Events.SUBSCRIPTION_STARTED,
+          insertId: event.id,
+          properties: {
+            billing: session.metadata?.billing ?? 'unknown',
+            source: 'stripe_webhook',
+            subscription_status: subFields.subscriptionStatus,
+          },
+        });
         break;
       }
 

@@ -161,7 +161,11 @@ describe('POST /api/stripe/checkout', () => {
       expect.objectContaining({
         mode: 'subscription',
         line_items: [{ price: 'price_test_pro', quantity: 1 }],
-        subscription_data: expect.objectContaining({ trial_period_days: 14 }),
+        metadata: { userId: 'user-1', billing: 'monthly' },
+        subscription_data: expect.objectContaining({
+          trial_period_days: 14,
+          metadata: { userId: 'user-1', billing: 'monthly' },
+        }),
         success_url: 'http://localhost:3000/dashboard?upgrade=success',
         cancel_url: 'http://localhost:3000/dashboard?upgrade=canceled',
       }),

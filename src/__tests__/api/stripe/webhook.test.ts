@@ -23,6 +23,7 @@ const { mockStripe, mockPrisma } = vi.hoisted(() => {
 
   return { mockStripe, mockPrisma };
 });
+const mockCaptureServerEvent = vi.hoisted(() => vi.fn());
 
 vi.mock('@/lib/stripe', () => ({
   getStripe: vi.fn(() => mockStripe),
@@ -30,6 +31,9 @@ vi.mock('@/lib/stripe', () => ({
 }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
+vi.mock('@/lib/analytics-server', () => ({
+  captureServerEvent: mockCaptureServerEvent,
+}));
 
 import { POST } from '@/app/api/webhooks/stripe/route';
 
@@ -59,7 +63,7 @@ function makeSub(overrides: Record<string, unknown> = {}) {
 
 /** Build a minimal Stripe event */
 function makeEvent(type: string, object: Record<string, unknown>) {
-  return { type, data: { object } };
+  return { id: `evt_${type}`, type, data: { object } };
 }
 
 // ---------------------------------------------------------------------------
@@ -197,7 +201,7 @@ describe('POST /api/webhooks/stripe', () => {
     mockStripe.webhooks.constructEvent.mockReturnValue(
       makeEvent('checkout.session.completed', {
         mode: 'subscription',
-        metadata: { userId: 'user-1' },
+        metadata: { userId: 'user-1', billing: 'annual' },
         customer: 'cus_test_123',
         subscription: 'sub_test_123',
       }),
@@ -215,6 +219,16 @@ describe('POST /api/webhooks/stripe', () => {
         stripeSubscriptionId: 'sub_test_123',
         paidTier: 'pro',
       }),
+    });
+    expect(mockCaptureServerEvent).toHaveBeenCalledWith({
+      distinctId: 'user-1',
+      event: 'subscription_started',
+      insertId: 'evt_checkout.session.completed',
+      properties: {
+        billing: 'annual',
+        source: 'stripe_webhook',
+        subscription_status: 'active',
+      },
     });
   });
 

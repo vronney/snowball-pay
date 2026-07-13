@@ -18,6 +18,7 @@ interface ResultsPanelProps {
   effectiveAccel: number;
   showMinimumsLine: boolean;
   timeStr: string | null;
+  hasInteracted: boolean;
   method?: "snowball" | "avalanche" | "custom";
   savePlanLabel?: string;
   savePlanHelperText?: string;
@@ -31,6 +32,7 @@ export default function ResultsPanel({
   effectiveAccel,
   showMinimumsLine,
   timeStr,
+  hasInteracted,
   method = "snowball",
   savePlanLabel = "Save This Plan and Track Progress",
   savePlanHelperText = "Free account - no card required",
@@ -40,13 +42,13 @@ export default function ResultsPanel({
   const resultTrackedRef = useRef(false);
 
   useEffect(() => {
-    if (!planResult || resultTrackedRef.current) return;
+    if (!hasInteracted || !planResult || resultTrackedRef.current) return;
     resultTrackedRef.current = true;
     track(Events.CALCULATOR_RESULT_VIEWED, {
       months: planResult.months,
-      debts: planResult.payoffSchedule.length,
+      debt_count: planResult.payoffSchedule.length,
     });
-  }, [planResult]);
+  }, [hasInteracted, planResult]);
 
   if (!planResult) {
     return (

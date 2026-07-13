@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { GoogleAdsPageViewConversion } from "@/components/GoogleAdsConversion";
 import PublicCalculator from "@/components/calculator/PublicCalculator";
 import {
   calculatorConfigs,
@@ -147,10 +146,6 @@ export default function CalculatorSlugPage({
 
   return (
     <>
-      <GoogleAdsPageViewConversion
-        calculatorName={config.pageTitle}
-        calculatorSlug={config.slug}
-      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(calcJsonLd) }}

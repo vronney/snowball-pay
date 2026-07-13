@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
@@ -21,6 +21,7 @@ import {
   type DebtRowSeed,
 } from "./configs";
 import { saveCalculatorDraft } from "@/lib/calculatorDraft";
+import { Events, track } from "@/lib/analytics";
 
 const LOGIN_URL = "/auth/login?returnTo=/dashboard";
 const SIGNUP_URL = `/auth/login?screen_hint=signup&returnTo=${encodeURIComponent("/onboarding?source=calculator")}`;
@@ -171,6 +172,8 @@ export default function PublicCalculator({
   const [essential, setEssential] = useState(config.defaultEssential);
   const [extra, setExtra] = useState(config.defaultExtra);
   const [method, setMethod] = useState<PayoffMethod>(config.defaultMethod);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const calculatorStartedRef = useRef(false);
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
@@ -250,15 +253,55 @@ export default function PublicCalculator({
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
-  const updateRow = (id: string, field: keyof DebtRow, val: string) =>
+  const markCalculatorStarted = (interaction: string) => {
+    if (calculatorStartedRef.current) return;
+    calculatorStartedRef.current = true;
+    setHasInteracted(true);
+    track(Events.CALCULATOR_STARTED, {
+      calculator_slug: config.slug,
+      interaction,
+    });
+  };
+
+  const updateRow = (id: string, field: keyof DebtRow, val: string) => {
+    markCalculatorStarted(`debt_${field}`);
     setDebtRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, [field]: val } : r)),
     );
+  };
 
-  const removeRow = (id: string) =>
+  const removeRow = (id: string) => {
+    markCalculatorStarted("remove_debt");
     setDebtRows((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  const addRow = () => {
+    markCalculatorStarted("add_debt");
+    setDebtRows((prev) => [...prev, newRow()]);
+  };
+
+  const updateTakeHome = (value: string) => {
+    markCalculatorStarted("take_home");
+    setTakeHome(value);
+  };
+
+  const updateEssential = (value: string) => {
+    markCalculatorStarted("essential_expenses");
+    setEssential(value);
+  };
+
+  const updateExtra = (value: string) => {
+    markCalculatorStarted("extra_payment");
+    setExtra(value);
+  };
+
+  const updateMethod = (value: PayoffMethod) => {
+    markCalculatorStarted("payoff_method");
+    setMethod(value);
+  };
 
   const loadExample = () => {
+    markCalculatorStarted("load_sample");
     setDebtRows(cloneSeedRows(config.seedDebts));
     setTakeHome(config.defaultTakeHome);
     setEssential(config.defaultEssential);
@@ -406,7 +449,7 @@ export default function PublicCalculator({
               rows={debtRows}
               onRowChange={updateRow}
               onRowRemove={removeRow}
-              onRowAdd={() => setDebtRows((p) => [...p, newRow()])}
+              onRowAdd={addRow}
             />
             <BudgetPanel
               takeHome={takeHome}
@@ -417,9 +460,9 @@ export default function PublicCalculator({
               totalMinPayments={totalMinPayments}
               availableForDebt={availableForDebt}
               extraNum={extraNum}
-              onTakeHomeChange={setTakeHome}
-              onEssentialChange={setEssential}
-              onExtraChange={setExtra}
+              onTakeHomeChange={updateTakeHome}
+              onEssentialChange={updateEssential}
+              onExtraChange={updateExtra}
             />
 
             {/* Strategy */}
@@ -435,7 +478,7 @@ export default function PublicCalculator({
                   {(["snowball", "avalanche"] as const).map((m) => (
                     <button
                       key={m}
-                      onClick={() => setMethod(m)}
+                      onClick={() => updateMethod(m)}
                       className="p-3 rounded-2xl text-sm font-bold cursor-pointer"
                       style={{
                         border: `1px solid ${method === m ? "rgba(15,23,42,0.18)" : "rgba(15,23,42,0.08)"}`,
@@ -481,6 +524,7 @@ export default function PublicCalculator({
             effectiveAccel={effectiveAccel}
             showMinimumsLine={showMinimumsLine}
             timeStr={timeStr}
+            hasInteracted={hasInteracted}
             method={method}
             savePlanLabel={config.ctaLabel}
             savePlanHelperText={config.ctaHelperText}
