@@ -126,11 +126,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`${manrope.variable} ${jakarta.variable}`}>
       <head>
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=AW-18159208162"
-          strategy="afterInteractive"
-        />
-        <Script id="google-ads" strategy="afterInteractive">
+        <Script id="google-ads" strategy="beforeInteractive">
           {`
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
@@ -138,6 +134,10 @@ export default function RootLayout({
             gtag('config', 'AW-18159208162');
           `}
         </Script>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=AW-18159208162"
+          strategy="afterInteractive"
+        />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
