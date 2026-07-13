@@ -828,12 +828,13 @@ input[type="number"] {
   transition: text-decoration-color 0.4s var(--sp-ease);
 }
 .lp-hero-headline-link:hover {
-  text-decoration: underline;
+  text-decoration-line: underline;
   text-decoration-thickness: 3px;
 }
 
 .lp-hero-preview-link {
   display: block;
+  position: relative;
   text-decoration: none;
   color: inherit;
   cursor: pointer;

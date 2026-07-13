@@ -313,11 +313,13 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                       Mar 2027
                     </p>
                     <p
+                      className="mono"
                       style={{
                         marginTop: "6px",
                         fontSize: "11px",
                         fontWeight: 800,
                         color: "#0f9f6e",
+                        fontVariantNumeric: "tabular-nums",
                       }}
                     >
                       Saves $2,140 interest
@@ -496,7 +498,6 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                 </div>
               </div>
             </div>
-            </a>
 
             <div
               className="lp-float"
@@ -543,6 +544,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                 </p>
               </div>
             </div>
+            </a>
           </div>
         </div>
       </div>
