@@ -35,6 +35,7 @@ import TrialCountdownBanner from "@/components/dashboard/TrialCountdownBanner";
 import { useSubscription } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import { useIdleTimeout } from "@/lib/hooks/useIdleTimeout";
+import { runLogoutClientCleanup } from "@/lib/logout-client";
 
 type UserInfo = {
   name?: string | null;
@@ -285,6 +286,7 @@ export default function DashboardClient({
           </p>
           <a
             href="/auth/logout"
+            onClick={runLogoutClientCleanup}
             style={{
               display: "inline-block", background: "#2563eb", color: "#ffffff",
               borderRadius: 8, padding: "12px 24px", fontSize: 14,

@@ -140,7 +140,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                     className="lp-btn lp-btn-primary lp-btn-with-icon"
                     style={{ fontSize: "16px", padding: "16px 12px 16px 28px" }}
                     onClick={() =>
-                      track(Events.CALCULATOR_STARTED, {
+                      track(Events.CALCULATOR_CTA_CLICKED, {
                         source: "hero_primary",
                       })
                     }

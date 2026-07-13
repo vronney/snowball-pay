@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Manrope, Plus_Jakarta_Sans } from 'next/font/google';
 import { Providers } from '@/app/providers';
-import { GoogleAdsConversion } from '@/components/GoogleAdsConversion';
 import Script from 'next/script';
 import './globals.css';
 
@@ -127,19 +126,17 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`${manrope.variable} ${jakarta.variable}`}>
       <head>
-        {/* Google tag (gtag.js) */}
-        {/* eslint-disable-next-line @next/next/next-script-for-ga */}
-        <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18159208162"></script>
-        {/* eslint-disable-next-line @next/next/next-script-for-ga */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              window.dataLayer = window.dataLayer || [];
-              function gtag(){dataLayer.push(arguments);}
-              gtag('js', new Date());
-              gtag('config', 'AW-18159208162');
-            `,
-          }}
+        <Script id="google-ads" strategy="beforeInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'AW-18159208162');
+          `}
+        </Script>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=AW-18159208162"
+          strategy="afterInteractive"
         />
         <script
           type="application/ld+json"
@@ -147,7 +144,6 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <GoogleAdsConversion />
         <Providers>
           {children}
         </Providers>

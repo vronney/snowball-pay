@@ -1,7 +1,7 @@
 /**
  * Analytics helper — wraps PostHog with graceful no-ops when the key is absent.
  * Import `track` anywhere client-side to fire events.
- * The PostHogProvider (providers.tsx) initialises the SDK once on mount.
+ * The shared client is initialised lazily before the first SDK call.
  *
  * NOTE: this imports the `posthog-js` singleton directly rather than reading
  * `window.posthog`. Nothing in this codebase ever assigns `window.posthog`,
@@ -11,15 +11,49 @@
  * the imported `posthog` object directly, not through `window`).
  */
 import posthog from 'posthog-js';
+import type { AnalyticsEvent } from '@/lib/analyticsEvents';
+import { sanitiseAnalyticsProperties } from '@/lib/analyticsPrivacy';
+export { Events } from '@/lib/analyticsEvents';
+
+const KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
+let initialised = false;
 
 function isBrowser(): boolean {
   return typeof window !== 'undefined';
 }
 
-/** Fire a client-side analytics event. No-ops if PostHog is not initialised. */
-export function track(event: string, props?: Record<string, unknown>): void {
+/** Initialise the shared browser client exactly once before any SDK call. */
+export function initialiseAnalytics(): boolean {
+  if (!KEY || !isBrowser()) return false;
+  if (initialised) return true;
+
+  posthog.init(KEY, {
+    api_host: HOST,
+    capture_pageview: false,
+    capture_pageleave: true,
+    person_profiles: 'identified_only',
+    disable_session_recording: true,
+    mask_all_text: true,
+    mask_all_element_attributes: true,
+    before_send: (event) => {
+      if (!event) return null;
+      if (event.properties) {
+        event.properties = sanitiseAnalyticsProperties(
+          event.properties as Record<string, unknown>,
+        );
+      }
+      return event;
+    },
+  });
+  initialised = true;
+  return true;
+}
+
+/** Fire a known client-side analytics event after ensuring the SDK is ready. */
+export function track(event: AnalyticsEvent, props?: Record<string, unknown>): void {
   try {
-    if (!isBrowser()) return;
+    if (!initialiseAnalytics()) return;
     posthog.capture(event, props);
   } catch {
     // Never let analytics break the app
@@ -29,7 +63,7 @@ export function track(event: string, props?: Record<string, unknown>): void {
 /** Identify an authenticated user. Call after login. */
 export function identify(userId: string, traits?: Record<string, unknown>): void {
   try {
-    if (!isBrowser()) return;
+    if (!initialiseAnalytics()) return;
     posthog.identify(userId, traits);
   } catch {
     // silent
@@ -39,42 +73,9 @@ export function identify(userId: string, traits?: Record<string, unknown>): void
 /** Reset identity on logout. */
 export function resetIdentity(): void {
   try {
-    if (!isBrowser()) return;
+    if (!isBrowser() || !initialised) return;
     posthog.reset();
   } catch {
     // silent
   }
 }
-
-// ── Typed event constants ────────────────────────────────────────────────────
-// Use these instead of raw strings to avoid typos across the codebase.
-
-export const Events = {
-  SIGNUP_STARTED:    'signup_started',
-  SIGNUP_COMPLETED:  'signup_completed',
-  DEBT_ADDED:        'debt_added',
-  INCOME_SAVED:      'income_saved',
-  PLAN_GENERATED:    'plan_generated',
-  RETURN_SESSION:    'return_session',
-  CALCULATOR_STARTED: 'calculator_started',
-  CALCULATOR_USED:   'calculator_used',
-  CALCULATOR_RESULT_VIEWED: 'calculator_result_viewed',
-  CALCULATOR_SAVE_CLICKED: 'calculator_save_clicked',
-  PRICING_PRO_CLICKED: 'pricing_pro_clicked',
-  UPGRADE_MODAL_VIEWED: 'upgrade_modal_viewed',
-  SAVE_PLAN_MODAL_VIEWED: 'save_plan_modal_viewed',
-  ONBOARDING_EXPRESS_VIEWED: 'onboarding_express_viewed',
-  ONBOARDING_EXPRESS_COMPLETED: 'onboarding_express_completed',
-  CHECKOUT_STARTED: 'checkout_started',
-  PLAN_SAVED_EMAIL:  'plan_saved_email_captured',
-  SHARE_CARD_OPENED: 'share_card_opened',
-  SHARE_CARD_DOWNLOADED: 'share_card_downloaded',
-  REFERRAL_LINK_COPIED: 'referral_link_copied',
-  CELEBRATION_FIRED:        'celebration_fired',
-  CELEBRATION_FALLBACK:     'celebration_fallback',
-  CELEBRATION_RATE_LIMITED: 'celebration_rate_limited',
-  ROLL_FORWARD_ADVICE_VIEWED: 'roll_forward_advice_viewed',
-  ROLL_FORWARD_ADVICE_REVIEW_CLICKED: 'roll_forward_advice_review_clicked',
-  ROLL_FORWARD_ADVICE_PLANNED: 'roll_forward_advice_planned',
-  ROLL_FORWARD_ADVICE_DISMISSED: 'roll_forward_advice_dismissed',
-} as const;

@@ -69,6 +69,21 @@ window.gtag?.('event', 'conversion', {
 
 > ✅ Don't launch the Search campaign until the tag shows "Recording." This is the single thing that was missing before.
 
+### Step 1.5 — Keep only the business outcome as a primary conversion
+
+Use **Sign Up – Start Plan** as the campaign's only primary conversion. Calculator-link clicks and calculator page views are useful engagement signals, but they are not business outcomes and must not be included in the campaign-level **Conversions** column or bidding goal.
+
+If older conversion actions named for calculator clicks or page views still exist:
+
+1. Open **Goals → Conversions → Summary**.
+2. Edit each calculator click/page-view action.
+3. Set it to **Secondary** or remove it from the campaign's conversion goals.
+4. Confirm **Sign Up – Start Plan** is Primary and uses **Count: One**.
+
+Use PostHog for the calculator micro-funnel: started → result viewed → save clicked → signup completed. Segment signup completion by its `mode` property when comparing the standard and express onboarding paths.
+
+When exporting weekly performance, include at least: Campaign, Date, Clicks, Impressions, Cost, Conversions, Conversion rate, Cost/conv., Search impression share, and Search lost IS (budget/rank). Clicks and spend alone cannot prove acquisition efficiency.
+
 ---
 
 ## Phase 2 — Build the Search campaign

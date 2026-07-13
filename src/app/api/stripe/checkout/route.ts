@@ -60,10 +60,10 @@ export async function POST(request: NextRequest) {
         mode: 'subscription',
         line_items: [{ price: priceId, quantity: 1 }],
         allow_promotion_codes: true,
-        metadata: { userId: auth.user.id },
+        metadata: { userId: auth.user.id, billing },
         subscription_data: {
           trial_period_days: trialDays,
-          metadata: { userId: auth.user.id },
+          metadata: { userId: auth.user.id, billing },
         },
         success_url: `${appUrl}/dashboard?upgrade=success`,
         cancel_url: `${appUrl}/dashboard?upgrade=canceled`,

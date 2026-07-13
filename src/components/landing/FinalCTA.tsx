@@ -142,11 +142,6 @@ export default function FinalCTA({ isLoggedIn }: { isLoggedIn: boolean }) {
                   href="#how-it-works"
                   className="lp-btn lp-btn-ghost"
                   style={{ fontSize: "15px" }}
-                  onClick={() =>
-                    track(Events.SIGNUP_STARTED, {
-                      source: "final_cta_secondary",
-                    })
-                  }
                 >
                   See How It Works
                 </a>

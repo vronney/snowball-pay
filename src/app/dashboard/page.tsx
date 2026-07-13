@@ -6,6 +6,7 @@ import { ensureUserProvisioned } from '@/lib/auth-server';
 import { isPlaidAllowed } from '@/lib/plaid';
 import { prisma } from '@/lib/prisma';
 import DashboardClient from '@/components/DashboardClient';
+import { AuthenticatedAnalytics } from '@/components/analytics/AuthenticatedAnalytics';
 
 export const metadata: Metadata = {
   title: 'Dashboard',
@@ -50,5 +51,10 @@ export default async function DashboardPage() {
   // isn't known server-side here (it's fetched client-side via useSubscription
   // and combined in DashboardClient). See canUsePlaid() for the real gate the
   // API routes enforce.
-  return <DashboardClient user={user} plaidTestAccess={isPlaidAllowed(user?.email)} />;
+  return (
+    <>
+      <AuthenticatedAnalytics userId={provisioned?.id ?? null} />
+      <DashboardClient user={user} plaidTestAccess={isPlaidAllowed(user?.email)} />
+    </>
+  );
 }
