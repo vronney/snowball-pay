@@ -97,7 +97,17 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                 color: "#0b1220",
               }}
             >
-              See your debt-free date in 2 minutes.
+              <a
+                href="/calculator"
+                className="lp-hero-headline-link"
+                onClick={() =>
+                  track(Events.CALCULATOR_CTA_CLICKED, {
+                    source: "hero_headline",
+                  })
+                }
+              >
+                See your debt-free date in 2 minutes.
+              </a>
             </h1>
 
             <p
@@ -145,7 +155,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                       })
                     }
                   >
-                    Try the Free Calculator
+                    See my debt-free date
                     <ArrowIsland />
                   </a>
                   <a
@@ -171,22 +181,27 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                 gap: "10px",
                 color: "#667085",
                 fontSize: "12px",
-                fontWeight: 700,
+                fontWeight: 600,
               }}
             >
               {["No bank connection required", "Free calculator", "Cancel Pro anytime"].map(
-                (item) => (
+                (item, i) => (
                   <span
                     key={item}
                     style={{
                       display: "inline-flex",
                       alignItems: "center",
-                      borderRadius: "999px",
-                      padding: "8px 12px",
-                      background: "rgba(255,255,255,0.72)",
-                      border: "1px solid rgba(15,23,42,0.09)",
+                      gap: "10px",
                     }}
                   >
+                    {i > 0 && (
+                      <span
+                        aria-hidden="true"
+                        style={{ color: "#cbd5e1", fontWeight: 400 }}
+                      >
+                        &bull;
+                      </span>
+                    )}
                     {item}
                   </span>
                 ),
@@ -202,6 +217,16 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
               position: "relative",
             }}
           >
+            <a
+              href="/calculator"
+              className="lp-hero-preview-link"
+              aria-label="Try the free debt calculator"
+              onClick={() =>
+                track(Events.CALCULATOR_CTA_CLICKED, {
+                  source: "hero_preview",
+                })
+              }
+            >
             <div className="lp-bezel lp-shimmer">
               <div
                 className="lp-core"
@@ -286,6 +311,18 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                       }}
                     >
                       Mar 2027
+                    </p>
+                    <p
+                      className="mono"
+                      style={{
+                        marginTop: "6px",
+                        fontSize: "11px",
+                        fontWeight: 800,
+                        color: "#0f9f6e",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      Saves $2,140 interest
                     </p>
                   </div>
                 </div>
@@ -507,6 +544,7 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                 </p>
               </div>
             </div>
+            </a>
           </div>
         </div>
       </div>
