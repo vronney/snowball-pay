@@ -1,0 +1,17 @@
+Creditor,Debt Type,Current Balance,APR %,Minimum Payment,Payoff Order (1 = first),Notes
+Example: Store Card,Credit card,1850,26.99,45,1,Snowball: smallest balance = #1. Avalanche: highest APR = #1. Replace this row with your own debt.
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+,,,,,,
+Free template from SnowballPay,,,,,,Automated version: https://getsnowballpay.com/calculator?utm_source=template&utm_medium=spreadsheet&utm_campaign=learn_template

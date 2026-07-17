@@ -28,6 +28,7 @@ export const Events = {
   CANCEL_FLOW_SAVED: 'cancel_flow_saved',
   CANCEL_PORTAL_OPENED: 'cancel_portal_opened',
   PLAN_SAVED_EMAIL: 'plan_saved_email_captured',
+  TEMPLATE_DOWNLOADED: 'template_downloaded',
   SHARE_CARD_OPENED: 'share_card_opened',
   SHARE_CARD_DOWNLOADED: 'share_card_downloaded',
   REFERRAL_LINK_COPIED: 'referral_link_copied',

@@ -67,7 +67,10 @@
       "Bash(git pull *)",
       "mcp__6285e801-bc48-47fc-8602-248f7112c1d2__exec",
       "Bash(git checkout *)",
-      "Bash(claude plugin *)"
+      "Bash(claude plugin *)",
+      "mcp__78b4c0a6-c587-47f5-87a0-86dfb4b57087__notion-create-view",
+      "mcp__78b4c0a6-c587-47f5-87a0-86dfb4b57087__notion-update-page",
+      "mcp__78b4c0a6-c587-47f5-87a0-86dfb4b57087__notion-fetch"
     ],
     "deny": [
       "Bash(rm:*)",
