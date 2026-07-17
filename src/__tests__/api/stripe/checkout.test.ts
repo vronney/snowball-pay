@@ -30,7 +30,6 @@ const { mockStripe, mockPrisma } = vi.hoisted(() => {
 vi.mock('@/lib/stripe', () => ({
   getStripe: vi.fn(() => mockStripe),
   getStripeProPriceId: vi.fn(() => 'price_test_pro'),
-  getStripeProAnnualPriceId: vi.fn(() => 'price_test_pro_annual'),
 }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
@@ -53,8 +52,16 @@ const UNAUTHED = { valid: false as const, user: null };
 
 const CHECKOUT_URL = 'https://checkout.stripe.com/pay/cs_test_abc123';
 
-function makeRequest() {
-  return new NextRequest('http://localhost/api/stripe/checkout', { method: 'POST' });
+function makeRequest(analyticsConsent?: 'granted' | 'denied') {
+  const headers = new Headers();
+  if (analyticsConsent) {
+    headers.set('cookie', 'sp_analytics_consent_v1=' + analyticsConsent);
+  }
+
+  return new NextRequest('http://localhost/api/stripe/checkout', {
+    method: 'POST',
+    headers,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -161,13 +168,61 @@ describe('POST /api/stripe/checkout', () => {
       expect.objectContaining({
         mode: 'subscription',
         line_items: [{ price: 'price_test_pro', quantity: 1 }],
-        metadata: { userId: 'user-1', billing: 'monthly' },
+        metadata: {
+          userId: 'user-1',
+          billing: 'monthly',
+          analyticsConsent: 'denied',
+        },
         subscription_data: expect.objectContaining({
           trial_period_days: 14,
-          metadata: { userId: 'user-1', billing: 'monthly' },
+          metadata: {
+            userId: 'user-1',
+            billing: 'monthly',
+            analyticsConsent: 'denied',
+          },
         }),
         success_url: 'http://localhost:3000/dashboard?upgrade=success',
         cancel_url: 'http://localhost:3000/dashboard?upgrade=canceled',
+      }),
+    );
+  });
+
+  it('enables abandoned-checkout recovery with a ~2 hour session expiry', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.user.findUnique.mockResolvedValue({ stripeCustomerId: 'cus_existing_456', email: 'test@example.com' });
+    mockStripe.checkout.sessions.create.mockResolvedValue({ url: CHECKOUT_URL });
+
+    const before = Math.floor(Date.now() / 1000);
+    await POST(makeRequest());
+    const after = Math.floor(Date.now() / 1000);
+
+    const sessionArgs = mockStripe.checkout.sessions.create.mock.calls[0][0] as {
+      after_expiration: unknown;
+      expires_at: number;
+    };
+    expect(sessionArgs.after_expiration).toEqual({
+      recovery: { enabled: true, allow_promotion_codes: true },
+    });
+    expect(sessionArgs.expires_at).toBeGreaterThanOrEqual(before + 120 * 60);
+    expect(sessionArgs.expires_at).toBeLessThanOrEqual(after + 120 * 60);
+  });
+
+  it('forwards granted analytics consent to Stripe metadata', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      stripeCustomerId: 'cus_existing_456',
+      email: 'test@example.com',
+    });
+    mockStripe.checkout.sessions.create.mockResolvedValue({ url: CHECKOUT_URL });
+
+    await POST(makeRequest('granted'));
+
+    expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metadata: expect.objectContaining({ analyticsConsent: 'granted' }),
+        subscription_data: expect.objectContaining({
+          metadata: expect.objectContaining({ analyticsConsent: 'granted' }),
+        }),
       }),
     );
   });

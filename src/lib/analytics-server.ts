@@ -4,6 +4,7 @@ import { sanitiseAnalyticsProperties } from '@/lib/analyticsPrivacy';
 const CAPTURE_TIMEOUT_MS = 1_500;
 
 interface ServerAnalyticsEvent {
+  consent: 'granted' | 'denied';
   distinctId: string;
   event: AnalyticsEvent;
   insertId?: string;
@@ -12,11 +13,13 @@ interface ServerAnalyticsEvent {
 
 /** Best-effort server capture; analytics must never fail a business webhook. */
 export async function captureServerEvent({
+  consent,
   distinctId,
   event,
   insertId,
   properties = {},
 }: ServerAnalyticsEvent): Promise<void> {
+  if (consent !== 'granted') return;
   const apiKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
   if (!apiKey) return;
 

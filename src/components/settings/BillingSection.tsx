@@ -1,7 +1,9 @@
-"use client";
+'use client';
 
-import { Sparkles, ExternalLink, Zap } from "lucide-react";
-import { useSubscription, useOpenBillingPortal } from "@/lib/hooks";
+import { useState } from 'react';
+import { Sparkles, ExternalLink, Zap } from 'lucide-react';
+import ManageBillingModal from '@/components/billing/ManageBillingModal';
+import { useSubscription } from '@/lib/hooks';
 
 interface BillingSectionProps {
   onUpgradeClick: () => void;
@@ -9,7 +11,7 @@ interface BillingSectionProps {
 
 export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
   const { data: sub } = useSubscription();
-  const openPortal = useOpenBillingPortal();
+  const [showBilling, setShowBilling] = useState(false);
 
   const isPro = sub?.paidTier === "pro";
 
@@ -17,7 +19,7 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
     background: "#ffffff",
     border: "1px solid rgba(15,23,42,0.08)",
     boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-    borderRadius: "16px",
+    borderRadius: '12px',
     padding: "24px",
   };
 
@@ -34,9 +36,7 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
     <div
       style={{
         ...cardStyle,
-        background: isPro
-          ? "linear-gradient(135deg, #f0f5ff 0%, #f5f0ff 100%)"
-          : "#ffffff",
+        background: isPro ? '#f8fafc' : '#ffffff',
         border: isPro
           ? "1px solid rgba(37,99,235,0.15)"
           : "1px solid rgba(15,23,42,0.08)",
@@ -44,7 +44,7 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
     >
       {sectionTitle(
         "Plan",
-        <Sparkles size={16} style={{ color: isPro ? "#7c3aed" : "#2563eb" }} />
+        <Sparkles size={16} style={{ color: '#64748b' }} />
       )}
 
       <div
@@ -94,8 +94,8 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
                 style={{
                   fontSize: "11px",
                   fontWeight: 700,
-                  color: "#7c3aed",
-                  background: "rgba(124,58,237,0.1)",
+                  color: '#0f766e',
+                  background: 'rgba(15,118,110,0.1)',
                   padding: "2px 8px",
                   borderRadius: "999px",
                 }}
@@ -151,14 +151,13 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
         {isPro ? (
           <button
             type="button"
-            onClick={() => openPortal.mutate()}
-            disabled={openPortal.isPending}
+            onClick={() => setShowBilling(true)}
             style={{
               display: "flex",
               alignItems: "center",
               gap: "6px",
               padding: "8px 16px",
-              borderRadius: "10px",
+              borderRadius: '8px',
               border: "1px solid rgba(37,99,235,0.2)",
               background: "rgba(37,99,235,0.06)",
               fontSize: "13px",
@@ -167,11 +166,10 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
               color: "#2563eb",
               fontFamily: "inherit",
               flexShrink: 0,
-              opacity: openPortal.isPending ? 0.6 : 1,
             }}
           >
             <ExternalLink size={13} />
-            {openPortal.isPending ? "Opening…" : "Manage billing"}
+            Manage billing
           </button>
         ) : (
           <button
@@ -182,9 +180,9 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
               alignItems: "center",
               gap: "6px",
               padding: "8px 16px",
-              borderRadius: "10px",
+              borderRadius: '8px',
               border: "none",
-              background: "linear-gradient(135deg, #2563eb, #7c3aed)",
+              background: '#2563eb',
               fontSize: "13px",
               fontWeight: 700,
               cursor: "pointer",
@@ -198,6 +196,7 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
           </button>
         )}
       </div>
+      <ManageBillingModal isOpen={showBilling} onClose={() => setShowBilling(false)} />
     </div>
   );
 }

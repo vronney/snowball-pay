@@ -3,6 +3,7 @@
 import { ReactNode, Suspense } from 'react';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import PostHogProvider from '@/components/analytics/PostHogProvider';
+import AnalyticsConsentBanner from '@/components/analytics/AnalyticsConsentBanner';
 import axios from 'axios';
 import { shouldRedirectOn401 } from '@/lib/authRedirect';
 
@@ -86,6 +87,7 @@ export function Providers({ children }: { children: ReactNode }) {
           {children}
         </PostHogProvider>
       </Suspense>
+      <AnalyticsConsentBanner />
     </QueryClientProvider>
   );
 }

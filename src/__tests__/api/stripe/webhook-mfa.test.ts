@@ -37,6 +37,12 @@ vi.mock('@/lib/auth0-management', () => ({
   setMfaRequired: mockSetMfaRequired,
 }));
 
+// Keep the Plaid module graph (plaid SDK, gates→PLANS) out of this suite —
+// the minimal '@/lib/stripe' mock above doesn't export PLANS.
+vi.mock('@/lib/plaidCleanup', () => ({
+  removePlaidItemsForCanceledUser: vi.fn().mockResolvedValue({ outcome: 'no_items' }),
+}));
+
 import { POST } from '@/app/api/webhooks/stripe/route';
 
 // ---------------------------------------------------------------------------

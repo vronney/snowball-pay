@@ -5,6 +5,7 @@ import { upgradeEvents } from '@/lib/upgradeEvents';
 import { track, Events } from '@/lib/analytics';
 import { computeHighlightStat } from '@/lib/highlightStat';
 import type { MilestoneTier } from '@/lib/milestoneDetection';
+import type { CancellationReason } from '@/lib/cancellation';
 
 /**
  * Extract a user-safe error message from Axios/network errors.
@@ -737,12 +738,12 @@ export function useSubscription() {
 
 export function useStartCheckout() {
   return useMutation({
-    mutationFn: async (billing: 'monthly' | 'annual' = 'monthly') => {
-      const { data } = await axios.post(`${API_URL}/api/stripe/checkout`, { billing });
+    mutationFn: async () => {
+      const { data } = await axios.post(`${API_URL}/api/stripe/checkout`, {});
       return data as { url: string };
     },
-    onSuccess: ({ url }, billing) => {
-      track(Events.CHECKOUT_SESSION_CREATED, { billing });
+    onSuccess: ({ url }) => {
+      track(Events.CHECKOUT_SESSION_CREATED, { billing: 'monthly' });
       window.location.href = url;
     },
   });
@@ -750,8 +751,10 @@ export function useStartCheckout() {
 
 export function useOpenBillingPortal() {
   return useMutation({
-    mutationFn: async () => {
-      const { data } = await axios.post(`${API_URL}/api/stripe/portal`);
+    mutationFn: async (cancellationReason?: CancellationReason) => {
+      const { data } = await axios.post(`${API_URL}/api/stripe/portal`, {
+        ...(cancellationReason ? { cancellationReason } : {}),
+      });
       return data as { url: string };
     },
     onSuccess: ({ url }) => {

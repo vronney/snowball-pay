@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
+import { AnalyticsConsentSettings } from '@/components/analytics/AnalyticsConsentBanner';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
@@ -34,7 +35,7 @@ export default function PrivacyPolicyPage() {
           Privacy Policy
         </h1>
         <p style={{ fontSize: '14px', color: '#64748b', marginBottom: '40px' }}>
-          Effective date: March 20, 2026 &nbsp;·&nbsp; Last updated: March 20, 2026
+          Effective date: March 20, 2026 &nbsp;·&nbsp; Last updated: July 15, 2026
         </p>
 
         <LegalSection>
@@ -160,11 +161,36 @@ export default function PrivacyPolicyPage() {
               <strong>Security tokens:</strong> We use JSON Web Tokens (JWTs) to verify your identity on
               API requests. These are stored in browser memory or session storage, not in persistent cookies.
             </li>
+            <li>
+              <strong>Essential browser storage:</strong> We use local or session storage to preserve an
+              unfinished calculator or onboarding plan, prevent login redirect loops, and remember required
+              product state. This storage is used whether or not you allow optional analytics.
+            </li>
+            <li>
+              <strong>Product analytics:</strong> We measure product usage with PostHog. Before you make
+              a choice, this runs in a cookieless, in-memory mode: nothing is stored on your device, no
+              session replays are captured, and identifiers reset when you leave. If you select
+              &ldquo;Allow analytics,&rdquo; PostHog additionally uses browser storage to recognise
+              return visits and may capture a masked replay of how the interface is used. Replays hide
+              all typed text and element attributes. In both modes we remove query details, email
+              addresses, debt balances, income, payment amounts, and other financial values before
+              analytics events are sent.
+            </li>
+            <li>
+              <strong>Optional advertising measurement:</strong> If you select &ldquo;Allow analytics,&rdquo;
+              Google Ads may store ad-click identifiers and receive a conversion event after a successful
+              first-plan setup. Enhanced conversion data may include a normalized email that Google hashes
+              before transmission. Financial data is never included.
+            </li>
           </ul>
           <p>
-            We do not use advertising cookies, third-party tracking cookies, or behavioral analytics cookies.
-            We do not serve advertisements.
+            Analytics storage, session replay, and advertising measurement stay disabled until you choose
+            to allow them; cookieless measurement stores nothing on your device, and selecting
+            &ldquo;Essential only&rdquo; stops analytics collection entirely.
+            Declining does not change the calculator, account, or debt-planning features available to you.
+            SnowballPay does not display third-party advertisements inside the Service.
           </p>
+          <AnalyticsConsentSettings />
 
           <SubHeading>2.7 Financial Data from Linked Accounts (via Plaid)</SubHeading>
           <p>
@@ -196,6 +222,8 @@ export default function PrivacyPolicyPage() {
               ['Generate AI debt payoff recommendations', 'Performance of a contract (Art. 6(1)(b))', 'Debt, income, and expense summary data'],
               ['Process uploaded documents for data extraction', 'Performance of a contract (Art. 6(1)(b))', 'Uploaded files (sent to Anthropic API)'],
               ['Maintain and improve the Service', 'Legitimate interests (Art. 6(1)(f))', 'Technical/usage data'],
+              ['Measure optional product analytics', 'Consent (Art. 6(1)(a))', 'Page path, campaign labels, non-financial product events'],
+              ['Measure advertising conversions', 'Consent (Art. 6(1)(a))', 'Ad-click identifiers and normalized email for enhanced conversions'],
               ['Ensure security and prevent fraud', 'Legitimate interests (Art. 6(1)(f)) / Legal obligation (Art. 6(1)(c))', 'IP address, access logs'],
               ['Respond to your support requests', 'Legitimate interests (Art. 6(1)(f))', 'Email, account data'],
               ['Comply with legal obligations', 'Legal obligation (Art. 6(1)(c))', 'As required by law'],
@@ -249,9 +277,15 @@ export default function PrivacyPolicyPage() {
                 'USA',
               ],
               [
+                'PostHog Inc.',
+                'Product analytics and campaign attribution (cookieless by default; persistent identifiers and masked replays only with consent)',
+                'Page paths, campaign labels, session identifiers, non-financial product events, and — only with consent — masked interface replays (all text and element attributes hidden). Financial values and email addresses are removed.',
+                'USA',
+              ],
+              [
                 'Google LLC (Google Ads)',
-                'Measuring how many signups come from our advertising, so we can attribute ad conversions',
-                'A one-way hashed (SHA-256) version of your email address at signup, plus ad-click identifiers. Google cannot recover your email from the hash unless it already holds that address; no financial data is ever shared.',
+                'Optional, consent-based measurement of signups from our advertising',
+                'A normalized email address that Google hashes for enhanced conversion matching, plus ad-click identifiers. No financial data is shared.',
                 'USA and global',
               ],
             ]}

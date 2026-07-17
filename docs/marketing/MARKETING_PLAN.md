@@ -1,5 +1,7 @@
 # Debt Snowball Planner - Marketing Plan
 
+Commercial growth target and mobile stage gates: [`../product/PRO_GROWTH_AND_MOBILE_ROADMAP.md`](../product/PRO_GROWTH_AND_MOBILE_ROADMAP.md)
+
 Date: March 20, 2026
 
 ---
@@ -474,3 +476,14 @@ A debt elimination command center that gives users a confident, step-by-step pay
 6. Build first outreach list of 20 creator/coach partners (Campaign 5)
 7. Set up HARO account and respond to first 3 personal finance requests
 8. Draft Day 0, Day 2, and Day 5 lifecycle emails
+
+### Current conversion focus (July 2026)
+
+The direct onboarding path is now three required inputs, and the first post-activation Pro experience uses contextual messaging at the moment a user requests a paid capability. Do not start a pricing or paywall A/B test at the current traffic level. First collect a clean `contextual_v1` baseline and review:
+
+1. Direct onboarding completion by step.
+2. `upgrade_modal_viewed` to `checkout_started`, segmented by normalized trigger.
+3. Dismissal reason, especially `continue_free`, by trigger.
+4. `subscription_started` after checkout and Stripe reconciliation.
+
+Use the observed drop-off to select the next test. Keep paid acquisition gated on activation quality and verified conversion tracking.

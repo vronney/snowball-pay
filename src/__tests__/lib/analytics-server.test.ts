@@ -21,6 +21,7 @@ describe('server analytics', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const capture = captureServerEvent({
+      consent: 'granted',
       distinctId: 'user-1',
       event: 'subscription_started',
     });
@@ -37,6 +38,7 @@ describe('server analytics', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await captureServerEvent({
+      consent: 'granted',
       distinctId: 'user-1',
       event: 'subscription_started',
       insertId: 'evt_1',
@@ -55,5 +57,19 @@ describe('server analytics', () => {
       distinct_id: 'user-1',
       $insert_id: 'evt_1',
     });
+  });
+
+  it('does not call PostHog when server-side consent is denied', async () => {
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_KEY', 'phc_test');
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    await captureServerEvent({
+      consent: 'denied',
+      distinctId: 'user-1',
+      event: 'subscription_started',
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

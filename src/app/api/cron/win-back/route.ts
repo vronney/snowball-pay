@@ -1,102 +1,112 @@
 /**
  * GET /api/cron/win-back
  *
- * Vercel cron job — runs daily.
- * Targets users who:
- *   - Have debts set up (activated users)
- *   - Have had no payment records in the last 30 days
- *   - Were created more than 30 days ago (not brand new)
- *   - Have not opted out of email
- *   - Have not already received a win-back email in the last 30 days
+ * Daily, one-time re-engagement for activated users whose saved plan has not
+ * recorded a balance/income update or payment for at least 30 days.
  *
- * Secured by CRON_SECRET env var.
+ * Entry: outstanding debt, account at least 30 days old, email allowed.
+ * Exit: recent durable plan activity or the supportive_v1 email was delivered.
+ * Auth: Authorization: Bearer <CRON_SECRET> (Vercel cron supplies this).
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { render } from '@react-email/render';
+import * as React from 'react';
 import { prisma } from '@/lib/prisma';
 import { EMAIL_FROM, APP_BASE_URL } from '@/lib/constants/app';
 import {
-  verifyCronRequest,
-  sendEmail,
   handleMissingResendConfig,
+  markEmailSent,
+  sendEmail,
+  verifyCronRequest,
 } from '@/lib/services/emailService';
+import {
+  WIN_BACK_CHECK_KEY,
+  WIN_BACK_INACTIVE_DAYS,
+  WIN_BACK_MESSAGE_VERSION,
+  getLatestPlanActivityAt,
+  hasReceivedWinBack,
+  isInactiveForWinBack,
+} from '@/lib/lifecycleWinBack';
 import WinBackEmail from '@/emails/WinBackEmail';
 import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
-import * as React from 'react';
 
-const INACTIVE_DAYS = 30;
-const RESEND_COOLDOWN_DAYS = 30;
+const MAX_SENDS_PER_RUN = 50;
+
+function buildDashboardUrl(): string {
+  const url = new URL('/dashboard', APP_BASE_URL);
+  url.searchParams.set('utm_source', 'lifecycle');
+  url.searchParams.set('utm_medium', 'email');
+  url.searchParams.set('utm_campaign', 'win_back');
+  url.searchParams.set('utm_content', WIN_BACK_MESSAGE_VERSION);
+  return url.toString();
+}
 
 export async function GET(request: NextRequest) {
   const authError = verifyCronRequest(request);
   if (authError) return authError;
 
-  if (!process.env.RESEND_API_KEY) {
-    return handleMissingResendConfig();
-  }
-  const now    = new Date();
+  if (!process.env.RESEND_API_KEY) return handleMissingResendConfig();
 
-  // Cutoff dates
-  const inactiveCutoff  = new Date(now);
-  inactiveCutoff.setDate(inactiveCutoff.getDate() - INACTIVE_DAYS);
-
-  const accountAgeCutoff = new Date(now);
-  accountAgeCutoff.setDate(accountAgeCutoff.getDate() - INACTIVE_DAYS);
-
-  // Find activated users old enough to be win-back candidates
+  const now = new Date();
+  const accountAgeCutoff = new Date(now.getTime() - WIN_BACK_INACTIVE_DAYS * 24 * 60 * 60 * 1000);
   const candidates = await prisma.user.findMany({
     where: {
       createdAt: { lte: accountAgeCutoff },
-      debts:     { some: {} },
+      debts: { some: { balance: { gt: 0 } } },
       OR: [{ preferences: null }, { preferences: { emailOptOut: false } }],
     },
-    include: {
-      preferences: true,
-      debts:  { select: { id: true, balance: true } },
-      income: { select: { monthlyTakeHome: true } },
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      createdAt: true,
+      preferences: { select: { actionChecks: true } },
+      debts: {
+        where: { balance: { gt: 0 } },
+        select: { updatedAt: true },
+      },
+      income: { select: { updatedAt: true } },
       paymentRecords: {
-        where:   { paidAt: { gte: inactiveCutoff } },
-        select:  { id: true },
-        take:    1,
+        orderBy: { paidAt: 'desc' },
+        select: { paidAt: true },
+        take: 1,
       },
     },
   });
 
   let sent = 0;
   let errors = 0;
+  let skippedRecent = 0;
+  let skippedPreviouslySent = 0;
+  let limited = false;
 
   for (const user of candidates) {
+    if (sent >= MAX_SENDS_PER_RUN) {
+      limited = true;
+      break;
+    }
+
+    if (hasReceivedWinBack(user.preferences?.actionChecks)) {
+      skippedPreviouslySent++;
+      continue;
+    }
+
+    const activityAt = getLatestPlanActivityAt(user);
+    if (!isInactiveForWinBack(activityAt, now)) {
+      skippedRecent++;
+      continue;
+    }
+
     try {
-      // Skip if they have a recent payment (not inactive)
-      if (user.paymentRecords.length > 0) continue;
-
-      const checks = (user.preferences?.actionChecks ?? {}) as Record<string, unknown>;
-
-      // Skip if win-back was sent within the cooldown window
-      const sentAt = typeof checks['winback_sent_at'] === 'string' ? checks['winback_sent_at'] : undefined;
-      if (sentAt) {
-        const daysSince = (now.getTime() - new Date(sentAt).getTime()) / 86400000;
-        if (daysSince < RESEND_COOLDOWN_DAYS) continue;
-      }
-
-      const totalBalance = user.debts.reduce((s, d) => s + d.balance, 0);
-      if (totalBalance <= 0) continue; // all debts paid off — not a win-back candidate
-
-      // Days since account creation as a conservative activity proxy
-      const daysSinceActivity = Math.round(
-        (now.getTime() - user.createdAt.getTime()) / 86400000,
-      );
-
       const token = generateUnsubscribeToken(user.id);
       const unsubscribeUrl = `${APP_BASE_URL}/api/email/unsubscribe?userId=${user.id}&token=${token}`;
-
+      const dashboardUrl = buildDashboardUrl();
       const html = await render(
         React.createElement(WinBackEmail, {
-          userName:          user.name?.split(' ')[0] ?? undefined,
-          totalBalance,
-          debtFreeDate:      undefined,
-          daysSinceActivity: Math.min(daysSinceActivity, 90),
+          userName: user.name?.split(' ')[0] ?? undefined,
+          dashboardUrl,
           unsubscribeUrl,
         }),
       );
@@ -104,30 +114,28 @@ export async function GET(request: NextRequest) {
       const result = await sendEmail(
         user.email,
         EMAIL_FROM,
-        'Your debt payoff plan is waiting — come back',
+        'Your payoff plan is ready when you are',
         html,
+        { idempotencyKey: `win-back-${WIN_BACK_MESSAGE_VERSION}-${user.id}` },
       );
       if (!result.success) throw new Error(result.error);
 
-      // Record send timestamp in actionChecks
-      const updated = { ...checks, winback_sent_at: now.toISOString() };
-      if (user.preferences?.id) {
-        await prisma.userPreferences.update({
-          where: { id: user.preferences.id },
-          data:  { actionChecks: updated },
-        });
-      } else {
-        await prisma.userPreferences.create({
-          data: { userId: user.id, actionChecks: updated },
-        });
-      }
-
+      await markEmailSent(user.id, WIN_BACK_CHECK_KEY);
       sent++;
-    } catch (err) {
-      console.error('[cron win-back]', user.id, err);
+    } catch (error) {
+      console.error('[cron win-back]', user.id, error);
       errors++;
     }
   }
 
-  return NextResponse.json({ ok: true, sent, errors });
+  return NextResponse.json({
+    ok: true,
+    candidates: candidates.length,
+    sent,
+    errors,
+    skippedRecent,
+    skippedPreviouslySent,
+    limited,
+    messageVersion: WIN_BACK_MESSAGE_VERSION,
+  });
 }

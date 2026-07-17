@@ -3,50 +3,92 @@
  * Import `track` anywhere client-side to fire events.
  * The shared client is initialised lazily before the first SDK call.
  *
- * NOTE: this imports the `posthog-js` singleton directly rather than reading
- * `window.posthog`. Nothing in this codebase ever assigns `window.posthog`,
- * so every call in this file was previously a silent no-op — no custom event
- * (calculator_save_clicked, signup_started, plan_generated, etc.) ever
- * reached PostHog, even though $pageview worked fine (PostHogProvider calls
- * the imported `posthog` object directly, not through `window`).
+ * Consent model (see AnalyticsConsentBanner):
+ * - No choice yet → cookieless "anonymous" mode: in-memory persistence only,
+ *   nothing stored on the device, session replay off. Keeps funnels and
+ *   dead-click data alive without persistent identifiers.
+ * - "granted" → full mode: persistent client, session replay per the PostHog
+ *   project's replay settings (fully masked), identify() allowed.
+ * - "denied" → nothing is captured at all.
  */
 import posthog from 'posthog-js';
 import type { AnalyticsEvent } from '@/lib/analyticsEvents';
 import { sanitiseAnalyticsProperties } from '@/lib/analyticsPrivacy';
+import { getAnalyticsConsent, hasAnalyticsConsent } from '@/lib/analyticsConsent';
 export { Events } from '@/lib/analyticsEvents';
 
 const KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
-let initialised = false;
+
+type AnalyticsMode = 'anonymous' | 'full';
+let mode: AnalyticsMode | null = null;
+let optedOut = false;
 
 function isBrowser(): boolean {
   return typeof window !== 'undefined';
 }
 
-/** Initialise the shared browser client exactly once before any SDK call. */
+function modeConfig(target: AnalyticsMode) {
+  return {
+    persistence: target === 'full' ? ('localStorage+cookie' as const) : ('memory' as const),
+    disable_session_recording: target === 'anonymous',
+  };
+}
+
+/**
+ * Initialise the shared browser client before any SDK call.
+ * Returns false when capture is not allowed (no key, SSR, or consent denied).
+ */
 export function initialiseAnalytics(): boolean {
   if (!KEY || !isBrowser()) return false;
-  if (initialised) return true;
+  const consent = getAnalyticsConsent();
+  if (consent === 'denied') return false;
+  const target: AnalyticsMode = consent === 'granted' ? 'full' : 'anonymous';
 
-  posthog.init(KEY, {
-    api_host: HOST,
-    capture_pageview: false,
-    capture_pageleave: true,
-    person_profiles: 'identified_only',
-    disable_session_recording: true,
-    mask_all_text: true,
-    mask_all_element_attributes: true,
-    before_send: (event) => {
-      if (!event) return null;
-      if (event.properties) {
-        event.properties = sanitiseAnalyticsProperties(
-          event.properties as Record<string, unknown>,
-        );
-      }
-      return event;
-    },
-  });
-  initialised = true;
+  if (mode === null) {
+    posthog.init(KEY, {
+      api_host: HOST,
+      capture_pageview: false,
+      capture_pageleave: true,
+      save_campaign_params: true,
+      save_referrer: true,
+      person_profiles: 'identified_only',
+      // Session replay stays consent-gated via the mode config; recordings
+      // start per the PostHog project's replay settings and are fully masked.
+      mask_all_text: true,
+      mask_all_element_attributes: true,
+      ...modeConfig(target),
+      before_send: (event) => {
+        if (!event) return null;
+        if (event.properties) {
+          event.properties = sanitiseAnalyticsProperties(
+            event.properties as Record<string, unknown>,
+          );
+        }
+        return event;
+      },
+    });
+    mode = target;
+    // A previous visit may have persisted an opt-out; consent is granted now.
+    if (target === 'full' && posthog.has_opted_out_capturing?.()) {
+      posthog.opt_in_capturing({ captureEventName: null });
+    }
+    return true;
+  }
+
+  if (mode !== target) {
+    // Consent changed mid-session (banner accepted): switch the live client
+    // in place. set_config carries the in-memory state across, so the
+    // session and distinct id continue seamlessly.
+    posthog.set_config(modeConfig(target));
+    mode = target;
+  }
+  if (optedOut) {
+    // captureEventName: null suppresses the default `$opt_in` event, which
+    // would otherwise fire on every re-entry and double event volume.
+    posthog.opt_in_capturing({ captureEventName: null });
+    optedOut = false;
+  }
   return true;
 }
 
@@ -60,11 +102,26 @@ export function track(event: AnalyticsEvent, props?: Record<string, unknown>): v
   }
 }
 
-/** Identify an authenticated user. Call after login. */
+/**
+ * Identify an authenticated user. Call after login.
+ * Requires full consent — anonymous mode never attaches a persistent identity.
+ */
 export function identify(userId: string, traits?: Record<string, unknown>): void {
   try {
-    if (!initialiseAnalytics()) return;
+    if (!hasAnalyticsConsent() || !initialiseAnalytics()) return;
     posthog.identify(userId, traits);
+  } catch {
+    // silent
+  }
+}
+
+/** Stop optional analytics immediately after a visitor changes to essential-only. */
+export function disableAnalytics(): void {
+  try {
+    if (!isBrowser() || mode === null) return;
+    posthog.opt_out_capturing();
+    optedOut = true;
+    posthog.reset();
   } catch {
     // silent
   }
@@ -73,7 +130,7 @@ export function identify(userId: string, traits?: Record<string, unknown>): void
 /** Reset identity on logout. */
 export function resetIdentity(): void {
   try {
-    if (!isBrowser() || !initialised) return;
+    if (!isBrowser() || mode === null) return;
     posthog.reset();
   } catch {
     // silent

@@ -1874,6 +1874,11 @@ export default async function LearnPage({
             >
               {[
                 {
+                  href: "/learn/which-debt-should-i-pay-first",
+                  label: "Which Debt Should I Pay Off First? →",
+                  desc: "Choose the next debt using your balances, APRs, and motivation",
+                },
+                {
                   href: "/learn/pay-off-10k-credit-card-debt",
                   label: "Pay Off $10k Credit Card Debt →",
                   desc: "See payoff timelines by payment amount",

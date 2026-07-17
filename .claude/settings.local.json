@@ -64,7 +64,10 @@
       "Bash(start \"\" \"/tmp/design-consultation-preview-1777488689.html\")",
       "Bash(cmd.exe /c start \"\" \"C:/Users/ronne/AppData/Local/Temp/design-consultation-preview-1777488689.html\")",
       "Bash(explorer \"C:/Users/ronne/AppData/Local/Temp/design-consultation-preview-1777488689.html\")",
-      "Bash(git pull *)"
+      "Bash(git pull *)",
+      "mcp__6285e801-bc48-47fc-8602-248f7112c1d2__exec",
+      "Bash(git checkout *)",
+      "Bash(claude plugin *)"
     ],
     "deny": [
       "Bash(rm:*)",

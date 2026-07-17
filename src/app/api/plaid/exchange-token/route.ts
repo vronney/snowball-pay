@@ -9,6 +9,8 @@ import {
   plaidClient,
   logPlaidError,
   canUsePlaid,
+  hasReachedPlaidItemLimit,
+  PLAID_ITEM_LIMIT_MESSAGE,
   findLiabilityForAccount,
   extractInterestRate,
   extractCurrentBalance,
@@ -46,6 +48,13 @@ export async function POST(request: NextRequest) {
     if (!(await canUsePlaid(userId, auth.user.email))) return upgradeRequired('Bank sync');
 
     if (!(await limits.plaidExchange(userId))) return tooManyRequests();
+
+    // Authoritative cap check (create-link-token also gates, but a Link
+    // session opened before the cap was hit could land here past it). Reject
+    // BEFORE the token exchange so no billable Item is ever created.
+    if (await hasReachedPlaidItemLimit(userId)) {
+      return NextResponse.json({ error: PLAID_ITEM_LIMIT_MESSAGE }, { status: 409 });
+    }
 
     const parsed = ExchangeTokenSchema.safeParse(
       await request.json().catch(() => null)

@@ -4,10 +4,16 @@ import { prisma } from '@/lib/prisma';
 import { setMfaRequired } from '@/lib/auth0-management';
 import { captureServerEvent } from '@/lib/analytics-server';
 import { Events } from '@/lib/analyticsEvents';
+import { sendCheckoutRecoveryEmail } from '@/lib/checkoutRecovery';
+import { removePlaidItemsForCanceledUser } from '@/lib/plaidCleanup';
 import type Stripe from 'stripe';
 
 // Required: disable body parsing so we can verify the raw signature
 export const runtime = 'nodejs';
+// subscription.deleted can make up to MAX_PLAID_ITEMS_PER_USER sequential
+// Plaid itemRemove calls; the platform default timeout would kill the
+// function mid-loop and force Stripe retries.
+export const maxDuration = 60;
 
 /**
  * INFOSEC policy: MFA must be enabled before Plaid Link is surfaced, and
@@ -99,6 +105,10 @@ export async function POST(request: NextRequest) {
             subscriptionEndsAt: endAt ? new Date(endAt * 1000) : null,
           },
         });
+        // Revoke the ex-subscriber's Plaid items so dormant links stop
+        // billing. Runs after the downgrade write (its isPro check must see
+        // 'free'); logs and swallows failures internally.
+        await removePlaidItemsForCanceledUser(userId);
         break;
       }
 
@@ -131,16 +141,32 @@ export async function POST(request: NextRequest) {
           },
         });
         await enforceMfaForPro(subFields.paidTier, user.auth0Id);
-        await captureServerEvent({
-          distinctId: userId,
-          event: Events.SUBSCRIPTION_STARTED,
-          insertId: event.id,
-          properties: {
-            billing: session.metadata?.billing ?? 'unknown',
-            source: 'stripe_webhook',
-            subscription_status: subFields.subscriptionStatus,
-          },
-        });
+        if (session.metadata?.analyticsConsent === 'granted') {
+          await captureServerEvent({
+            consent: 'granted',
+            distinctId: userId,
+            event: Events.SUBSCRIPTION_STARTED,
+            insertId: event.id,
+            properties: {
+              billing: session.metadata?.billing ?? 'unknown',
+              source: 'stripe_webhook',
+              subscription_status: subFields.subscriptionStatus,
+              recovered_checkout: Boolean(session.recovered_from),
+            },
+          });
+        }
+        break;
+      }
+
+      case 'checkout.session.expired': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.mode !== 'subscription') break;
+        const userId = session.metadata?.userId;
+        const recoveryUrl = session.after_expiration?.recovery?.url;
+        if (!userId || !recoveryUrl) break;
+        // Logs and swallows failures internally — a marketing email must
+        // never make Stripe retry the event.
+        await sendCheckoutRecoveryEmail({ userId, recoveryUrl });
         break;
       }
 

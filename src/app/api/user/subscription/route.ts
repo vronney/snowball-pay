@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getStripe } from '@/lib/stripe';
+import { getStripe, PLANS } from '@/lib/stripe';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 import { canUsePlaid } from '@/lib/plaid';
 
 const ACTIVE_STATUSES = ['active', 'trialing'];
 const TRIAL_GRACE_MS = 2 * 60 * 60 * 1000;
-const PRO_MONTHLY_PRICE = 12;
-
 function isStale(endsAt: Date | null): boolean {
   return endsAt !== null && endsAt.getTime() + TRIAL_GRACE_MS < Date.now();
 }
@@ -61,7 +59,7 @@ export async function GET(request: NextRequest) {
       subscriptionEndsAt: endsAt,
       isCanceling,
       hasCustomer: !!user?.stripeCustomerId,
-      monthlyPrice: PRO_MONTHLY_PRICE,
+      monthlyPrice: PLANS.pro.price,
       // The ACTUAL gate the Plaid routes enforce (allowlist OR active Pro) so
       // the UI can tell a downgraded user their bank sync is paused. Must be
       // this exact function — deriving from the tier fields above can diverge

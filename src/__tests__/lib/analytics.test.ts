@@ -5,6 +5,9 @@ const posthog = vi.hoisted(() => ({
   capture: vi.fn(),
   identify: vi.fn(),
   reset: vi.fn(),
+  set_config: vi.fn(),
+  opt_in_capturing: vi.fn(),
+  opt_out_capturing: vi.fn(),
 }));
 
 vi.mock('posthog-js', () => ({ default: posthog }));
@@ -15,7 +18,11 @@ describe('analytics client', () => {
     vi.clearAllMocks();
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_KEY', 'phc_test');
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_HOST', 'https://analytics.example.com');
-    vi.stubGlobal('window', {});
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: vi.fn(() => 'granted'),
+      },
+    });
   });
 
   afterEach(() => {
@@ -30,6 +37,16 @@ describe('analytics client', () => {
     identify('user-1', { is_authenticated: true });
 
     expect(posthog.init).toHaveBeenCalledTimes(1);
+    expect(posthog.init).toHaveBeenCalledWith(
+      'phc_test',
+      expect.objectContaining({
+        capture_pageview: false,
+        mask_all_text: true,
+        save_campaign_params: true,
+        persistence: 'localStorage+cookie',
+        disable_session_recording: false,
+      }),
+    );
     expect(posthog.identify).toHaveBeenCalledWith('user-1', {
       is_authenticated: true,
     });
@@ -52,5 +69,87 @@ describe('analytics client', () => {
     expect(posthog.init).not.toHaveBeenCalled();
     expect(posthog.identify).not.toHaveBeenCalled();
     expect(posthog.capture).not.toHaveBeenCalled();
+  });
+
+  it('captures cookieless anonymous events before a consent choice', async () => {
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: vi.fn(() => null),
+      },
+    });
+    const { identify, track } = await import('@/lib/analytics');
+
+    track('calculator_started');
+    identify('user-1');
+
+    expect(posthog.init).toHaveBeenCalledWith(
+      'phc_test',
+      expect.objectContaining({
+        persistence: 'memory',
+        disable_session_recording: true,
+      }),
+    );
+    expect(posthog.capture).toHaveBeenCalledWith('calculator_started', undefined);
+    expect(posthog.identify).not.toHaveBeenCalled();
+  });
+
+  it('upgrades the anonymous client in place when consent is granted', async () => {
+    let consent: string | null = null;
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: vi.fn(() => consent),
+      },
+    });
+    const { track } = await import('@/lib/analytics');
+
+    track('calculator_started');
+    consent = 'granted';
+    track('plan_generated');
+
+    expect(posthog.init).toHaveBeenCalledTimes(1);
+    expect(posthog.set_config).toHaveBeenCalledWith({
+      persistence: 'localStorage+cookie',
+      disable_session_recording: false,
+    });
+    expect(posthog.capture).toHaveBeenLastCalledWith('plan_generated', undefined);
+  });
+
+  it('keeps analytics disabled after consent is denied', async () => {
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: vi.fn(() => 'denied'),
+      },
+    });
+    const { identify, track } = await import('@/lib/analytics');
+
+    identify('user-1');
+    track('signup_completed');
+
+    expect(posthog.init).not.toHaveBeenCalled();
+    expect(posthog.identify).not.toHaveBeenCalled();
+    expect(posthog.capture).not.toHaveBeenCalled();
+  });
+
+  it('opts back in when a visitor grants consent after previously revoking it', async () => {
+    let consent = 'granted';
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: vi.fn(() => consent),
+      },
+    });
+    const { disableAnalytics, track } = await import('@/lib/analytics');
+
+    track('signup_completed');
+    consent = 'denied';
+    disableAnalytics();
+    consent = 'granted';
+    track('plan_generated');
+
+    expect(posthog.opt_out_capturing).toHaveBeenCalledOnce();
+    expect(posthog.opt_in_capturing).toHaveBeenCalledOnce();
+    expect(posthog.capture).toHaveBeenLastCalledWith(
+      'plan_generated',
+      undefined,
+    );
   });
 });

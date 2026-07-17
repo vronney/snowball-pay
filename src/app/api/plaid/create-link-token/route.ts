@@ -4,7 +4,13 @@ import { limits } from '@/lib/rateLimit';
 import { upgradeRequired } from '@/lib/gates';
 import { prisma } from '@/lib/prisma';
 import { setMfaRequired } from '@/lib/auth0-management';
-import { plaidClient, logPlaidError, canUsePlaid } from '@/lib/plaid';
+import {
+  plaidClient,
+  logPlaidError,
+  canUsePlaid,
+  hasReachedPlaidItemLimit,
+  PLAID_ITEM_LIMIT_MESSAGE,
+} from '@/lib/plaid';
 import {
   Products,
   CountryCode,
@@ -29,6 +35,11 @@ export async function POST(request: NextRequest) {
     if (!(await canUsePlaid(userId, auth.user.email))) return upgradeRequired('Bank sync');
 
     if (!(await limits.plaidLinkToken(userId))) return tooManyRequests();
+
+    // Cost guardrail: don't even open Link past the per-user institution cap.
+    if (await hasReachedPlaidItemLimit(userId)) {
+      return NextResponse.json({ error: PLAID_ITEM_LIMIT_MESSAGE }, { status: 409 });
+    }
 
     // INFOSEC policy: MFA is enabled for consumers prior to surfacing Plaid
     // Link. Flag the Auth0 account (idempotent); the Conditional MFA Action

@@ -34,6 +34,14 @@ vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
 vi.mock('@/lib/analytics-server', () => ({
   captureServerEvent: mockCaptureServerEvent,
 }));
+const mockSendCheckoutRecoveryEmail = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/checkoutRecovery', () => ({
+  sendCheckoutRecoveryEmail: mockSendCheckoutRecoveryEmail,
+}));
+const mockRemovePlaidItems = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/plaidCleanup', () => ({
+  removePlaidItemsForCanceledUser: mockRemovePlaidItems,
+}));
 
 import { POST } from '@/app/api/webhooks/stripe/route';
 
@@ -194,6 +202,22 @@ describe('POST /api/webhooks/stripe', () => {
     });
   });
 
+  it('revokes the ex-subscriber Plaid items after the downgrade write', async () => {
+    const sub = makeSub({ status: 'canceled' });
+    mockStripe.webhooks.constructEvent.mockReturnValue(makeEvent('customer.subscription.deleted', sub));
+    mockPrisma.user.update.mockResolvedValue({});
+    mockRemovePlaidItems.mockResolvedValue({ outcome: 'removed', removed: 1, revokeErrors: 0 });
+
+    const res = await POST(makeRequest('{}'));
+
+    expect(res.status).toBe(200);
+    expect(mockRemovePlaidItems).toHaveBeenCalledWith('user-1');
+    // Cleanup's isPro check must observe the downgraded tier.
+    expect(mockPrisma.user.update.mock.invocationCallOrder[0]).toBeLessThan(
+      mockRemovePlaidItems.mock.invocationCallOrder[0],
+    );
+  });
+
   // --- checkout.session.completed ---
 
   it('updates user with customerId, subscriptionId, and pro tier on checkout.session.completed', async () => {
@@ -201,7 +225,11 @@ describe('POST /api/webhooks/stripe', () => {
     mockStripe.webhooks.constructEvent.mockReturnValue(
       makeEvent('checkout.session.completed', {
         mode: 'subscription',
-        metadata: { userId: 'user-1', billing: 'annual' },
+        metadata: {
+          userId: 'user-1',
+          billing: 'annual',
+          analyticsConsent: 'granted',
+        },
         customer: 'cus_test_123',
         subscription: 'sub_test_123',
       }),
@@ -221,6 +249,7 @@ describe('POST /api/webhooks/stripe', () => {
       }),
     });
     expect(mockCaptureServerEvent).toHaveBeenCalledWith({
+      consent: 'granted',
       distinctId: 'user-1',
       event: 'subscription_started',
       insertId: 'evt_checkout.session.completed',
@@ -228,8 +257,32 @@ describe('POST /api/webhooks/stripe', () => {
         billing: 'annual',
         source: 'stripe_webhook',
         subscription_status: 'active',
+        recovered_checkout: false,
       },
     });
+  });
+
+  it('does not send server analytics when checkout consent is denied', async () => {
+    const activeSub = makeSub({ status: 'active' });
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('checkout.session.completed', {
+        mode: 'subscription',
+        metadata: {
+          userId: 'user-1',
+          billing: 'monthly',
+          analyticsConsent: 'denied',
+        },
+        customer: 'cus_test_123',
+        subscription: 'sub_test_123',
+      }),
+    );
+    mockStripe.subscriptions.retrieve.mockResolvedValue(activeSub);
+    mockPrisma.user.update.mockResolvedValue({});
+
+    const res = await POST(makeRequest('{}'));
+
+    expect(res.status).toBe(200);
+    expect(mockCaptureServerEvent).not.toHaveBeenCalled();
   });
 
   it('ignores checkout.session.completed for non-subscription modes', async () => {
@@ -258,6 +311,44 @@ describe('POST /api/webhooks/stripe', () => {
     await POST(makeRequest('{}'));
 
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  // --- checkout.session.expired (abandoned-checkout recovery) ---
+
+  it('sends the recovery email when an expired subscription checkout has a recovery URL', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('checkout.session.expired', {
+        mode: 'subscription',
+        metadata: { userId: 'user-1' },
+        after_expiration: {
+          recovery: { url: 'https://checkout.stripe.com/c/pay/recovery_abc123' },
+        },
+      }),
+    );
+    mockSendCheckoutRecoveryEmail.mockResolvedValue('sent');
+
+    const res = await POST(makeRequest('{}'));
+
+    expect(res.status).toBe(200);
+    expect(mockSendCheckoutRecoveryEmail).toHaveBeenCalledWith({
+      userId: 'user-1',
+      recoveryUrl: 'https://checkout.stripe.com/c/pay/recovery_abc123',
+    });
+  });
+
+  it('skips recovery when the expired session has no recovery URL', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('checkout.session.expired', {
+        mode: 'subscription',
+        metadata: { userId: 'user-1' },
+        after_expiration: null,
+      }),
+    );
+
+    const res = await POST(makeRequest('{}'));
+
+    expect(res.status).toBe(200);
+    expect(mockSendCheckoutRecoveryEmail).not.toHaveBeenCalled();
   });
 
   // --- Unknown event types ---

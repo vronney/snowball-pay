@@ -44,7 +44,7 @@ export default function SavePlanModal({
     }
 
     setLoading(true);
-    track(Events.PLAN_SAVED_EMAIL, { email_domain: trimmed.split("@")[1] });
+    track(Events.PLAN_SAVED_EMAIL, { source: "save_plan_modal" });
     track(Events.SIGNUP_STARTED, { source: "save_plan_modal" });
 
     // Persist the lead + plan summary server-side before the Auth0 redirect,

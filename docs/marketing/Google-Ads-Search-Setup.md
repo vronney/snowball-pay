@@ -2,6 +2,8 @@
 
 **Goal:** Replace the stuck Performance Max campaign with a standard Search campaign that serves normally for a sensitive (debt) category, and fix conversion tracking so the new campaign can actually optimize.
 
+> **Release gate:** Prepare the campaign and creative now, but keep paid spend paused until signup-to-first-plan activation is at least 45%. The product records `signup_completed` and `plan_generated`, and Google Ads conversion code is wired to successful onboarding completion. Verify the live conversion, deduplication, and UTM attribution before launch. Current activation performance is not documented in the repo, so the gate is not assumed to be open.
+
 **Why we're switching:** Your PMax asset group is stuck at "Eligible (Limited)" because Google won't personalize ads for the "negative financial status" category — that kills most of PMax's inventory (Display, YouTube, Discover, Gmail). Search uses keyword/contextual targeting, which **is** allowed for this category. Same product, a lane Google actually lets you run in.
 
 > Do the steps in order. **Phase 1 (conversion tracking) comes first** — without it, the new campaign is flying blind, exactly like the old one (54 clicks, $37.53 spent, 0 conversions recorded).
@@ -10,7 +12,7 @@
 
 ## Phase 1 — Fix conversion tracking (do this FIRST)
 
-A "conversion" is the action you want visitors to take. For SnowballPay the natural one is **starting a plan / signing up**. Right now Google is recording zero, which means either no tag is installed or it isn't firing.
+A "conversion" is the action you want visitors to take. For SnowballPay the primary paid-media outcome is **successfully creating the first plan**, not clicking the CTA or merely opening signup. The codebase now includes the Google tag and a conversion call after successful onboarding. Treat the steps below as a live verification and recovery runbook; do not assume production reporting is correct until a real test conversion appears in Google Ads.
 
 ### Step 1.1 — Create the conversion action in Google Ads
 1. Top-right of Google Ads, click the **Goals** icon (target/flag) → **Conversions** → **Summary**.

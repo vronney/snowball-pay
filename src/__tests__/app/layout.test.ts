@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 describe('root layout analytics scripts', () => {
-  it('queues Google Ads configuration before hydration can emit conversions', () => {
+  it('defaults Google consent to denied and defers the network loader', () => {
     const source = readFileSync(
       fileURLToPath(new URL('../../app/layout.tsx', import.meta.url)),
       'utf8',
@@ -12,15 +12,16 @@ describe('root layout analytics scripts', () => {
       '<Script id="google-ads" strategy="beforeInteractive">',
     );
     const bootstrapEnd = source.indexOf('</Script>', bootstrapStart);
-    const loaderStart = source.indexOf('https://www.googletagmanager.com/gtag/js');
     const bootstrap = source.slice(bootstrapStart, bootstrapEnd);
-    const jsStart = bootstrap.indexOf("gtag('js'");
-    const configStart = bootstrap.indexOf("gtag('config'");
 
     expect(bootstrapStart).toBeGreaterThan(-1);
     expect(bootstrapEnd).toBeGreaterThan(bootstrapStart);
-    expect(loaderStart).toBeGreaterThan(bootstrapEnd);
-    expect(jsStart).toBeGreaterThan(-1);
-    expect(configStart).toBeGreaterThan(jsStart);
+    expect(bootstrap).toContain("window.gtag('consent', 'default'");
+    expect(bootstrap).toContain("ad_storage: 'denied'");
+    expect(bootstrap).toContain("analytics_storage: 'denied'");
+    expect(bootstrap).toContain("ad_user_data: 'denied'");
+    expect(source).not.toContain(
+      'src="https://www.googletagmanager.com/gtag/js',
+    );
   });
 });

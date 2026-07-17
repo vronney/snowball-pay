@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe, getStripeProPriceId, getStripeProAnnualPriceId } from '@/lib/stripe';
+import { getStripe, getStripeProPriceId } from '@/lib/stripe';
 import { PRO_TRIAL_DAYS } from '@/lib/billing';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
+import { ANALYTICS_CONSENT_KEY } from '@/lib/analyticsConsent';
+
+// Short session expiry (Stripe minimum is 30 minutes; default is 24 hours) so
+// the abandoned-checkout recovery email follows while intent is still warm.
+const CHECKOUT_SESSION_TTL_MINUTES = 120;
 
 function isMissingStripeCustomerError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
@@ -18,9 +23,10 @@ export async function POST(request: NextRequest) {
   if (!auth.valid || !auth.user) return unauthorized();
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-
-  const body = await request.json().catch(() => ({})) as { billing?: 'monthly' | 'annual' };
-  const billing = body.billing === 'annual' ? 'annual' : 'monthly';
+  const analyticsConsent =
+    request.cookies.get(ANALYTICS_CONSENT_KEY)?.value === 'granted'
+      ? 'granted'
+      : 'denied';
 
   try {
     // Fetch or create a Stripe customer for this user.
@@ -33,13 +39,7 @@ export async function POST(request: NextRequest) {
 
     let customerId = user?.stripeCustomerId;
     const stripe = getStripe();
-    const annualPriceId = getStripeProAnnualPriceId();
-    const priceId = billing === 'annual' && annualPriceId
-      ? annualPriceId
-      : getStripeProPriceId();
-    // Annual plan: 3-day trial only — annual is a larger upfront commitment so
-    // we keep the trial short to reduce abuse while still letting users verify billing.
-    const trialDays = billing === 'annual' && annualPriceId ? 3 : PRO_TRIAL_DAYS;
+    const priceId = getStripeProPriceId();
     const userEmail = user?.email ?? auth.user.email;
 
     const createAndPersistCustomer = async () => {
@@ -60,10 +60,17 @@ export async function POST(request: NextRequest) {
         mode: 'subscription',
         line_items: [{ price: priceId, quantity: 1 }],
         allow_promotion_codes: true,
-        metadata: { userId: auth.user.id, billing },
+        // Abandoned-checkout recovery: when the session expires unpaid, Stripe
+        // fires checkout.session.expired with a 30-day recovery URL that the
+        // webhook emails to the user (see /api/webhooks/stripe).
+        after_expiration: {
+          recovery: { enabled: true, allow_promotion_codes: true },
+        },
+        expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_SESSION_TTL_MINUTES * 60,
+        metadata: { userId: auth.user.id, billing: 'monthly', analyticsConsent },
         subscription_data: {
-          trial_period_days: trialDays,
-          metadata: { userId: auth.user.id, billing },
+          trial_period_days: PRO_TRIAL_DAYS,
+          metadata: { userId: auth.user.id, billing: 'monthly', analyticsConsent },
         },
         success_url: `${appUrl}/dashboard?upgrade=success`,
         cancel_url: `${appUrl}/dashboard?upgrade=canceled`,

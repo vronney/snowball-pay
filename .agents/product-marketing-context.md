@@ -1,6 +1,6 @@
 # Product Marketing Context
 
-*Last updated: April 27, 2026*
+*Last updated: July 16, 2026*
 
 ## Product Overview
 **One-liner:**  
@@ -16,7 +16,7 @@ Debt payoff planner, personal finance planning app, debt reduction calculator
 B2C SaaS web app
 
 **Business model:**  
-Freemium subscription. Free tier supports core planning with limits (up to 5 debts). Pro tier ($9/month with trial) unlocks unlimited debts, advanced analytics, AI-style recommendations, and deeper planning tools.
+Freemium subscription. Free tier supports core planning with limits (up to 5 debts). Pro is $12/month with a 14-day trial — monthly billing only; there is no annual plan. Pro unlocks unlimited debts, bank sync via Plaid, advanced analytics, AI-style recommendations, and deeper planning tools.
 
 ## Target Audience
 **Target companies:**  
@@ -177,5 +177,14 @@ Increase activation and conversion from free users to consistent planners and Pr
 Primary: start free and set up first payoff plan.  
 Secondary: upgrade to Pro for advanced planning features.
 
-**Current metrics:**  
-Not documented in-repo. Suggested to track: sign-up rate, plan-created rate, first-week return rate, and Free-to-Pro conversion rate.
+**Current direct onboarding:**
+Three required steps: monthly capacity, payoff strategy, and first debt. Calculator-qualified users receive an express plan confirmation instead. Consented `onboarding_step_viewed`, `onboarding_step_completed`, and `onboarding_skipped` events diagnose first-plan setup friction; `signup_completed` remains the successful saved-plan conversion and `plan_generated` remains the canonical rendered-plan activation event.
+
+**Current Pro upgrade experience:**
+After activation, free users who request a Pro capability see a `contextual_v1` preview tied to that intent: unlimited debts, bank sync, what-if scenarios, Payoff Coach, or Intelligence. Each preview uses one outcome-led headline, three concrete benefits, current plan context when available, a trial CTA, and a clear `Continue with Free` exit. Track `upgrade_modal_viewed`, `upgrade_modal_dismissed`, and `checkout_started` with `feature`, normalized `trigger`, and `message_version`. Existing trial users do not enter a second checkout; a dismissible notice appears only in the final seven days and opens Stripe billing review.
+
+**Current lifecycle return loop:**
+The `supportive_v1` saved-plan check-in sends once to an activated, email-eligible user after 30 complete days without a durable plan change or logged payment. It contains no financial values, uses one practical dashboard CTA, carries lifecycle UTMs, and exits permanently after Resend accepts the message for delivery. Resend idempotency prevents duplicate delivery during retries. The cron is capped at 50 sends per run.
+
+**Current aggregate baseline (July 15, 2026):**
+20 configured-database users, 2 live active Pro subscriptions, $18 live MRR, $9 blended MRR per active Pro, 4 new users in the prior 30 days, 13 users with debt and income data, and 2 users recording a payment in the prior 30 days. Live Stripe and the database reconcile on active paid count. At the current live blend, 1,000 Pro would produce $9,000 MRR and $10K MRR would require 1,112 Pro. Run `npm run growth:scorecard -- --stripe-mode live` for the aggregate baseline and offer-mix model. Consented PostHog instrumentation exists; production activation, attribution, and retention baselines still need live verification.

@@ -10,6 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "test:growth-scorecard": "node --test scripts/growth-scorecard.test.mjs",
+    "growth:scorecard": "node scripts/growth-scorecard.mjs",
     "db:push": "npx prisma db push",
     "db:migrate": "npx prisma migrate dev",
     "db:studio": "npx prisma studio",

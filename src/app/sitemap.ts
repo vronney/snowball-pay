@@ -63,6 +63,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.8,
     },
     {
+      url: `${BASE_URL}/learn/which-debt-should-i-pay-first`,
+      lastModified: new Date('2026-07-15'),
+      changeFrequency: 'monthly',
+      priority: 0.85,
+    },
+    {
       url: `${BASE_URL}/contact`,
       lastModified,
       changeFrequency: 'monthly',

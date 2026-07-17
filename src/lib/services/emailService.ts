@@ -44,18 +44,27 @@ export async function sendEmail(
   from: string,
   subject: string,
   html: string,
-): Promise<{ success: boolean; error?: string }> {
+  options: { idempotencyKey?: string } = {},
+): Promise<{ success: boolean; id?: string; error?: string }> {
   const resend = getResendClient();
   if (!resend) {
     return { success: false, error: 'email_not_configured' };
   }
 
   try {
-    await resend.emails.send({ from, to, subject, html });
-    return { success: true };
+    const response = await resend.emails.send(
+      { from, to, subject, html },
+      options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined,
+    );
+    if (response.error) {
+      const errorMsg = response.error.message || 'email_provider_error';
+      console.error('[email send error]', { subject, error: errorMsg });
+      return { success: false, error: errorMsg };
+    }
+    return { success: true, id: response.data?.id };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
-    console.error('[email send error]', { to, subject, error: errorMsg });
+    console.error('[email send error]', { subject, error: errorMsg });
     return { success: false, error: errorMsg };
   }
 }

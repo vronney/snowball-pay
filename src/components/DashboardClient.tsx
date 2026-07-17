@@ -100,7 +100,7 @@ export default function DashboardClient({
   useEffect(() => {
     if (searchParams.get("checkout") === "pro") {
       track(Events.CHECKOUT_STARTED, { source: "pricing_page" });
-      startCheckout.mutate('monthly');
+      startCheckout.mutate();
       const url = new URL(window.location.href);
       url.searchParams.delete("checkout");
       window.history.replaceState({}, "", url.toString());

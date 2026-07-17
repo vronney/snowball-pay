@@ -7,6 +7,9 @@ import { NextRequest } from 'next/server';
 
 const { mockStripe, mockPrisma } = vi.hoisted(() => {
   const mockStripe = {
+    subscriptions: {
+      update: vi.fn(),
+    },
     billingPortal: {
       sessions: {
         create: vi.fn(),
@@ -48,8 +51,13 @@ const UNAUTHED = { valid: false as const, user: null };
 
 const PORTAL_URL = 'https://billing.stripe.com/session/test_abc123';
 
-function makeRequest() {
-  return new NextRequest('http://localhost/api/stripe/portal', { method: 'POST' });
+function makeRequest(body?: Record<string, unknown>) {
+  return new NextRequest('http://localhost/api/stripe/portal', {
+    method: 'POST',
+    ...(body
+      ? { body: JSON.stringify(body), headers: { 'content-type': 'application/json' } }
+      : {}),
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -127,6 +135,52 @@ describe('POST /api/stripe/portal', () => {
     expect(mockStripe.billingPortal.sessions.create).toHaveBeenCalledWith(
       expect.objectContaining({ return_url: 'https://myapp.com/dashboard?tab=settings' }),
     );
+  });
+
+  it('records a validated cancellation reason on the owned subscription', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      stripeCustomerId: 'cus_existing_456',
+      stripeSubscriptionId: 'sub_owned_123',
+    });
+    mockStripe.subscriptions.update.mockResolvedValue({});
+    mockStripe.billingPortal.sessions.create.mockResolvedValue({ url: PORTAL_URL });
+
+    const res = await POST(makeRequest({ cancellationReason: 'too_expensive' }));
+
+    expect(res.status).toBe(200);
+    expect(mockStripe.subscriptions.update).toHaveBeenCalledWith('sub_owned_123', {
+      metadata: {
+        cancel_intent_reason: 'too_expensive',
+        cancel_intent_at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      },
+    });
+  });
+
+  it('does not block the portal when cancellation metadata cannot be saved', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      stripeCustomerId: 'cus_existing_456',
+      stripeSubscriptionId: 'sub_owned_123',
+    });
+    mockStripe.subscriptions.update.mockRejectedValueOnce(new Error('metadata unavailable'));
+    mockStripe.billingPortal.sessions.create.mockResolvedValue({ url: PORTAL_URL });
+
+    const res = await POST(makeRequest({ cancellationReason: 'temporary_break' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.url).toBe(PORTAL_URL);
+  });
+
+  it('rejects unknown cancellation reasons before calling Stripe', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+
+    const res = await POST(makeRequest({ cancellationReason: 'give_me_a_discount' }));
+
+    expect(res.status).toBe(400);
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    expect(mockStripe.billingPortal.sessions.create).not.toHaveBeenCalled();
   });
 
   // --- Stripe error ---

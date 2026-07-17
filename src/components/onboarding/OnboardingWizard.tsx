@@ -18,17 +18,20 @@ import {
 } from "@/lib/calculatorDraft";
 import { track, Events } from "@/lib/analytics";
 import { PLANS } from "@/lib/stripe";
+import {
+  ONBOARDING_DRAFT_VERSION,
+  ONBOARDING_STEPS,
+  normaliseOnboardingStep,
+} from "@/lib/onboardingFunnel";
 import { ChevronRight, ChevronLeft, Check, DollarSign, Info } from "lucide-react";
 
 const FREE_DEBT_LIMIT = PLANS.free.debtLimit;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Goal = "faster" | "interest" | "simplify" | "plan";
 type Strategy = "snowball" | "avalanche" | "custom";
 
 interface StepState {
-  goal: Goal | null;
   monthlyIncome: string;
   essentialExpenses: string;
   extraPayment: string;
@@ -41,7 +44,6 @@ interface StepState {
 }
 
 const INITIAL_STATE: StepState = {
-  goal: null,
   monthlyIncome: "",
   essentialExpenses: "",
   extraPayment: "",
@@ -57,7 +59,14 @@ const INITIAL_STATE: StepState = {
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
   return (
-    <div className="flex items-center gap-2 justify-center mb-8">
+    <div
+      className="flex items-center gap-2 justify-center mb-8"
+      role="progressbar"
+      aria-label="Account setup progress"
+      aria-valuemin={1}
+      aria-valuemax={total}
+      aria-valuenow={current + 1}
+    >
       {Array.from({ length: total }).map((_, i) => (
         <div
           key={i}
@@ -73,86 +82,7 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
   );
 }
 
-// ─── Step 1 — Goals ──────────────────────────────────────────────────────────
-
-const GOALS: { id: Goal; label: string; desc: string; emoji: string }[] = [
-  {
-    id: "faster",
-    label: "Pay off debt faster",
-    desc: "Use extra payments strategically.",
-    emoji: "⚡",
-  },
-  {
-    id: "interest",
-    label: "Lower interest paid",
-    desc: "Focus on high-rate debts first.",
-    emoji: "📉",
-  },
-  {
-    id: "simplify",
-    label: "Simplify monthly payments",
-    desc: "One clear plan each month.",
-    emoji: "🗂",
-  },
-  {
-    id: "plan",
-    label: "Build a realistic plan",
-    desc: "See your debt-free date.",
-    emoji: "📅",
-  },
-];
-
-function StepGoals({
-  state,
-  onChange,
-}: {
-  state: StepState;
-  onChange: (g: Goal) => void;
-}) {
-  return (
-    <div>
-      <h2 className="text-2xl font-bold mb-1" style={{ color: "#111827" }}>
-        What&apos;s your primary goal?
-      </h2>
-      <p className="text-sm mb-6" style={{ color: "#6B7280" }}>
-        Choose one — you can always change this later.
-      </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {GOALS.map((g) => {
-          const active = state.goal === g.id;
-          return (
-            <button
-              key={g.id}
-              onClick={() => onChange(g.id)}
-              className="text-left rounded-xl p-4 transition-all"
-              style={{
-                background: active ? "rgba(37,99,235,0.07)" : "#ffffff",
-                border: active
-                  ? "2px solid #2563eb"
-                  : "2px solid rgba(15,23,42,0.1)",
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              <span style={{ fontSize: 22 }}>{g.emoji}</span>
-              <p
-                className="font-semibold text-sm mt-2"
-                style={{ color: "#111827" }}
-              >
-                {g.label}
-              </p>
-              <p className="text-xs mt-0.5" style={{ color: "#6B7280" }}>
-                {g.desc}
-              </p>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── Step 2 — Monthly budget ──────────────────────────────────────────────────
+// ─── Step 1 — Monthly budget ──────────────────────────────────────────────────
 
 function NumberInput({
   label,
@@ -160,6 +90,9 @@ function NumberInput({
   onChange,
   hint,
   invalid = false,
+  prefix = "$",
+  suffix,
+  max,
 }: {
   label: string;
   value: string;
@@ -169,6 +102,9 @@ function NumberInput({
    *  validation error — matches the --error (#ef4444) token in DESIGN.md
    *  and the existing pattern in SavePlanModal's email field. */
   invalid?: boolean;
+  prefix?: string | null;
+  suffix?: string;
+  max?: number;
 }) {
   return (
     <div className="space-y-1">
@@ -176,25 +112,29 @@ function NumberInput({
         {label}
       </label>
       <div
-        className="flex items-center rounded-xl border overflow-hidden"
+        className="flex items-center rounded-lg border overflow-hidden"
         style={{
           borderColor: invalid ? "#ef4444" : "rgba(15,23,42,0.15)",
           background: "#ffffff",
         }}
       >
-        <span
-          className="px-3 py-3 text-sm font-semibold"
-          style={{
-            color: "#94a3b8",
-            background: "#F8FAFC",
-            borderRight: "1px solid rgba(15,23,42,0.1)",
-          }}
-        >
-          $
-        </span>
+        {prefix && (
+          <span
+            className="px-3 py-3 text-sm font-semibold"
+            style={{
+              color: "#94a3b8",
+              background: "#F8FAFC",
+              borderRight: "1px solid rgba(15,23,42,0.1)",
+            }}
+          >
+            {prefix}
+          </span>
+        )}
         <input
           type="number"
           min="0"
+          max={max}
+          step="any"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="0"
@@ -205,6 +145,18 @@ function NumberInput({
             background: "transparent",
           }}
         />
+        {suffix && (
+          <span
+            className="px-3 py-3 text-sm font-semibold"
+            style={{
+              color: "#64748b",
+              background: "#F8FAFC",
+              borderLeft: "1px solid rgba(15,23,42,0.1)",
+            }}
+          >
+            {suffix}
+          </span>
+        )}
       </div>
       {hint && (
         <p className="text-xs" style={{ color: "#94a3b8" }}>
@@ -327,7 +279,7 @@ function StepBudget({
   );
 }
 
-// ─── Step 3 — Strategy ───────────────────────────────────────────────────────
+// ─── Step 2 — Strategy ───────────────────────────────────────────────────────
 
 const STRATEGIES: {
   id: Strategy;
@@ -410,7 +362,7 @@ function StepStrategy({
   );
 }
 
-// ─── Step 4 — First debt ─────────────────────────────────────────────────────
+// ─── Step 3 — First debt ─────────────────────────────────────────────────────
 
 const CATEGORIES = [
   "Credit Card",
@@ -433,7 +385,8 @@ function StepFirstDebt({
 }) {
   const nameInvalid = showErrors && !state.debtName.trim();
   const balanceInvalid = showErrors && (parseFloat(state.debtBalance) || 0) <= 0;
-  const aprInvalid = showErrors && (parseFloat(state.debtApr) || 0) < 0;
+  const apr = parseFloat(state.debtApr) || 0;
+  const aprInvalid = showErrors && (apr < 0 || apr > 100);
   const minInvalid = showErrors && (parseFloat(state.debtMin) || 0) < 0;
 
   return (
@@ -454,7 +407,7 @@ function StepFirstDebt({
             value={state.debtName}
             onChange={(e) => onField("debtName", e.target.value)}
             placeholder="e.g. Chase Visa, Student Loan"
-            className="w-full rounded-xl border px-3 py-3 text-sm outline-none"
+            className="w-full rounded-lg border px-3 py-3 text-sm outline-none"
             style={{
               borderColor: nameInvalid ? "#ef4444" : "rgba(15,23,42,0.15)",
               fontFamily: "inherit",
@@ -469,7 +422,7 @@ function StepFirstDebt({
           <select
             value={state.debtCategory}
             onChange={(e) => onField("debtCategory", e.target.value)}
-            className="w-full rounded-xl border px-3 py-3 text-sm outline-none"
+            className="w-full rounded-lg border px-3 py-3 text-sm outline-none"
             style={{
               borderColor: "rgba(15,23,42,0.15)",
               fontFamily: "inherit",
@@ -496,6 +449,9 @@ function StepFirstDebt({
             value={state.debtApr}
             onChange={(v) => onField("debtApr", v)}
             invalid={aprInvalid}
+            prefix={null}
+            suffix="%"
+            max={100}
           />
           <NumberInput
             label="Minimum payment"
@@ -511,7 +467,7 @@ function StepFirstDebt({
 
 // ─── Wizard shell ─────────────────────────────────────────────────────────────
 
-const STEPS = 4;
+const STEPS = ONBOARDING_STEPS.length;
 const ONBOARDING_DRAFT_KEY = "sp_onboarding_draft_v1";
 const ONBOARDING_DRAFT_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 
@@ -552,10 +508,6 @@ function draftDebtsToPayload(draft: CalculatorDraft): OnboardingDebtPayload[] {
 
 function getStepError(step: number, state: StepState): string | null {
   if (step === 0) {
-    return state.goal ? null : "Choose a primary goal to continue.";
-  }
-
-  if (step === 1) {
     const income = parseFloat(state.monthlyIncome) || 0;
     const essential = parseFloat(state.essentialExpenses) || 0;
     const extra = parseFloat(state.extraPayment) || 0;
@@ -571,13 +523,15 @@ function getStepError(step: number, state: StepState): string | null {
     return null;
   }
 
-  if (step === 2) return null;
+  if (step === 1) return null;
 
-  if (step === 3) {
+  if (step === 2) {
     if (!state.debtName.trim()) return "Add a debt name or creditor.";
     if ((parseFloat(state.debtBalance) || 0) <= 0)
       return "Current balance must be greater than $0.";
     if ((parseFloat(state.debtApr) || 0) < 0) return "APR cannot be negative.";
+    if ((parseFloat(state.debtApr) || 0) > 100)
+      return "APR cannot exceed 100%.";
     if ((parseFloat(state.debtMin) || 0) < 0)
       return "Minimum payment cannot be negative.";
     return null;
@@ -610,9 +564,12 @@ export function OnboardingWizard({
   // confirmation instead of re-collecting it (their plan, not a form).
   const [calcDraft, setCalcDraft] = useState<CalculatorDraft | null>(null);
   const [mode, setMode] = useState<"express" | "wizard">("wizard");
+  const [draftResolved, setDraftResolved] = useState(false);
   const submitIdempotencyKeyRef = useRef<string | null>(null);
+  const viewedStepsRef = useRef(new Set<string>());
+  const completedStepsRef = useRef(new Set<string>());
   // Which steps the user has actually interacted with (typed in a field,
-  // picked a goal/strategy). Gates when validation becomes *visible* —
+  // picked a strategy). Gates when validation becomes *visible* —
   // canProceed()/getStepError() below are unaffected, so the Continue button
   // stays correctly disabled from the first render. This only controls the
   // message + red-border styling, so a step never scolds the user before
@@ -626,6 +583,10 @@ export function OnboardingWizard({
   const stepError = getStepError(step, state);
   const showStepErrors = touchedSteps.has(step);
   const visibleStepError = showStepErrors ? stepError : null;
+  const onboardingSource =
+    calcDraft || searchParams.get("source") === "calculator"
+      ? "calculator"
+      : "direct";
 
   useEffect(() => {
     // Two possible sources for the calculator session: this browser's
@@ -656,15 +617,18 @@ export function OnboardingWizard({
         debtMin: first?.minimum || current.debtMin,
         debtCategory: sanitizeCategory(calc.debtCategory),
       }));
-      setStep(1);
+      setStep(0);
+      setDraftResolved(true);
       return;
     }
     try {
       const raw = localStorage.getItem(ONBOARDING_DRAFT_KEY);
       if (!raw) return;
       const parsed = JSON.parse(raw) as Partial<StepState> & {
-        step?: number;
-        savedAt?: number;
+        goal?: unknown;
+        step?: unknown;
+        savedAt?: unknown;
+        draftVersion?: unknown;
       };
       if (
         typeof parsed.savedAt === "number" &&
@@ -673,16 +637,49 @@ export function OnboardingWizard({
         localStorage.removeItem(ONBOARDING_DRAFT_KEY);
         return;
       }
-      setState((current) => ({ ...current, ...parsed }));
-      if (
-        typeof parsed.step === "number" &&
-        parsed.step >= 0 &&
-        parsed.step < STEPS
-      ) {
-        setStep(parsed.step);
-      }
+      setState((current) => ({
+        ...current,
+        monthlyIncome:
+          typeof parsed.monthlyIncome === "string"
+            ? parsed.monthlyIncome
+            : current.monthlyIncome,
+        essentialExpenses:
+          typeof parsed.essentialExpenses === "string"
+            ? parsed.essentialExpenses
+            : current.essentialExpenses,
+        extraPayment:
+          typeof parsed.extraPayment === "string"
+            ? parsed.extraPayment
+            : current.extraPayment,
+        strategy:
+          sanitizeStrategy(parsed.strategy ?? null) ?? current.strategy,
+        debtName:
+          typeof parsed.debtName === "string"
+            ? parsed.debtName
+            : current.debtName,
+        debtBalance:
+          typeof parsed.debtBalance === "string"
+            ? parsed.debtBalance
+            : current.debtBalance,
+        debtApr:
+          typeof parsed.debtApr === "string"
+            ? parsed.debtApr
+            : current.debtApr,
+        debtMin:
+          typeof parsed.debtMin === "string"
+            ? parsed.debtMin
+            : current.debtMin,
+        debtCategory:
+          typeof parsed.debtCategory === "string" &&
+          CATEGORIES.includes(parsed.debtCategory)
+            ? parsed.debtCategory
+            : current.debtCategory,
+      }));
+      setStep(normaliseOnboardingStep(parsed.step, parsed.draftVersion));
     } catch {
       // Ignore corrupted draft data
+    } finally {
+      setDraftResolved(true);
     }
   }, [serverDraft]);
 
@@ -729,19 +726,40 @@ export function OnboardingWizard({
           ? debtCategory
           : current.debtCategory,
     }));
-    setStep((current) => (current < 1 ? 1 : current));
   }, [searchParams]);
 
   useEffect(() => {
+    if (!draftResolved || mode !== "wizard") return;
+    const stepName = ONBOARDING_STEPS[step];
+    if (!stepName) return;
+
+    const viewKey = `${onboardingSource}:${stepName}`;
+    if (viewedStepsRef.current.has(viewKey)) return;
+    viewedStepsRef.current.add(viewKey);
+    track(Events.ONBOARDING_STEP_VIEWED, {
+      step: stepName,
+      position: step + 1,
+      total_steps: STEPS,
+      source: onboardingSource,
+    });
+  }, [draftResolved, mode, onboardingSource, step]);
+
+  useEffect(() => {
+    if (!draftResolved) return;
     try {
       localStorage.setItem(
         ONBOARDING_DRAFT_KEY,
-        JSON.stringify({ ...state, step, savedAt: Date.now() }),
+        JSON.stringify({
+          ...state,
+          step,
+          draftVersion: ONBOARDING_DRAFT_VERSION,
+          savedAt: Date.now(),
+        }),
       );
     } catch {
       // Ignore storage failures
     }
-  }, [state, step]);
+  }, [draftResolved, state, step]);
 
   // Warn before accidental tab close / navigation during wizard.
   // The express screen has nothing to lose (the plan is persisted), so
@@ -763,6 +781,21 @@ export function OnboardingWizard({
 
   function canProceed() {
     return getStepError(step, state) == null;
+  }
+
+  function trackStepCompleted(stepIndex: number) {
+    const stepName = ONBOARDING_STEPS[stepIndex];
+    if (!stepName) return;
+
+    const completionKey = `${onboardingSource}:${stepName}`;
+    if (completedStepsRef.current.has(completionKey)) return;
+    completedStepsRef.current.add(completionKey);
+    track(Events.ONBOARDING_STEP_COMPLETED, {
+      step: stepName,
+      position: stepIndex + 1,
+      total_steps: STEPS,
+      source: onboardingSource,
+    });
   }
 
   async function submitOnboarding(
@@ -804,11 +837,12 @@ export function OnboardingWizard({
         debt_count: debtCount,
         method: payload.income.payoffMethod,
         mode: completionMode,
-        source: searchParams.get("source") === "calculator"
-          ? "calculator"
-          : "direct",
+        source: onboardingSource,
       };
 
+      if (completionMode === "wizard") {
+        trackStepCompleted(STEPS - 1);
+      }
       track(Events.SIGNUP_COMPLETED, analyticsProperties);
       if (completionMode === "express") {
         track(Events.ONBOARDING_EXPRESS_COMPLETED, analyticsProperties);
@@ -890,6 +924,7 @@ export function OnboardingWizard({
     // The button is `disabled` when this is false, so this is a defensive
     // guard, not the primary gate — see the Continue button below.
     if (canProceed()) {
+      trackStepCompleted(step);
       setStep((s) => s + 1);
     }
   };
@@ -900,7 +935,7 @@ export function OnboardingWizard({
       style={{ background: "#F8FAFC" }}
     >
       <div
-        className="w-full max-w-lg rounded-2xl p-8"
+        className="w-full max-w-lg rounded-xl p-8"
         style={{
           background: "#ffffff",
           boxShadow: "0 8px 24px rgba(17,24,39,0.08)",
@@ -912,7 +947,7 @@ export function OnboardingWizard({
           <a
             href="/"
             className="text-lg font-bold"
-            style={{ color: "#2563eb", textDecoration: "none" }}
+            style={{ color: "#0f172a", textDecoration: "none" }}
           >
             SnowballPay
           </a>
@@ -960,7 +995,7 @@ export function OnboardingWizard({
                     <strong
                       className="mono"
                       style={{
-                        color: "#27AE60",
+                        color: "#10b981",
                         fontVariantNumeric: "tabular-nums",
                       }}
                     >
@@ -974,7 +1009,7 @@ export function OnboardingWizard({
                   <Check
                     size={14}
                     style={{
-                      color: "#27AE60",
+                      color: "#10b981",
                       display: "inline",
                       marginRight: 6,
                       verticalAlign: "-2px",
@@ -1003,7 +1038,7 @@ export function OnboardingWizard({
                   <Check
                     size={14}
                     style={{
-                      color: "#27AE60",
+                      color: "#10b981",
                       display: "inline",
                       marginRight: 6,
                       verticalAlign: "-2px",
@@ -1021,7 +1056,7 @@ export function OnboardingWizard({
                   <Check
                     size={14}
                     style={{
-                      color: "#27AE60",
+                      color: "#10b981",
                       display: "inline",
                       marginRight: 6,
                       verticalAlign: "-2px",
@@ -1055,10 +1090,10 @@ export function OnboardingWizard({
             <button
               onClick={() => void handleExpressFinish()}
               disabled={submitting}
-              className="w-full flex items-center justify-center gap-1.5 rounded-xl px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-1.5 rounded-lg px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
                 // Solid fill — DESIGN.md disallows gradient CTA buttons.
-                background: submitting ? "#94a3b8" : "#27AE60",
+                background: submitting ? "#94a3b8" : "#2563eb",
                 border: "none",
                 cursor: submitting ? "not-allowed" : "pointer",
                 fontFamily: "inherit",
@@ -1103,28 +1138,19 @@ export function OnboardingWizard({
         {/* Step content */}
         <div className="tab-fade-in">
           {step === 0 && (
-            <StepGoals
-              state={state}
-              onChange={(g) => {
-                setState((s) => ({ ...s, goal: g }));
-                markTouched(0);
-              }}
-            />
-          )}
-          {step === 1 && (
             <StepBudget
               state={state}
               onField={onField}
               showErrors={showStepErrors}
             />
           )}
-          {step === 2 && (
+          {step === 1 && (
             <StepStrategy
               state={state}
               onChange={(s) => setState((st) => ({ ...st, strategy: s }))}
             />
           )}
-          {step === 3 && (
+          {step === 2 && (
             <StepFirstDebt
               state={state}
               onField={onField}
@@ -1138,7 +1164,7 @@ export function OnboardingWizard({
           {step > 0 ? (
             <button
               onClick={() => setStep((s) => s - 1)}
-              className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium transition hover:bg-slate-50"
+              className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-medium transition hover:bg-slate-50"
               style={{
                 color: "#6B7280",
                 border: "1px solid rgba(15,23,42,0.12)",
@@ -1158,9 +1184,9 @@ export function OnboardingWizard({
             <button
               onClick={handleContinue}
               disabled={!canProceed()}
-              className="flex items-center gap-1.5 rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-lg px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
-                background: "linear-gradient(135deg, #2563eb, #3b82f6)",
+                background: "#2563eb",
                 border: "none",
                 cursor: canProceed() ? "pointer" : "not-allowed",
                 fontFamily: "inherit",
@@ -1173,11 +1199,9 @@ export function OnboardingWizard({
             <button
               onClick={() => void handleFinish()}
               disabled={!canProceed() || submitting}
-              className="flex items-center gap-1.5 rounded-xl px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 rounded-lg px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
-                background: submitting
-                  ? "#94a3b8"
-                  : "linear-gradient(135deg, #27AE60, #2ecc71)",
+                background: submitting ? "#94a3b8" : "#2563eb",
                 border: "none",
                 cursor: canProceed() && !submitting ? "pointer" : "not-allowed",
                 fontFamily: "inherit",
@@ -1216,6 +1240,12 @@ export function OnboardingWizard({
             href="/dashboard"
             style={{ color: "#94a3b8", textDecoration: "underline" }}
             onClick={() => {
+              track(Events.ONBOARDING_SKIPPED, {
+                step: ONBOARDING_STEPS[step],
+                position: step + 1,
+                total_steps: STEPS,
+                source: onboardingSource,
+              });
               try {
                 sessionStorage.setItem("sp_onboarding_skipped", "1");
                 // Session cookie too: the dashboard now decides onboarding

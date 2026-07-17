@@ -12,6 +12,14 @@ const { mockPrisma } = vi.hoisted(() => {
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
 
+vi.mock('@/lib/stripe', () => ({
+  getStripe: vi.fn(() => ({ subscriptions: { retrieve: vi.fn() } })),
+  PLANS: {
+    free: { debtLimit: 5 },
+    pro: { debtLimit: Infinity, price: 12 },
+  },
+}));
+
 vi.mock('@/lib/auth-server', () => ({
   verifyAuth: vi.fn(),
   unauthorized: vi.fn(() => new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 })),
@@ -60,6 +68,8 @@ describe('GET /api/user/subscription', () => {
     expect(body.subscriptionEndsAt).toBe(trialEnd.toISOString());
     expect(body.isCanceling).toBe(false);
     expect(body.hasCustomer).toBe(true);
+    expect(body.monthlyPrice).toBe(12);
+    expect(body.annualAvailable).toBeUndefined();
   });
 
   it('marks active subscriptions with an end date as canceling', async () => {

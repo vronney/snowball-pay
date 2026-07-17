@@ -1,4 +1,4 @@
-import { Html, Head, Body, Container, Section, Heading, Text, Button, Hr } from '@react-email/components';
+import { Html, Head, Preview, Body, Container, Section, Heading, Text, Button, Hr } from '@react-email/components';
 import * as React from 'react';
 
 interface EmailLayoutProps {
@@ -6,15 +6,17 @@ interface EmailLayoutProps {
   headerLabel?: string;
   headerTitle: string;
   headerSubtitle?: string;
+  previewText?: string;
   unsubscribeUrl?: string;
   children: React.ReactNode;
 }
 
 function EmailLayout({
-  headerGradient, headerLabel, headerTitle, headerSubtitle, unsubscribeUrl, children,
+  headerGradient, headerLabel, headerTitle, headerSubtitle, previewText, unsubscribeUrl, children,
 }: EmailLayoutProps) {
   return (
     <Html>
+      {previewText && <Preview>{previewText}</Preview>}
       <Head>
         <style>{`@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;900&display=swap');`}</style>
       </Head>

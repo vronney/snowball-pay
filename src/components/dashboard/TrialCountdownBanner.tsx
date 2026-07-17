@@ -1,10 +1,10 @@
 "use client";
 
-import { X, Zap } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import { useState } from "react";
-import { type SubscriptionInfo } from "@/lib/hooks";
-import { upgradeEvents } from "@/lib/upgradeEvents";
-import { PRO_TRIAL_DAYS } from "@/lib/billing";
+import { getErrorMessage, type SubscriptionInfo, useOpenBillingPortal } from "@/lib/hooks";
+import { track, Events } from "@/lib/analytics";
+import { shouldShowLateTrialNotice } from "@/lib/upgradeMessaging";
 
 /** Returns whole days remaining until a future date string, or null if not applicable. */
 function daysUntil(dateStr: string): number | null {
@@ -22,19 +22,31 @@ interface TrialCountdownBannerProps {
 
 export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }: TrialCountdownBannerProps) {
   const [dismissed, setDismissed] = useState(false);
+  const portal = useOpenBillingPortal();
 
   if (dismissed) return null;
   if (!sub || sub.subscriptionStatus !== "trialing" || !sub.subscriptionEndsAt) return null;
 
   const days = daysUntil(sub.subscriptionEndsAt);
-  if (days === null || days < 0) return null;
+  if (days === null || !shouldShowLateTrialNotice(days)) return null;
 
   const urgent = days <= 3;
   const label = days === 0
     ? "Your trial ends today"
     : days === 1
       ? "1 day left in your trial"
-      : `${days} days left in your ${PRO_TRIAL_DAYS}-day trial`;
+      : `${days} days left in your Pro trial`;
+  const portalError = portal.isError
+    ? getErrorMessage(portal.error, "Could not open billing. Please try again.")
+    : null;
+
+  function handleReviewBilling() {
+    track(Events.BILLING_PORTAL_OPENED, {
+      source: "trial_countdown",
+      intent: "review_trial_billing",
+    });
+    portal.mutate(undefined);
+  }
 
   return (
     <div
@@ -50,26 +62,36 @@ export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }:
         color: urgent ? "#92400e" : "#1e40af",
       }}
     >
-      <span>
-        <span style={{ fontWeight: 600 }}>{label}</span>
-        {hasLinkedBankDebt
-          ? " — after that, coach notes, what-if scenarios, and bank sync pause."
-          : " — after that, coach notes and what-if scenarios pause."}
-      </span>
+      <div>
+        <span style={{ fontWeight: 700 }}>{label}.</span>{" "}
+        Stripe will charge the payment method selected at checkout when the trial ends unless you cancel.
+        <span style={{ display: "block", marginTop: "2px", fontSize: "12px" }}>
+          {hasLinkedBankDebt
+            ? "If the trial ends, coach notes, what-if scenarios, and bank sync pause."
+            : "If the trial ends, coach notes and what-if scenarios pause."}
+        </span>
+        {portalError && (
+          <span role="alert" style={{ display: "block", marginTop: "4px", color: "#b91c1c" }}>
+            {portalError}
+          </span>
+        )}
+      </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
         <button
-          onClick={() => upgradeEvents.dispatch("trial_countdown")}
+          onClick={handleReviewBilling}
+          disabled={portal.isPending}
           style={{
             display: "inline-flex", alignItems: "center", gap: "5px",
-            padding: "5px 12px", borderRadius: "7px",
+            padding: "6px 12px", borderRadius: "8px",
             background: "#2563eb", color: "#fff",
-            border: "none", cursor: "pointer", fontFamily: "inherit",
+            border: "none", cursor: portal.isPending ? "wait" : "pointer", fontFamily: "inherit",
             fontSize: "12px", fontWeight: 700,
+            opacity: portal.isPending ? 0.7 : 1,
           }}
         >
-          <Zap size={12} />
-          Keep Pro
+          <ExternalLink size={12} />
+          {portal.isPending ? "Opening…" : "Review billing"}
         </button>
 
         <button

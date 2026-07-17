@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "repro-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8137", "--directory", "C:/Users/ronne/AppData/Local/Temp/claude/C--Users-ronne-Documents-backup-101121-Projects-Budget/4aeeef37-431b-48d4-a948-339b38fb2ed7/scratchpad"],
+      "port": 8137
+    },
+    {
+      "name": "budget-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    }
+  ]
+}

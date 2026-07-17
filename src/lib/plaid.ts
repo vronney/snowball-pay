@@ -8,6 +8,7 @@ import {
 } from 'plaid';
 import { isPro } from '@/lib/gates';
 import { isDebtBankLinked } from '@/lib/debtHelpers';
+import { prisma } from '@/lib/prisma';
 
 /**
  * Shared Plaid client.
@@ -83,6 +84,38 @@ export async function canUsePlaid(
   if (isPlaidAllowed(email)) return true;
   return isPro(userId);
 }
+
+/**
+ * Cost guardrail: cap institution logins (Items) per user. Plaid bills per
+ * connected ACCOUNT per month, and one hostile or confused trialer linking
+ * everything they can find turns into real spend with no matching revenue.
+ *
+ * This is anti-abuse, not product segmentation — it must sit ABOVE the
+ * heaviest legitimate user (production data 2026-07: a real account has 7
+ * institutions), so the default is 10. The check only blocks ADDING a new
+ * institution; users already over a lowered cap keep everything they have.
+ * Override per environment with PLAID_MAX_ITEMS_PER_USER — no deploy needed.
+ */
+const DEFAULT_MAX_PLAID_ITEMS_PER_USER = 10;
+
+export const MAX_PLAID_ITEMS_PER_USER = (() => {
+  const parsed = Number.parseInt(process.env.PLAID_MAX_ITEMS_PER_USER ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_PLAID_ITEMS_PER_USER;
+})();
+
+export async function hasReachedPlaidItemLimit(userId: string): Promise<boolean> {
+  const count = await prisma.plaidItem.count({ where: { userId } });
+  const reached = count >= MAX_PLAID_ITEMS_PER_USER;
+  if (reached) {
+    // Ops signal: a legit user hitting this is a reason to raise the cap.
+    console.warn('[plaid] item cap reached', { userId, count, cap: MAX_PLAID_ITEMS_PER_USER });
+  }
+  return reached;
+}
+
+export const PLAID_ITEM_LIMIT_MESSAGE =
+  `You can link up to ${MAX_PLAID_ITEMS_PER_USER} institutions. Disconnect one you no longer use, ` +
+  `or email support@getsnowballpay.com and we'll raise your limit — it's a fraud guard, not a plan limit.`;
 
 /**
  * Whether a debt's balance math is deferred to Plaid sync right now: linked

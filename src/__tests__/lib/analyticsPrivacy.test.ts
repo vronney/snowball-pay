@@ -12,6 +12,8 @@ describe('analytics privacy', () => {
         debt_count: 3,
         months: 18,
         total: 14_200,
+        contact: 'person@example.com',
+        utm_content: 'Person@Example.com',
         nested: { minimum_payment: '285', method: 'snowball' },
       }),
     ).toEqual({
@@ -19,6 +21,8 @@ describe('analytics privacy', () => {
       debt_count: 3,
       months: 18,
       total: '[redacted]',
+      contact: '[redacted]',
+      utm_content: '[redacted]',
       nested: { minimum_payment: '[redacted]', method: 'snowball' },
     });
   });
@@ -45,13 +49,16 @@ describe('analytics privacy', () => {
 
   it('allowlists non-sensitive route attribution parameters', () => {
     const params = new URLSearchParams(
-      'source=calculator&checkout=pro&upgrade=success&income=5200&debtName=Visa',
+      'source=calculator&checkout=pro&upgrade=success&utm_source=Google&utm_medium=Paid%20Search&utm_campaign=Which_Debt_Next&utm_content=person%40example.com&income=5200&debtName=Visa',
     );
 
     expect(getSafeRouteContext(params)).toEqual({
       route_source: 'calculator',
       route_checkout: 'pro',
       route_upgrade: 'success',
+      utm_source: 'google',
+      utm_medium: 'paid_search',
+      utm_campaign: 'which_debt_next',
     });
   });
 });
