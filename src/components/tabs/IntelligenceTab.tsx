@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { type Debt, type Income, type Expense } from "@/types";
 import { type PayoffMethod } from "@/lib/snowball";
 import {
@@ -21,6 +21,8 @@ interface IntelligenceTabProps {
   income: Income | null | undefined;
   expenses: Expense[];
   isLoading: boolean;
+  pendingExtra?: number | null;
+  onConsumePendingExtra?: () => void;
 }
 
 export default function IntelligenceTab({
@@ -28,6 +30,8 @@ export default function IntelligenceTab({
   income,
   expenses,
   isLoading,
+  pendingExtra,
+  onConsumePendingExtra,
 }: IntelligenceTabProps) {
   const { data: subData } = useSubscription();
   const isPro = subData?.proEligible === true;
@@ -139,6 +143,8 @@ export default function IntelligenceTab({
         totalMinPayments={totalMinPayments}
         balanceChartData={balanceChartData}
         hasRealSnapshots={hasRealSnapshots}
+        pendingExtra={pendingExtra}
+        onConsumePendingExtra={onConsumePendingExtra}
       />
       <AprNegotiationCard />
       </ProGate>

@@ -26,6 +26,9 @@ HARD LAW — enforced by code, not just this prompt. A response that breaks it i
 - Every debt's minimum payment is paid in full, every month, with no exceptions. You may NEVER suggest skipping, pausing, reducing, delaying, or redirecting money away from any debt's minimum payment, in any phrasing — doing so risks late fees, penalty APRs, and credit damage.
 - The ONLY money you may propose moving between debts is the discretionary "Planned acceleration" amount stated in the data below. That figure is a hard ceiling.
 - "redirectAmount" must equal the total EXTRA dollars (never any minimum) your nextAction proposes moving this month. It is compared programmatically against the stated Planned acceleration — if it exceeds that ceiling, the response is rejected outright. Use 0 when nextAction does not move money between debts.
+- "kind" must be one of: "set_acceleration", "reconnect_bank", "log_payments", "review_refinance", or "keep_course".
+- Use "set_acceleration" only when recommending a new total monthly EXTRA/acceleration payment. In that case, "targetExtra" is that new total and cannot exceed the stated Available cash flow after essentials and minimums. Return an "outcome" object with your preview; the server will replace it with plan-engine math.
+- For every other kind, return "targetExtra": null and "outcome": null.
 - Never claim a debt will be paid off, eliminated, cleared, wiped out, or reach zero within any timeframe unless the total payment you propose for it (its minimum + the extra) covers its FULL current balance from the data. This is checked arithmetically — an impossible claim is rejected outright. When a balance will remain, state the remaining balance instead.
 - Keep tone calm and practical. No shame, hype, or vague encouragement.
 - Never use the words: "elevate", "seamless", "game-changer", "unleash", "journey", "delve"
@@ -42,6 +45,9 @@ Return ONLY valid JSON - no markdown fences, no explanation:
     "body": "1-2 sentences, max 35 words, references real numbers",
     "action": "one clear next step under 12 words",
     "impact": "high | medium | low",
+    "kind": "set_acceleration | reconnect_bank | log_payments | review_refinance | keep_course",
+    "targetExtra": null,
+    "outcome": null,
     "redirectAmount": 0
   }
 }`;
@@ -224,8 +230,19 @@ function buildFallbackBrief(params: {
   hasStaleSync: boolean;
   focusDebtName: string | null;
   planMonths: number;
+  availableCashFlow: number;
 }): CoachBrief {
-  const { totalDebt, debtLoadPct, buffer, recentAdherencePct, hasReauthIssue, hasStaleSync, focusDebtName, planMonths } = params;
+  const {
+    totalDebt,
+    debtLoadPct,
+    buffer,
+    recentAdherencePct,
+    hasReauthIssue,
+    hasStaleSync,
+    focusDebtName,
+    planMonths,
+    availableCashFlow,
+  } = params;
 
   const riskSignals = [
     buffer < 0,
@@ -248,6 +265,9 @@ function buildFallbackBrief(params: {
         body: 'Reconnect the flagged account so balances stay accurate before this month’s plan is trusted.',
         action: 'Reconnect linked account',
         impact: 'high',
+        kind: 'reconnect_bank',
+        targetExtra: null,
+        outcome: null,
         redirectAmount: 0,
       },
     };
@@ -262,9 +282,12 @@ function buildFallbackBrief(params: {
       },
       nextAction: {
         title: 'Lower the extra payment',
-        body: 'Reduce planned acceleration or cut a recurring expense until the monthly buffer is positive again.',
+        body: 'Reduce planned acceleration until the monthly buffer is non-negative again.',
         action: 'Adjust extra payment amount',
         impact: 'high',
+        kind: 'set_acceleration',
+        targetExtra: availableCashFlow,
+        outcome: null,
         redirectAmount: 0,
       },
     };
@@ -284,6 +307,9 @@ function buildFallbackBrief(params: {
           : 'Confirm this month’s payments are logged so the plan reflects reality.',
         action: 'Log any unrecorded payments',
         impact: 'medium',
+        kind: 'log_payments',
+        targetExtra: null,
+        outcome: null,
         redirectAmount: 0,
       },
     };
@@ -302,6 +328,9 @@ function buildFallbackBrief(params: {
         : 'Continue the current payoff order this month.',
       action: hasStaleSync ? 'Refresh linked balances' : 'Stay on the current plan',
       impact: 'low',
+      kind: 'keep_course',
+      targetExtra: null,
+      outcome: null,
       redirectAmount: 0,
     },
   };
@@ -500,6 +529,10 @@ export async function POST(request: NextRequest) {
 
     const minimumsResult = calculateMinimumsOnlyResult(typedDebts);
     const monthsSaved = Math.max(0, minimumsResult.months - result.months);
+    const availableCashFlow = Math.max(
+      0,
+      income.monthlyTakeHome - planMetrics.totalEssential - totalMin,
+    );
 
     const focusDebt = selectMonthlyFocusDebt(typedDebts, result);
 
@@ -507,6 +540,55 @@ export async function POST(request: NextRequest) {
       ? ((totalMin + planMetrics.effectiveAcceleration) / income.monthlyTakeHome) * 100
       : 0;
     const buffer = income.monthlyTakeHome - planMetrics.totalEssential - totalMin - planMetrics.effectiveAcceleration;
+
+    const withComputedOutcome = (candidate: CoachBrief): CoachBrief => {
+      if (candidate.nextAction.kind !== 'set_acceleration') {
+        return {
+          ...candidate,
+          nextAction: {
+            ...candidate.nextAction,
+            outcome: null,
+          },
+        };
+      }
+
+      const targetExtra = candidate.nextAction.targetExtra;
+      if (targetExtra === null) {
+        return {
+          ...candidate,
+          nextAction: {
+            ...candidate.nextAction,
+            outcome: null,
+          },
+        };
+      }
+
+      const targetMetrics = calculatePlanMetrics(typedDebts, income, expenses, {
+        method,
+        accelerationAmount: targetExtra,
+      });
+      const outcome = targetMetrics
+        ? {
+            bufferAfter:
+              income.monthlyTakeHome -
+              planMetrics.totalEssential -
+              totalMin -
+              targetExtra,
+            monthsSavedVsMin: Math.max(
+              0,
+              minimumsResult.months - targetMetrics.result.months,
+            ),
+          }
+        : null;
+
+      return {
+        ...candidate,
+        nextAction: {
+          ...candidate.nextAction,
+          outcome,
+        },
+      };
+    };
 
     const linkedDebts = typedDebts.filter((d) => d.isLinked);
     const { context: plaidContext, hasReauthIssue, hasStaleSync } = buildPlaidSyncContext(linkedDebts, plaidItems);
@@ -549,6 +631,7 @@ Monthly cash flow:
   - Recurring expenses: $${recurringExpenses.toFixed(0)}
   - Debt minimums: $${totalMin.toFixed(0)}
   - Planned acceleration: $${planMetrics.effectiveAcceleration.toFixed(0)}
+  - Available cash flow after essentials and minimums: $${availableCashFlow.toFixed(0)}
   - Buffer remaining after plan: $${buffer.toFixed(0)}
   - Debt payment load: ${debtLoadPct.toFixed(1)}% of take-home pay
 
@@ -614,13 +697,20 @@ Current plan:
       const claudeResponse = parsedJson ? CoachBriefSchema.safeParse(parsedJson) : null;
       const lawful =
         !!claudeResponse?.success &&
-        isBriefLawful(claudeResponse.data, planMetrics.effectiveAcceleration, lawDebts);
+        isBriefLawful(
+          claudeResponse.data,
+          planMetrics.effectiveAcceleration,
+          availableCashFlow,
+          lawDebts,
+        );
       if (claudeResponse?.success && !lawful) {
         // Numbers only — nextAction's free text carries debt names and dollar
         // amounts, which must not end up in logs.
         console.error('Coach brief rejected by the law: minimum-payment advice, ceiling breach, or impossible payoff claim', {
           redirectAmount: claudeResponse.data.nextAction.redirectAmount,
           effectiveAcceleration: planMetrics.effectiveAcceleration,
+          targetExtra: claudeResponse.data.nextAction.targetExtra,
+          availableCashFlow,
         });
       }
 
@@ -639,6 +729,7 @@ Current plan:
           hasStaleSync,
           focusDebtName: focusDebt?.name ?? null,
           planMonths: result.months,
+          availableCashFlow,
         });
         usedFallback = true;
       }
@@ -653,9 +744,12 @@ Current plan:
         hasStaleSync,
         focusDebtName: focusDebt?.name ?? null,
         planMonths: result.months,
+        availableCashFlow,
       });
       usedFallback = true;
     }
+
+    brief = withComputedOutcome(brief);
 
     const snapshotSeries = buildMonthlyDebtSeries(snapshots);
     const dataHash = buildDataHash({
@@ -686,6 +780,7 @@ Current plan:
       ...brief,
       _meta: {
         effectiveAcceleration: planMetrics.effectiveAcceleration,
+        availableCashFlow,
         debts: lawDebts,
       },
     };

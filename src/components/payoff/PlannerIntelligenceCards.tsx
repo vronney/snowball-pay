@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import {
+  Check,
   Target,
   TrendingUp,
   CalendarClock,
@@ -10,9 +12,10 @@ import {
   LayoutGrid,
   PiggyBank,
 } from "lucide-react";
-import { type Debt } from "@/types";
+import { type Debt, type Income } from "@/types";
 import { type PayoffMethod, type PayoffResult } from "@/lib/snowball";
 import { formatCurrency, formatMonths } from "@/lib/utils";
+import { useSaveIncome } from "@/lib/hooks";
 import {
   type SmartCalendar,
   type MilestoneData,
@@ -402,6 +405,7 @@ export function ForecastCard({
 }
 
 interface StrategyLabCardProps {
+  income: Income;
   sandboxMethod: PayoffMethod;
   sandboxExtra: number;
   availableCashFlow: number;
@@ -412,6 +416,7 @@ interface StrategyLabCardProps {
 }
 
 export function StrategyLabCard({
+  income,
   sandboxMethod,
   sandboxExtra,
   availableCashFlow,
@@ -420,6 +425,37 @@ export function StrategyLabCard({
   onMethodChange,
   onExtraChange,
 }: StrategyLabCardProps) {
+  const saveIncome = useSaveIncome();
+  const [appliedExtra, setAppliedExtra] = useState<number | null>(null);
+  const finiteAvailableCashFlow = Number.isFinite(availableCashFlow)
+    ? Math.max(0, availableCashFlow)
+    : 0;
+  const clampedExtra = Math.min(
+    Math.max(0, Number.isFinite(sandboxExtra) ? sandboxExtra : 0),
+    finiteAvailableCashFlow,
+  );
+  const alreadyApplied = Math.abs(clampedExtra - income.extraPayment) < 0.01;
+  const justApplied =
+    appliedExtra !== null && Math.abs(appliedExtra - clampedExtra) < 0.01;
+
+  useEffect(() => {
+    if (appliedExtra === null) return;
+    const timer = window.setTimeout(() => setAppliedExtra(null), 2000);
+    return () => window.clearTimeout(timer);
+  }, [appliedExtra]);
+
+  const handleApply = () => {
+    saveIncome.mutate(
+      {
+        ...income,
+        extraPayment: clampedExtra,
+      },
+      {
+        onSuccess: () => setAppliedExtra(clampedExtra),
+      },
+    );
+  };
+
   return (
     <div
       className="rounded-2xl p-5 h-auto md:h-full flex flex-col"
@@ -491,6 +527,39 @@ export function StrategyLabCard({
           </p>
         </div>
       </div>
+      <button
+        type="button"
+        onClick={handleApply}
+        disabled={alreadyApplied || saveIncome.isPending}
+        className={alreadyApplied ? undefined : "glow-primary"}
+        style={{
+          marginTop: "12px",
+          width: "100%",
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "6px",
+          padding: "9px 14px",
+          borderRadius: "8px",
+          border: "none",
+          background: alreadyApplied ? "#e2e8f0" : "#2563eb",
+          color: alreadyApplied ? "#64748b" : "#ffffff",
+          cursor:
+            alreadyApplied || saveIncome.isPending ? "default" : "pointer",
+          fontSize: "13px",
+          fontWeight: 700,
+          transition: "background 0.2s ease",
+        }}
+      >
+        {justApplied && <Check size={14} aria-hidden="true" />}
+        {justApplied
+          ? "Applied"
+          : saveIncome.isPending
+            ? "Applying…"
+            : alreadyApplied
+              ? "Current plan"
+              : "Apply to my plan"}
+      </button>
     </div>
   );
 }

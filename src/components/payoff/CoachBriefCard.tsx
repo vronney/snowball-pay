@@ -9,6 +9,7 @@ import {
   type CoachBriefVerdict,
 } from "@/lib/hooks";
 import { upgradeEvents } from "@/lib/upgradeEvents";
+import { formatCurrency } from "@/lib/utils";
 
 const STATUS_META: Record<
   CoachBriefVerdict["status"],
@@ -28,9 +29,14 @@ const IMPACT_COLOR: Record<"high" | "medium" | "low", string> = {
 interface CoachBriefCardProps {
   hasDebts: boolean;
   hasIncome: boolean;
+  onApplyAction?: (targetExtra: number) => void;
 }
 
-export default function CoachBriefCard({ hasDebts, hasIncome }: CoachBriefCardProps) {
+export default function CoachBriefCard({
+  hasDebts,
+  hasIncome,
+  onApplyAction,
+}: CoachBriefCardProps) {
   const { data: cache, isLoading: cacheLoading } = useCachedCoachBrief();
   const { data: subscription, isLoading: subscriptionLoading } = useSubscription();
   const generate = useGenerateCoachBrief();
@@ -276,9 +282,62 @@ export default function CoachBriefCard({ hasDebts, hasIncome }: CoachBriefCardPr
             <p style={{ fontSize: "13px", lineHeight: 1.55, color: "#475569", margin: "0 0 8px" }}>
               {brief.nextAction.body}
             </p>
-            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 600, color: "#2563eb" }}>
-              {brief.nextAction.action}
-            </div>
+            {brief.nextAction.kind === "set_acceleration" &&
+            brief.nextAction.targetExtra !== null ? (
+              <>
+                {brief.nextAction.outcome && (
+                  <div
+                    style={{
+                      marginBottom: "10px",
+                      padding: "9px 10px",
+                      borderRadius: "8px",
+                      background: "#eff6ff",
+                      border: "1px solid #bfdbfe",
+                      color: "#334155",
+                      fontSize: "12px",
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <span aria-hidden="true">→</span> Buffer back to{" "}
+                    <span className="mono">
+                      {formatCurrency(brief.nextAction.outcome.bufferAfter)}
+                    </span>
+                    {" · "}
+                    <span className="mono">
+                      {brief.nextAction.outcome.monthsSavedVsMin}
+                    </span>{" "}
+                    mo ahead of minimums
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onApplyAction?.(brief.nextAction.targetExtra!)}
+                  className="glow-primary"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "9px 14px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "#2563eb",
+                    color: "#ffffff",
+                    cursor: "pointer",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                  }}
+                >
+                  Set extra to{" "}
+                  <span className="mono">
+                    {formatCurrency(brief.nextAction.targetExtra)}
+                  </span>
+                </button>
+              </>
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", fontWeight: 600, color: "#2563eb" }}>
+                {brief.nextAction.action}
+              </div>
+            )}
           </div>
         </div>
       )}
