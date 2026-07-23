@@ -35,6 +35,22 @@ export const CoachBriefSchema = z.object({
     // a "no reallocation" value that would let the numeric check pass by
     // omission instead of by being genuinely honest.
     redirectAmount: z.number().min(0),
+  }).superRefine((nextAction, ctx) => {
+    // HARD LAW (shape): targetExtra is a concrete money move and outcome is its
+    // computed forecast — both only make sense for a set_acceleration action.
+    // Enforced in code, not just the prompt, so a stray non-null value on any
+    // other kind fails parsing (→ deterministic fallback / cache purge) instead
+    // of reaching the client, where the CTA keys off exactly these fields.
+    if (
+      nextAction.kind !== 'set_acceleration' &&
+      (nextAction.targetExtra !== null || nextAction.outcome !== null)
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'targetExtra and outcome must be null unless kind is set_acceleration',
+      });
+    }
   }),
 });
 

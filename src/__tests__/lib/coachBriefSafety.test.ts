@@ -156,6 +156,22 @@ describe('isBriefLawful — actionable acceleration bounds', () => {
     });
     expect(isBriefLawful(brief, 500, NaN)).toBe(false);
   });
+
+  it('rejects non-set_acceleration kinds that carry a stray targetExtra or outcome', () => {
+    const strayTarget = nextAction({
+      kind: 'keep_course',
+      targetExtra: 200,
+      outcome: null,
+    });
+    expect(CoachBriefSchema.safeParse(strayTarget).success).toBe(false);
+
+    const strayOutcome = nextAction({
+      kind: 'log_payments',
+      targetExtra: null,
+      outcome: { bufferAfter: 300, monthsSavedVsMin: 4 },
+    });
+    expect(CoachBriefSchema.safeParse(strayOutcome).success).toBe(false);
+  });
 });
 
 describe('isBriefLawful — elimination claims must be arithmetically possible', () => {
