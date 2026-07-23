@@ -88,6 +88,16 @@ export async function POST(request: NextRequest) {
     const debtsToCreate = incomingDebts.slice(0, debtCapacity);
     const skippedDebts = incomingDebts.length - debtsToCreate.length;
 
+    // Custom ordering is Pro-only (mirrors POST /api/income). Onboarding
+    // never hard-fails on tier limits, so a free user's draft falls back to
+    // snowball instead of 403ing — and, critically, this route can't be used
+    // to plant a 'custom' record that the income route's grandfather clause
+    // would then honor forever.
+    const payoffMethod =
+      parsed.income.payoffMethod === 'custom' && tier === 'free'
+        ? 'snowball'
+        : parsed.income.payoffMethod;
+
     const result = await prisma.$transaction(async (tx) => {
       const income = await tx.income.upsert({
         where: { userId: auth.user!.id },
@@ -95,14 +105,14 @@ export async function POST(request: NextRequest) {
           monthlyTakeHome: parsed.income.monthlyTakeHome,
           essentialExpenses: parsed.income.essentialExpenses,
           extraPayment: parsed.income.extraPayment,
-          payoffMethod: parsed.income.payoffMethod,
+          payoffMethod,
         },
         create: {
           userId: auth.user!.id,
           monthlyTakeHome: parsed.income.monthlyTakeHome,
           essentialExpenses: parsed.income.essentialExpenses,
           extraPayment: parsed.income.extraPayment,
-          payoffMethod: parsed.income.payoffMethod,
+          payoffMethod,
         },
       });
 

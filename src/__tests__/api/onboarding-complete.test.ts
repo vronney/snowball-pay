@@ -162,6 +162,41 @@ describe('POST /api/onboarding/complete', () => {
     expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it("coerces a free user's custom payoff method to snowball (no grandfather planting)", async () => {
+    const res = await POST(
+      makeRequest({
+        income: { ...INCOME, payoffMethod: 'custom' },
+        debts: [debt('Visa', 1000)],
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.income.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ payoffMethod: 'snowball' }),
+        create: expect.objectContaining({ payoffMethod: 'snowball' }),
+      }),
+    );
+  });
+
+  it('keeps a pro user\'s custom payoff method', async () => {
+    vi.mocked(getUserTier).mockResolvedValue('pro');
+
+    const res = await POST(
+      makeRequest({
+        income: { ...INCOME, payoffMethod: 'custom' },
+        debts: [debt('Visa', 1000)],
+      }),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.income.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ payoffMethod: 'custom' }),
+      }),
+    );
+  });
+
   it('does not cap debt creation for pro users', async () => {
     vi.mocked(getUserTier).mockResolvedValue('pro');
     mockPrisma.debt.count.mockResolvedValue(0);
