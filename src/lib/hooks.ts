@@ -127,6 +127,7 @@ export function useSaveIncome() {
       queryClient.setQueryData(['income'], data);
       queryClient.invalidateQueries({ queryKey: ['income'] });
     },
+    onError: (error) => { handleUpgradeError(error); },
   });
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
-import { useUserSettings, useUpdatePreferences, useCachedCoachBrief, useGenerateCoachBrief } from "@/lib/hooks";
+import { useUserSettings, useUpdatePreferences, useCachedCoachBrief, useGenerateCoachBrief, useSubscription } from "@/lib/hooks";
 import { Sparkles } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
 import { type PayoffMethod, type PayoffResult } from "@/lib/snowball";
@@ -231,9 +231,13 @@ export default function PlannerIntelligence({
   const { data: savedSettings } = useUserSettings();
   const updatePreferences = useUpdatePreferences();
 
-  // AI Coach Brief — same law-checked source as the This Month card. This
-  // page is already gated behind ProGate, so no separate isPro check is
-  // needed here. Auto-generate once on first load when nothing is cached yet.
+  // AI Coach Brief — same law-checked source as the This Month card.
+  // ProGate blurs this page for free users but still MOUNTS it, so the
+  // auto-generate must check isPro itself: without the guard the request
+  // 403s and handleUpgradeError pops the UpgradeModal on top of the
+  // already-locked tab the moment a free user opens it.
+  const { data: subData } = useSubscription();
+  const isPro = subData?.paidTier === "pro";
   const { data: coachBriefCache, isLoading: coachBriefCacheLoading } = useCachedCoachBrief();
   const generateCoachBrief = useGenerateCoachBrief();
   const coachBriefAutoTriggered = useRef(false);
@@ -242,13 +246,14 @@ export default function PlannerIntelligence({
   const isRefreshingAiBrief = generateCoachBrief.isPending;
 
   useEffect(() => {
+    if (!isPro) return;
     if (coachBriefAutoTriggered.current) return;
     if (coachBriefCacheLoading || isRefreshingAiBrief) return;
     if (!hasActiveDebts || aiBrief !== null || generateCoachBrief.isError) return;
     coachBriefAutoTriggered.current = true;
     generateCoachBrief.mutate({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [coachBriefCacheLoading, isRefreshingAiBrief, hasActiveDebts, aiBrief, generateCoachBrief.isError]);
+  }, [isPro, coachBriefCacheLoading, isRefreshingAiBrief, hasActiveDebts, aiBrief, generateCoachBrief.isError]);
 
   useEffect(() => {
     if (!hasActiveDebts) {
