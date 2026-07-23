@@ -128,4 +128,67 @@ describe('POST /api/income', () => {
       }),
     );
   });
+
+  it('blocks free users from switching into custom priority order', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.income.findUnique.mockResolvedValue(EXISTING_INCOME);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      paidTier: 'free',
+      subscriptionStatus: 'inactive',
+      subscriptionEndsAt: null,
+    });
+
+    const res = await POST(makeRequest({ ...BASE_BODY, payoffMethod: 'custom' }));
+    const body = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(body).toEqual(
+      expect.objectContaining({
+        error: 'upgrade_required',
+        feature: 'Custom priority order',
+      }),
+    );
+    expect(mockPrisma.income.update).not.toHaveBeenCalled();
+  });
+
+  it('lets a free user already on custom keep saving it (downgrade grandfather)', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.income.findUnique.mockResolvedValue({
+      ...EXISTING_INCOME,
+      payoffMethod: 'custom',
+    });
+    mockPrisma.income.update.mockResolvedValue({
+      ...EXISTING_INCOME,
+      payoffMethod: 'custom',
+    });
+
+    const res = await POST(makeRequest({ ...BASE_BODY, payoffMethod: 'custom' }));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.income.update).toHaveBeenCalledOnce();
+  });
+
+  it('allows pro users to switch into custom priority order', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.income.findUnique.mockResolvedValue(EXISTING_INCOME);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      paidTier: 'pro',
+      subscriptionStatus: 'active',
+      subscriptionEndsAt: null,
+    });
+    mockPrisma.income.update.mockResolvedValue({
+      ...EXISTING_INCOME,
+      payoffMethod: 'custom',
+    });
+
+    const res = await POST(makeRequest({ ...BASE_BODY, payoffMethod: 'custom' }));
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.income.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ payoffMethod: 'custom' }),
+      }),
+    );
+  });
 });

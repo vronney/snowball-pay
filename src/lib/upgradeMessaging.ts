@@ -70,6 +70,30 @@ const MESSAGES: Record<string, UpgradeMessage> = {
     ],
     monthlyCta: 'Start my trial and open Intelligence',
   },
+  custom_priority: {
+    id: 'custom_priority',
+    headline: 'Put your debts in the order that fits your life',
+    description:
+      'Snowball and avalanche are proven defaults. Pro custom ordering lets you rank debts your way when a co-signed loan, a family debt, or peace of mind matters more than the formula.',
+    benefits: [
+      'Drag debts into your own payoff order',
+      'Keep the timeline and interest math accurate',
+      'Switch back to snowball or avalanche anytime',
+    ],
+    monthlyCta: 'Start my trial and set my order',
+  },
+  export_plan: {
+    id: 'export_plan',
+    headline: 'Take your payoff plan where you already look',
+    description:
+      'Pro exports your plan beyond the app — due dates in your calendar so payment day is never a surprise.',
+    benefits: [
+      'Add every due date to your calendar',
+      'Keep reminders in the tools you already check',
+      'Re-export anytime as the plan changes',
+    ],
+    monthlyCta: 'Start my trial and export my plan',
+  },
   general: {
     id: 'general',
     headline: 'Keep your payoff plan working month after month',
@@ -92,6 +116,8 @@ export function getUpgradeMessage(feature?: string): UpgradeMessage {
   if (normalized.includes('what-if')) return MESSAGES.what_if;
   if (normalized.includes('coach')) return MESSAGES.coach;
   if (normalized.includes('intelligence')) return MESSAGES.intelligence;
+  if (normalized.includes('custom priority')) return MESSAGES.custom_priority;
+  if (normalized.includes('export')) return MESSAGES.export_plan;
   return MESSAGES.general;
 }
 

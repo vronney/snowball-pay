@@ -170,9 +170,12 @@ export default function DashboardClient({
   const { data: paymentsData } = usePaymentRecords(today.getFullYear(), today.getMonth());
   const markPaid = useMarkPaid();
   const { data: subData } = useSubscription();
-  // Real gate: allowlisted testers/loyal customers OR an active Pro subscriber.
-  // Mirrors canUsePlaid() server-side — keep both in sync if the gate changes.
-  const plaidEnabled = plaidTestAccess || subData?.paidTier === "pro";
+  // Real gate: plaidEligible is the server's canUsePlaid() verdict (allowlist
+  // OR active Pro). Using it instead of paidTier keeps the header button
+  // honest for e.g. past_due subs, whose paidTier stays "pro" while every
+  // Plaid API call 403s. plaidTestAccess covers the first server render
+  // before the subscription query resolves.
+  const plaidEnabled = plaidTestAccess || subData?.plaidEligible === true;
 
   const debts = useMemo(() => debtsData?.debts ?? [], [debtsData?.debts]);
   const income = incomeData?.income;

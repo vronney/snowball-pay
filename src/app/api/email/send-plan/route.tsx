@@ -3,6 +3,7 @@ import { Resend } from 'resend';
 import { render } from '@react-email/render';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
+import { isPro, upgradeRequired } from '@/lib/gates';
 import { limits } from '@/lib/rateLimit';
 import { PayoffPlanEmail } from '@/emails/PayoffPlanEmail';
 import { fetchEmailContent } from '@/lib/emailContent';
@@ -13,6 +14,10 @@ import * as React from 'react';
 export async function POST(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!auth.valid || !auth.user.email) return unauthorized();
+
+  // Plan export/email is a listed Pro feature. No UI currently calls this
+  // route, but it remains directly invocable — gate it like calendar export.
+  if (!(await isPro(auth.user.id))) return upgradeRequired('Export payoff plan');
 
   // 1 email per user per 10 minutes
   if (!(await limits.emailPlan(auth.user.id))) {

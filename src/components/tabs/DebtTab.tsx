@@ -20,7 +20,7 @@ import {
   Bell,
   ChevronDown,
   Calendar,
-  Mail,
+  Lock,
   Loader2,
   ArrowUpDown,
   Filter,
@@ -158,9 +158,6 @@ export default function DebtTab({
 }: DebtTabProps) {
   const [showForm, setShowForm] = useState(false);
   const [debtsOpen, setDebtsOpen] = useState(true);
-  const [emailStatus, setEmailStatus] = useState<
-    "idle" | "sending" | "sent" | "error"
-  >("idle");
   const [addDebtError, setAddDebtError] = useState<string | null>(null);
   // null = follow the active strategy's natural order; set when user explicitly picks
   const [sortOverride, setSortOverride] = useState<
@@ -179,23 +176,6 @@ export default function DebtTab({
   const [markedPaymentIds, setMarkedPaymentIds] = useState<Set<string>>(
     new Set(),
   );
-
-  const handleSendEmail = async () => {
-    setEmailStatus("sending");
-    try {
-      const res = await fetch("/api/email/send-plan", { method: "POST" });
-      if (res.ok) {
-        setEmailStatus("sent");
-        setTimeout(() => setEmailStatus("idle"), 4000);
-      } else {
-        setEmailStatus("error");
-        setTimeout(() => setEmailStatus("idle"), 4000);
-      }
-    } catch {
-      setEmailStatus("error");
-      setTimeout(() => setEmailStatus("idle"), 4000);
-    }
-  };
 
   // When a specific debt is targeted from outside (e.g. notification click),
   // ensure the list is expanded so the card is rendered and can open its panel.
@@ -585,6 +565,14 @@ export default function DebtTab({
               >
                 {!showForm && (
                   <div className="flex items-center gap-2">
+                    {!isPro && debts.length >= 4 && (
+                      <span
+                        className="mono"
+                        style={{ fontSize: "10px", fontWeight: 600, color: "#94a3b8", fontVariantNumeric: "tabular-nums" }}
+                      >
+                        {Math.min(debts.length, 5)}/5 on Free
+                      </span>
+                    )}
                     <button
                       type="button"
                       onClick={(e) => {
@@ -989,17 +977,27 @@ export default function DebtTab({
                 </span>
               </div>
 
-              {debts.some((d) => d.dueDate) && (
-                <a href="/api/calendar/export" download="debt-due-dates.ics">
+              {debts.some((d) => d.dueDate) &&
+                (isPro ? (
+                  <a href="/api/calendar/export" download="debt-due-dates.ics">
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2 font-medium text-slate-700 hover:text-slate-900"
+                    >
+                      <Calendar size={14} />
+                      Add to Calendar
+                    </Button>
+                  </a>
+                ) : (
                   <Button
                     variant="outline"
-                    className="w-full gap-2 font-medium text-slate-700 hover:text-slate-900"
+                    className="w-full gap-2 font-medium text-slate-500"
+                    onClick={() => upgradeEvents.dispatch("Export payoff plan")}
                   >
-                    <Calendar size={14} />
-                    Add to Calendar
+                    <Lock size={13} />
+                    Add to Calendar — Pro
                   </Button>
-                </a>
-              )}
+                ))}
             </div>
           )}
         </aside>

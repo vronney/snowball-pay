@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
+import { isPro, upgradeRequired } from '@/lib/gates';
 import { generateICS } from '@/lib/calendar/generateICS';
 
 export async function GET(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!auth.valid) return unauthorized();
+
+  // Plan export is a listed Pro feature; the client hides the download link
+  // for free users, this backstops direct requests.
+  if (!(await isPro(auth.user.id))) return upgradeRequired('Export payoff plan');
 
   try {
     const debts = await prisma.debt.findMany({

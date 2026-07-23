@@ -38,22 +38,28 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validated = IncomeSchema.parse(body);
 
-    // The What-if slider is Pro-only. The client hides it for free users, but
-    // gate the API too so a direct POST can't save an acceleration amount.
-    // Absent/null/0 amounts always pass — clearing a what-if (e.g. right
-    // after a downgrade) must never be paywalled.
-    if (
-      typeof validated.accelerationAmount === 'number' &&
-      validated.accelerationAmount > 0 &&
-      !(await isPro(auth.user.id))
-    ) {
-      return upgradeRequired('What-if slider');
-    }
-
-    // Check if income record exists
     const existingIncome = await prisma.income.findUnique({
       where: { userId: auth.user.id },
     });
+
+    // Pro-only fields. The client hides both controls for free users, but
+    // gate the API too so a direct POST can't set them.
+    // - Acceleration: absent/null/0 always passes — clearing a what-if
+    //   (e.g. right after a downgrade) must never be paywalled.
+    // - Custom priority: only ENTERING custom is gated. A record already on
+    //   custom (saved before a downgrade) keeps saving until the user
+    //   switches away; snowball/avalanche always pass.
+    const wantsAcceleration =
+      typeof validated.accelerationAmount === 'number' &&
+      validated.accelerationAmount > 0;
+    const entersCustom =
+      validated.payoffMethod === 'custom' &&
+      existingIncome?.payoffMethod !== 'custom';
+    if ((wantsAcceleration || entersCustom) && !(await isPro(auth.user.id))) {
+      return upgradeRequired(
+        wantsAcceleration ? 'What-if slider' : 'Custom priority order',
+      );
+    }
 
     let income;
     if (existingIncome) {
