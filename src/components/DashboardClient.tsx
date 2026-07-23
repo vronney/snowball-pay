@@ -66,6 +66,7 @@ export default function DashboardClient({
   plaidTestAccess?: boolean;
 }) {
   const [activeTab, setActiveTab] = useState<Tab>("this-month");
+  const [pendingCoachExtra, setPendingCoachExtra] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openPaymentDebtId, setOpenPaymentDebtId] = useState<string | null>(null);
   const [fabAddDebtRequest, setFabAddDebtRequest] = useState(false);
@@ -357,6 +358,7 @@ export default function DashboardClient({
                 isLoading={debtsLoading || incomeLoading}
                 userName={user?.name}
                 onNavigate={(tab) => setActiveTab(tab)}
+                onSetPendingCoachExtra={setPendingCoachExtra}
               />
             )}
             {activeTab === "debts" && (
@@ -401,6 +403,8 @@ export default function DashboardClient({
                 income={income}
                 expenses={expenses}
                 isLoading={debtsLoading || incomeLoading}
+                pendingExtra={pendingCoachExtra}
+                onConsumePendingExtra={() => setPendingCoachExtra(null)}
               />
             )}
             {activeTab === "settings" && <SettingsTab user={user} />}

@@ -373,6 +373,18 @@ export interface CoachBriefNextAction {
   body: string;
   action: string;
   impact: 'high' | 'medium' | 'low';
+  kind:
+    | 'set_acceleration'
+    | 'reconnect_bank'
+    | 'log_payments'
+    | 'review_refinance'
+    | 'keep_course';
+  targetExtra: number | null;
+  outcome: {
+    bufferAfter: number;
+    monthsSavedVsMin: number;
+  } | null;
+  redirectAmount: number;
 }
 
 export interface CoachBrief {

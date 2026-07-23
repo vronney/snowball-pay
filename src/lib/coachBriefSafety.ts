@@ -13,6 +13,20 @@ export const CoachBriefSchema = z.object({
     body: z.string().min(1),
     action: z.string().min(1),
     impact: z.enum(['high', 'medium', 'low']),
+    kind: z.enum([
+      'set_acceleration',
+      'reconnect_bank',
+      'log_payments',
+      'review_refinance',
+      'keep_course',
+    ]),
+    targetExtra: z.number().min(0).nullable(),
+    outcome: z
+      .object({
+        bufferAfter: z.number(),
+        monthsSavedVsMin: z.number(),
+      })
+      .nullable(),
     // Total EXTRA dollars (never counting any minimum payment) this action
     // proposes moving this month. This is the numeric half of the "minimums
     // are non-negotiable" law below — 0 when the action doesn't move money.
@@ -37,7 +51,11 @@ export interface EliminationCheckDebt {
 // (discretionary ceiling + active debt balances), so GET can re-run the law
 // later without recomputing the user's whole plan.
 export type StoredCoachBrief = CoachBrief & {
-  _meta: { effectiveAcceleration: number; debts?: EliminationCheckDebt[] };
+  _meta: {
+    effectiveAcceleration: number;
+    availableCashFlow: number;
+    debts?: EliminationCheckDebt[];
+  };
 };
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -118,11 +136,26 @@ function makesUnverifiedEliminationClaim(
 export function isBriefLawful(
   brief: CoachBrief,
   effectiveAcceleration: number,
+  availableCashFlow: number,
   debts: EliminationCheckDebt[] = [],
 ): boolean {
   const text = `${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`;
   if (UNSAFE_MINIMUM_ADVICE_RE.test(text)) return false;
   if (brief.nextAction.redirectAmount > effectiveAcceleration + REDIRECT_TOLERANCE) return false;
+  if (brief.nextAction.kind === 'set_acceleration') {
+    const targetExtra = brief.nextAction.targetExtra;
+    const finiteAvailableCashFlow = Number.isFinite(availableCashFlow)
+      ? Math.max(0, availableCashFlow)
+      : 0;
+    if (
+      targetExtra === null ||
+      !Number.isFinite(targetExtra) ||
+      targetExtra < 0 ||
+      targetExtra > finiteAvailableCashFlow + REDIRECT_TOLERANCE
+    ) {
+      return false;
+    }
+  }
   if (makesUnverifiedEliminationClaim(brief, debts)) return false;
   return true;
 }
@@ -145,13 +178,22 @@ export function parseLawfulStoredBrief(raw: unknown): CoachBrief | null {
   const parsed = CoachBriefSchema.safeParse(raw);
   if (!parsed.success) return null;
   const meta = (
-    raw as { _meta?: { effectiveAcceleration?: number; debts?: unknown } } | null
+    raw as {
+      _meta?: {
+        effectiveAcceleration?: number;
+        availableCashFlow?: number;
+        debts?: unknown;
+      };
+    } | null
   )?._meta;
   // Number.isFinite (not typeof === 'number') so a NaN can't silently
   // disable the numeric ceiling — NaN + tolerance comparisons are always
   // false, which would make isBriefLawful's redirectAmount check a no-op.
   const effectiveAcceleration = Number.isFinite(meta?.effectiveAcceleration)
     ? (meta!.effectiveAcceleration as number)
+    : 0;
+  const availableCashFlow = Number.isFinite(meta?.availableCashFlow)
+    ? (meta!.availableCashFlow as number)
     : 0;
   // Same finite-number discipline for the elimination-check debts: drop any
   // malformed entry rather than letting NaN balances neutralize the math.
@@ -167,6 +209,6 @@ export function parseLawfulStoredBrief(raw: unknown): CoachBrief | null {
           : [];
       })
     : [];
-  if (!isBriefLawful(parsed.data, effectiveAcceleration, debts)) return null;
+  if (!isBriefLawful(parsed.data, effectiveAcceleration, availableCashFlow, debts)) return null;
   return parsed.data;
 }

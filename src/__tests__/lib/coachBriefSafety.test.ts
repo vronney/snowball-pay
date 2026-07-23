@@ -9,6 +9,9 @@ function nextAction(overrides: Partial<CoachBrief['nextAction']> = {}): CoachBri
       body: 'Send the full acceleration to the highest APR balance.',
       action: 'Pay extra to the highest APR debt',
       impact: 'high',
+      kind: 'keep_course',
+      targetExtra: null,
+      outcome: null,
       redirectAmount: 0,
       ...overrides,
     },
@@ -23,7 +26,7 @@ describe('isBriefLawful', () => {
       action: 'Pay $565/mo to Delta Amex; pause CreditOne 6610',
       redirectAmount: 565,
     });
-    expect(isBriefLawful(brief, 500)).toBe(false);
+    expect(isBriefLawful(brief, 500, 500)).toBe(false);
   });
 
   it('rejects a paraphrase that avoids trigger words but still exceeds the discretionary ceiling', () => {
@@ -34,7 +37,7 @@ describe('isBriefLawful', () => {
       redirectAmount: 565,
     });
     // No "pause"/"stop paying"/"skip" anywhere — only the numeric law catches this.
-    expect(isBriefLawful(brief, 500)).toBe(false);
+    expect(isBriefLawful(brief, 500, 500)).toBe(false);
   });
 
   it.each([
@@ -48,7 +51,7 @@ describe('isBriefLawful', () => {
     'Lower the Discover minimum payment while cash is tight',
   ])('rejects trigger phrase: %s', (phrase) => {
     const brief = nextAction({ body: phrase, redirectAmount: 0 });
-    expect(isBriefLawful(brief, 500)).toBe(false);
+    expect(isBriefLawful(brief, 500, 500)).toBe(false);
   });
 
   it('rejects a minimum reduced outright with no reallocation proposed (CodeRabbit-flagged gap)', () => {
@@ -61,7 +64,7 @@ describe('isBriefLawful', () => {
       action: 'Call CreditOne to reduce the minimum',
       redirectAmount: 0,
     });
-    expect(isBriefLawful(brief, 500)).toBe(false);
+    expect(isBriefLawful(brief, 500, 500)).toBe(false);
   });
 
   it.each([
@@ -73,7 +76,7 @@ describe('isBriefLawful', () => {
     // used to reject legitimate advice like this. The regex now only fires
     // when "minimum" appears nearby.
     const brief = nextAction({ body: phrase, redirectAmount: 0 });
-    expect(isBriefLawful(brief, 500)).toBe(true);
+    expect(isBriefLawful(brief, 500, 500)).toBe(true);
   });
 
   it('allows a legitimate action that stays within the discretionary ceiling', () => {
@@ -83,17 +86,17 @@ describe('isBriefLawful', () => {
       action: 'Pay $500 extra to Delta Amex',
       redirectAmount: 500,
     });
-    expect(isBriefLawful(brief, 500)).toBe(true);
+    expect(isBriefLawful(brief, 500, 500)).toBe(true);
   });
 
   it('allows redirectAmount within rounding tolerance of the ceiling', () => {
     const brief = nextAction({ redirectAmount: 501 });
-    expect(isBriefLawful(brief, 500)).toBe(true);
+    expect(isBriefLawful(brief, 500, 500)).toBe(true);
   });
 
   it('rejects redirectAmount past the rounding tolerance', () => {
     const brief = nextAction({ redirectAmount: 502 });
-    expect(isBriefLawful(brief, 500)).toBe(false);
+    expect(isBriefLawful(brief, 500, 500)).toBe(false);
   });
 
   it('allows a no-op action (redirectAmount 0) with no risky language', () => {
@@ -103,7 +106,55 @@ describe('isBriefLawful', () => {
       action: 'Stay on the current plan',
       redirectAmount: 0,
     });
-    expect(isBriefLawful(brief, 0)).toBe(true);
+    expect(isBriefLawful(brief, 0, 0)).toBe(true);
+  });
+});
+
+describe('isBriefLawful — actionable acceleration bounds', () => {
+  it('allows set_acceleration within available cash flow', () => {
+    const brief = nextAction({
+      kind: 'set_acceleration',
+      targetExtra: 400,
+      outcome: { bufferAfter: 100, monthsSavedVsMin: 8 },
+    });
+    expect(isBriefLawful(brief, 500, 500)).toBe(true);
+  });
+
+  it('rejects targetExtra above available cash flow', () => {
+    const brief = nextAction({
+      kind: 'set_acceleration',
+      targetExtra: 502,
+      outcome: { bufferAfter: -2, monthsSavedVsMin: 9 },
+    });
+    expect(isBriefLawful(brief, 500, 500)).toBe(false);
+  });
+
+  it('rejects a negative targetExtra', () => {
+    const brief = nextAction({
+      kind: 'set_acceleration',
+      targetExtra: -1,
+      outcome: { bufferAfter: 501, monthsSavedVsMin: 0 },
+    });
+    expect(CoachBriefSchema.safeParse(brief).success).toBe(false);
+    expect(isBriefLawful(brief, 500, 500)).toBe(false);
+  });
+
+  it('allows a non-set_acceleration action with null targetExtra', () => {
+    const brief = nextAction({
+      kind: 'reconnect_bank',
+      targetExtra: null,
+      outcome: null,
+    });
+    expect(isBriefLawful(brief, 500, 500)).toBe(true);
+  });
+
+  it('treats NaN availableCashFlow as a zero ceiling', () => {
+    const brief = nextAction({
+      kind: 'set_acceleration',
+      targetExtra: 100,
+      outcome: { bufferAfter: 0, monthsSavedVsMin: 1 },
+    });
+    expect(isBriefLawful(brief, 500, NaN)).toBe(false);
   });
 });
 
@@ -118,7 +169,7 @@ describe('isBriefLawful — elimination claims must be arithmetically possible',
       action: 'Pay $565 to CreditOne 6610 this month',
       redirectAmount: 500,
     });
-    expect(isBriefLawful(brief, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(false);
+    expect(isBriefLawful(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(false);
   });
 
   it('allows the same claim when minimum + extra actually covers the balance', () => {
@@ -129,7 +180,7 @@ describe('isBriefLawful — elimination claims must be arithmetically possible',
       action: 'Pay $565 to CreditOne 6610 this month',
       redirectAmount: 500,
     });
-    expect(isBriefLawful(brief, 500, [smallCreditOne, DELTA_AMEX])).toBe(true);
+    expect(isBriefLawful(brief, 500, 500, [smallCreditOne, DELTA_AMEX])).toBe(true);
   });
 
   it.each([
@@ -139,9 +190,9 @@ describe('isBriefLawful — elimination claims must be arithmetically possible',
   ])('unattributed claim "%s" passes only when SOME debt is eliminable', (phrase) => {
     const brief = nextAction({ body: phrase, redirectAmount: 500 });
     // $500 extra + $65 min covers a $550 balance → plausible for smallCreditOne.
-    expect(isBriefLawful(brief, 500, [{ ...CREDIT_ONE, balance: 550 }, DELTA_AMEX])).toBe(true);
+    expect(isBriefLawful(brief, 500, 500, [{ ...CREDIT_ONE, balance: 550 }, DELTA_AMEX])).toBe(true);
     // No debt is coverable → hallucinated claim.
-    expect(isBriefLawful(brief, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(false);
+    expect(isBriefLawful(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(false);
   });
 
   it('does not treat whole-plan timeline phrasing as a per-debt elimination claim', () => {
@@ -149,12 +200,12 @@ describe('isBriefLawful — elimination claims must be arithmetically possible',
       body: 'Staying on this plan makes you debt-free 11 months sooner and saves $5,714 in interest.',
       redirectAmount: 0,
     });
-    expect(isBriefLawful(brief, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(true);
+    expect(isBriefLawful(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(true);
   });
 
   it('ignores claim-free briefs regardless of debt context (default arg)', () => {
     const brief = nextAction({ redirectAmount: 500 });
-    expect(isBriefLawful(brief, 500)).toBe(true);
+    expect(isBriefLawful(brief, 500, 500)).toBe(true);
   });
 
   it('catches the "clears" synonym (Codex-flagged gap)', () => {
@@ -163,7 +214,7 @@ describe('isBriefLawful — elimination claims must be arithmetically possible',
       action: 'Pay $565 to CreditOne 6610',
       redirectAmount: 500,
     });
-    expect(isBriefLawful(brief, 500, [CREDIT_ONE])).toBe(false);
+    expect(isBriefLawful(brief, 500, 500, [CREDIT_ONE])).toBe(false);
   });
 
   it('does not treat "steer clear" as a payoff claim', () => {
@@ -171,7 +222,7 @@ describe('isBriefLawful — elimination claims must be arithmetically possible',
       body: 'Steer clear of new charges on CreditOne 6610 while paying it down.',
       redirectAmount: 500,
     });
-    expect(isBriefLawful(brief, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(true);
+    expect(isBriefLawful(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(true);
   });
 
   it('does not let an overlapping shorter name vouch for a longer one (Codex-flagged gap)', () => {
@@ -185,7 +236,7 @@ describe('isBriefLawful — elimination claims must be arithmetically possible',
       action: 'Pay $600 to Chase Sapphire',
       redirectAmount: 565,
     });
-    expect(isBriefLawful(brief, 565, [chase, chaseSapphire])).toBe(false);
+    expect(isBriefLawful(brief, 565, 565, [chase, chaseSapphire])).toBe(false);
   });
 
   it('still credits a shorter overlapping name when it is mentioned on its own', () => {
@@ -196,7 +247,7 @@ describe('isBriefLawful — elimination claims must be arithmetically possible',
       action: 'Pay $335 to Chase this month',
       redirectAmount: 300,
     });
-    expect(isBriefLawful(brief, 300, [chase, chaseSapphire])).toBe(true);
+    expect(isBriefLawful(brief, 300, 300, [chase, chaseSapphire])).toBe(true);
   });
 });
 
@@ -204,7 +255,7 @@ describe('toClientBrief', () => {
   it('strips server-only _meta before the brief reaches the client', () => {
     const stored: StoredCoachBrief = {
       ...nextAction({ redirectAmount: 500 }),
-      _meta: { effectiveAcceleration: 500 },
+      _meta: { effectiveAcceleration: 500, availableCashFlow: 500 },
     };
     const client = toClientBrief(stored);
     expect(client).not.toHaveProperty('_meta');
@@ -238,14 +289,18 @@ describe('parseLawfulStoredBrief', () => {
   it('returns null (not a defaulted brief) for a stored value missing redirectAmount', () => {
     const raw = nextAction({ redirectAmount: 565 });
     const { redirectAmount: _omitted, ...actionWithoutRedirect } = raw.nextAction;
-    const malformed = { ...raw, nextAction: actionWithoutRedirect, _meta: { effectiveAcceleration: 500 } };
+    const malformed = {
+      ...raw,
+      nextAction: actionWithoutRedirect,
+      _meta: { effectiveAcceleration: 500, availableCashFlow: 500 },
+    };
     expect(parseLawfulStoredBrief(malformed)).toBeNull();
   });
 
   it('returns null for a lawfully-shaped brief whose numeric ceiling was exceeded at generation time', () => {
     const stored: StoredCoachBrief = {
       ...nextAction({ redirectAmount: 565 }),
-      _meta: { effectiveAcceleration: 500 },
+      _meta: { effectiveAcceleration: 500, availableCashFlow: 500 },
     };
     expect(parseLawfulStoredBrief(stored)).toBeNull();
   });
@@ -253,7 +308,7 @@ describe('parseLawfulStoredBrief', () => {
   it('returns the brief for a valid, lawful stored value', () => {
     const stored: StoredCoachBrief = {
       ...nextAction({ redirectAmount: 500 }),
-      _meta: { effectiveAcceleration: 500 },
+      _meta: { effectiveAcceleration: 500, availableCashFlow: 500 },
     };
     expect(parseLawfulStoredBrief(stored)).not.toBeNull();
   });
@@ -267,7 +322,7 @@ describe('parseLawfulStoredBrief', () => {
         body: 'Paying $565 total this month eliminates CreditOne 6610 by month-end.',
         redirectAmount: 500,
       }),
-      _meta: { effectiveAcceleration: 500 },
+      _meta: { effectiveAcceleration: 500, availableCashFlow: 500 },
     };
     expect(parseLawfulStoredBrief(stored)).toBeNull();
   });
@@ -280,6 +335,7 @@ describe('parseLawfulStoredBrief', () => {
       }),
       _meta: {
         effectiveAcceleration: 500,
+        availableCashFlow: 500,
         debts: [{ name: 'CreditOne 6610', balance: 550, minimumPayment: 65 }],
       },
     };
@@ -293,7 +349,19 @@ describe('parseLawfulStoredBrief', () => {
     // reject it and fall back to 0, which a positive redirectAmount then fails.
     const stored = {
       ...nextAction({ redirectAmount: 100 }),
-      _meta: { effectiveAcceleration: NaN },
+      _meta: { effectiveAcceleration: NaN, availableCashFlow: 500 },
+    } as unknown as StoredCoachBrief;
+    expect(parseLawfulStoredBrief(stored)).toBeNull();
+  });
+
+  it('treats a NaN availableCashFlow as a zero targetExtra ceiling', () => {
+    const stored = {
+      ...nextAction({
+        kind: 'set_acceleration',
+        targetExtra: 100,
+        outcome: { bufferAfter: 0, monthsSavedVsMin: 1 },
+      }),
+      _meta: { effectiveAcceleration: 500, availableCashFlow: NaN },
     } as unknown as StoredCoachBrief;
     expect(parseLawfulStoredBrief(stored)).toBeNull();
   });

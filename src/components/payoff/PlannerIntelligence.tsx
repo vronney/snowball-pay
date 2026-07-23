@@ -36,6 +36,8 @@ interface PlannerIntelligenceProps {
   totalMinPayments: number;
   balanceChartData: ChartEntry[];
   hasRealSnapshots: boolean;
+  pendingExtra?: number | null;
+  onConsumePendingExtra?: () => void;
 }
 
 const ACTIONS = [
@@ -60,6 +62,8 @@ export default function PlannerIntelligence({
   totalMinPayments,
   balanceChartData,
   hasRealSnapshots,
+  pendingExtra,
+  onConsumePendingExtra,
 }: PlannerIntelligenceProps) {
   const hasInitialActiveDebts = debts.some(isActiveDebt);
   const [sandboxMethod, setSandboxMethod] =
@@ -70,6 +74,7 @@ export default function PlannerIntelligence({
       : 0,
   );
   const [actionChecks, setActionChecks] = useState<Record<string, boolean>>({});
+  const strategyLabRef = useRef<HTMLDivElement>(null);
   const activeDebts = useMemo(() => debts.filter(isActiveDebt), [debts]);
   const hasActiveDebts = activeDebts.length > 0;
 
@@ -228,7 +233,7 @@ export default function PlannerIntelligence({
     scenarioResult.totalInterestPaid,
   ]);
 
-  const { data: savedSettings } = useUserSettings();
+  const { data: savedSettings, isLoading: savedSettingsLoading } = useUserSettings();
   const updatePreferences = useUpdatePreferences();
 
   // AI Coach Brief — same law-checked source as the This Month card.
@@ -284,6 +289,38 @@ export default function PlannerIntelligence({
     if (p.sandboxExtra != null) setSandboxExtra(p.sandboxExtra);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasActiveDebts, savedSettings?.preferences]);
+
+  useEffect(() => {
+    if (pendingExtra == null || savedSettingsLoading) return;
+
+    const finiteAvailableCashFlow = Number.isFinite(availableCashFlow)
+      ? Math.max(0, availableCashFlow)
+      : 0;
+    const safePendingExtra = Number.isFinite(pendingExtra)
+      ? pendingExtra
+      : 0;
+    setSandboxExtra(
+      Math.min(Math.max(0, safePendingExtra), finiteAvailableCashFlow),
+    );
+
+    const frame = window.requestAnimationFrame(() => {
+      const reduceMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      strategyLabRef.current?.scrollIntoView({
+        behavior: reduceMotion ? "auto" : "smooth",
+        block: "center",
+      });
+      onConsumePendingExtra?.();
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [
+    pendingExtra,
+    availableCashFlow,
+    savedSettingsLoading,
+    onConsumePendingExtra,
+  ]);
 
   const handleActionCheck = (action: string) => {
     const currentMonth = new Date().toISOString().slice(0, 7);
@@ -354,15 +391,18 @@ export default function PlannerIntelligence({
           confidencePct={computed.confidencePct}
           confidenceRangeMonths={computed.confidenceRangeMonths}
         />
-        <StrategyLabCard
-          sandboxMethod={sandboxMethod}
-          sandboxExtra={sandboxExtra}
-          availableCashFlow={availableCashFlow}
-          scenarioResult={scenarioResult}
-          bestStrategy={bestStrategy}
-          onMethodChange={handleSandboxMethod}
-          onExtraChange={handleSandboxExtra}
-        />
+        <div ref={strategyLabRef} className="h-full">
+          <StrategyLabCard
+            income={income}
+            sandboxMethod={sandboxMethod}
+            sandboxExtra={sandboxExtra}
+            availableCashFlow={availableCashFlow}
+            scenarioResult={scenarioResult}
+            bestStrategy={bestStrategy}
+            onMethodChange={handleSandboxMethod}
+            onExtraChange={handleSandboxExtra}
+          />
+        </div>
         <MethodMatrixCard strategyMatrix={strategyMatrix} />
         <CashFlowMixCard
           monthlyTakeHome={income.monthlyTakeHome}

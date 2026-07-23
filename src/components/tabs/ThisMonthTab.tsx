@@ -20,6 +20,7 @@ interface ThisMonthTabProps {
   isLoading: boolean;
   userName: string | null | undefined;
   onNavigate: (tab: Tab) => void;
+  onSetPendingCoachExtra: (targetExtra: number) => void;
 }
 
 function greeting(name: string | null | undefined): string {
@@ -36,6 +37,7 @@ export default function ThisMonthTab({
   isLoading,
   userName,
   onNavigate,
+  onSetPendingCoachExtra,
 }: ThisMonthTabProps) {
   const method = (income?.payoffMethod as "snowball" | "avalanche" | "custom") ?? "snowball";
   const today = new Date();
@@ -163,7 +165,14 @@ export default function ThisMonthTab({
       </div>
 
       {/* Primary coach card */}
-      <CoachBriefCard hasDebts={hasDebts} hasIncome={!!income} />
+      <CoachBriefCard
+        hasDebts={hasDebts}
+        hasIncome={!!income}
+        onApplyAction={(targetExtra) => {
+          onSetPendingCoachExtra(targetExtra);
+          onNavigate("intelligence");
+        }}
+      />
 
       {/* Interest reclaimed banner */}
       <InterestReclaimedBanner
