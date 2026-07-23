@@ -84,6 +84,17 @@ body {
     outline-offset: 2px;
   }
 
+  /* RadialGauge arc sweep — enter easing, Long band (DESIGN.md motion) */
+  .gauge-fill {
+    transition: stroke-dashoffset 0.5s cubic-bezier(0, 0, 0.2, 1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .gauge-fill {
+      transition: none;
+    }
+  }
+
   .tab-active {
     @apply border-b-2 border-blue-500 text-blue-500;
   }

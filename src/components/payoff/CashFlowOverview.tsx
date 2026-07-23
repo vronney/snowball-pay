@@ -35,7 +35,7 @@ export default function CashFlowOverview({
   const proEligible = subData?.proEligible === true;
 
   return (
-    <div id="cash-flow-overview" className="rounded-2xl p-5 scroll-mt-24" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
+    <div id="cash-flow-overview" className="rounded-xl p-5 scroll-mt-24" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
       <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
         <Wallet size={18} style={{ color: '#2563eb' }} />
         Your Monthly Cash Flow

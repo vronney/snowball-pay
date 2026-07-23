@@ -19,7 +19,7 @@ export default function StrategySelector({ payoffMethod, onMethodChange }: Strat
     subData !== undefined && subData.proEligible !== true && payoffMethod !== 'custom';
 
   return (
-    <div className="rounded-2xl p-3" style={{ background: 'rgb(255, 255, 255)', border: '1px solid rgba(15, 23, 42, 0.08)', boxShadow: 'rgba(15, 23, 42, 0.06) 0px 1px 4px' }}>
+    <div className="rounded-xl p-3" style={{ background: 'rgb(255, 255, 255)', border: '1px solid rgba(15, 23, 42, 0.08)', boxShadow: 'rgba(15, 23, 42, 0.06) 0px 1px 4px' }}>
       <h2 className="font-semibold text-base mb-2" style={{ color: '#334155' }}>Payoff Strategy</h2>
       <div className="grid grid-cols-3 gap-2">
         {(['snowball', 'avalanche', 'custom'] as const).map((method) => {
@@ -44,7 +44,16 @@ export default function StrategySelector({ payoffMethod, onMethodChange }: Strat
             >
               <span className="inline-flex items-center gap-1">
                 {method === 'snowball' ? 'Snowball' : method === 'avalanche' ? 'Avalanche' : 'Custom'}
-                {locked && <Lock size={10} aria-hidden="true" />}
+                {locked && (
+                  <>
+                    <Lock size={10} aria-hidden="true" />
+                    {/* aria-label already announces "Pro feature"; this is the
+                        sighted-user counterpart, dropped only where it'd wrap */}
+                    <span className="hidden sm:inline" aria-hidden="true" style={{ fontSize: '10px', fontWeight: 700 }}>
+                      Pro
+                    </span>
+                  </>
+                )}
               </span>
             </button>
           );

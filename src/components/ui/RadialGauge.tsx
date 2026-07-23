@@ -38,6 +38,7 @@ export default function RadialGauge({
         strokeWidth={stroke}
       />
       <circle
+        className="gauge-fill"
         cx={size / 2}
         cy={size / 2}
         r={r}
@@ -48,10 +49,7 @@ export default function RadialGauge({
         strokeDasharray={circumference}
         strokeDashoffset={circumference * (1 - clamped / 100)}
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        style={{
-          filter: `drop-shadow(0 0 3px ${color}59)`,
-          transition: "stroke-dashoffset 0.5s cubic-bezier(0,0,0.2,1)",
-        }}
+        style={{ filter: `drop-shadow(0 0 3px ${color}59)` }}
       />
       <text
         x="50%"
