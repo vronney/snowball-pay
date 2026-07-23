@@ -111,6 +111,7 @@ export default function DashboardSidebar({
                         width: "3px",
                         borderRadius: "0 3px 3px 0",
                         background: "#2563eb",
+                        boxShadow: "0 0 8px rgba(37,99,235,0.5)",
                       }}
                     />
                   )}
@@ -166,6 +167,7 @@ export default function DashboardSidebar({
                   width: "3px",
                   borderRadius: "0 3px 3px 0",
                   background: "#2563eb",
+                  boxShadow: "0 0 8px rgba(37,99,235,0.5)",
                 }}
               />
             )}

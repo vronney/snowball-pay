@@ -63,6 +63,20 @@ body {
     @apply font-mono;
   }
 
+  /* Console-style telemetry caption (Tier 1 instrumentation, DESIGN.md 2026-07-23) */
+  .eyebrow {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #94a3b8;
+  }
+
+  /* Subtle powered-circuit glow — active states and primary CTAs only */
+  .glow-primary {
+    box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.22), 0 0 14px rgba(37, 99, 235, 0.2);
+  }
+
   .tab-active {
     @apply border-b-2 border-blue-500 text-blue-500;
   }

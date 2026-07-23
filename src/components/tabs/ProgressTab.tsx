@@ -30,6 +30,7 @@ import {
   YAxis,
 } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
+import RadialGauge from "@/components/ui/RadialGauge";
 import DataInsights from "@/components/progress/DataInsights";
 import JourneyTab from "@/components/tabs/JourneyTab";
 
@@ -46,31 +47,34 @@ function StatCard({
   value,
   sub,
   color,
+  gaugePct,
 }: {
   label: string;
   value: string;
   sub?: string;
   color?: string;
+  gaugePct?: number;
 }) {
   return (
     <div
-      className="rounded-xl p-4 flex flex-col gap-1"
+      className="rounded-xl p-4 flex items-center justify-between gap-3"
       style={{ background: "#ffffff", border: "1px solid rgba(15,23,42,0.08)" }}
     >
-      <span className="text-xs" style={{ color: "#6B7280" }}>
-        {label}
-      </span>
-      <span
-        className="mono font-bold text-xl"
-        style={{ color: color ?? "#111827" }}
-      >
-        {value}
-      </span>
-      {sub && (
-        <span className="text-xs" style={{ color: "#94a3b8" }}>
-          {sub}
+      <div className="flex flex-col gap-1 min-w-0">
+        <span className="eyebrow">{label}</span>
+        <span
+          className="mono font-bold text-xl"
+          style={{ color: color ?? "#111827" }}
+        >
+          {value}
         </span>
-      )}
+        {sub && (
+          <span className="text-xs" style={{ color: "#94a3b8" }}>
+            {sub}
+          </span>
+        )}
+      </div>
+      {gaugePct !== undefined && <RadialGauge pct={gaugePct} size={48} stroke={3.5} />}
     </div>
   );
 }
@@ -268,10 +272,10 @@ export default function ProgressTab({
     return { currentTotal, totalPaid, paidOffCount, streak, originalTotal };
   }, [snapshots, debts]);
 
-  const milestones = useMemo(() => {
-    const pctPaid =
-      stats.originalTotal > 0 ? (stats.totalPaid / stats.originalTotal) * 100 : 0;
+  const pctPaid =
+    stats.originalTotal > 0 ? (stats.totalPaid / stats.originalTotal) * 100 : 0;
 
+  const milestones = useMemo(() => {
     return [
       {
         icon: Target,
@@ -317,7 +321,7 @@ export default function ProgressTab({
         achieved: stats.currentTotal <= 0 && debts.length > 0,
       },
     ];
-  }, [stats, snapshots.length, debts]);
+  }, [stats, pctPaid, snapshots.length, debts]);
 
   if (isLoading || snapsLoading) {
     return (
@@ -361,7 +365,7 @@ export default function ProgressTab({
         </p>
         <button
           onClick={() => onNavigate("debts")}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm"
+          className="glow-primary inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm"
           style={{
             background: "#2563eb",
             color: "#ffffff",
@@ -386,6 +390,7 @@ export default function ProgressTab({
           value={formatCurrency(stats.totalPaid)}
           sub="balance reduced"
           color="#27AE60"
+          gaugePct={pctPaid}
         />
         <StatCard
           label="Remaining"

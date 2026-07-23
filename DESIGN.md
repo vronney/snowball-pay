@@ -146,6 +146,7 @@ The celebration easing (`cubic-bezier(0.22,1,0.36,1)`) is already used in `Payme
 | 2026-06-10 | Wallet-card debt items | Debt cards evoke a wallet card: flat category-tinted identity band, balance hero with tabular numerals, statement-style APR/min/due row, and a next-step footer tying the card to the snowball plan. Explicitly approved as a restrained hybrid — gradient bank-card chrome remains banned. |
 | 2026-06-10 | Canonical timeline format | All payoff durations render via `formatMonths()` ("1y 2m") — chosen so timeline copy fits on mobile. |
 | 2026-06-10 | Fonts amended to match implementation | The app ships Plus Jakarta Sans + Manrope via next/font; the Geist/DM Sans direction was never implemented and the doc now reflects reality. Hero scale (`5xl` "Geist Mono") reads as the `.mono` stack. |
+| 2026-07-23 | Tier 1 console instrumentation | Discovery-console *character* inside Clean Signal (light-mode, restrained-blue rules unchanged): `.eyebrow` telemetry captions (10px/700, 0.08em tracked, uppercase, muted), thin SVG radial gauges for payoff progress (blue fill on `--border` track, `RadialGauge.tsx`), `.glow-primary` soft blue glow on active nav rails and primary CTAs only, and statement-style hairline segmentation of stat groups (This Month snapshot). Full dark holographic reskin explicitly deferred as a Tier 2 rebrand decision. |
 
 ## Anti-Patterns (never do these)
 

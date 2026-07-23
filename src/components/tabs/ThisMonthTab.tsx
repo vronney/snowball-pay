@@ -9,6 +9,7 @@ import { formatCurrency, formatMonths, getOrdinalDay } from "@/lib/utils";
 import { usePaymentRecords, useMarkPaid } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import InterestReclaimedBanner from "@/components/dashboard/InterestReclaimedBanner";
+import RadialGauge from "@/components/ui/RadialGauge";
 import RollForwardAdvice from "@/components/payoff/RollForwardAdvice";
 import CoachBriefCard from "@/components/payoff/CoachBriefCard";
 
@@ -202,26 +203,23 @@ export default function ThisMonthTab({
             )}
           </div>
 
-          {/* Balance bar */}
-          <div style={{ marginTop: "14px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-              <span style={{ fontSize: "12px", color: "#64748b" }}>Current balance</span>
-              <span style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
+          {/* Balance readout + progress gauge */}
+          <div style={{ marginTop: "14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px" }}>
+            <div>
+              <div className="eyebrow" style={{ marginBottom: "2px" }}>Current balance</div>
+              <div className="mono" style={{ fontSize: "16px", fontWeight: 700, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
                 {formatCurrency(focusDebt.balance)}
-              </span>
+              </div>
+              {focusDebt.originalBalance > 0 && focusDebt.originalBalance > focusDebt.balance && (
+                <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>
+                  of {formatCurrency(focusDebt.originalBalance)} original
+                </div>
+              )}
             </div>
             {focusDebt.originalBalance > 0 && focusDebt.originalBalance > focusDebt.balance && (
-              <div style={{ height: "6px", borderRadius: "999px", background: "#f1f5f9", overflow: "hidden" }}>
-                <div
-                  style={{
-                    height: "100%",
-                    borderRadius: "999px",
-                    background: "#2563eb",
-                    width: `${Math.round(((focusDebt.originalBalance - focusDebt.balance) / focusDebt.originalBalance) * 100)}%`,
-                    transition: "width 0.6s cubic-bezier(0,0,0.2,1)",
-                  }}
-                />
-              </div>
+              <RadialGauge
+                pct={((focusDebt.originalBalance - focusDebt.balance) / focusDebt.originalBalance) * 100}
+              />
             )}
           </div>
 
@@ -237,10 +235,10 @@ export default function ThisMonthTab({
             }}
           >
             <div>
-              <div style={{ fontSize: "11px", color: "#94a3b8" }}>
+              <div className="eyebrow">
                 {focusExtra > 0 ? "Planned payment" : "Minimum payment"}
               </div>
-              <div style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
+              <div className="mono" style={{ fontSize: "18px", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>
                 {formatCurrency(plannedPayment)}
               </div>
               {focusExtra > 0 && (
@@ -257,6 +255,7 @@ export default function ThisMonthTab({
             <button
               onClick={handleLogPayment}
               disabled={focusPaid || logPending}
+              className={focusPaid ? undefined : "glow-primary"}
               style={{
                 padding: "10px 20px",
                 borderRadius: "8px",
@@ -310,6 +309,7 @@ export default function ThisMonthTab({
           </p>
           <button
             onClick={() => onNavigate("debts")}
+            className="glow-primary"
             style={{
               padding: "10px 20px",
               borderRadius: "8px",
@@ -326,9 +326,18 @@ export default function ThisMonthTab({
         </div>
       )}
 
-      {/* Monthly snapshot */}
+      {/* Monthly snapshot — one instrument card, hairline-segmented */}
       {hasDebts && income && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 1fr 1fr",
+            background: "#ffffff",
+            border: "1px solid rgba(15,23,42,0.09)",
+            borderRadius: "12px",
+            boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+          }}
+        >
           {[
             {
               label: "Total Debt",
@@ -345,19 +354,16 @@ export default function ThisMonthTab({
               value: formatCurrency(extraPayment),
               sub: "toward focus debt",
             },
-          ].map((stat) => (
+          ].map((stat, i) => (
             <div
               key={stat.label}
               style={{
-                background: "#ffffff",
-                border: "1px solid rgba(15,23,42,0.09)",
-                borderRadius: "12px",
                 padding: "16px",
-                boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+                borderLeft: i > 0 ? "1px solid rgba(15,23,42,0.07)" : "none",
               }}
             >
-              <div style={{ fontSize: "11px", color: "#94a3b8", marginBottom: "4px" }}>{stat.label}</div>
-              <div style={{ fontSize: "17px", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>{stat.value}</div>
+              <div className="eyebrow" style={{ marginBottom: "4px" }}>{stat.label}</div>
+              <div className="mono" style={{ fontSize: "17px", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>{stat.value}</div>
               <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>{stat.sub}</div>
             </div>
           ))}
@@ -430,7 +436,7 @@ export default function ThisMonthTab({
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontSize: "13px", fontWeight: 700, color: isPaidOff ? "#059669" : "#0f172a", fontVariantNumeric: "tabular-nums" }}>
+                    <div className="mono" style={{ fontSize: "13px", fontWeight: 700, color: isPaidOff ? "#059669" : "#0f172a", fontVariantNumeric: "tabular-nums" }}>
                       {formatCurrency(debt.balance)}
                     </div>
                     {!isPaidOff && paid && (
