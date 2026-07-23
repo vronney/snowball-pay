@@ -326,12 +326,13 @@ export default function ThisMonthTab({
         </div>
       )}
 
-      {/* Monthly snapshot — one instrument card, hairline-segmented */}
+      {/* Monthly snapshot — one instrument card, hairline-segmented.
+          Stacks below sm: three fixed columns can't fit cents-bearing mono
+          values at ~360px without overflowing. */}
       {hasDebts && income && (
         <div
+          className="grid grid-cols-1 sm:grid-cols-3"
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
             background: "#ffffff",
             border: "1px solid rgba(15,23,42,0.09)",
             borderRadius: "12px",
@@ -357,9 +358,10 @@ export default function ThisMonthTab({
           ].map((stat, i) => (
             <div
               key={stat.label}
+              className={i > 0 ? "border-t sm:border-t-0 sm:border-l" : ""}
               style={{
                 padding: "16px",
-                borderLeft: i > 0 ? "1px solid rgba(15,23,42,0.07)" : "none",
+                borderColor: "rgba(15,23,42,0.07)",
               }}
             >
               <div className="eyebrow" style={{ marginBottom: "4px" }}>{stat.label}</div>

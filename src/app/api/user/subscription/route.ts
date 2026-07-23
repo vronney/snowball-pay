@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getStripe, PLANS } from '@/lib/stripe';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 import { canUsePlaid } from '@/lib/plaid';
+import { isPro } from '@/lib/gates';
 
 const ACTIVE_STATUSES = ['active', 'trialing'];
 const TRIAL_GRACE_MS = 2 * 60 * 60 * 1000;
@@ -65,6 +66,10 @@ export async function GET(request: NextRequest) {
       // this exact function — deriving from the tier fields above can diverge
       // (e.g. past_due keeps paidTier 'pro' here but fails canUsePlaid).
       plaidEligible: await canUsePlaid(auth.user.id, auth.user.email),
+      // The ACTUAL verdict every Pro-gated API route enforces. Client feature
+      // gates must use this, not paidTier — past_due keeps paidTier 'pro'
+      // while isPro() (and therefore every gated route) says free.
+      proEligible: await isPro(auth.user.id),
     });
   } catch (error) {
     console.error('Subscription fetch error:', error);

@@ -428,7 +428,7 @@ export default function AiRecommendations({
   const { data: subscription, isLoading: subscriptionLoading } =
     useSubscription();
   const generate = useGenerateRecommendations();
-  const isPro = subscription?.paidTier === "pro";
+  const isPro = subscription?.proEligible === true;
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
 
   const recommendations =

@@ -30,7 +30,7 @@ export default function IntelligenceTab({
   isLoading,
 }: IntelligenceTabProps) {
   const { data: subData } = useSubscription();
-  const isPro = subData?.paidTier === "pro";
+  const isPro = subData?.proEligible === true;
   const { data: snapshotsData } = useAllSnapshots();
 
   const payoffMethod =

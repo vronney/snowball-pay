@@ -74,7 +74,13 @@ function StatCard({
           </span>
         )}
       </div>
-      {gaugePct !== undefined && <RadialGauge pct={gaugePct} size={48} stroke={3.5} />}
+      {gaugePct !== undefined && (
+        // Hidden on phones: in the 2-col grid the gauge would squeeze the
+        // currency value into overflow.
+        <div className="hidden sm:block">
+          <RadialGauge pct={gaugePct} size={48} stroke={3.5} />
+        </div>
+      )}
     </div>
   );
 }

@@ -237,7 +237,7 @@ export default function PlannerIntelligence({
   // 403s and handleUpgradeError pops the UpgradeModal on top of the
   // already-locked tab the moment a free user opens it.
   const { data: subData } = useSubscription();
-  const isPro = subData?.paidTier === "pro";
+  const isPro = subData?.proEligible === true;
   const { data: coachBriefCache, isLoading: coachBriefCacheLoading } = useCachedCoachBrief();
   const generateCoachBrief = useGenerateCoachBrief();
   const coachBriefAutoTriggered = useRef(false);

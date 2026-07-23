@@ -14,11 +14,16 @@ describe('upgrade messaging', () => {
   it.each([
     ['Unlimited debts', 'unlimited_debts'],
     ['Bank sync', 'bank_sync'],
-    ['What-if slider', 'what_if'],
+    // The slider gate commits an acceleration amount, so it gets the
+    // acceleration message — only explore-only scenarios map to what_if.
+    ['What-if slider', 'acceleration'],
+    ['Acceleration control', 'acceleration'],
     ['What-if scenarios', 'what_if'],
     ['Payoff Coach', 'coach'],
     ['AI Coach Brief', 'coach'],
     ['Intelligence', 'intelligence'],
+    ['Custom priority order', 'custom_priority'],
+    ['Export payoff plan', 'export_plan'],
   ])('maps %s to the %s value message', (feature, expectedId) => {
     expect(getUpgradeMessage(feature).id).toBe(expectedId);
   });

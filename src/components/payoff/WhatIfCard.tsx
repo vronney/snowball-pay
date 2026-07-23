@@ -36,7 +36,7 @@ export default function WhatIfCard({
   onAccelerationChange,
 }: WhatIfCardProps) {
   const { data: subData } = useSubscription();
-  const isPro = subData?.paidTier === "pro";
+  const isPro = subData?.proEligible === true;
 
 
   const activeDebts = useMemo(() => debts.filter(isActiveDebt), [debts]);

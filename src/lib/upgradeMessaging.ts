@@ -70,13 +70,25 @@ const MESSAGES: Record<string, UpgradeMessage> = {
     ],
     monthlyCta: 'Start my trial and open Intelligence',
   },
+  acceleration: {
+    id: 'acceleration',
+    headline: 'Choose exactly how much extra goes to debt each month',
+    description:
+      'Your plan already uses your available cash flow. Pro lets you set the precise monthly amount applied to it — dial it up or down as life changes.',
+    benefits: [
+      'Set an exact acceleration amount each month',
+      'Watch the payoff date move as you adjust it',
+      'Change or clear the amount anytime',
+    ],
+    monthlyCta: 'Start my trial and set my pace',
+  },
   custom_priority: {
     id: 'custom_priority',
     headline: 'Put your debts in the order that fits your life',
     description:
       'Snowball and avalanche are proven defaults. Pro custom ordering lets you rank debts your way when a co-signed loan, a family debt, or peace of mind matters more than the formula.',
     benefits: [
-      'Drag debts into your own payoff order',
+      'Rank debts in your own payoff order',
       'Keep the timeline and interest math accurate',
       'Switch back to snowball or avalanche anytime',
     ],
@@ -113,6 +125,11 @@ export function getUpgradeMessage(feature?: string): UpgradeMessage {
 
   if (normalized.includes('unlimited debt')) return MESSAGES.unlimited_debts;
   if (normalized.includes('bank sync')) return MESSAGES.bank_sync;
+  // Before 'what-if': the server's 'What-if slider' feature string is the
+  // acceleration gate, whose modal must describe committing an amount, not
+  // the explore-only what-if scenarios.
+  if (normalized.includes('acceleration') || normalized.includes('slider'))
+    return MESSAGES.acceleration;
   if (normalized.includes('what-if')) return MESSAGES.what_if;
   if (normalized.includes('coach')) return MESSAGES.coach;
   if (normalized.includes('intelligence')) return MESSAGES.intelligence;

@@ -196,7 +196,7 @@ export default function DebtTab({
   const saveIncome = useSaveIncome();
   const createExpense = useCreateExpense();
   const { data: subscription } = useSubscription();
-  const isPro = subscription?.paidTier === "pro";
+  const isPro = subscription?.proEligible === true;
 
   const { data: incomeData } = useIncome();
   const { data: expensesData } = useExpenses();
@@ -565,12 +565,12 @@ export default function DebtTab({
               >
                 {!showForm && (
                   <div className="flex items-center gap-2">
-                    {!isPro && debts.length >= 4 && (
+                    {subscription && !isPro && debts.length >= 4 && (
                       <span
                         className="mono"
-                        style={{ fontSize: "10px", fontWeight: 600, color: "#94a3b8", fontVariantNumeric: "tabular-nums" }}
+                        style={{ fontSize: "10px", fontWeight: 600, color: "#64748b", fontVariantNumeric: "tabular-nums" }}
                       >
-                        {Math.min(debts.length, 5)}/5 on Free
+                        {debts.length}/5 on Free
                       </span>
                     )}
                     <button
@@ -978,6 +978,7 @@ export default function DebtTab({
               </div>
 
               {debts.some((d) => d.dueDate) &&
+                subscription !== undefined &&
                 (isPro ? (
                   <a href="/api/calendar/export" download="debt-due-dates.ics">
                     <Button

@@ -63,18 +63,25 @@ body {
     @apply font-mono;
   }
 
-  /* Console-style telemetry caption (Tier 1 instrumentation, DESIGN.md 2026-07-23) */
+  /* Console-style telemetry caption (Tier 1 instrumentation, DESIGN.md 2026-07-23).
+     Color is --muted: at 10px anything lighter fails WCAG AA contrast. */
   .eyebrow {
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #94a3b8;
+    color: #64748b;
   }
 
   /* Subtle powered-circuit glow — active states and primary CTAs only */
   .glow-primary {
     box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.22), 0 0 14px rgba(37, 99, 235, 0.2);
+  }
+
+  /* The glow resembles a focus ring, so keyboard focus needs to beat it */
+  .glow-primary:focus-visible {
+    outline: 2px solid #93c5fd;
+    outline-offset: 2px;
   }
 
   .tab-active {

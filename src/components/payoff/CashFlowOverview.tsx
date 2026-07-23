@@ -27,9 +27,12 @@ export default function CashFlowOverview({
 }: CashFlowOverviewProps) {
   // The acceleration amount only persists for Pro (POST /api/income rejects
   // accelerationAmount > 0 for free users) — so free users get a locked row
-  // instead of a slider whose saves silently fail.
+  // instead of a slider whose saves silently fail. proEligible is the server
+  // gate's verdict (paidTier stays 'pro' for past_due while saves 403).
+  // Until the query resolves, render neither branch — no lock flash for Pro.
   const { data: subData } = useSubscription();
-  const isPro = subData?.paidTier === 'pro';
+  const subResolved = subData !== undefined;
+  const proEligible = subData?.proEligible === true;
 
   return (
     <div id="cash-flow-overview" className="rounded-2xl p-5 scroll-mt-24" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
@@ -62,20 +65,22 @@ export default function CashFlowOverview({
             {formatCurrency(availableCashFlow)}
           </span>
         </div>
-        {availableCashFlow > 0 && !isPro && (
+        {availableCashFlow > 0 && subResolved && !proEligible && (
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <span className="text-xs flex items-center gap-1.5" style={{ color: '#64748b' }}>
                   Apply to Acceleration
-                  <Lock size={11} style={{ color: '#94a3b8' }} />
+                  <Lock size={11} aria-hidden="true" />
                 </span>
-                <p style={{ fontSize: '11px', color: '#94a3b8', margin: '4px 0 0' }}>
-                  Put up to {formatCurrency(availableCashFlow)}/mo toward your focus debt with Pro.
+                <p style={{ fontSize: '11px', color: '#64748b', margin: '4px 0 0' }}>
+                  Set exactly how much of your{' '}
+                  <span className="mono">{formatCurrency(availableCashFlow)}</span>/mo
+                  cash flow goes to debt — a Pro control.
                 </p>
               </div>
               <button
-                onClick={() => upgradeEvents.dispatch('What-if slider')}
+                onClick={() => upgradeEvents.dispatch('Acceleration control')}
                 style={{
                   padding: '7px 14px', borderRadius: '8px', border: 'none',
                   background: '#2563eb', color: '#ffffff', cursor: 'pointer',
@@ -88,7 +93,7 @@ export default function CashFlowOverview({
             </div>
           </div>
         )}
-        {availableCashFlow > 0 && isPro && (
+        {availableCashFlow > 0 && subResolved && proEligible && (
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs" style={{ color: '#64748b' }}>Apply to Acceleration</span>

@@ -34,7 +34,7 @@ export default function CoachBriefCard({ hasDebts, hasIncome }: CoachBriefCardPr
   const { data: cache, isLoading: cacheLoading } = useCachedCoachBrief();
   const { data: subscription, isLoading: subscriptionLoading } = useSubscription();
   const generate = useGenerateCoachBrief();
-  const isPro = subscription?.paidTier === "pro";
+  const isPro = subscription?.proEligible === true;
   const autoTriggered = useRef(false);
 
   const brief = generate.data?.brief ?? cache?.brief ?? null;

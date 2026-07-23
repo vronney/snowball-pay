@@ -11,10 +11,12 @@ interface StrategySelectorProps {
 export default function StrategySelector({ payoffMethod, onMethodChange }: StrategySelectorProps) {
   // Custom ordering is Pro-only (mirrors POST /api/income). If the saved
   // method is already custom (set before a downgrade), it stays usable —
-  // the server grandfathers it the same way.
+  // the server grandfathers it the same way. proEligible (not paidTier) is
+  // the server gate's verdict; until the query resolves, don't flash a lock
+  // at users who will turn out to be Pro.
   const { data: subData } = useSubscription();
-  const isPro = subData?.paidTier === 'pro';
-  const customLocked = !isPro && payoffMethod !== 'custom';
+  const customLocked =
+    subData !== undefined && subData.proEligible !== true && payoffMethod !== 'custom';
 
   return (
     <div className="rounded-2xl p-3" style={{ background: 'rgb(255, 255, 255)', border: '1px solid rgba(15, 23, 42, 0.08)', boxShadow: 'rgba(15, 23, 42, 0.06) 0px 1px 4px' }}>
@@ -27,6 +29,7 @@ export default function StrategySelector({ payoffMethod, onMethodChange }: Strat
             <button
               key={method}
               type="button"
+              aria-label={locked ? 'Custom — Pro feature' : undefined}
               onClick={() =>
                 locked
                   ? upgradeEvents.dispatch('Custom priority order')
@@ -36,12 +39,12 @@ export default function StrategySelector({ payoffMethod, onMethodChange }: Strat
               style={{
                 background: selected ? 'rgba(59,130,246,0.14)' : '#f8fafc',
                 border: selected ? '1px solid #3b82f6' : '1px solid rgba(15,23,42,0.08)',
-                color: selected ? '#1d4ed8' : locked ? '#94a3b8' : '#334155',
+                color: selected ? '#1d4ed8' : locked ? '#64748b' : '#334155',
               }}
             >
               <span className="inline-flex items-center gap-1">
                 {method === 'snowball' ? 'Snowball' : method === 'avalanche' ? 'Avalanche' : 'Custom'}
-                {locked && <Lock size={10} />}
+                {locked && <Lock size={10} aria-hidden="true" />}
               </span>
             </button>
           );

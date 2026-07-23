@@ -724,6 +724,12 @@ export interface SubscriptionInfo {
   monthlyPrice?: number;
   /** canUsePlaid() mirror: allowlisted OR Pro. False = bank sync is paused. */
   plaidEligible?: boolean;
+  /**
+   * isPro() mirror — the verdict Pro-gated API routes enforce. Use THIS for
+   * client feature gates, not paidTier: past_due keeps paidTier 'pro' while
+   * every gated route 403s.
+   */
+  proEligible?: boolean;
 }
 
 export function useSubscription() {
