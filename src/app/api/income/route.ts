@@ -8,7 +8,10 @@ const IncomeSchema = z.object({
   monthlyTakeHome: z.number().min(0),
   essentialExpenses: z.number().min(0),
   extraPayment: z.number().min(0),
-  payoffMethod: z.enum(['snowball', 'avalanche', 'custom']).default('snowball'),
+  // Optional, NOT defaulted: IncomeTab saves budget fields without a method,
+  // and a default here would silently reset a saved avalanche/custom choice
+  // on every income edit. Prisma defaults new rows to 'snowball'.
+  payoffMethod: z.enum(['snowball', 'avalanche', 'custom']).optional(),
   accelerationAmount: z.number().min(0).nullable().optional(),
   source: z.string().optional(),
   frequency: z.string().default('monthly'),

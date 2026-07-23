@@ -129,6 +129,24 @@ describe('POST /api/income', () => {
     );
   });
 
+  it('preserves the saved payoff method when the payload omits it', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.income.findUnique.mockResolvedValue({
+      ...EXISTING_INCOME,
+      payoffMethod: 'avalanche',
+    });
+    mockPrisma.income.update.mockResolvedValue({
+      ...EXISTING_INCOME,
+      payoffMethod: 'avalanche',
+    });
+
+    const res = await POST(makeRequest(BASE_BODY));
+
+    expect(res.status).toBe(200);
+    const updateArg = mockPrisma.income.update.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect('payoffMethod' in updateArg.data).toBe(false);
+  });
+
   it('blocks free users from switching into custom priority order', async () => {
     vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
     mockPrisma.income.findUnique.mockResolvedValue(EXISTING_INCOME);
