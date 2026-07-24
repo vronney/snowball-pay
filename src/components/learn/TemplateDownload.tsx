@@ -9,7 +9,7 @@ const FILES = {
 
 // Published Notion template (duplicate-as-template enabled).
 const NOTION_TEMPLATE_URL =
-  "https://mire-hunter-d0f.notion.site/Debt-Payoff-Plan-Free-Template-55b16e5c4c6882a89d7581cf6003210b";
+  "https://flat-tower-0cf.notion.site/Debt-Payoff-Plan-Free-Template-070fc8324df88322aa6101f67e29848a?source=copy_link";
 
 type TemplateFormat = keyof typeof FILES | "notion";
 
