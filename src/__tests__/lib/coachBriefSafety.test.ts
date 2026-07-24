@@ -139,6 +139,21 @@ describe('isBriefLawful — actionable acceleration bounds', () => {
     expect(isBriefLawful(brief, 500, 500)).toBe(false);
   });
 
+  it('allows targetExtra of exactly 0 — "drop extra to zero, minimums only" (CodeRabbit: zero-acceleration contract)', () => {
+    // Zero is a legitimate set_acceleration target: pay minimums only. The
+    // deterministic fallback itself emits a 0 target when available cash flow
+    // is 0, and Zod's .min(0) + the prompt ("0 or more") agree. Only null is
+    // rejected for set_acceleration, not zero.
+    const brief = nextAction({
+      kind: 'set_acceleration',
+      targetExtra: 0,
+      outcome: { bufferAfter: 500, monthsSavedVsMin: 0 },
+    });
+    expect(CoachBriefSchema.safeParse(brief).success).toBe(true);
+    expect(isBriefLawful(brief, 500, 500)).toBe(true);
+    expect(findBriefViolation(brief, 500, 500)).toBeNull();
+  });
+
   it('allows a non-set_acceleration action with null targetExtra', () => {
     const brief = nextAction({
       kind: 'reconnect_bank',
