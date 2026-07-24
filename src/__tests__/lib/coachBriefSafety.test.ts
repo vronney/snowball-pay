@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CoachBriefSchema, isBriefLawful, parseLawfulStoredBrief, toClientBrief, type CoachBrief, type StoredCoachBrief } from '@/lib/coachBriefSafety';
+import { CoachBriefSchema, isBriefLawful, findBriefViolation, parseLawfulStoredBrief, toClientBrief, type CoachBrief, type StoredCoachBrief } from '@/lib/coachBriefSafety';
 
 function nextAction(overrides: Partial<CoachBrief['nextAction']> = {}): CoachBrief {
   return {
@@ -139,6 +139,21 @@ describe('isBriefLawful — actionable acceleration bounds', () => {
     expect(isBriefLawful(brief, 500, 500)).toBe(false);
   });
 
+  it('allows targetExtra of exactly 0 — "drop extra to zero, minimums only" (CodeRabbit: zero-acceleration contract)', () => {
+    // Zero is a legitimate set_acceleration target: pay minimums only. The
+    // deterministic fallback itself emits a 0 target when available cash flow
+    // is 0, and Zod's .min(0) + the prompt ("0 or more") agree. Only null is
+    // rejected for set_acceleration, not zero.
+    const brief = nextAction({
+      kind: 'set_acceleration',
+      targetExtra: 0,
+      outcome: { bufferAfter: 500, monthsSavedVsMin: 0 },
+    });
+    expect(CoachBriefSchema.safeParse(brief).success).toBe(true);
+    expect(isBriefLawful(brief, 500, 500)).toBe(true);
+    expect(findBriefViolation(brief, 500, 500)).toBeNull();
+  });
+
   it('allows a non-set_acceleration action with null targetExtra', () => {
     const brief = nextAction({
       kind: 'reconnect_bank',
@@ -264,6 +279,55 @@ describe('isBriefLawful — elimination claims must be arithmetically possible',
       redirectAmount: 300,
     });
     expect(isBriefLawful(brief, 300, 300, [chase, chaseSapphire])).toBe(true);
+  });
+});
+
+describe('findBriefViolation — reason codes for diagnosable logging', () => {
+  it('returns null for a lawful brief', () => {
+    const brief = nextAction({ redirectAmount: 500 });
+    expect(findBriefViolation(brief, 500, 500)).toBeNull();
+  });
+
+  it('names the unsafe-minimum-text law', () => {
+    const brief = nextAction({ body: 'Hold off on the CapitalOne minimum this month', redirectAmount: 0 });
+    expect(findBriefViolation(brief, 500, 500)).toBe('unsafe_minimum_text');
+  });
+
+  it('names the ceiling-breach law', () => {
+    const brief = nextAction({
+      title: 'Send everything to Delta Amex',
+      body: 'Send $565 total to Delta Amex this month.',
+      action: 'Send $565 to Delta Amex',
+      redirectAmount: 565,
+    });
+    expect(findBriefViolation(brief, 500, 500)).toBe('redirect_exceeds_ceiling');
+  });
+
+  it('names the set_acceleration-null law — the path the old single log message never surfaced', () => {
+    // Zod permits set_acceleration with targetExtra null (the incident shape:
+    // redirectAmount 0, targetExtra null); only this check rejects it.
+    const brief = nextAction({ kind: 'set_acceleration', targetExtra: null, outcome: null });
+    expect(findBriefViolation(brief, 500, 2436.95)).toBe('set_acceleration_target_invalid');
+  });
+
+  it('names the unverified-elimination law', () => {
+    const creditOne = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+    const brief = nextAction({
+      body: 'Paying $565 total this month eliminates CreditOne 6610 by month-end.',
+      action: 'Pay $565 to CreditOne 6610',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 500, [creditOne])).toBe('unverified_elimination_claim');
+  });
+
+  it('reports the text law first when multiple laws are broken (matches check order)', () => {
+    const brief = nextAction({
+      title: 'Skip the CreditOne minimum',
+      body: 'Skip the CreditOne minimum and send $565 to Delta Amex.',
+      action: 'Skip CreditOne; pay $565 to Delta Amex',
+      redirectAmount: 565,
+    });
+    expect(findBriefViolation(brief, 500, 500)).toBe('unsafe_minimum_text');
   });
 });
 
