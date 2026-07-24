@@ -9,7 +9,7 @@ const FILES = {
 
 // Published Notion template (duplicate-as-template enabled).
 const NOTION_TEMPLATE_URL =
-  "https://flat-tower-0cf.notion.site/Debt-Payoff-Plan-Free-Template-3a0fc8324df8819aaf8eef854163c33e";
+  "https://mire-hunter-d0f.notion.site/Debt-Payoff-Plan-Free-Template-55b16e5c4c6882a89d7581cf6003210b";
 
 type TemplateFormat = keyof typeof FILES | "notion";
 
@@ -59,12 +59,27 @@ export default function TemplateDownload({ source }: { source: string }) {
       >
         Get the Debt Payoff Plan Template
       </h2>
-      <p style={{ fontSize: "14px", color: "#64748b", lineHeight: 1.65, marginBottom: "22px" }}>
-        Three tabs: your debt list with totals, a payoff-order guide, and a 24-month
-        check-in tracker. Works in Excel, Google Sheets, and Numbers — or duplicate
-        the Notion version with progress tracking and charts built in.
+      <p
+        style={{
+          fontSize: "14px",
+          color: "#64748b",
+          lineHeight: 1.65,
+          marginBottom: "22px",
+        }}
+      >
+        Three tabs: your debt list with totals, a payoff-order guide, and a
+        24-month check-in tracker. Works in Excel, Google Sheets, and Numbers —
+        or duplicate the Notion version with progress tracking and charts built
+        in.
       </p>
-      <div style={{ display: "flex", justifyContent: "center", gap: "12px", flexWrap: "wrap" }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: "12px",
+          flexWrap: "wrap",
+        }}
+      >
         <a
           href={FILES.xlsx}
           download
@@ -124,8 +139,16 @@ export default function TemplateDownload({ source }: { source: string }) {
           CSV version
         </a>
       </div>
-      <p style={{ fontSize: "12px", color: "#94a3b8", marginTop: "16px", margin: "16px 0 0" }}>
-        Tip: in Google Sheets, use File → Import → Upload to open the Excel file.
+      <p
+        style={{
+          fontSize: "12px",
+          color: "#94a3b8",
+          marginTop: "16px",
+          margin: "16px 0 0",
+        }}
+      >
+        Tip: in Google Sheets, use File → Import → Upload to open the Excel
+        file.
       </p>
     </div>
   );
