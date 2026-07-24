@@ -9,7 +9,7 @@ import { calculatePlanMetrics, calculateMinimumsOnlyResult, isPayoffMethod } fro
 import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 import { selectMonthlyFocusDebt } from '@/lib/monthlyFocusDebt';
 import { formatMonths } from '@/lib/utils';
-import { CoachBriefSchema, isBriefLawful, toClientBrief, parseLawfulStoredBrief, type CoachBrief, type StoredCoachBrief } from '@/lib/coachBriefSafety';
+import { CoachBriefSchema, findBriefViolation, toClientBrief, parseLawfulStoredBrief, type CoachBrief, type StoredCoachBrief } from '@/lib/coachBriefSafety';
 import type { Debt } from '@/types';
 
 export const maxDuration = 30;
@@ -27,7 +27,7 @@ HARD LAW — enforced by code, not just this prompt. A response that breaks it i
 - The ONLY money you may propose moving between debts is the discretionary "Planned acceleration" amount stated in the data below. That figure is a hard ceiling.
 - "redirectAmount" must equal the total EXTRA dollars (never any minimum) your nextAction proposes moving this month. It is compared programmatically against the stated Planned acceleration — if it exceeds that ceiling, the response is rejected outright. Use 0 when nextAction does not move money between debts.
 - "kind" must be one of: "set_acceleration", "reconnect_bank", "log_payments", "review_refinance", or "keep_course".
-- Use "set_acceleration" only when recommending a new total monthly EXTRA/acceleration payment. In that case, "targetExtra" is that new total and cannot exceed the stated Available cash flow after essentials and minimums. Return an "outcome" object with your preview; the server will replace it with plan-engine math.
+- Use "set_acceleration" only when recommending a new total monthly EXTRA/acceleration payment. In that case, "targetExtra" MUST be a positive number (e.g. 750) — never null — and cannot exceed the stated Available cash flow after essentials and minimums. A "set_acceleration" action with "targetExtra": null is rejected. Return an "outcome" object with your preview; the server will replace it with plan-engine math.
 - For every other kind, return "targetExtra": null and "outcome": null.
 - Never claim a debt will be paid off, eliminated, cleared, wiped out, or reach zero within any timeframe unless the total payment you propose for it (its minimum + the extra) covers its FULL current balance from the data. This is checked arithmetically — an impossible claim is rejected outright. When a balance will remain, state the remaining balance instead.
 - Keep tone calm and practical. No shame, hype, or vague encouragement.
@@ -50,7 +50,9 @@ Return ONLY valid JSON - no markdown fences, no explanation:
     "outcome": null,
     "redirectAmount": 0
   }
-}`;
+}
+
+The template shows "targetExtra": null, which is correct for every kind EXCEPT "set_acceleration". When kind is "set_acceleration", replace that null with the new total extra payment as a positive number (for example 750); leaving it null makes the response invalid.`;
 
 // ── Data gathering helpers ──────────────────────────────────────────────────
 
@@ -695,18 +697,23 @@ Current plan:
       }
 
       const claudeResponse = parsedJson ? CoachBriefSchema.safeParse(parsedJson) : null;
-      const lawful =
-        !!claudeResponse?.success &&
-        isBriefLawful(
-          claudeResponse.data,
-          planMetrics.effectiveAcceleration,
-          availableCashFlow,
-          lawDebts,
-        );
-      if (claudeResponse?.success && !lawful) {
-        // Numbers only — nextAction's free text carries debt names and dollar
-        // amounts, which must not end up in logs.
-        console.error('Coach brief rejected by the law: minimum-payment advice, ceiling breach, or impossible payoff claim', {
+      const violation = claudeResponse?.success
+        ? findBriefViolation(
+            claudeResponse.data,
+            planMetrics.effectiveAcceleration,
+            availableCashFlow,
+            lawDebts,
+          )
+        : null;
+      if (claudeResponse?.success && violation) {
+        // Numbers + a reason code and the fixed-enum `kind` only — nextAction's
+        // free text carries debt names and dollar amounts, which must not end
+        // up in logs. `violation` tells the four laws apart (esp. an omitted
+        // set_acceleration target vs a regex hit), which the old single message
+        // could not, making rejections undiagnosable.
+        console.error('Coach brief rejected by the law', {
+          violation,
+          kind: claudeResponse.data.nextAction.kind,
           redirectAmount: claudeResponse.data.nextAction.redirectAmount,
           effectiveAcceleration: planMetrics.effectiveAcceleration,
           targetExtra: claudeResponse.data.nextAction.targetExtra,
@@ -714,7 +721,7 @@ Current plan:
         });
       }
 
-      if (lawful && claudeResponse?.success) {
+      if (claudeResponse?.success && !violation) {
         brief = claudeResponse.data;
       } else {
         if (parsedJson && claudeResponse && !claudeResponse.success) {

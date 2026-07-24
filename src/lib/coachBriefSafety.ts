@@ -149,15 +149,34 @@ function makesUnverifiedEliminationClaim(
   return !candidates.some(canEliminate);
 }
 
-export function isBriefLawful(
+// Which of the four independent laws a brief broke. Kept as a stable string
+// union (not free text) so it is safe to log — it carries no debt names or
+// dollar amounts, only the category of failure.
+export type LawViolation =
+  | 'unsafe_minimum_text' // action text reads as pausing/skipping/reducing a payment
+  | 'redirect_exceeds_ceiling' // redirectAmount above the discretionary extra
+  | 'set_acceleration_target_invalid' // set_acceleration with a null/out-of-range target
+  | 'unverified_elimination_claim'; // "pays it off this month" the math can't support
+
+/**
+ * Runs THE LAW and returns the FIRST violation found, or null when the brief
+ * is lawful. Prefer this over the boolean `isBriefLawful` when the caller
+ * needs to know WHICH law failed — a single "rejected" boolean can't tell a
+ * minimum-advice text hit apart from a ceiling breach, an omitted
+ * set_acceleration target, or an impossible payoff claim, which makes
+ * rejections undiagnosable from logs. Check order matches `isBriefLawful`.
+ */
+export function findBriefViolation(
   brief: CoachBrief,
   effectiveAcceleration: number,
   availableCashFlow: number,
   debts: EliminationCheckDebt[] = [],
-): boolean {
+): LawViolation | null {
   const text = `${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`;
-  if (UNSAFE_MINIMUM_ADVICE_RE.test(text)) return false;
-  if (brief.nextAction.redirectAmount > effectiveAcceleration + REDIRECT_TOLERANCE) return false;
+  if (UNSAFE_MINIMUM_ADVICE_RE.test(text)) return 'unsafe_minimum_text';
+  if (brief.nextAction.redirectAmount > effectiveAcceleration + REDIRECT_TOLERANCE) {
+    return 'redirect_exceeds_ceiling';
+  }
   if (brief.nextAction.kind === 'set_acceleration') {
     const targetExtra = brief.nextAction.targetExtra;
     const finiteAvailableCashFlow = Number.isFinite(availableCashFlow)
@@ -169,11 +188,22 @@ export function isBriefLawful(
       targetExtra < 0 ||
       targetExtra > finiteAvailableCashFlow + REDIRECT_TOLERANCE
     ) {
-      return false;
+      return 'set_acceleration_target_invalid';
     }
   }
-  if (makesUnverifiedEliminationClaim(brief, debts)) return false;
-  return true;
+  if (makesUnverifiedEliminationClaim(brief, debts)) return 'unverified_elimination_claim';
+  return null;
+}
+
+export function isBriefLawful(
+  brief: CoachBrief,
+  effectiveAcceleration: number,
+  availableCashFlow: number,
+  debts: EliminationCheckDebt[] = [],
+): boolean {
+  return (
+    findBriefViolation(brief, effectiveAcceleration, availableCashFlow, debts) === null
+  );
 }
 
 /** Strips server-only bookkeeping before a stored brief is sent to the client. */
