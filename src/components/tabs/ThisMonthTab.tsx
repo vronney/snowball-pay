@@ -19,7 +19,7 @@ interface ThisMonthTabProps {
   expenses: Expense[];
   isLoading: boolean;
   userName: string | null | undefined;
-  onNavigate: (tab: Tab) => void;
+  onNavigate: (tab: Tab, debtId?: string) => void;
   onSetPendingCoachExtra: (targetExtra: number) => void;
 }
 
@@ -406,14 +406,28 @@ export default function ThisMonthTab({
               const isFocus = debt.id === focusDebt?.id;
               const isPaidOff = debt.balance <= 0.01;
               return (
-                <div
+                <button
                   key={debt.id}
+                  type="button"
+                  onClick={() => onNavigate("debts", debt.id)}
+                  className="tm-debt-row"
+                  aria-label={`${debt.name} — open in My Debts`}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    padding: "10px 0",
+                    gap: "12px",
+                    padding: "10px 8px",
+                    margin: "0 -8px",
+                    width: "calc(100% + 16px)",
+                    background: "none",
+                    border: "none",
                     borderBottom: i < debts.length - 1 ? "1px solid rgba(15,23,42,0.06)" : "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    fontFamily: "inherit",
+                    transition: "background 0.15s ease",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -446,15 +460,18 @@ export default function ThisMonthTab({
                       <div style={{ fontSize: "11px", color: "#94a3b8" }}>{formatCurrency(debt.minimumPayment)}/mo minimum</div>
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div className="mono" style={{ fontSize: "13px", fontWeight: 700, color: isPaidOff ? "#059669" : "#0f172a", fontVariantNumeric: "tabular-nums" }}>
-                      {formatCurrency(debt.balance)}
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div style={{ textAlign: "right" }}>
+                      <div className="mono" style={{ fontSize: "13px", fontWeight: 700, color: isPaidOff ? "#059669" : "#0f172a", fontVariantNumeric: "tabular-nums" }}>
+                        {formatCurrency(debt.balance)}
+                      </div>
+                      {!isPaidOff && paid && (
+                        <div style={{ fontSize: "11px", color: "#10b981", fontWeight: 600 }}>Paid ✓</div>
+                      )}
                     </div>
-                    {!isPaidOff && paid && (
-                      <div style={{ fontSize: "11px", color: "#10b981", fontWeight: 600 }}>Paid ✓</div>
-                    )}
+                    <ChevronRight size={15} style={{ color: "#cbd5e1", flexShrink: 0 }} />
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -499,6 +516,14 @@ export default function ThisMonthTab({
           })}
         </div>
       )}
+
+      <style>{`
+        .tm-debt-row:hover { background: rgba(15,23,42,0.035) !important; }
+        .tm-debt-row:focus-visible {
+          outline: 2px solid rgba(37,99,235,0.5);
+          outline-offset: 1px;
+        }
+      `}</style>
     </div>
   );
 }

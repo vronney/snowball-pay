@@ -48,45 +48,45 @@ export default function CalendarGrid({
         const past       = isPast(day);
         const isSelected = selectedDay === day;
         const fullyPaid  = isDayFullyPaid(day);
+        // Only days that have a payment do anything when clicked. Rendering the
+        // rest as plain cells (not <button>s) removes the false "this is
+        // clickable" affordance that was driving dead clicks on the calendar.
+        const interactive = !!dayDebts;
 
-        return (
-          <button
-            key={idx}
-            type="button"
-            onClick={() => onDayClick(day)}
-            style={{
-              aspectRatio: '1',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '3px',
-              borderRadius: '9px',
-              background: isSelected
-                ? 'rgba(37,99,235,0.12)'
-                : fullyPaid
-                ? 'rgba(34,197,94,0.08)'
-                : isNext
-                ? 'rgba(59,130,246,0.18)'
-                : todayCell
-                ? 'rgba(15,23,42,0.06)'
-                : 'transparent',
-              border: isSelected
-                ? '1.5px solid rgba(37,99,235,0.5)'
-                : fullyPaid
-                ? '1px solid rgba(34,197,94,0.3)'
-                : isNext
-                ? '1px solid rgba(59,130,246,0.4)'
-                : todayCell
-                ? '1px solid rgba(15,23,42,0.15)'
-                : '1px solid transparent',
-              opacity: past && !isNext && !fullyPaid ? 0.35 : 1,
-              transition: 'background 0.15s ease, opacity 0.15s ease',
-              cursor: dayDebts ? 'pointer' : 'default',
-              padding: 0,
-              fontFamily: 'inherit',
-            }}
-          >
+        const cellStyle = {
+          aspectRatio: '1',
+          display: 'flex',
+          flexDirection: 'column' as const,
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '3px',
+          borderRadius: '9px',
+          background: isSelected
+            ? 'rgba(37,99,235,0.12)'
+            : fullyPaid
+            ? 'rgba(34,197,94,0.08)'
+            : isNext
+            ? 'rgba(59,130,246,0.18)'
+            : todayCell
+            ? 'rgba(15,23,42,0.06)'
+            : 'transparent',
+          border: isSelected
+            ? '1.5px solid rgba(37,99,235,0.5)'
+            : fullyPaid
+            ? '1px solid rgba(34,197,94,0.3)'
+            : isNext
+            ? '1px solid rgba(59,130,246,0.4)'
+            : todayCell
+            ? '1px solid rgba(15,23,42,0.15)'
+            : '1px solid transparent',
+          opacity: past && !isNext && !fullyPaid ? 0.35 : 1,
+          transition: 'background 0.15s ease, opacity 0.15s ease',
+          padding: 0,
+          fontFamily: 'inherit',
+        };
+
+        const cellInner = (
+          <>
             <span style={{
               fontSize: '12px',
               fontWeight: isNext || todayCell || isSelected ? 700 : 400,
@@ -119,6 +119,29 @@ export default function CalendarGrid({
                 </div>
               )
             )}
+          </>
+        );
+
+        if (!interactive) {
+          // Non-interactive day: no button role, no pointer cursor, no click
+          // handler — it reads as a plain calendar cell, not a control.
+          return (
+            <div key={idx} style={{ ...cellStyle, cursor: 'default' }} aria-hidden="true">
+              {cellInner}
+            </div>
+          );
+        }
+
+        return (
+          <button
+            key={idx}
+            type="button"
+            onClick={() => onDayClick(day)}
+            aria-label={`${day}${isSelected ? ', selected' : ''} — view payments due`}
+            aria-pressed={isSelected}
+            style={{ ...cellStyle, cursor: 'pointer' }}
+          >
+            {cellInner}
           </button>
         );
       })}

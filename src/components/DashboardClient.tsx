@@ -357,7 +357,10 @@ export default function DashboardClient({
                 expenses={expenses}
                 isLoading={debtsLoading || incomeLoading}
                 userName={user?.name}
-                onNavigate={(tab) => setActiveTab(tab)}
+                onNavigate={(tab, debtId) => {
+                  setActiveTab(tab);
+                  if (debtId) setOpenPaymentDebtId(debtId);
+                }}
                 onSetPendingCoachExtra={setPendingCoachExtra}
               />
             )}
