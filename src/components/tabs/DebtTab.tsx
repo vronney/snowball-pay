@@ -30,9 +30,10 @@ import {
 import { formatCurrency } from "@/lib/utils";
 import { calculatePlanMetrics } from "@/lib/payoffPlan";
 import DebtCard from "@/components/DebtCard";
+import CompactDebtRow from "@/components/debt/CompactDebtRow";
 import DebtForm from "@/components/DebtForm";
 import PaymentCalendar from "@/components/PaymentCalendar";
-import { getUpcomingPayments, computeStreak } from "@/lib/debtHelpers";
+import { getUpcomingPayments, computeStreak, isDebtOverdueThisMonth, isDebtBankLinked } from "@/lib/debtHelpers";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -559,6 +560,29 @@ export default function DebtTab({
                 >
                   {debts.length}
                 </Badge>
+                {(() => {
+                  const active = debts.filter((d) => d.balance > 0.01);
+                  if (active.length === 0) return null;
+                  const logged = active.filter((d) => paidDebtIds.has(d.id)).length;
+                  const done = logged === active.length;
+                  return (
+                    <span
+                      className="mono"
+                      style={{
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        color: done ? "#059669" : "#64748b",
+                        background: done ? "rgba(16,185,129,0.10)" : "rgba(15,23,42,0.05)",
+                        border: `1px solid ${done ? "rgba(16,185,129,0.22)" : "rgba(15,23,42,0.08)"}`,
+                        borderRadius: "6px",
+                        padding: "1px 7px",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
+                    >
+                      {logged}/{active.length} logged{done ? " ✓" : ""}
+                    </span>
+                  );
+                })()}
               </span>
               <div
                 style={{ display: "flex", alignItems: "center", gap: "8px" }}
@@ -683,33 +707,58 @@ export default function DebtTab({
 
                 {/* Debt List */}
                 <div id="debt-list" className="space-y-3">
-                  {visibleDebts.map((debt) => (
-                    <DebtCard
-                      key={debt.id}
-                      debt={debt}
-                      allDebts={debts}
-                      isReauthBannerHost={reauthBannerHostIds.has(debt.id)}
-                      onDelete={() => deleteDebt.mutate(debt.id)}
-                      firstSnapshotBalance={
-                        earliestBalanceByDebt.get(debt.id) ?? null
-                      }
-                      openPaymentPanel={
-                        openPaymentDebtId === debt.id ||
-                        internalOpenDebtId === debt.id
-                      }
-                      onPaymentPanelOpened={() => {
-                        onPaymentPanelOpened?.();
-                        if (internalOpenDebtId === debt.id)
-                          setInternalOpenDebtId(null);
-                      }}
-                      rank={rankByDebtId.get(debt.id)}
-                      isActiveFocus={debt.id === focusDebt?.id}
-                      paidThisMonth={paidDebtIds.has(debt.id)}
-                      lastPaymentAt={lastPaidAtByDebtId.get(debt.id) ?? null}
-                      monthPaidOff={monthPaidOffByDebtId.get(debt.id) ?? null}
-                      focusExtra={planMetrics?.effectiveAcceleration ?? 0}
-                    />
-                  ))}
+                  {visibleDebts.map((debt) => {
+                    const isFocus = debt.id === focusDebt?.id;
+                    const isPaidThisMonth = paidDebtIds.has(debt.id);
+                    const deepLink =
+                      openPaymentDebtId === debt.id ||
+                      internalOpenDebtId === debt.id;
+                    // Keep rows that need attention expanded so no action is
+                    // hidden behind a collapsed row; the rest collapse for scan.
+                    // syncPaused matches DebtCard's own condition so a downgraded
+                    // user's "bank sync paused" notice (+ upgrade CTA) stays visible.
+                    const syncPaused =
+                      isDebtBankLinked(debt) && subscription?.plaidEligible === false;
+                    const needsAttention =
+                      isFocus ||
+                      reauthBannerHostIds.has(debt.id) ||
+                      syncPaused ||
+                      (debt.balance > 0.01 &&
+                        !isPaidThisMonth &&
+                        isDebtOverdueThisMonth(debt.dueDate));
+                    return (
+                      <CompactDebtRow
+                        key={debt.id}
+                        debt={debt}
+                        isFocus={isFocus}
+                        paidThisMonth={isPaidThisMonth}
+                        defaultOpen={needsAttention || deepLink}
+                        forceOpen={deepLink}
+                      >
+                        <DebtCard
+                          debt={debt}
+                          allDebts={debts}
+                          isReauthBannerHost={reauthBannerHostIds.has(debt.id)}
+                          onDelete={() => deleteDebt.mutate(debt.id)}
+                          firstSnapshotBalance={
+                            earliestBalanceByDebt.get(debt.id) ?? null
+                          }
+                          openPaymentPanel={deepLink}
+                          onPaymentPanelOpened={() => {
+                            onPaymentPanelOpened?.();
+                            if (internalOpenDebtId === debt.id)
+                              setInternalOpenDebtId(null);
+                          }}
+                          rank={rankByDebtId.get(debt.id)}
+                          isActiveFocus={isFocus}
+                          paidThisMonth={isPaidThisMonth}
+                          lastPaymentAt={lastPaidAtByDebtId.get(debt.id) ?? null}
+                          monthPaidOff={monthPaidOffByDebtId.get(debt.id) ?? null}
+                          focusExtra={planMetrics?.effectiveAcceleration ?? 0}
+                        />
+                      </CompactDebtRow>
+                    );
+                  })}
 
                   {/* No results after filter */}
                   {debts.length > 0 && visibleDebts.length === 0 && (
