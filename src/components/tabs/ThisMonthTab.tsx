@@ -6,7 +6,7 @@ import { calculateMinimumsOnlyResult } from "@/lib/payoffPlan";
 import { calculatePlanMetrics } from "@/lib/payoffPlan";
 import { selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
 import { displayFirstName, formatCurrency, formatMonths, getOrdinalDay } from "@/lib/utils";
-import { usePaymentRecords, useMarkPaid } from "@/lib/hooks";
+import { usePaymentRecords, useMarkPaid, useCachedCoachBrief } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import InterestReclaimedBanner from "@/components/dashboard/InterestReclaimedBanner";
 import RadialGauge from "@/components/ui/RadialGauge";
@@ -43,6 +43,16 @@ export default function ThisMonthTab({
   const today = new Date();
   const markPaid = useMarkPaid();
   const { data: paymentsData } = usePaymentRecords(today.getFullYear(), today.getMonth());
+  // Read the coach's committed verdict so the header can't assert "on track"
+  // while the coach card below says the plan is at risk. Shared React Query
+  // cache — the CoachBriefCard already fetches this key, so no extra request.
+  // Null (free users, or no brief yet) → neutral, factual copy that makes no
+  // pace claim either way.
+  const { data: coachCache } = useCachedCoachBrief();
+  // A stale brief predates the current balances/income/payments (the coach card
+  // shows a "your numbers changed" banner in that case), so its verdict must not
+  // be presented as current here — fall back to the neutral projection.
+  const coachStatus = coachCache?.stale ? null : (coachCache?.brief?.verdict.status ?? null);
 
   const paidDebtIds = useMemo(
     () => new Set((paymentsData?.records ?? []).map((record) => record.debtId)),
@@ -148,10 +158,23 @@ export default function ThisMonthTab({
         </h1>
         {hasDebts && result ? (
           <p style={{ fontSize: "14px", color: "#64748b", marginTop: "4px" }}>
-            You&apos;re on track to be debt-free in{" "}
-            <strong style={{ color: "#0f172a" }}>{formatMonths(result.months)}</strong>
-            {" — "}
-            {result.debtFreeDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}.
+            {(() => {
+              const months = <strong style={{ color: "#0f172a" }}>{formatMonths(result.months)}</strong>;
+              const date = result.debtFreeDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+              switch (coachStatus) {
+                case "on_track":
+                  return <>You&apos;re on track to be debt-free in {months} — {date}.</>;
+                case "at_risk":
+                case "off_track":
+                  // The verdict can stem from pace, cash flow, debt load, or a
+                  // bank-reauth issue — so point at the coach without asserting
+                  // a specific "behind pace" claim the verdict didn't establish.
+                  return <>On your current plan, debt-free in {months} — {date}. Your coach flagged something to review.</>;
+                default:
+                  // No fresh coach verdict to inherit: state the projection plainly.
+                  return <>On your current plan, debt-free in {months} — {date}.</>;
+              }
+            })()}
           </p>
         ) : hasDebts ? (
           <p style={{ fontSize: "14px", color: "#64748b", marginTop: "4px" }}>
