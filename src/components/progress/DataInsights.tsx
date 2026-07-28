@@ -788,7 +788,7 @@ function PayoffLeverCard({
                   </span>
                 </div>
                 <p className="text-xs" style={{ color: "#64748b" }}>
-                  {formatCurrency(point.interestSaved)} projected interest avoided
+                  {formatCurrencyWhole(point.interestSaved)} projected interest avoided
                 </p>
                 <p className="text-xs" style={{ color: point.needsMonthlyRoom > 0 ? "#b45309" : "#059669" }}>
                   {point.needsMonthlyRoom > 0
