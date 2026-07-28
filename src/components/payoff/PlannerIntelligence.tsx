@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useUserSettings, useUpdatePreferences, useCachedCoachBrief, useGenerateCoachBrief, useSubscription } from "@/lib/hooks";
-import { Sparkles } from "lucide-react";
+import { Sparkles, FlaskConical } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
 import { type PayoffMethod, type PayoffResult } from "@/lib/snowball";
 import { calculateResultByMethod } from "@/lib/payoffPlan";
@@ -348,8 +348,59 @@ export default function PlannerIntelligence({
     );
   };
 
+  const finiteAvailableCashFlow = Number.isFinite(availableCashFlow)
+    ? Math.max(0, availableCashFlow)
+    : 0;
+  // The committed acceleration is what My Plan / This Month actually run on;
+  // `sandboxExtra` starts here but the slider (or a persisted scenario) can move
+  // it. When it diverges, every card on this tab is showing a hypothetical.
+  const committedAccel = Math.min(
+    Number.isFinite(effectiveAcceleration) ? Math.max(0, effectiveAcceleration) : 0,
+    finiteAvailableCashFlow,
+  );
+  const clampedSandbox = Math.min(
+    Math.max(0, Number.isFinite(sandboxExtra) ? sandboxExtra : 0),
+    finiteAvailableCashFlow,
+  );
+  const isScenarioModified = Math.abs(clampedSandbox - committedAccel) >= 0.5;
+
   return (
     <section className="space-y-4">
+      {isScenarioModified && (
+        <div
+          className="rounded-2xl p-4 flex items-center justify-between gap-3 flex-wrap"
+          style={{ background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.30)" }}
+        >
+          <div className="flex items-start gap-2" style={{ minWidth: 0 }}>
+            <FlaskConical size={16} style={{ color: "#b45309", flexShrink: 0, marginTop: "1px" }} />
+            <div style={{ minWidth: 0 }}>
+              <p className="text-xs font-semibold" style={{ color: "#92400e", margin: 0 }}>
+                Showing a what-if scenario — not your committed plan
+              </p>
+              <p className="text-xs" style={{ color: "#92400e", opacity: 0.85, margin: "2px 0 0" }}>
+                These cards use{" "}
+                <span className="mono">{formatCurrency(clampedSandbox)}</span>/mo extra. Your committed plan runs at{" "}
+                <span className="mono">{formatCurrency(committedAccel)}</span>/mo.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleSandboxExtra(committedAccel)}
+            className="text-xs font-semibold rounded-lg"
+            style={{
+              flexShrink: 0,
+              padding: "7px 12px",
+              background: "#ffffff",
+              border: "1px solid rgba(245,158,11,0.40)",
+              color: "#b45309",
+              cursor: "pointer",
+            }}
+          >
+            Reset to committed
+          </button>
+        </div>
+      )}
       <div
         className="rounded-2xl p-5"
         style={{
