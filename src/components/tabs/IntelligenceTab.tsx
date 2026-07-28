@@ -8,10 +8,9 @@ import {
   calculatePlanMetrics,
 } from "@/lib/payoffPlan";
 import { useAllSnapshots } from "@/lib/hooks";
-import { formatCurrencyWhole } from "@/lib/utils";
 import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
 import PlannerIntelligence from "@/components/payoff/PlannerIntelligence";
-import ProGate from "@/components/billing/ProGate";
+import IntelligenceUpgradeTeaser from "@/components/billing/IntelligenceUpgradeTeaser";
 import { AprNegotiationCard } from "@/components/AprNegotiationCard";
 import { useSubscription } from "@/lib/hooks";
 import { type ChartEntry } from "@/components/payoff/BalanceOverTimeChart";
@@ -33,7 +32,7 @@ export default function IntelligenceTab({
   pendingExtra,
   onConsumePendingExtra,
 }: IntelligenceTabProps) {
-  const { data: subData } = useSubscription();
+  const { data: subData, isLoading: subLoading } = useSubscription();
   const isPro = subData?.proEligible === true;
   const { data: snapshotsData } = useAllSnapshots();
 
@@ -121,33 +120,36 @@ export default function IntelligenceTab({
 
   return (
     <section id="section-intelligence" className="space-y-6">
-      <ProGate
-        feature="Intelligence"
-        isPro={isPro}
-        stakes={
-          interestReclaimed > 0
-            ? `Your plan is on track to reclaim ${formatCurrencyWhole(interestReclaimed)} in interest — Pro's coach and forecasts help you keep it that way.`
-            : undefined
-        }
-      >
-      <PlannerIntelligence
-        debts={debts}
-        income={income}
-        expenses={expenses}
-        payoffMethod={payoffMethod}
-        planResult={planResult}
-        minimumsOnlyResult={minimumsOnlyResult}
-        availableCashFlow={availableCashFlow}
-        effectiveAcceleration={effectiveAcceleration}
-        totalEssential={totalEssential}
-        totalMinPayments={totalMinPayments}
-        balanceChartData={balanceChartData}
-        hasRealSnapshots={hasRealSnapshots}
-        pendingExtra={pendingExtra}
-        onConsumePendingExtra={onConsumePendingExtra}
-      />
-      <AprNegotiationCard />
-      </ProGate>
+      {isPro ? (
+        // Pro path — unchanged from the previous ProGate passthrough.
+        <>
+          <PlannerIntelligence
+            debts={debts}
+            income={income}
+            expenses={expenses}
+            payoffMethod={payoffMethod}
+            planResult={planResult}
+            minimumsOnlyResult={minimumsOnlyResult}
+            availableCashFlow={availableCashFlow}
+            effectiveAcceleration={effectiveAcceleration}
+            totalEssential={totalEssential}
+            totalMinPayments={totalMinPayments}
+            balanceChartData={balanceChartData}
+            hasRealSnapshots={hasRealSnapshots}
+            pendingExtra={pendingExtra}
+            onConsumePendingExtra={onConsumePendingExtra}
+          />
+          <AprNegotiationCard />
+        </>
+      ) : subLoading ? (
+        // Subscription not resolved yet — don't flash upsell content to a user
+        // who may turn out to be Pro.
+        <div style={{ padding: "48px", textAlign: "center", opacity: 0.4 }}>
+          <p style={{ fontSize: "14px" }}>Loading intelligence...</p>
+        </div>
+      ) : (
+        <IntelligenceUpgradeTeaser debts={debts} interestReclaimed={interestReclaimed} />
+      )}
     </section>
   );
 }
