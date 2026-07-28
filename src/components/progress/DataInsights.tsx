@@ -22,7 +22,7 @@ import {
   type PayoffMethod,
   type PayoffResult,
 } from "@/lib/snowball";
-import { formatCurrency, getCategoryColor } from "@/lib/utils";
+import { formatCurrency, formatCurrencyWhole, getCategoryColor } from "@/lib/utils";
 import {
   buildCashFlowCoach,
   buildCashFlowStages,
@@ -451,7 +451,7 @@ function buildPayoffLeverCoach(data: PayoffLeverPoint[]): CoachTakeawayData {
   return {
     tone: needsRoom ? "warn" : "good",
     title: `${firstUseful.label}/mo is the first useful lever`,
-    evidence: `${firstUseful.label}/mo saves ${firstUseful.monthsSaved} month${firstUseful.monthsSaved === 1 ? "" : "s"} and ${formatCurrency(firstUseful.interestSaved)} in projected interest.`,
+    evidence: `${firstUseful.label}/mo saves ${firstUseful.monthsSaved} month${firstUseful.monthsSaved === 1 ? "" : "s"} and ${formatCurrencyWhole(firstUseful.interestSaved)} in projected interest.`,
     action: needsRoom
       ? `Find ${formatCurrency(firstUseful.needsMonthlyRoom)}/mo through income or cuts before raising acceleration.`
       : "This fits inside current cash flow; use it only while the buffer stays healthy.",
@@ -638,7 +638,7 @@ function PayoffLeverTooltip({
         Months saved: {item.monthsSaved}
       </p>
       <p style={{ color: item.interestSaved > 0 ? "#059669" : "#64748b" }}>
-        Interest avoided: {formatCurrency(item.interestSaved)}
+        Interest avoided: {formatCurrencyWhole(item.interestSaved)}
       </p>
       {item.extra > 0 && (
         <p style={{ color: item.needsMonthlyRoom > 0 ? "#b45309" : "#059669" }}>

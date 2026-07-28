@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { TrendingDown } from "lucide-react";
-import { formatCurrency, formatMonths } from "@/lib/utils";
+import { formatCurrencyWhole, formatMonths } from "@/lib/utils";
 
 interface InterestReclaimedBannerProps {
   interestSaved: number;   // projected interest saved vs minimums-only
@@ -91,7 +91,7 @@ export default function InterestReclaimedBanner({
             lineHeight: 1.1,
           }}
         >
-          {formatCurrency(animated)}
+          {formatCurrencyWhole(animated)}
         </div>
         <div style={{ fontSize: "12px", color: "#64748b", marginTop: "3px" }}>
           vs paying minimums only · {timeSavedStr} sooner

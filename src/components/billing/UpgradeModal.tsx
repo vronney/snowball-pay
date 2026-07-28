@@ -7,7 +7,7 @@ import { getErrorMessage, useStartCheckout } from "@/lib/hooks";
 import { PLANS } from "@/lib/stripe";
 import { PRO_TRIAL_DAYS } from "@/lib/billing";
 import { track, Events } from "@/lib/analytics";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyWhole } from "@/lib/utils";
 import { getUpgradeMessage, UPGRADE_MESSAGE_VERSION } from "@/lib/upgradeMessaging";
 
 interface UpgradeModalProps {
@@ -222,7 +222,7 @@ export default function UpgradeModal({ feature, interestAtStake = 0, onClose }: 
             padding: "12px 14px",
             marginBottom: "18px",
           }}>
-            Your current plan is projected to avoid <strong className="mono">{formatCurrency(interestAtStake)}</strong>{" "}
+            Your current plan is projected to avoid <strong className="mono">{formatCurrencyWhole(interestAtStake)}</strong>{" "}
             in interest compared with minimum-only payments. Pro helps you monitor and adjust that plan.
           </div>
         )}

@@ -1,7 +1,7 @@
 'use client';
 
 import { type PayoffResult } from '@/lib/snowball';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, formatCurrencyWhole } from '@/lib/utils';
 import { Zap } from 'lucide-react';
 
 interface PayoffSummaryProps {
@@ -41,7 +41,7 @@ export default function PayoffSummary({
     isComplete
       ? 'No active balance remains in the payoff schedule.'
       : interestSavedVsMinimums > 0
-      ? `${formatCurrency(interestSavedVsMinimums)} projected interest saved vs minimums only.`
+      ? `${formatCurrencyWhole(interestSavedVsMinimums)} projected interest saved vs minimums only.`
       : 'This is your current payoff baseline against minimum payments.';
   const coachAction =
     isComplete
@@ -107,7 +107,7 @@ export default function PayoffSummary({
         <div>
           <div className="text-xs mb-1" style={{ color: '#64748b' }}>Interest Saved vs Minimums</div>
           <div className="mono font-bold text-lg" style={{ color: '#22c55e' }}>
-            {formatCurrency(interestSavedVsMinimums)}
+            {formatCurrencyWhole(interestSavedVsMinimums)}
           </div>
         </div>
       </div>

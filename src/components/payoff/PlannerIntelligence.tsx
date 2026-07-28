@@ -6,7 +6,7 @@ import { Sparkles } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
 import { type PayoffMethod, type PayoffResult } from "@/lib/snowball";
 import { calculateResultByMethod } from "@/lib/payoffPlan";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatCurrencyWhole } from "@/lib/utils";
 import { type ChartEntry } from "@/components/payoff/BalanceOverTimeChart";
 import { usePlannerComputed } from "@/lib/hooks/usePlannerComputed";
 import { isActiveDebt } from "@/lib/monthlyFocusDebt";
@@ -209,7 +209,7 @@ export default function PlannerIntelligence({
     insights.push({
       title: "Paying above minimums shortens your timeline",
       why: `You are paying ${formatCurrency(sandboxExtra)}/mo above minimums, which reduces principal faster.`,
-      impact: `${formatCurrency(interestAvoided)} in interest avoided vs paying minimums only`,
+      impact: `${formatCurrencyWhole(interestAvoided)} in interest avoided vs paying minimums only`,
     });
     insights.push({
       title:

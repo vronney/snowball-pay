@@ -12,6 +12,39 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
+/**
+ * Whole-dollar USD, no cents. The canonical format for *projected* figures
+ * (interest saved/avoided/reclaimed, forecast savings) so the same estimate
+ * renders identically across tabs — e.g. "$5,573" everywhere instead of
+ * "$5,573.00" on one screen and "$5,572.98" on another. Reserve cents-bearing
+ * formatCurrency for concrete amounts (balances, payments) where precision is
+ * real. Projections are estimates; showing cents implies false precision and
+ * invites cross-tab rounding mismatches.
+ */
+export function formatCurrencyWhole(value: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+/**
+ * A display-safe first name derived from an auth profile name, or null when
+ * there's no real name to show. Auth0 commonly backfills the `name` field with
+ * the account email when the user never set a display name, so an email-shaped
+ * value is treated as "no name" — callers fall back to a name-less greeting
+ * rather than printing "Good afternoon, someone@example.com."
+ */
+export function displayFirstName(name: string | null | undefined): string | null {
+  const trimmed = name?.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes('@')) return null;
+  const first = trimmed.split(/\s+/)[0];
+  return first || null;
+}
+
 export function formatPercent(value: number): string {
   return `${value.toFixed(2)}%`;
 }

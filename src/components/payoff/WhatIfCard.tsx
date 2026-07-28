@@ -7,7 +7,7 @@ import { Lock, Zap as ZapIcon } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
 import { type PayoffMethod } from "@/lib/snowball";
 import { calculateResultByMethod } from "@/lib/payoffPlan";
-import { formatCurrency, formatMonths } from "@/lib/utils";
+import { formatCurrencyWhole, formatMonths } from "@/lib/utils";
 import { isActiveDebt } from "@/lib/monthlyFocusDebt";
 
 interface WhatIfCardProps {
@@ -272,7 +272,7 @@ export default function WhatIfCard({
                     color: interest > 0 ? "#059669" : "#94a3b8",
                   }}
                 >
-                  {interest > 0 ? formatCurrency(Math.round(interest)) : "—"}
+                  {interest > 0 ? formatCurrencyWhole(interest) : "—"}
                 </div>
               </div>
             </div>

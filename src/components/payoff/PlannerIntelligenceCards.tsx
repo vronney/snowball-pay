@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { type Debt, type Income } from "@/types";
 import { type PayoffMethod, type PayoffResult } from "@/lib/snowball";
-import { formatCurrency, formatMonths } from "@/lib/utils";
+import { formatCurrency, formatCurrencyWhole, formatMonths } from "@/lib/utils";
 import { useSaveIncome } from "@/lib/hooks";
 import {
   type SmartCalendar,
@@ -237,7 +237,7 @@ export function IntelligenceOverviewCard({
         ? {
             tone: "good" as const,
             title: "This plan is doing measurable work",
-            evidence: `${formatCurrency(effectiveAcceleration)}/mo extra saves ${monthsSaved} months and ${formatCurrency(interestSaved)} in projected interest.`,
+            evidence: `${formatCurrency(effectiveAcceleration)}/mo extra saves ${monthsSaved} months and ${formatCurrencyWhole(interestSaved)} in projected interest.`,
             action: `Keep the next payment focused until ${nextDebtLabel} is cleared.`,
           }
         : {
@@ -297,7 +297,7 @@ export function IntelligenceOverviewCard({
             Interest avoided
           </p>
           <p className="text-sm font-semibold" style={{ color: "#059669" }}>
-            {formatCurrency(interestSaved)}
+            {formatCurrencyWhole(interestSaved)}
           </p>
           <p className="text-xs" style={{ color: "#64748b" }}>
             projected lifetime savings
