@@ -362,7 +362,11 @@ export default function PlannerIntelligence({
     Math.max(0, Number.isFinite(sandboxExtra) ? sandboxExtra : 0),
     finiteAvailableCashFlow,
   );
-  const isScenarioModified = Math.abs(clampedSandbox - committedAccel) >= 0.5;
+  // Only meaningful when there are active debts to accelerate — with none,
+  // sandboxExtra is pinned to 0 while committedAccel still reflects the prop,
+  // which would otherwise show a spurious "$0 vs $X" scenario.
+  const isScenarioModified =
+    hasActiveDebts && Math.abs(clampedSandbox - committedAccel) >= 0.5;
 
   return (
     <section className="space-y-4">
