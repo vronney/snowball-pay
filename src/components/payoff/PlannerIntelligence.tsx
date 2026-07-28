@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useUserSettings, useUpdatePreferences, useCachedCoachBrief, useGenerateCoachBrief, useSubscription } from "@/lib/hooks";
-import { Sparkles } from "lucide-react";
+import { Sparkles, FlaskConical } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
 import { type PayoffMethod, type PayoffResult } from "@/lib/snowball";
 import { calculateResultByMethod } from "@/lib/payoffPlan";
@@ -348,8 +348,85 @@ export default function PlannerIntelligence({
     );
   };
 
+  const finiteAvailableCashFlow = Number.isFinite(availableCashFlow)
+    ? Math.max(0, availableCashFlow)
+    : 0;
+  // The committed acceleration is what My Plan / This Month actually run on.
+  // Clamp it to available cash flow so it matches the sandbox initializer
+  // (Math.min(effectiveAcceleration, availableCashFlow)) — otherwise a fresh
+  // load could show a spurious banner.
+  const committedAccel = Math.min(
+    Number.isFinite(effectiveAcceleration) ? Math.max(0, effectiveAcceleration) : 0,
+    finiteAvailableCashFlow,
+  );
+  // Compare and display the RAW sandbox amount, because runScenario / the cards
+  // consume `sandboxExtra` as-is (a persisted value can exceed current cash
+  // flow). Using a clamped value here would let the banner report a different
+  // number than the projections actually use.
+  const scenarioAccel = Number.isFinite(sandboxExtra) ? Math.max(0, sandboxExtra) : 0;
+  const amountModified = Math.abs(scenarioAccel - committedAccel) >= 0.5;
+  // A different strategy is also a what-if: the cards recompute with
+  // `sandboxMethod`, which can drift from the committed method via persisted
+  // preferences even when the amount matches.
+  const methodModified = sandboxMethod !== payoffMethod;
+  // Only meaningful with active debts to accelerate — with none, sandboxExtra
+  // is pinned to 0 while committedAccel still reflects the prop.
+  const isScenarioModified = hasActiveDebts && (amountModified || methodModified);
+  const methodName = (m: PayoffMethod) =>
+    m === "avalanche" ? "Avalanche" : m === "custom" ? "Custom" : "Snowball";
+
   return (
     <section className="space-y-4">
+      {isScenarioModified && (
+        <div
+          className="rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap"
+          style={{ background: "rgba(245,158,11,0.10)", border: "1px solid rgba(245,158,11,0.30)" }}
+        >
+          <div className="flex items-start gap-2" style={{ minWidth: 0 }}>
+            <FlaskConical size={16} style={{ color: "#b45309", flexShrink: 0, marginTop: "1px" }} />
+            <div style={{ minWidth: 0 }}>
+              <p className="text-xs font-semibold" style={{ color: "#92400e", margin: 0 }}>
+                Showing a what-if scenario — not your committed plan
+              </p>
+              <p className="text-xs" style={{ color: "#92400e", opacity: 0.85, margin: "2px 0 0" }}>
+                {amountModified ? (
+                  <>
+                    These cards use{" "}
+                    <span className="mono">{formatCurrency(scenarioAccel)}</span>/mo extra vs your committed{" "}
+                    <span className="mono">{formatCurrency(committedAccel)}</span>/mo
+                    {methodModified
+                      ? `, using ${methodName(sandboxMethod)} instead of ${methodName(payoffMethod)}.`
+                      : "."}
+                  </>
+                ) : (
+                  <>
+                    These cards use the {methodName(sandboxMethod)} strategy instead of your committed{" "}
+                    {methodName(payoffMethod)}.
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (amountModified) handleSandboxExtra(committedAccel);
+              if (methodModified) handleSandboxMethod(payoffMethod);
+            }}
+            className="text-xs font-semibold rounded-lg"
+            style={{
+              flexShrink: 0,
+              padding: "7px 12px",
+              background: "#ffffff",
+              border: "1px solid rgba(245,158,11,0.40)",
+              color: "#b45309",
+              cursor: "pointer",
+            }}
+          >
+            Reset to committed
+          </button>
+        </div>
+      )}
       <div
         className="rounded-2xl p-5"
         style={{
