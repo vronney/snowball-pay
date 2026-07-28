@@ -86,7 +86,7 @@ export default function IntelligenceUpgradeTeaser({
             fontWeight: 700,
             letterSpacing: "0.08em",
             textTransform: "uppercase",
-            color: "#2563eb",
+            color: "#64748b",
           }}
         >
           Your plan, analyzed
@@ -108,7 +108,7 @@ export default function IntelligenceUpgradeTeaser({
                 style={{
                   background: "#ffffff",
                   border: "1px solid rgba(15,23,42,0.08)",
-                  borderRadius: "10px",
+                  borderRadius: "12px",
                   padding: "12px 14px",
                 }}
               >
@@ -245,7 +245,7 @@ export default function IntelligenceUpgradeTeaser({
               justifyContent: "space-between",
               gap: "12px",
               padding: "12px 14px",
-              borderRadius: "10px",
+              borderRadius: "12px",
               border: "1px solid rgba(15,23,42,0.08)",
               background: "#f8fafc",
             }}
@@ -255,16 +255,16 @@ export default function IntelligenceUpgradeTeaser({
                 style={{
                   width: "26px",
                   height: "26px",
-                  borderRadius: "7px",
-                  background: "#eef4ff",
-                  border: "1px solid #bfdbfe",
+                  borderRadius: "6px",
+                  background: "#f1f5f9",
+                  border: "1px solid rgba(15,23,42,0.08)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   flexShrink: 0,
                 }}
               >
-                <Lock size={13} style={{ color: "#2563eb" }} />
+                <Lock size={13} style={{ color: "#64748b" }} />
               </div>
               <span style={{ fontSize: "13px", fontWeight: 600, color: "#334155" }}>{label}</span>
             </div>
@@ -274,10 +274,10 @@ export default function IntelligenceUpgradeTeaser({
                 fontWeight: 700,
                 letterSpacing: "0.04em",
                 textTransform: "uppercase",
-                color: "#2563eb",
-                background: "#eff6ff",
-                border: "1px solid #bfdbfe",
-                borderRadius: "999px",
+                color: "#64748b",
+                background: "#f1f5f9",
+                border: "1px solid rgba(15,23,42,0.10)",
+                borderRadius: "6px",
                 padding: "2px 9px",
                 flexShrink: 0,
               }}

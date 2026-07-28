@@ -32,7 +32,7 @@ export default function IntelligenceTab({
   pendingExtra,
   onConsumePendingExtra,
 }: IntelligenceTabProps) {
-  const { data: subData, isLoading: subLoading } = useSubscription();
+  const { data: subData, isLoading: subLoading, refetch: refetchSubscription } = useSubscription();
   const isPro = subData?.proEligible === true;
   const { data: snapshotsData } = useAllSnapshots();
 
@@ -147,8 +147,33 @@ export default function IntelligenceTab({
         <div style={{ padding: "48px", textAlign: "center", opacity: 0.4 }}>
           <p style={{ fontSize: "14px" }}>Loading intelligence...</p>
         </div>
-      ) : (
+      ) : subData?.proEligible === false ? (
+        // Confirmed Free — show the real-numbers teaser.
         <IntelligenceUpgradeTeaser debts={debts} interestReclaimed={interestReclaimed} />
+      ) : (
+        // Subscription couldn't be confirmed (query errored). Do NOT assume Free
+        // — that would show a Pro user the upgrade wall. Offer a retry instead.
+        <div style={{ padding: "48px", textAlign: "center" }}>
+          <p style={{ fontSize: "14px", color: "#64748b", marginBottom: "12px" }}>
+            We couldn&apos;t confirm your plan just now.
+          </p>
+          <button
+            type="button"
+            onClick={() => refetchSubscription()}
+            style={{
+              padding: "9px 18px",
+              borderRadius: "8px",
+              border: "none",
+              background: "#2563eb",
+              color: "#ffffff",
+              cursor: "pointer",
+              fontSize: "13px",
+              fontWeight: 700,
+            }}
+          >
+            Retry
+          </button>
+        </div>
       )}
     </section>
   );
