@@ -5,7 +5,7 @@ import { type Tab } from "@/components/dashboard/types";
 import { calculateMinimumsOnlyResult } from "@/lib/payoffPlan";
 import { calculatePlanMetrics } from "@/lib/payoffPlan";
 import { selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
-import { formatCurrency, formatMonths, getOrdinalDay } from "@/lib/utils";
+import { displayFirstName, formatCurrency, formatMonths, getOrdinalDay } from "@/lib/utils";
 import { usePaymentRecords, useMarkPaid } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import InterestReclaimedBanner from "@/components/dashboard/InterestReclaimedBanner";
@@ -26,7 +26,7 @@ interface ThisMonthTabProps {
 function greeting(name: string | null | undefined): string {
   const hour = new Date().getHours();
   const time = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const first = name?.split(" ")[0];
+  const first = displayFirstName(name);
   return first ? `${time}, ${first}.` : `${time}.`;
 }
 

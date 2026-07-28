@@ -8,7 +8,7 @@ import {
   calculatePlanMetrics,
 } from "@/lib/payoffPlan";
 import { useAllSnapshots } from "@/lib/hooks";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrencyWhole } from "@/lib/utils";
 import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
 import PlannerIntelligence from "@/components/payoff/PlannerIntelligence";
 import ProGate from "@/components/billing/ProGate";
@@ -126,7 +126,7 @@ export default function IntelligenceTab({
         isPro={isPro}
         stakes={
           interestReclaimed > 0
-            ? `Your plan is on track to reclaim ${formatCurrency(interestReclaimed)} in interest — Pro's coach and forecasts help you keep it that way.`
+            ? `Your plan is on track to reclaim ${formatCurrencyWhole(interestReclaimed)} in interest — Pro's coach and forecasts help you keep it that way.`
             : undefined
         }
       >
