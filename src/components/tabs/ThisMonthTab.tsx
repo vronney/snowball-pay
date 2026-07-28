@@ -49,7 +49,10 @@ export default function ThisMonthTab({
   // Null (free users, or no brief yet) → neutral, factual copy that makes no
   // pace claim either way.
   const { data: coachCache } = useCachedCoachBrief();
-  const coachStatus = coachCache?.brief?.verdict.status ?? null;
+  // A stale brief predates the current balances/income/payments (the coach card
+  // shows a "your numbers changed" banner in that case), so its verdict must not
+  // be presented as current here — fall back to the neutral projection.
+  const coachStatus = coachCache?.stale ? null : (coachCache?.brief?.verdict.status ?? null);
 
   const paidDebtIds = useMemo(
     () => new Set((paymentsData?.records ?? []).map((record) => record.debtId)),
@@ -162,11 +165,13 @@ export default function ThisMonthTab({
                 case "on_track":
                   return <>You&apos;re on track to be debt-free in {months} — {date}.</>;
                 case "at_risk":
-                  return <>Slightly behind — debt-free in {months} ({date}) if you stay on plan.</>;
                 case "off_track":
-                  return <>Off pace — back on plan, you&apos;re debt-free in {months} ({date}).</>;
+                  // The verdict can stem from pace, cash flow, debt load, or a
+                  // bank-reauth issue — so point at the coach without asserting
+                  // a specific "behind pace" claim the verdict didn't establish.
+                  return <>On your current plan, debt-free in {months} — {date}. Your coach flagged something to review.</>;
                 default:
-                  // No coach verdict to inherit: state the projection without a pace claim.
+                  // No fresh coach verdict to inherit: state the projection plainly.
                   return <>On your current plan, debt-free in {months} — {date}.</>;
               }
             })()}
