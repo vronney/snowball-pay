@@ -550,10 +550,10 @@ export default function DebtTab({
               style={{ fontFamily: "inherit" }}
             >
               <span
-                className="font-semibold text-sm flex items-center gap-2"
+                className="font-semibold text-sm flex items-center gap-x-2 gap-y-1 flex-wrap min-w-0"
                 style={{ color: "#0f172a" }}
               >
-                Your debt accounts
+                <span className="whitespace-nowrap">Your debt accounts</span>
                 <Badge
                   variant="secondary"
                   className="bg-black/5 text-slate-600 border-transparent"
@@ -598,11 +598,12 @@ export default function DebtTab({
                     )}
                     <button
                       type="button"
+                      aria-label="Add debt"
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowForm(true);
                       }}
-                      className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold"
+                      className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold flex-shrink-0"
                       style={{
                         background: "rgba(37,99,235,0.08)",
                         color: "#2563eb",
@@ -612,7 +613,7 @@ export default function DebtTab({
                       }}
                     >
                       <PlusCircle size={12} />
-                      Add Debt
+                      <span className="hidden sm:inline">Add Debt</span>
                     </button>
                   </div>
                 )}
@@ -631,8 +632,8 @@ export default function DebtTab({
               <div className="px-4 pb-4">
                 {/* Sort / Filter toolbar — only shown when there are debts */}
                 {debts.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2 mb-3 pt-1">
-                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-3 pt-1">
+                    <div className="flex items-center gap-1.5 w-full sm:flex-1 min-w-0">
                       <ArrowUpDown
                         size={13}
                         style={{ color: "#94a3b8", flexShrink: 0 }}
@@ -644,7 +645,7 @@ export default function DebtTab({
                           // Selecting the derived strategy sort resets the override
                           setSortOverride(v === strategyDefaultSort ? null : v);
                         }}
-                        className="text-xs rounded-lg px-2 py-1.5 border bg-white cursor-pointer"
+                        className="text-xs rounded-lg px-2 py-1.5 border bg-white cursor-pointer flex-1 min-w-0 sm:flex-initial"
                         style={{
                           color: "#475569",
                           borderColor: "rgba(15,23,42,0.12)",
@@ -670,7 +671,7 @@ export default function DebtTab({
                     </div>
 
                     {categories.length > 1 && (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 w-full sm:w-auto">
                         <Filter
                           size={13}
                           style={{ color: "#94a3b8", flexShrink: 0 }}
@@ -678,7 +679,7 @@ export default function DebtTab({
                         <select
                           value={filterCategory}
                           onChange={(e) => setFilterCategory(e.target.value)}
-                          className="text-xs rounded-lg px-2 py-1.5 border bg-white cursor-pointer"
+                          className="text-xs rounded-lg px-2 py-1.5 border bg-white cursor-pointer flex-1 min-w-0 sm:flex-initial"
                           style={{
                             color: "#475569",
                             borderColor: "rgba(15,23,42,0.12)",
