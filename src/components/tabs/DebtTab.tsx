@@ -33,7 +33,7 @@ import DebtCard from "@/components/DebtCard";
 import CompactDebtRow from "@/components/debt/CompactDebtRow";
 import DebtForm from "@/components/DebtForm";
 import PaymentCalendar from "@/components/PaymentCalendar";
-import { getUpcomingPayments, computeStreak, isDebtOverdueThisMonth, isDebtBankLinked } from "@/lib/debtHelpers";
+import { getUpcomingPayments, computeStreak, isDebtPastDueThisMonth, isDebtBankLinked } from "@/lib/debtHelpers";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -561,10 +561,9 @@ export default function DebtTab({
                   {debts.length}
                 </Badge>
                 {(() => {
-                  const active = debts.filter((d) => d.balance > 0.01);
-                  if (active.length === 0) return null;
-                  const logged = active.filter((d) => paidDebtIds.has(d.id)).length;
-                  const done = logged === active.length;
+                  if (activeDebts.length === 0) return null;
+                  const logged = activeDebts.filter((d) => paidDebtIds.has(d.id)).length;
+                  const done = logged === activeDebts.length;
                   return (
                     <span
                       className="mono"
@@ -579,7 +578,7 @@ export default function DebtTab({
                         fontVariantNumeric: "tabular-nums",
                       }}
                     >
-                      {logged}/{active.length} logged{done ? " ✓" : ""}
+                      {logged}/{activeDebts.length} logged{done ? " ✓" : ""}
                     </span>
                   );
                 })()}
@@ -717,21 +716,22 @@ export default function DebtTab({
                     // hidden behind a collapsed row; the rest collapse for scan.
                     // syncPaused matches DebtCard's own condition so a downgraded
                     // user's "bank sync paused" notice (+ upgrade CTA) stays visible.
+                    const needsReauth = reauthBannerHostIds.has(debt.id);
                     const syncPaused =
                       isDebtBankLinked(debt) && subscription?.plaidEligible === false;
                     const needsAttention =
                       isFocus ||
-                      reauthBannerHostIds.has(debt.id) ||
+                      needsReauth ||
                       syncPaused ||
-                      (debt.balance > 0.01 &&
-                        !isPaidThisMonth &&
-                        isDebtOverdueThisMonth(debt.dueDate));
+                      isDebtPastDueThisMonth(debt, isPaidThisMonth);
                     return (
                       <CompactDebtRow
                         key={debt.id}
                         debt={debt}
                         isFocus={isFocus}
                         paidThisMonth={isPaidThisMonth}
+                        needsReauth={needsReauth}
+                        syncPaused={syncPaused}
                         defaultOpen={needsAttention || deepLink}
                         forceOpen={deepLink}
                       >

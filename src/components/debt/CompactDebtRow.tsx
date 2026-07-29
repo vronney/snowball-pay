@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ChevronDown, ChevronUp, CheckCircle2, Target, AlertCircle, Link2 } from "lucide-react";
+import { ChevronDown, ChevronUp, CheckCircle2, Target, AlertCircle, AlertTriangle, Link2 } from "lucide-react";
 import { type Debt } from "@/types";
 import { getCategoryColor, getOrdinalDay, formatCurrency, formatPercent } from "@/lib/utils";
-import { isDebtBankLinked, isDebtOverdueThisMonth } from "@/lib/debtHelpers";
+import { isDebtBankLinked, isDebtPastDueThisMonth } from "@/lib/debtHelpers";
 
 interface CompactDebtRowProps {
   debt: Debt;
@@ -16,6 +16,11 @@ interface CompactDebtRowProps {
   /** Deep-link (a notification or the upcoming-payments list targeted this
    *  debt): force the row open so the child card can open its payment panel. */
   forceOpen: boolean;
+  /** This debt hosts a Plaid reconnect banner — surface a "Reconnect" chip so
+   *  the reason survives a manual collapse. */
+  needsReauth?: boolean;
+  /** Bank sync is paused (downgraded plan) — surface a "Sync paused" chip. */
+  syncPaused?: boolean;
   /** The untouched <DebtCard/> — rendered verbatim when expanded. */
   children: ReactNode;
 }
@@ -44,6 +49,8 @@ export default function CompactDebtRow({
   paidThisMonth,
   defaultOpen,
   forceOpen,
+  needsReauth = false,
+  syncPaused = false,
   children,
 }: CompactDebtRowProps) {
   const [open, setOpen] = useState(defaultOpen);
@@ -61,7 +68,7 @@ export default function CompactDebtRow({
 
   const isPaidOff = debt.balance <= 0.01;
   const isLinked = isDebtBankLinked(debt);
-  const isPastDue = !isPaidOff && !paidThisMonth && isDebtOverdueThisMonth(debt.dueDate);
+  const isPastDue = isDebtPastDueThisMonth(debt, paidThisMonth);
   const categoryColor = getCategoryColor(debt.category);
 
   const nameChips = (
@@ -102,6 +109,16 @@ export default function CompactDebtRow({
         {isPastDue && (
           <span style={{ ...chipBase, color: "#b91c1c", background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.22)" }}>
             <AlertCircle size={10} strokeWidth={2} /> Past due
+          </span>
+        )}
+        {needsReauth && (
+          <span style={{ ...chipBase, color: "#b45309", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.30)" }}>
+            <AlertTriangle size={10} strokeWidth={2} /> Reconnect
+          </span>
+        )}
+        {syncPaused && (
+          <span style={{ ...chipBase, color: "#b45309", background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.30)" }}>
+            <AlertTriangle size={10} strokeWidth={2} /> Sync paused
           </span>
         )}
         {isLinked && (

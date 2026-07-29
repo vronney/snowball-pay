@@ -25,6 +25,18 @@ export function isDebtOverdueThisMonth(
   return !!dueDate && today.getDate() > dueDate;
 }
 
+/**
+ * True when an active debt's due day has passed this month with no payment
+ * logged yet. Shared by the compact row and the tab's attention logic so they
+ * agree with DebtCard's own past-due state.
+ */
+export function isDebtPastDueThisMonth(
+  debt: { balance: number; dueDate?: number | null },
+  paidThisMonth: boolean,
+): boolean {
+  return debt.balance > 0.01 && !paidThisMonth && isDebtOverdueThisMonth(debt.dueDate);
+}
+
 export interface UpcomingPayment {
   debt: Debt;
   daysUntilDue: number;
