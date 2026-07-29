@@ -53,15 +53,21 @@ export default function CompactDebtRow({
   syncPaused = false,
   children,
 }: CompactDebtRowProps) {
-  const [open, setOpen] = useState(defaultOpen);
+  // `manual` is the user's explicit choice; null means "follow the data". While
+  // null, the row tracks `defaultOpen` reactively — important because
+  // defaultOpen derives from async payment/subscription queries, so a row that
+  // only *becomes* focus / past-due / sync-paused once those resolve must still
+  // open. Once the user toggles, their choice wins.
+  const [manual, setManual] = useState<boolean | null>(null);
+  const open = manual ?? defaultOpen;
 
-  // A deep-link can target this row after mount — open it. Only reacts to the
-  // rising edge, so a user's manual collapse isn't fought on every render.
+  // A deep-link targeting this row (notification / upcoming-payments) opens it
+  // and keeps it open. Rising-edge only, so it doesn't re-open on every render.
   const wasForced = useRef(false);
   useEffect(() => {
     if (forceOpen && !wasForced.current) {
       wasForced.current = true;
-      setOpen(true);
+      setManual(true);
     }
     if (!forceOpen) wasForced.current = false;
   }, [forceOpen]);
@@ -136,7 +142,7 @@ export default function CompactDebtRow({
       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         <button
           type="button"
-          onClick={() => setOpen(false)}
+          onClick={() => setManual(false)}
           aria-expanded={true}
           style={{
             display: "flex",
@@ -164,7 +170,7 @@ export default function CompactDebtRow({
   return (
     <button
       type="button"
-      onClick={() => setOpen(true)}
+      onClick={() => setManual(true)}
       aria-expanded={false}
       style={{
         width: "100%",
