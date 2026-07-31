@@ -47,6 +47,16 @@ function cloneSeedRows(rows: DebtRowSeed[]): DebtRow[] {
   return rows.map((row) => ({ ...row }));
 }
 
+/** A row is "started" once any field has content — gates the empty-balance hint. */
+function isRowStarted(row: DebtRow): boolean {
+  return (
+    row.name.trim() !== "" ||
+    row.balance.trim() !== "" ||
+    row.rate.trim() !== "" ||
+    row.minimum.trim() !== ""
+  );
+}
+
 function newRow(): DebtRow {
   return {
     // Unique per row — Date.now() collides when two rows are added within the
@@ -69,6 +79,8 @@ function toDebt(
 ): Debt | null {
   const balance = parseNumericInput(row.balance);
   if (balance === null || balance <= 0) return null;
+  const rate = parseNumericInput(row.rate);
+  const minimum = parseNumericInput(row.minimum);
   return {
     id: row.id,
     userId: "",
@@ -76,8 +88,10 @@ function toDebt(
     category,
     balance,
     originalBalance: balance,
-    interestRate: parseNumericInput(row.rate) ?? 0,
-    minimumPayment: parseNumericInput(row.minimum) ?? 0,
+    // Negative rate/minimum fail validation and must never reach the math —
+    // fall back to 0 rather than feeding a negative into the payoff engine.
+    interestRate: rate !== null && rate >= 0 ? rate : 0,
+    minimumPayment: minimum !== null && minimum >= 0 ? minimum : 0,
     creditLimit: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -198,11 +212,7 @@ export default function PublicCalculator({
   const rowErrors = useMemo(() => {
     const map: Record<string, Partial<Record<DebtFieldKey, string>>> = {};
     for (const row of debtRows) {
-      const rowStarted =
-        row.name.trim() !== "" ||
-        row.balance.trim() !== "" ||
-        row.rate.trim() !== "" ||
-        row.minimum.trim() !== "";
+      const rowStarted = isRowStarted(row);
       const entry: Partial<Record<DebtFieldKey, string>> = {};
       (["balance", "rate", "minimum"] as DebtFieldKey[]).forEach((field) => {
         if (!touched[`${row.id}:${field}`]) return;
@@ -312,10 +322,11 @@ export default function PublicCalculator({
     const row = debtRows.find((r) => r.id === id);
     if (!row) return;
 
-    // APR: clamp the displayed value to 2 decimals once the user leaves it.
+    // APR: clamp the displayed value to 2 decimals once the user leaves it —
+    // but only for a valid, non-negative rate, so we never write "-5.00" back.
     if (field === "rate") {
       const parsed = parseNumericInput(row.rate);
-      if (parsed !== null) {
+      if (parsed !== null && parsed >= 0) {
         const clamped = parsed.toFixed(2);
         if (clamped !== row.rate) {
           setDebtRows((prev) =>
@@ -325,12 +336,7 @@ export default function PublicCalculator({
       }
     }
 
-    const rowStarted =
-      row.name.trim() !== "" ||
-      row.balance.trim() !== "" ||
-      row.rate.trim() !== "" ||
-      row.minimum.trim() !== "";
-    if (debtFieldError(field, row[field], { rowStarted })) {
+    if (debtFieldError(field, row[field], { rowStarted: isRowStarted(row) })) {
       // Self-locating telemetry: which field's format/absence stalled a debt.
       track(Events.CALCULATOR_FORM_BLOCKED, {
         missing_fields: [field],
@@ -393,8 +399,12 @@ export default function PublicCalculator({
       .map((r, i) => {
         const balance = parseNumericInput(r.balance);
         if (balance === null || balance <= 0) return null;
-        const rate = parseNumericInput(r.rate);
-        const minimum = parseNumericInput(r.minimum);
+        const rawRate = parseNumericInput(r.rate);
+        const rawMinimum = parseNumericInput(r.minimum);
+        // Persist only valid, non-negative values — a negative here would ride
+        // the signup round trip into the saved plan.
+        const rate = rawRate !== null && rawRate >= 0 ? rawRate : null;
+        const minimum = rawMinimum !== null && rawMinimum >= 0 ? rawMinimum : null;
         return {
           name: r.name.trim() || `Debt ${i + 1}`,
           balance: String(balance),

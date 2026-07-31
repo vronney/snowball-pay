@@ -1,6 +1,6 @@
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { DebtRow } from './PublicCalculator';
+import type { DebtRow } from '@/components/calculator/PublicCalculator';
 import type { DebtFieldKey } from '@/lib/parseNumericInput';
 
 interface CalculatorDebtCardProps {

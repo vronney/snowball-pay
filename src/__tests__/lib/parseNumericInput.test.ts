@@ -34,6 +34,19 @@ describe('parseNumericInput', () => {
     expect(parseNumericInput('abc')).toBeNull();
     expect(parseNumericInput('$')).toBeNull();
   });
+
+  it('rejects malformed input instead of silently rewriting it', () => {
+    // Letters/dashes must not be scrubbed into a different valid number.
+    expect(parseNumericInput('1O00')).toBeNull(); // letter O, not zero
+    expect(parseNumericInput('12-3')).toBeNull();
+    expect(parseNumericInput('555-1234')).toBeNull();
+    expect(parseNumericInput('1.2.3')).toBeNull(); // ambiguous multi-dot
+  });
+
+  it('keeps a leading sign but rejects mid-string signs', () => {
+    expect(parseNumericInput('-5')).toBe(-5);
+    expect(parseNumericInput('5-')).toBeNull();
+  });
 });
 
 describe('debtFieldError', () => {
@@ -52,6 +65,11 @@ describe('debtFieldError', () => {
   it('rejects a non-positive balance', () => {
     expect(debtFieldError('balance', '0')).not.toBeNull();
     expect(debtFieldError('balance', '-5')).not.toBeNull();
+  });
+
+  it('rejects negative rate and minimum', () => {
+    expect(debtFieldError('rate', '-5')).not.toBeNull();
+    expect(debtFieldError('minimum', '-10')).not.toBeNull();
   });
 
   it('stays quiet on empty optional fields', () => {

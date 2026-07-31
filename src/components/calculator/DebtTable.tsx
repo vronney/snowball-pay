@@ -1,7 +1,14 @@
 import { Plus, X } from 'lucide-react';
-import type { DebtRow } from './PublicCalculator';
+import { cn } from '@/lib/utils';
+import type { DebtRow } from '@/components/calculator/PublicCalculator';
 import type { DebtFieldKey } from '@/lib/parseNumericInput';
 import CalculatorDebtCard from './CalculatorDebtCard';
+
+const NUMERIC_COLUMNS: Array<{ field: DebtFieldKey; placeholder: string }> = [
+  { field: 'balance', placeholder: '5000' },
+  { field: 'rate', placeholder: '19.99' },
+  { field: 'minimum', placeholder: '100' },
+];
 
 interface DebtTableProps {
   rows: DebtRow[];
@@ -55,55 +62,58 @@ export default function DebtTable({
             </div>
 
             <div className="space-y-2">
-              {rows.map((row, i) => (
-                <div
-                  key={row.id}
-                  style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 32px', gap: '8px', alignItems: 'center' }}
-                >
-                  <input
-                    type="text"
-                    placeholder="Credit Card"
-                    value={row.name}
-                    onChange={(e) => onRowChange(row.id, 'name', e.target.value)}
-                    className="input-field text-base sm:text-[13px] sm:leading-5"
-                  />
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="5000"
-                    value={row.balance}
-                    onChange={(e) => onRowChange(row.id, 'balance', e.target.value)}
-                    onBlur={() => onRowBlur(row.id, 'balance')}
-                    className="input-field text-base sm:text-[13px] sm:leading-5"
-                  />
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="19.99"
-                    value={row.rate}
-                    onChange={(e) => onRowChange(row.id, 'rate', e.target.value)}
-                    onBlur={() => onRowBlur(row.id, 'rate')}
-                    className="input-field text-base sm:text-[13px] sm:leading-5"
-                  />
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="100"
-                    value={row.minimum}
-                    onChange={(e) => onRowChange(row.id, 'minimum', e.target.value)}
-                    onBlur={() => onRowBlur(row.id, 'minimum')}
-                    className="input-field text-base sm:text-[13px] sm:leading-5"
-                  />
-                  <button
-                    onClick={() => onRowRemove(row.id)}
-                    aria-label={`Remove ${row.name.trim() || `debt ${i + 1}`}`}
-                    className="cursor-pointer bg-transparent border-0 p-0 w-8 h-8 flex items-center justify-center"
-                    style={{ color: '#94a3b8', lineHeight: 1 }}
+              {rows.map((row, i) => {
+                const rowError = errors?.[row.id];
+                return (
+                  <div
+                    key={row.id}
+                    style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 32px', gap: '8px', alignItems: 'start' }}
                   >
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
+                    <input
+                      type="text"
+                      placeholder="Credit Card"
+                      value={row.name}
+                      onChange={(e) => onRowChange(row.id, 'name', e.target.value)}
+                      className="input-field text-base sm:text-[13px] sm:leading-5"
+                    />
+                    {NUMERIC_COLUMNS.map(({ field, placeholder }) => {
+                      const error = rowError?.[field];
+                      return (
+                        <div key={field}>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder={placeholder}
+                            value={row[field]}
+                            onChange={(e) => onRowChange(row.id, field, e.target.value)}
+                            onBlur={() => onRowBlur(row.id, field)}
+                            aria-invalid={error ? true : undefined}
+                            aria-describedby={error ? `${row.id}-${field}-desktop-error` : undefined}
+                            className={cn('input-field w-full text-base sm:text-[13px] sm:leading-5', error && 'input-field-error')}
+                          />
+                          {error && (
+                            <p
+                              id={`${row.id}-${field}-desktop-error`}
+                              className="text-xs mt-1"
+                              style={{ color: '#ef4444' }}
+                            >
+                              {error}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                    <button
+                      onClick={() => onRowRemove(row.id)}
+                      aria-label={`Remove ${row.name.trim() || `debt ${i + 1}`}`}
+                      className="cursor-pointer bg-transparent border-0 p-0 w-8 h-8 flex items-center justify-center"
+                      style={{ color: '#94a3b8', lineHeight: 1, alignSelf: 'center' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
