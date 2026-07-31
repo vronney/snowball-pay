@@ -1,78 +1,112 @@
 import { Plus, X } from 'lucide-react';
 import type { DebtRow } from './PublicCalculator';
+import type { DebtFieldKey } from '@/lib/parseNumericInput';
+import CalculatorDebtCard from './CalculatorDebtCard';
 
 interface DebtTableProps {
   rows: DebtRow[];
+  errors?: Record<string, Partial<Record<DebtFieldKey, string>>>;
   onRowChange: (id: string, field: keyof DebtRow, value: string) => void;
+  onRowBlur: (id: string, field: DebtFieldKey) => void;
   onRowRemove: (id: string) => void;
   onRowAdd: () => void;
 }
 
-export default function DebtTable({ rows, onRowChange, onRowRemove, onRowAdd }: DebtTableProps) {
+export default function DebtTable({
+  rows,
+  errors,
+  onRowChange,
+  onRowBlur,
+  onRowRemove,
+  onRowAdd,
+}: DebtTableProps) {
   return (
     <div className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
       <h2 className="font-semibold text-base mb-4">Your Debts</h2>
 
-      <div className="overflow-x-auto">
-      <div style={{ minWidth: '380px' }}>
-      <div
-        className="mb-2 text-xs"
-        style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 32px', gap: '8px', color: '#64748b' }}
-      >
-        <span>Name</span>
-        <span>Balance ($)</span>
-        <span>APR %</span>
-        <span>Min/mo</span>
-        <span />
+      {/* Mobile (< md): stacked cards — every field visible, no horizontal scroll */}
+      <div className="md:hidden space-y-3">
+        {rows.map((row, i) => (
+          <CalculatorDebtCard
+            key={row.id}
+            row={row}
+            index={i}
+            errors={errors?.[row.id]}
+            onFieldChange={onRowChange}
+            onFieldBlur={onRowBlur}
+            onRemove={onRowRemove}
+          />
+        ))}
       </div>
 
-      <div className="space-y-2">
-        {rows.map((row, i) => (
-          <div
-            key={row.id}
-            style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 32px', gap: '8px', alignItems: 'center' }}
-          >
-            <input
-              type="text"
-              placeholder="Credit Card"
-              value={row.name}
-              onChange={(e) => onRowChange(row.id, 'name', e.target.value)}
-              className="input-field text-base sm:text-[13px] sm:leading-5"
-            />
-            <input
-              type="number"
-              inputMode="decimal"
-              placeholder="5000"
-              value={row.balance}
-              onChange={(e) => onRowChange(row.id, 'balance', e.target.value)}
-              className="input-field text-base sm:text-[13px] sm:leading-5"
-            />
-            <input
-              type="number"
-              inputMode="decimal"
-              placeholder="19.99"
-              value={row.rate}
-              onChange={(e) => onRowChange(row.id, 'rate', e.target.value)}
-              className="input-field text-base sm:text-[13px] sm:leading-5"
-            />
-            <input
-              type="number"
-              inputMode="decimal"
-              placeholder="100"
-              value={row.minimum}
-              onChange={(e) => onRowChange(row.id, 'minimum', e.target.value)}
-              className="input-field text-base sm:text-[13px] sm:leading-5"
-            />
-            <button
-              onClick={() => onRowRemove(row.id)}
-              aria-label={`Remove ${row.name.trim() || `debt ${i + 1}`}`}
-              className="cursor-pointer bg-transparent border-0 p-0 w-8 h-8 flex items-center justify-center"
-              style={{ color: '#94a3b8', lineHeight: 1 }}
+      {/* Desktop (≥ md): original table, unchanged */}
+      <div className="hidden md:block">
+        <div className="overflow-x-auto">
+          <div style={{ minWidth: '380px' }}>
+            <div
+              className="mb-2 text-xs"
+              style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 32px', gap: '8px', color: '#64748b' }}
             >
-              <X size={14} />
-            </button>
+              <span>Name</span>
+              <span>Balance ($)</span>
+              <span>APR %</span>
+              <span>Min/mo</span>
+              <span />
+            </div>
+
+            <div className="space-y-2">
+              {rows.map((row, i) => (
+                <div
+                  key={row.id}
+                  style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 32px', gap: '8px', alignItems: 'center' }}
+                >
+                  <input
+                    type="text"
+                    placeholder="Credit Card"
+                    value={row.name}
+                    onChange={(e) => onRowChange(row.id, 'name', e.target.value)}
+                    className="input-field text-base sm:text-[13px] sm:leading-5"
+                  />
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="5000"
+                    value={row.balance}
+                    onChange={(e) => onRowChange(row.id, 'balance', e.target.value)}
+                    onBlur={() => onRowBlur(row.id, 'balance')}
+                    className="input-field text-base sm:text-[13px] sm:leading-5"
+                  />
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="19.99"
+                    value={row.rate}
+                    onChange={(e) => onRowChange(row.id, 'rate', e.target.value)}
+                    onBlur={() => onRowBlur(row.id, 'rate')}
+                    className="input-field text-base sm:text-[13px] sm:leading-5"
+                  />
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="100"
+                    value={row.minimum}
+                    onChange={(e) => onRowChange(row.id, 'minimum', e.target.value)}
+                    onBlur={() => onRowBlur(row.id, 'minimum')}
+                    className="input-field text-base sm:text-[13px] sm:leading-5"
+                  />
+                  <button
+                    onClick={() => onRowRemove(row.id)}
+                    aria-label={`Remove ${row.name.trim() || `debt ${i + 1}`}`}
+                    className="cursor-pointer bg-transparent border-0 p-0 w-8 h-8 flex items-center justify-center"
+                    style={{ color: '#94a3b8', lineHeight: 1 }}
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
-        ))}
+        </div>
       </div>
 
       <button
@@ -83,8 +117,6 @@ export default function DebtTable({ rows, onRowChange, onRowRemove, onRowAdd }: 
         <Plus size={14} />
         Add another debt
       </button>
-      </div>
-      </div>
     </div>
   );
 }
