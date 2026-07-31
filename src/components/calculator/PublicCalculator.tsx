@@ -1,6 +1,11 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import {
+  parseNumericInput,
+  debtFieldError,
+  type DebtFieldKey,
+} from "@/lib/parseNumericInput";
 import Image from "next/image";
 import Link from "next/link";
 import type { Route } from "next";
@@ -42,6 +47,16 @@ function cloneSeedRows(rows: DebtRowSeed[]): DebtRow[] {
   return rows.map((row) => ({ ...row }));
 }
 
+/** A row is "started" once any field has content — gates the empty-balance hint. */
+function isRowStarted(row: DebtRow): boolean {
+  return (
+    row.name.trim() !== "" ||
+    row.balance.trim() !== "" ||
+    row.rate.trim() !== "" ||
+    row.minimum.trim() !== ""
+  );
+}
+
 function newRow(): DebtRow {
   return {
     // Unique per row — Date.now() collides when two rows are added within the
@@ -62,8 +77,10 @@ function toDebt(
   index: number,
   category: Debt["category"],
 ): Debt | null {
-  const balance = parseFloat(row.balance);
-  if (!balance || balance <= 0) return null;
+  const balance = parseNumericInput(row.balance);
+  if (balance === null || balance <= 0) return null;
+  const rate = parseNumericInput(row.rate);
+  const minimum = parseNumericInput(row.minimum);
   return {
     id: row.id,
     userId: "",
@@ -71,8 +88,10 @@ function toDebt(
     category,
     balance,
     originalBalance: balance,
-    interestRate: parseFloat(row.rate) || 0,
-    minimumPayment: parseFloat(row.minimum) || 0,
+    // Negative rate/minimum fail validation and must never reach the math —
+    // fall back to 0 rather than feeding a negative into the payoff engine.
+    interestRate: rate !== null && rate >= 0 ? rate : 0,
+    minimumPayment: minimum !== null && minimum >= 0 ? minimum : 0,
     creditLimit: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -173,6 +192,9 @@ export default function PublicCalculator({
   const [extra, setExtra] = useState(config.defaultExtra);
   const [method, setMethod] = useState<PayoffMethod>(config.defaultMethod);
   const [hasInteracted, setHasInteracted] = useState(false);
+  // Fields the user has left (blurred). Inline errors only show for touched
+  // fields, so hints appear on blur — never on every keystroke.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const calculatorStartedRef = useRef(false);
 
   // ── Derived state ──────────────────────────────────────────────────────────
@@ -184,6 +206,23 @@ export default function PublicCalculator({
         .filter((d): d is Debt => d !== null),
     [config.debtCategory, debtRows],
   );
+
+  // Per-row, per-field inline errors — computed from values, gated on `touched`
+  // so a field only shows a hint once the user has left it.
+  const rowErrors = useMemo(() => {
+    const map: Record<string, Partial<Record<DebtFieldKey, string>>> = {};
+    for (const row of debtRows) {
+      const rowStarted = isRowStarted(row);
+      const entry: Partial<Record<DebtFieldKey, string>> = {};
+      (["balance", "rate", "minimum"] as DebtFieldKey[]).forEach((field) => {
+        if (!touched[`${row.id}:${field}`]) return;
+        const error = debtFieldError(field, row[field], { rowStarted });
+        if (error) entry[field] = error;
+      });
+      if (Object.keys(entry).length > 0) map[row.id] = entry;
+    }
+    return map;
+  }, [debtRows, touched]);
 
   const takeHomeNum = parseFloat(takeHome) || 0;
   const essentialNum = parseFloat(essential) || 0;
@@ -270,6 +309,43 @@ export default function PublicCalculator({
     );
   };
 
+  // The `md` breakpoint (768px) gates the card/table swap; report the same
+  // split on the blocked event so a leak is self-locating per device.
+  const detectDevice = (): "mobile" | "desktop" =>
+    typeof window !== "undefined" &&
+    window.matchMedia("(max-width: 767px)").matches
+      ? "mobile"
+      : "desktop";
+
+  const blurRow = (id: string, field: DebtFieldKey) => {
+    setTouched((prev) => ({ ...prev, [`${id}:${field}`]: true }));
+    const row = debtRows.find((r) => r.id === id);
+    if (!row) return;
+
+    // APR: clamp the displayed value to 2 decimals once the user leaves it —
+    // but only for a valid, non-negative rate, so we never write "-5.00" back.
+    if (field === "rate") {
+      const parsed = parseNumericInput(row.rate);
+      if (parsed !== null && parsed >= 0) {
+        const clamped = parsed.toFixed(2);
+        if (clamped !== row.rate) {
+          setDebtRows((prev) =>
+            prev.map((r) => (r.id === id ? { ...r, rate: clamped } : r)),
+          );
+        }
+      }
+    }
+
+    if (debtFieldError(field, row[field], { rowStarted: isRowStarted(row) })) {
+      // Self-locating telemetry: which field's format/absence stalled a debt.
+      track(Events.CALCULATOR_FORM_BLOCKED, {
+        missing_fields: [field],
+        device: detectDevice(),
+        calculator_slug: config.slug,
+      });
+    }
+  };
+
   const removeRow = (id: string) => {
     markCalculatorStarted("remove_debt");
     setDebtRows((prev) => prev.filter((r) => r.id !== id));
@@ -317,14 +393,26 @@ export default function PublicCalculator({
     essentialExpenses: essential,
     extraPayment: extra,
     debtCategory: config.debtCategory,
+    // Canonicalise the loosely-typed strings ("$14,200" → "14200") so the saved
+    // plan survives the signup round trip without re-mangling on restore.
     debts: debtRows
-      .filter((r) => (parseFloat(r.balance) || 0) > 0)
-      .map((r, i) => ({
-        name: r.name.trim() || `Debt ${i + 1}`,
-        balance: r.balance,
-        rate: r.rate,
-        minimum: r.minimum,
-      })),
+      .map((r, i) => {
+        const balance = parseNumericInput(r.balance);
+        if (balance === null || balance <= 0) return null;
+        const rawRate = parseNumericInput(r.rate);
+        const rawMinimum = parseNumericInput(r.minimum);
+        // Persist only valid, non-negative values — a negative here would ride
+        // the signup round trip into the saved plan.
+        const rate = rawRate !== null && rawRate >= 0 ? rawRate : null;
+        const minimum = rawMinimum !== null && rawMinimum >= 0 ? rawMinimum : null;
+        return {
+          name: r.name.trim() || `Debt ${i + 1}`,
+          balance: String(balance),
+          rate: rate === null ? "" : String(rate),
+          minimum: minimum === null ? "" : String(minimum),
+        };
+      })
+      .filter((d): d is NonNullable<typeof d> => d !== null),
   };
 
   // Signup CTAs outside the results panel must not discard the session:
@@ -447,7 +535,9 @@ export default function PublicCalculator({
           <div className="space-y-5">
             <DebtTable
               rows={debtRows}
+              errors={rowErrors}
               onRowChange={updateRow}
+              onRowBlur={blurRow}
               onRowRemove={removeRow}
               onRowAdd={addRow}
             />

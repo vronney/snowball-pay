@@ -10,6 +10,7 @@ export const Events = {
   CALCULATOR_USED: 'calculator_used',
   CALCULATOR_RESULT_VIEWED: 'calculator_result_viewed',
   CALCULATOR_SAVE_CLICKED: 'calculator_save_clicked',
+  CALCULATOR_FORM_BLOCKED: 'calculator_form_blocked',
   PRICING_PRO_CLICKED: 'pricing_pro_clicked',
   UPGRADE_MODAL_VIEWED: 'upgrade_modal_viewed',
   UPGRADE_MODAL_DISMISSED: 'upgrade_modal_dismissed',
