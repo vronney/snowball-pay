@@ -63,6 +63,9 @@ export function parseNumericInput(raw: string): number | null {
     // Fraction is everything after the last separator, so it can only be digits;
     // an empty fraction ("5.") is treated as a whole number.
     if (fracPart !== '' && !/^[0-9]+$/.test(fracPart)) return null;
+    // A bare separator (".", "+.", "-.") has no digits at all — reject it
+    // rather than normalising the empty int part into a spurious 0.
+    if (intPart === '' && fracPart === '') return null;
   }
 
   if (intPart === '') intPart = '0'; // leading-separator form (".5")

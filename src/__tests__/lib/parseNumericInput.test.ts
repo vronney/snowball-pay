@@ -47,6 +47,14 @@ describe('parseNumericInput', () => {
     expect(parseNumericInput('-5')).toBe(-5);
     expect(parseNumericInput('5-')).toBeNull();
   });
+
+  it('accepts a leading/trailing decimal but rejects a bare separator', () => {
+    expect(parseNumericInput('.5')).toBe(0.5);
+    expect(parseNumericInput('5.')).toBe(5);
+    expect(parseNumericInput('.')).toBeNull();
+    expect(parseNumericInput('+.')).toBeNull();
+    expect(parseNumericInput('-.')).toBeNull();
+  });
 });
 
 describe('debtFieldError', () => {
