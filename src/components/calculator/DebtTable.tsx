@@ -74,6 +74,7 @@ export default function DebtTable({
                       placeholder="Credit Card"
                       value={row.name}
                       onChange={(e) => onRowChange(row.id, 'name', e.target.value)}
+                      onFocus={(e) => e.target.select()}
                       className="input-field text-base sm:text-[13px] sm:leading-5"
                     />
                     {NUMERIC_COLUMNS.map(({ field, placeholder }) => {
@@ -86,6 +87,7 @@ export default function DebtTable({
                             placeholder={placeholder}
                             value={row[field]}
                             onChange={(e) => onRowChange(row.id, field, e.target.value)}
+                            onFocus={(e) => e.target.select()}
                             onBlur={() => onRowBlur(row.id, field)}
                             aria-invalid={error ? true : undefined}
                             aria-describedby={error ? `${row.id}-${field}-desktop-error` : undefined}

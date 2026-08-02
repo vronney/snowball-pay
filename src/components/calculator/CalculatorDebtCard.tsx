@@ -49,6 +49,7 @@ export default function CalculatorDebtCard({
           placeholder={placeholder}
           value={row[field]}
           onChange={(e) => onFieldChange(row.id, field, e.target.value)}
+          onFocus={(e) => e.target.select()}
           onBlur={() => onFieldBlur(row.id, field)}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
@@ -86,6 +87,7 @@ export default function CalculatorDebtCard({
             placeholder="Credit Card"
             value={row.name}
             onChange={(e) => onFieldChange(row.id, 'name', e.target.value)}
+            onFocus={(e) => e.target.select()}
             className="input-field text-base"
           />
         </div>

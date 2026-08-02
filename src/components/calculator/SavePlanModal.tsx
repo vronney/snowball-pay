@@ -294,6 +294,26 @@ export default function SavePlanModal({
           >
             No credit card. No spam. Unsubscribe anytime.
           </p>
+
+          {/* Truthful decline: the plan only persists on save, so closing
+              really does risk losing it when the tab goes. */}
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              display: "block",
+              margin: "14px auto 0",
+              background: "none",
+              border: "none",
+              padding: 0,
+              fontSize: "12px",
+              color: "#94a3b8",
+              textDecoration: "underline",
+              cursor: "pointer",
+            }}
+          >
+            Close without saving my plan
+          </button>
         </form>
       </div>
     </div>

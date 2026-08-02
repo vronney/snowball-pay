@@ -144,31 +144,22 @@ export default function LandingHero({ isLoggedIn }: { isLoggedIn: boolean }) {
                   <ArrowIsland />
                 </a>
               ) : (
-                <>
-                  <a
-                    href="/calculator"
-                    className="lp-btn lp-btn-primary lp-btn-with-icon"
-                    style={{ fontSize: "16px", padding: "16px 12px 16px 28px" }}
-                    onClick={() =>
-                      track(Events.CALCULATOR_CTA_CLICKED, {
-                        source: "hero_primary",
-                      })
-                    }
-                  >
-                    See my debt-free date
-                    <ArrowIsland />
-                  </a>
-                  <a
-                    href="/auth/login?returnTo=/onboarding&screen_hint=signup"
-                    className="lp-btn lp-btn-ghost"
-                    style={{ fontSize: "15px" }}
-                    onClick={() =>
-                      track(Events.SIGNUP_STARTED, { source: "hero_secondary" })
-                    }
-                  >
-                    Build My Plan
-                  </a>
-                </>
+                // Single action for cold traffic: the calculator. The old
+                // "Build My Plan" ghost split motivated clickers into Auth0,
+                // where 83% abandoned. Build first, sign up after.
+                <a
+                  href="/calculator"
+                  className="lp-btn lp-btn-primary lp-btn-with-icon"
+                  style={{ fontSize: "16px", padding: "16px 12px 16px 28px" }}
+                  onClick={() =>
+                    track(Events.CALCULATOR_CTA_CLICKED, {
+                      source: "hero_primary",
+                    })
+                  }
+                >
+                  See my debt-free date
+                  <ArrowIsland />
+                </a>
               )}
             </div>
 

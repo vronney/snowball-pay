@@ -20,6 +20,8 @@ import type { ChartEntry } from "@/components/payoff/BalanceOverTimeChart";
 import DebtTable from "./DebtTable";
 import BudgetPanel from "./BudgetPanel";
 import ResultsPanel from "./ResultsPanel";
+import CalculatorSteps from "./CalculatorSteps";
+import MobileResultBar from "./MobileResultBar";
 import {
   defaultCalculatorConfig,
   type CalculatorConfig,
@@ -195,7 +197,12 @@ export default function PublicCalculator({
   // Fields the user has left (blurred). Inline errors only show for touched
   // fields, so hints appear on blur — never on every keystroke.
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  // Live stepper state — budget/strategy tick only on a real user edit, so
+  // the strip reflects engagement, not the pre-seeded defaults.
+  const [budgetTouched, setBudgetTouched] = useState(false);
+  const [strategyTouched, setStrategyTouched] = useState(false);
   const calculatorStartedRef = useRef(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
@@ -358,21 +365,25 @@ export default function PublicCalculator({
 
   const updateTakeHome = (value: string) => {
     markCalculatorStarted("take_home");
+    setBudgetTouched(true);
     setTakeHome(value);
   };
 
   const updateEssential = (value: string) => {
     markCalculatorStarted("essential_expenses");
+    setBudgetTouched(true);
     setEssential(value);
   };
 
   const updateExtra = (value: string) => {
     markCalculatorStarted("extra_payment");
+    setBudgetTouched(true);
     setExtra(value);
   };
 
   const updateMethod = (value: PayoffMethod) => {
     markCalculatorStarted("payoff_method");
+    setStrategyTouched(true);
     setMethod(value);
   };
 
@@ -421,6 +432,15 @@ export default function PublicCalculator({
     if (calculatorState.debts.length === 0) return;
     saveCalculatorDraft(calculatorState);
   };
+
+  // Mirrors the HowTo steps in the page's JSON-LD. Seeded debts count as
+  // step 1 (endowed progress — never show a full form as "0 of 4").
+  const steps = [
+    { label: "Enter your debts", done: validDebts.length > 0 },
+    { label: "Set your budget", done: budgetTouched },
+    { label: "Choose a strategy", done: strategyTouched },
+    { label: "See your result", done: hasInteracted && planResult !== null },
+  ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -520,7 +540,7 @@ export default function PublicCalculator({
               transition: "border-color 0.15s",
             }}
           >
-            Load sample numbers
+            Reset sample numbers
           </button>
           {/* Deferred-signup reassurance: tell repeat-intent users upfront
               that a save option comes at the end, so nobody hunts for one. */}
@@ -528,6 +548,8 @@ export default function PublicCalculator({
             No account needed to calculate — you can save your plan at the end.
           </p>
         </div>
+
+        <CalculatorSteps steps={steps} />
 
         {/* Calculator grid — the tool comes first */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
@@ -607,20 +629,34 @@ export default function PublicCalculator({
           </div>
 
           {/* Right: Results */}
-          <ResultsPanel
-            planResult={planResult}
-            balanceChartData={balanceChartData}
-            interestSaved={interestSaved}
-            effectiveAccel={effectiveAccel}
-            showMinimumsLine={showMinimumsLine}
-            timeStr={timeStr}
-            hasInteracted={hasInteracted}
-            method={method}
-            savePlanLabel={config.ctaLabel}
-            savePlanHelperText={config.ctaHelperText}
-            calculatorState={calculatorState}
-          />
+          <div ref={resultsRef}>
+            <ResultsPanel
+              planResult={planResult}
+              balanceChartData={balanceChartData}
+              interestSaved={interestSaved}
+              effectiveAccel={effectiveAccel}
+              showMinimumsLine={showMinimumsLine}
+              timeStr={timeStr}
+              hasInteracted={hasInteracted}
+              sampleMode={!hasInteracted}
+              method={method}
+              savePlanLabel={config.ctaLabel}
+              savePlanHelperText={config.ctaHelperText}
+              calculatorState={calculatorState}
+            />
+          </div>
         </div>
+
+        {/* On phones the results stack far below the inputs — keep the live
+            date + interest visible while the user edits. Shown only once
+            the plan reflects their own numbers, never the sample's. */}
+        {hasInteracted && planResult && timeStr && (
+          <MobileResultBar
+            timeStr={timeStr}
+            totalInterest={planResult.totalInterestPaid}
+            resultsRef={resultsRef}
+          />
+        )}
       </main>
 
       {/* Below-fold: content, CTA, FAQ, related */}

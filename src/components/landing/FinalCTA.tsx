@@ -129,14 +129,16 @@ export default function FinalCTA({ isLoggedIn }: { isLoggedIn: boolean }) {
             ) : (
               <>
                 <a
-                  href="/auth/login?returnTo=/dashboard&screen_hint=signup"
+                  href="/calculator"
                   className="lp-btn lp-btn-primary"
                   style={{ fontSize: "17px", padding: "17px 40px" }}
                   onClick={() =>
-                    track(Events.SIGNUP_STARTED, { source: "final_cta_primary" })
+                    track(Events.CALCULATOR_CTA_CLICKED, {
+                      source: "final_cta_primary",
+                    })
                   }
                 >
-                  Create Free Account
+                  See My Debt-Free Date
                 </a>
                 <a
                   href="#how-it-works"
