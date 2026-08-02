@@ -236,15 +236,26 @@ export default function PublicCalculator({
   }, [debtRows, touched]);
 
   // Budget fields are plain text now — parse them like the debt fields so
-  // "$5,200" and "24,99" work instead of silently becoming 0.
-  const takeHomeNum = parseNumericInput(takeHome) ?? 0;
-  const essentialNum = parseNumericInput(essential) ?? 0;
+  // "$5,200" and "24,99" work. Invalid AND negative values fall back to 0:
+  // a negative essential would otherwise INFLATE availableForDebt (minus a
+  // negative). BudgetPanel shows the format hint for both cases on blur.
+  const takeHomeParsed = parseNumericInput(takeHome);
+  const essentialParsed = parseNumericInput(essential);
+  const takeHomeNum =
+    takeHomeParsed !== null && takeHomeParsed > 0 ? takeHomeParsed : 0;
+  const essentialNum =
+    essentialParsed !== null && essentialParsed >= 0 ? essentialParsed : 0;
   const totalMinPayments = validDebts.reduce((s, d) => s + d.minimumPayment, 0);
   const availableForDebt = Math.max(
     0,
     takeHomeNum - essentialNum - totalMinPayments,
   );
-  const extraNum = Math.min(parseNumericInput(extra) ?? 0, availableForDebt);
+  // Clamped to [0, available] — a stale draft could carry a value the
+  // slider (min 0) can never produce.
+  const extraNum = Math.min(
+    Math.max(parseNumericInput(extra) ?? 0, 0),
+    availableForDebt,
+  );
 
   const planResult = useMemo(() => {
     if (validDebts.length === 0 || takeHomeNum <= 0) return null;
