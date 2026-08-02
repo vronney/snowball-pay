@@ -41,6 +41,7 @@ export default function BudgetPanel({
             placeholder="4500"
             value={takeHome}
             onChange={(e) => onTakeHomeChange(e.target.value)}
+            onFocus={(e) => e.target.select()}
             className="input-field text-base sm:text-sm"
           />
         </div>
@@ -54,6 +55,7 @@ export default function BudgetPanel({
             placeholder="2500"
             value={essential}
             onChange={(e) => onEssentialChange(e.target.value)}
+            onFocus={(e) => e.target.select()}
             className="input-field text-base sm:text-sm"
           />
         </div>

@@ -19,6 +19,8 @@ interface ResultsPanelProps {
   showMinimumsLine: boolean;
   timeStr: string | null;
   hasInteracted: boolean;
+  /** True while the plan still reflects the pre-seeded sample numbers. */
+  sampleMode?: boolean;
   method?: "snowball" | "avalanche" | "custom";
   savePlanLabel?: string;
   savePlanHelperText?: string;
@@ -33,6 +35,7 @@ export default function ResultsPanel({
   showMinimumsLine,
   timeStr,
   hasInteracted,
+  sampleMode = false,
   method = "snowball",
   savePlanLabel = "Save This Plan and Track Progress",
   savePlanHelperText = "Free account - no card required",
@@ -84,6 +87,23 @@ export default function ResultsPanel({
           boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
         }}
       >
+        {sampleMode && (
+          <div className="flex justify-center mb-4">
+            <span
+              style={{
+                fontSize: "11px",
+                fontWeight: 600,
+                color: "#475569",
+                background: "#f1f5f9",
+                border: "1px solid rgba(15,23,42,0.08)",
+                borderRadius: "6px",
+                padding: "4px 10px",
+              }}
+            >
+              Sample scenario — edit the debts to see <em>your</em> date
+            </span>
+          </div>
+        )}
         <div
           className="text-center mb-5 pb-5"
           style={{ borderBottom: "1px solid rgba(15,23,42,0.08)" }}

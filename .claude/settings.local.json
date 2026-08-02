@@ -70,7 +70,9 @@
       "Bash(claude plugin *)",
       "mcp__78b4c0a6-c587-47f5-87a0-86dfb4b57087__notion-create-view",
       "mcp__78b4c0a6-c587-47f5-87a0-86dfb4b57087__notion-update-page",
-      "mcp__78b4c0a6-c587-47f5-87a0-86dfb4b57087__notion-fetch"
+      "mcp__78b4c0a6-c587-47f5-87a0-86dfb4b57087__notion-fetch",
+      "mcp__Claude_Code_Remote__subscribe_pr_activity",
+      "mcp__Claude_Code_Remote__send_later"
     ],
     "deny": [
       "Bash(rm:*)",

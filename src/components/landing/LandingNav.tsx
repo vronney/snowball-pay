@@ -84,12 +84,16 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
                 <a href="/auth/login?returnTo=/dashboard" className="lp-nav-signin">
                   Sign In
                 </a>
+                {/* Cold traffic builds a plan before it meets Auth0 — every
+                    logged-out CTA routes through the free calculator. */}
                 <a
-                  href="/auth/login?returnTo=/dashboard&screen_hint=signup"
+                  href="/calculator"
                   className="lp-btn lp-btn-primary lp-btn-with-icon"
-                  onClick={() => track(Events.SIGNUP_STARTED, { source: "nav" })}
+                  onClick={() =>
+                    track(Events.CALCULATOR_CTA_CLICKED, { source: "nav" })
+                  }
                 >
-                  Get Started Free
+                  See My Debt-Free Date
                   <ArrowIsland />
                 </a>
               </>
@@ -98,15 +102,18 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
 
           <div className="lp-show-sm lp-nav-mobile">
             <a
-              href={isLoggedIn ? "/dashboard" : "/auth/login?returnTo=/dashboard&screen_hint=signup"}
+              href={isLoggedIn ? "/dashboard" : "/calculator"}
               className="lp-btn lp-btn-primary lp-nav-mobile-cta"
               onClick={
                 isLoggedIn
                   ? undefined
-                  : () => track(Events.SIGNUP_STARTED, { source: "nav_mobile" })
+                  : () =>
+                      track(Events.CALCULATOR_CTA_CLICKED, {
+                        source: "nav_mobile",
+                      })
               }
             >
-              {isLoggedIn ? "Dashboard" : "Start Free"}
+              {isLoggedIn ? "Dashboard" : "My Payoff Date"}
             </a>
 
             <button
@@ -164,14 +171,16 @@ export default function LandingNav({ isLoggedIn }: { isLoggedIn: boolean }) {
             ) : (
               <>
                 <a
-                  href="/auth/login?returnTo=/dashboard&screen_hint=signup"
+                  href="/calculator"
                   className="lp-btn lp-btn-primary lp-btn-with-icon"
                   onClick={() => {
-                    track(Events.SIGNUP_STARTED, { source: "nav_mobile_overlay" });
+                    track(Events.CALCULATOR_CTA_CLICKED, {
+                      source: "nav_mobile_overlay",
+                    });
                     setMobileOpen(false);
                   }}
                 >
-                  Create Free Account
+                  See My Debt-Free Date
                   <ArrowIsland />
                 </a>
                 <a
