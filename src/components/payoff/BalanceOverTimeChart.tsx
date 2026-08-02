@@ -507,35 +507,36 @@ export default function BalanceOverTimeChart({
             Payoff chart and coach read
           </h2>
           <p className="text-xs max-w-3xl" style={{ color: '#64748b' }}>
-            Compares your selected plan against minimum payments, the alternate
-            strategy, and any recorded actual balances. Lower actual balances
-            than the plan line mean you are ahead.
+            {hasRealSnapshots
+              ? 'Compares your selected plan against minimum payments, the alternate strategy, and any recorded actual balances. Lower actual balances than the plan line mean you are ahead.'
+              : 'Compares your selected plan against paying minimums only and the alternate strategy.'}
           </p>
         </div>
-        <div
-          className="rounded-xl px-3 py-2 text-xs font-semibold"
-          style={{
-            background:
-              latestDiff == null
-                ? '#f8fafc'
-                : Math.abs(latestDiff) < 50
+        {/* Ahead/behind chip only exists once there is an actual balance to
+            compare — a "no data yet" chip reads as an error on the public
+            calculator, where recorded balances aren't a concept at all. */}
+        {latestDiff != null && (
+          <div
+            className="rounded-xl px-3 py-2 text-xs font-semibold"
+            style={{
+              background:
+                Math.abs(latestDiff) < 50
                   ? 'rgba(101,163,13,0.10)'
                   : latestDiff > 0
                     ? 'rgba(5,150,105,0.10)'
                     : 'rgba(220,38,38,0.08)',
-            border: '1px solid rgba(15,23,42,0.08)',
-            color:
-              latestDiff == null
-                ? '#64748b'
-                : Math.abs(latestDiff) < 50
+              border: '1px solid rgba(15,23,42,0.08)',
+              color:
+                Math.abs(latestDiff) < 50
                   ? '#65a30d'
                   : latestDiff > 0
                     ? '#059669'
                     : '#dc2626',
-          }}
-        >
-          {comparisonText(latestDiff)}
-        </div>
+            }}
+          >
+            {comparisonText(latestDiff)}
+          </div>
+        )}
       </div>
 
       <ChartCoach {...coach} />

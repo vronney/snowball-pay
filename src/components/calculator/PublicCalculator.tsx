@@ -235,14 +235,16 @@ export default function PublicCalculator({
     return map;
   }, [debtRows, touched]);
 
-  const takeHomeNum = parseFloat(takeHome) || 0;
-  const essentialNum = parseFloat(essential) || 0;
+  // Budget fields are plain text now — parse them like the debt fields so
+  // "$5,200" and "24,99" work instead of silently becoming 0.
+  const takeHomeNum = parseNumericInput(takeHome) ?? 0;
+  const essentialNum = parseNumericInput(essential) ?? 0;
   const totalMinPayments = validDebts.reduce((s, d) => s + d.minimumPayment, 0);
   const availableForDebt = Math.max(
     0,
     takeHomeNum - essentialNum - totalMinPayments,
   );
-  const extraNum = Math.min(parseFloat(extra) || 0, availableForDebt);
+  const extraNum = Math.min(parseNumericInput(extra) ?? 0, availableForDebt);
 
   const planResult = useMemo(() => {
     if (validDebts.length === 0 || takeHomeNum <= 0) return null;
@@ -411,9 +413,11 @@ export default function PublicCalculator({
   // signup round trip, so a 4-debt session stays a 4-debt plan.
   const calculatorState = {
     method,
-    monthlyIncome: takeHome,
-    essentialExpenses: essential,
-    extraPayment: extra,
+    // Canonicalised like the debts below — "$5,200" must not ride the signup
+    // round trip as a raw string the restore path can't parse.
+    monthlyIncome: String(takeHomeNum),
+    essentialExpenses: String(essentialNum),
+    extraPayment: String(extraNum),
     debtCategory: config.debtCategory,
     // Canonicalise the loosely-typed strings ("$14,200" → "14200") so the saved
     // plan survives the signup round trip without re-mangling on restore.

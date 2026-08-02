@@ -57,3 +57,6 @@ dist
 
 # TypeScript incremental build cache
 tsconfig.tsbuildinfo
+
+# Claude Code local (per-machine) settings — shared permissions live in .claude/settings.json
+.claude/settings.local.json

@@ -35,8 +35,10 @@ export default function BudgetPanel({
           <label className="text-xs mb-1 block" style={{ color: '#64748b' }}>
             Monthly Take-Home Pay ($)
           </label>
+          {/* text + inputMode, not type="number": iOS Safari won't select()
+              number inputs, and text tolerates "$5,200"-style entry. */}
           <input
-            type="number"
+            type="text"
             inputMode="decimal"
             placeholder="4500"
             value={takeHome}
@@ -50,7 +52,7 @@ export default function BudgetPanel({
             Essential Expenses — rent, groceries, utilities ($)
           </label>
           <input
-            type="number"
+            type="text"
             inputMode="decimal"
             placeholder="2500"
             value={essential}
@@ -91,12 +93,20 @@ export default function BudgetPanel({
             </div>
           )}
 
+          {/* Live value sits ABOVE the slider — below it, a thumb dragging the
+              handle covers the number on touch screens. */}
+          <div
+            className="text-right text-sm font-semibold mb-1"
+            style={{ color: extraNum > 0 ? '#3b82f6' : '#94a3b8' }}
+          >
+            {formatCurrency(extraNum)} / mo extra
+          </div>
           <input
             type="range"
             min={0}
             max={availableForDebt || 1}
             step={10}
-            value={Math.min(parseFloat(extra) || 0, availableForDebt)}
+            value={extraNum}
             onChange={(e) => onExtraChange(e.target.value)}
             disabled={availableForDebt <= 0}
             className="w-full"
@@ -104,12 +114,6 @@ export default function BudgetPanel({
           />
           <div className="flex justify-between text-xs mt-1" style={{ color: '#94a3b8' }}>
             <span>$0</span>
-            <span
-              className="font-semibold"
-              style={{ color: extraNum > 0 ? '#3b82f6' : '#94a3b8' }}
-            >
-              {formatCurrency(extraNum)} / mo extra
-            </span>
             <span>{formatCurrency(availableForDebt)}</span>
           </div>
         </div>
