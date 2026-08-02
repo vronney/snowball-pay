@@ -245,6 +245,15 @@ export default function PublicCalculator({
     takeHomeParsed !== null && takeHomeParsed > 0 ? takeHomeParsed : 0;
   const essentialNum =
     essentialParsed !== null && essentialParsed >= 0 ? essentialParsed : 0;
+  // A malformed or negative budget entry invalidates the whole plan instead
+  // of computing with the 0 fallback — an essentials typo would otherwise
+  // render (and allow saving) an over-optimistic payoff date. Blank is fine:
+  // empty essentials legitimately means 0.
+  const budgetInvalid =
+    (takeHome.trim() !== '' &&
+      (takeHomeParsed === null || takeHomeParsed < 0)) ||
+    (essential.trim() !== '' &&
+      (essentialParsed === null || essentialParsed < 0));
   const totalMinPayments = validDebts.reduce((s, d) => s + d.minimumPayment, 0);
   const availableForDebt = Math.max(
     0,
@@ -258,12 +267,14 @@ export default function PublicCalculator({
   );
 
   const planResult = useMemo(() => {
-    if (validDebts.length === 0 || takeHomeNum <= 0) return null;
+    if (budgetInvalid || validDebts.length === 0 || takeHomeNum <= 0)
+      return null;
     const calc =
       method === "avalanche" ? calculateDebtAvalanche : calculateDebtSnowball;
     const adjustedExtra = extraNum - availableForDebt;
     return calc(validDebts, takeHomeNum, essentialNum, 0, adjustedExtra);
   }, [
+    budgetInvalid,
     validDebts,
     takeHomeNum,
     essentialNum,
@@ -455,7 +466,8 @@ export default function PublicCalculator({
   // Signup CTAs outside the results panel must not discard the session:
   // stash whatever the user has entered before navigating to Auth0.
   const persistSessionForSignup = () => {
-    if (calculatorState.debts.length === 0) return;
+    // An invalid budget must not ride into the saved draft as 0s.
+    if (budgetInvalid || calculatorState.debts.length === 0) return;
     saveCalculatorDraft(calculatorState);
   };
 
