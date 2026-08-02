@@ -22,6 +22,9 @@ export default function MobileResultBar({
   resultsRef,
 }: MobileResultBarProps) {
   const [resultsInView, setResultsInView] = useState(false);
+  // Whether the (out-of-view) panel sits above the viewport — the user has
+  // scrolled past it into the FAQ/content, so the arrow must point up.
+  const [resultsAbove, setResultsAbove] = useState(false);
 
   useEffect(() => {
     const node = resultsRef.current;
@@ -30,7 +33,10 @@ export default function MobileResultBar({
     // and the results panel is taller than a phone viewport — a fractional
     // threshold can become unreachable, leaving the bar stuck over the panel.
     const observer = new IntersectionObserver(
-      ([entry]) => setResultsInView(entry.isIntersecting),
+      ([entry]) => {
+        setResultsInView(entry.isIntersecting);
+        setResultsAbove(entry.boundingClientRect.top < 0);
+      },
       { threshold: 0 },
     );
     observer.observe(node);
@@ -95,7 +101,7 @@ export default function MobileResultBar({
           cursor: 'pointer',
         }}
       >
-        See plan ↓
+        See plan {resultsAbove ? '↑' : '↓'}
       </button>
     </div>
   );

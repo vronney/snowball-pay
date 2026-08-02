@@ -235,22 +235,46 @@ export default function PublicCalculator({
     return map;
   }, [debtRows, touched]);
 
-  const takeHomeNum = parseFloat(takeHome) || 0;
-  const essentialNum = parseFloat(essential) || 0;
+  // Budget fields are plain text now — parse them like the debt fields so
+  // "$5,200" and "24,99" work. Invalid AND negative values fall back to 0:
+  // a negative essential would otherwise INFLATE availableForDebt (minus a
+  // negative). BudgetPanel shows the format hint for both cases on blur.
+  const takeHomeParsed = parseNumericInput(takeHome);
+  const essentialParsed = parseNumericInput(essential);
+  const takeHomeNum =
+    takeHomeParsed !== null && takeHomeParsed > 0 ? takeHomeParsed : 0;
+  const essentialNum =
+    essentialParsed !== null && essentialParsed >= 0 ? essentialParsed : 0;
+  // A malformed or negative budget entry invalidates the whole plan instead
+  // of computing with the 0 fallback — an essentials typo would otherwise
+  // render (and allow saving) an over-optimistic payoff date. Blank is fine:
+  // empty essentials legitimately means 0.
+  const budgetInvalid =
+    (takeHome.trim() !== '' &&
+      (takeHomeParsed === null || takeHomeParsed < 0)) ||
+    (essential.trim() !== '' &&
+      (essentialParsed === null || essentialParsed < 0));
   const totalMinPayments = validDebts.reduce((s, d) => s + d.minimumPayment, 0);
   const availableForDebt = Math.max(
     0,
     takeHomeNum - essentialNum - totalMinPayments,
   );
-  const extraNum = Math.min(parseFloat(extra) || 0, availableForDebt);
+  // Clamped to [0, available] — a stale draft could carry a value the
+  // slider (min 0) can never produce.
+  const extraNum = Math.min(
+    Math.max(parseNumericInput(extra) ?? 0, 0),
+    availableForDebt,
+  );
 
   const planResult = useMemo(() => {
-    if (validDebts.length === 0 || takeHomeNum <= 0) return null;
+    if (budgetInvalid || validDebts.length === 0 || takeHomeNum <= 0)
+      return null;
     const calc =
       method === "avalanche" ? calculateDebtAvalanche : calculateDebtSnowball;
     const adjustedExtra = extraNum - availableForDebt;
     return calc(validDebts, takeHomeNum, essentialNum, 0, adjustedExtra);
   }, [
+    budgetInvalid,
     validDebts,
     takeHomeNum,
     essentialNum,
@@ -411,9 +435,11 @@ export default function PublicCalculator({
   // signup round trip, so a 4-debt session stays a 4-debt plan.
   const calculatorState = {
     method,
-    monthlyIncome: takeHome,
-    essentialExpenses: essential,
-    extraPayment: extra,
+    // Canonicalised like the debts below — "$5,200" must not ride the signup
+    // round trip as a raw string the restore path can't parse.
+    monthlyIncome: String(takeHomeNum),
+    essentialExpenses: String(essentialNum),
+    extraPayment: String(extraNum),
     debtCategory: config.debtCategory,
     // Canonicalise the loosely-typed strings ("$14,200" → "14200") so the saved
     // plan survives the signup round trip without re-mangling on restore.
@@ -440,7 +466,8 @@ export default function PublicCalculator({
   // Signup CTAs outside the results panel must not discard the session:
   // stash whatever the user has entered before navigating to Auth0.
   const persistSessionForSignup = () => {
-    if (calculatorState.debts.length === 0) return;
+    // An invalid budget must not ride into the saved draft as 0s.
+    if (budgetInvalid || calculatorState.debts.length === 0) return;
     saveCalculatorDraft(calculatorState);
   };
 

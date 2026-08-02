@@ -8,7 +8,9 @@
       "Bash(npx prisma:*)",
       "Bash(npx tsc:*)",
       "Bash(npx next:*)",
-      "WebFetch(domain:pris.ly)"
+      "WebFetch(domain:pris.ly)",
+      "mcp__Claude_Code_Remote__subscribe_pr_activity",
+      "mcp__Claude_Code_Remote__send_later"
     ],
     "deny": [
       "Bash(rm:*)",

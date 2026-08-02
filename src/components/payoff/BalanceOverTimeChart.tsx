@@ -485,10 +485,10 @@ export default function BalanceOverTimeChart({
               title: 'This chart is your payoff baseline',
               evidence: hasRealSnapshots
                 ? 'Actual balances are close enough to the plan line to treat the forecast as current.'
-                : 'No recorded balance history exists yet, so the chart is still a projection.',
+                : 'The chart is a projection built from the numbers entered.',
               action: hasRealSnapshots
                 ? 'Keep recording statement balances monthly.'
-                : 'Record the next statement balance to turn this into actual tracking.',
+                : 'Add an extra monthly payment to see how many months it buys back.',
             };
   }, [latestDiff, latestActual, monthsSaved, selectedPayoffMonth, minimumsPayoffMonth, strategyLabel, effectiveAcceleration, hasRealSnapshots]);
 
@@ -506,36 +506,43 @@ export default function BalanceOverTimeChart({
           <h2 className="font-semibold text-base mb-1">
             Payoff chart and coach read
           </h2>
+          {/* Copy names only the series actually rendered — the comparison
+              and minimums lines are both optional. */}
           <p className="text-xs max-w-3xl" style={{ color: '#64748b' }}>
-            Compares your selected plan against minimum payments, the alternate
-            strategy, and any recorded actual balances. Lower actual balances
-            than the plan line mean you are ahead.
+            {hasRealSnapshots
+              ? 'Compares your selected plan against minimum payments, the alternate strategy, and any recorded actual balances. Lower actual balances than the plan line mean you are ahead.'
+              : showAvalancheLine
+                ? 'Compares your selected plan against paying minimums only and the alternate strategy.'
+                : showMinimumsLine
+                  ? 'Compares your selected plan against paying minimums only.'
+                  : 'Projects your balance month by month under the selected plan.'}
           </p>
         </div>
-        <div
-          className="rounded-xl px-3 py-2 text-xs font-semibold"
-          style={{
-            background:
-              latestDiff == null
-                ? '#f8fafc'
-                : Math.abs(latestDiff) < 50
+        {/* Ahead/behind chip only exists once there is an actual balance to
+            compare — a "no data yet" chip reads as an error on the public
+            calculator, where recorded balances aren't a concept at all. */}
+        {latestDiff != null && (
+          <div
+            className="rounded-md px-3 py-2 text-xs font-semibold"
+            style={{
+              background:
+                Math.abs(latestDiff) < 50
                   ? 'rgba(101,163,13,0.10)'
                   : latestDiff > 0
                     ? 'rgba(5,150,105,0.10)'
                     : 'rgba(220,38,38,0.08)',
-            border: '1px solid rgba(15,23,42,0.08)',
-            color:
-              latestDiff == null
-                ? '#64748b'
-                : Math.abs(latestDiff) < 50
+              border: '1px solid rgba(15,23,42,0.08)',
+              color:
+                Math.abs(latestDiff) < 50
                   ? '#65a30d'
                   : latestDiff > 0
                     ? '#059669'
                     : '#dc2626',
-          }}
-        >
-          {comparisonText(latestDiff)}
-        </div>
+            }}
+          >
+            {comparisonText(latestDiff)}
+          </div>
+        )}
       </div>
 
       <ChartCoach {...coach} />
