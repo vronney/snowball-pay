@@ -26,9 +26,12 @@ export default function MobileResultBar({
   useEffect(() => {
     const node = resultsRef.current;
     if (!node || typeof IntersectionObserver === 'undefined') return;
+    // threshold 0: the ratio compares against the OBSERVED element's height,
+    // and the results panel is taller than a phone viewport — a fractional
+    // threshold can become unreachable, leaving the bar stuck over the panel.
     const observer = new IntersectionObserver(
       ([entry]) => setResultsInView(entry.isIntersecting),
-      { threshold: 0.15 },
+      { threshold: 0 },
     );
     observer.observe(node);
     return () => observer.disconnect();

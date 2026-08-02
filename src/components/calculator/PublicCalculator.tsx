@@ -201,6 +201,10 @@ export default function PublicCalculator({
   // the strip reflects engagement, not the pre-seeded defaults.
   const [budgetTouched, setBudgetTouched] = useState(false);
   const [strategyTouched, setStrategyTouched] = useState(false);
+  // Distinct from hasInteracted: "Reset sample numbers" and the strategy
+  // toggle count as interaction (analytics) but the plan is still built
+  // from sample data — the badge and mobile bar key off this instead.
+  const [isSampleData, setIsSampleData] = useState(true);
   const calculatorStartedRef = useRef(false);
   const resultsRef = useRef<HTMLDivElement>(null);
 
@@ -311,6 +315,7 @@ export default function PublicCalculator({
 
   const updateRow = (id: string, field: keyof DebtRow, val: string) => {
     markCalculatorStarted(`debt_${field}`);
+    setIsSampleData(false);
     setDebtRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, [field]: val } : r)),
     );
@@ -355,29 +360,34 @@ export default function PublicCalculator({
 
   const removeRow = (id: string) => {
     markCalculatorStarted("remove_debt");
+    setIsSampleData(false);
     setDebtRows((prev) => prev.filter((r) => r.id !== id));
   };
 
   const addRow = () => {
     markCalculatorStarted("add_debt");
+    setIsSampleData(false);
     setDebtRows((prev) => [...prev, newRow()]);
   };
 
   const updateTakeHome = (value: string) => {
     markCalculatorStarted("take_home");
     setBudgetTouched(true);
+    setIsSampleData(false);
     setTakeHome(value);
   };
 
   const updateEssential = (value: string) => {
     markCalculatorStarted("essential_expenses");
     setBudgetTouched(true);
+    setIsSampleData(false);
     setEssential(value);
   };
 
   const updateExtra = (value: string) => {
     markCalculatorStarted("extra_payment");
     setBudgetTouched(true);
+    setIsSampleData(false);
     setExtra(value);
   };
 
@@ -389,6 +399,7 @@ export default function PublicCalculator({
 
   const loadExample = () => {
     markCalculatorStarted("load_sample");
+    setIsSampleData(true);
     setDebtRows(cloneSeedRows(config.seedDebts));
     setTakeHome(config.defaultTakeHome);
     setEssential(config.defaultEssential);
@@ -638,7 +649,7 @@ export default function PublicCalculator({
               showMinimumsLine={showMinimumsLine}
               timeStr={timeStr}
               hasInteracted={hasInteracted}
-              sampleMode={!hasInteracted}
+              sampleMode={isSampleData}
               method={method}
               savePlanLabel={config.ctaLabel}
               savePlanHelperText={config.ctaHelperText}
@@ -650,7 +661,7 @@ export default function PublicCalculator({
         {/* On phones the results stack far below the inputs — keep the live
             date + interest visible while the user edits. Shown only once
             the plan reflects their own numbers, never the sample's. */}
-        {hasInteracted && planResult && timeStr && (
+        {!isSampleData && planResult && timeStr && (
           <MobileResultBar
             timeStr={timeStr}
             totalInterest={planResult.totalInterestPaid}
