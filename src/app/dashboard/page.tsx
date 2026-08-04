@@ -7,6 +7,7 @@ import { isPlaidAllowed } from '@/lib/plaid';
 import { prisma } from '@/lib/prisma';
 import DashboardClient from '@/components/DashboardClient';
 import { AuthenticatedAnalytics } from '@/components/analytics/AuthenticatedAnalytics';
+import { SignupConversionReporter } from '@/components/analytics/SignupConversionReporter';
 
 export const metadata: Metadata = {
   title: 'Dashboard',
@@ -54,6 +55,12 @@ export default async function DashboardPage() {
   return (
     <>
       <AuthenticatedAnalytics userId={provisioned?.id ?? null} />
+      {provisioned?.isNew && (
+        <SignupConversionReporter
+          email={provisioned.email}
+          transactionId={`signup:${provisioned.id}`}
+        />
+      )}
       <DashboardClient user={user} plaidTestAccess={isPlaidAllowed(user?.email)} />
     </>
   );

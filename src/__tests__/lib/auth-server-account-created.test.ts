@@ -34,7 +34,7 @@ describe('ensureUserProvisioned account_created capture', () => {
 
     const user = await ensureUserProvisioned(SESSION_USER);
 
-    expect(user).toEqual({ id: 'user-1', email: 'a@b.com' });
+    expect(user).toEqual({ id: 'user-1', email: 'a@b.com', isNew: true });
     expect(captureServerEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         consent: 'granted',

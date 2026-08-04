@@ -71,7 +71,7 @@ export async function ensureUserProvisioned(sessionUser: {
   email?: unknown;
   name?: unknown;
   email_verified?: unknown;
-}): Promise<{ id: string; email: string | null } | null> {
+}): Promise<{ id: string; email: string | null; isNew: boolean } | null> {
   const email =
     typeof sessionUser.email === 'string' ? sessionUser.email.trim() : '';
   const name = typeof sessionUser.name === 'string' ? sessionUser.name : null;
@@ -88,10 +88,11 @@ export async function ensureUserProvisioned(sessionUser: {
       create: { auth0Id: sessionUser.sub, email, name },
       select: { id: true, email: true, createdAt: true },
     });
-    if (Date.now() - user.createdAt.getTime() < NEW_ACCOUNT_WINDOW_MS) {
+    const isNew = Date.now() - user.createdAt.getTime() < NEW_ACCOUNT_WINDOW_MS;
+    if (isNew) {
       await captureAccountCreated(user.id);
     }
-    return { id: user.id, email: user.email };
+    return { id: user.id, email: user.email, isNew };
   } catch (error) {
     // Same email under a different auth0Id (e.g. the user switched between
     // Google and email/password). Relink ONLY on the email unique-constraint
@@ -114,7 +115,8 @@ export async function ensureUserProvisioned(sessionUser: {
           where: { id: user.id },
           data: { auth0Id: sessionUser.sub },
         });
-        return user;
+        // Relinked, not created — a login-method switch is not a new account.
+        return { id: user.id, email: user.email, isNew: false };
       }
     } catch {
       // fall through to null
