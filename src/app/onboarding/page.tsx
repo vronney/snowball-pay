@@ -6,6 +6,7 @@ import { planSnapshotSchema, snapshotToDraft } from "@/lib/planSnapshot";
 import type { CalculatorDraft } from "@/lib/calculatorDraft";
 import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 import { AuthenticatedAnalytics } from "@/components/analytics/AuthenticatedAnalytics";
+import { SignupConversionReporter } from "@/components/analytics/SignupConversionReporter";
 
 export const metadata: Metadata = {
   title: "Get Started",
@@ -65,6 +66,12 @@ export default async function OnboardingPage() {
   return (
     <>
       <AuthenticatedAnalytics userId={provisioned?.id ?? null} />
+      {provisioned?.isNew && (
+        <SignupConversionReporter
+          email={provisioned.email}
+          transactionId={`signup:${provisioned.id}`}
+        />
+      )}
       <OnboardingWizard
         userEmail={session?.user?.email ?? null}
         serverDraft={serverDraft}

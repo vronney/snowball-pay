@@ -7,7 +7,6 @@ import {
   type OnboardingCompletePayload,
   type OnboardingDebtPayload,
 } from "@/lib/hooks";
-import { reportSignupConversion } from "@/lib/googleAds";
 import { formatCurrency } from "@/lib/utils";
 import {
   loadCalculatorDraft,
@@ -848,16 +847,10 @@ export function OnboardingWizard({
         track(Events.ONBOARDING_EXPRESS_COMPLETED, analyticsProperties);
       }
 
-      // First plan generated — fire the Google Ads "Sign-up – Start Plan"
-      // conversion on this success state, not on the CTA click. The submit's
-      // idempotency key doubles as the conversion's dedup transaction_id.
-      // Isolated: an analytics failure must not trip the outer catch and mask
-      // a submission that already succeeded.
-      try {
-        reportSignupConversion(userEmail, submitIdempotencyKeyRef.current);
-      } catch {
-        // Analytics-only failure — continue to the dashboard regardless.
-      }
+      // The Google Ads signup conversion now fires at account creation
+      // (SignupConversionReporter on the onboarding/dashboard pages), so
+      // Google gets a signal for every created account, not only wizard
+      // completions.
       submitIdempotencyKeyRef.current = null;
       router.push("/dashboard");
     } catch (err) {
