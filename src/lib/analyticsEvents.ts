@@ -15,6 +15,8 @@ export const Events = {
   PRICING_PRO_CLICKED: 'pricing_pro_clicked',
   UPGRADE_MODAL_VIEWED: 'upgrade_modal_viewed',
   UPGRADE_MODAL_DISMISSED: 'upgrade_modal_dismissed',
+  DEBT_CAP_PROMPT_VIEWED: 'debt_cap_prompt_viewed',
+  DEBT_CAP_PROMPT_DISMISSED: 'debt_cap_prompt_dismissed',
   SAVE_PLAN_MODAL_VIEWED: 'save_plan_modal_viewed',
   ONBOARDING_EXPRESS_VIEWED: 'onboarding_express_viewed',
   ONBOARDING_EXPRESS_COMPLETED: 'onboarding_express_completed',
