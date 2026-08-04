@@ -8,7 +8,7 @@ import { selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
 import { displayFirstName, formatCurrency, formatMonths, getOrdinalDay } from "@/lib/utils";
 import { usePaymentRecords, useMarkPaid, useCachedCoachBrief } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
-import InterestReclaimedBanner from "@/components/dashboard/InterestReclaimedBanner";
+import DebtFreeCountdownHero from "@/components/dashboard/DebtFreeCountdownHero";
 import RadialGauge from "@/components/ui/RadialGauge";
 import RollForwardAdvice from "@/components/payoff/RollForwardAdvice";
 import CoachBriefCard from "@/components/payoff/CoachBriefCard";
@@ -100,6 +100,20 @@ export default function ThisMonthTab({
 
   const extraPayment = income?.extraPayment ?? 0;
 
+  // Overall payoff progress for the hero gauge: principal paid across all
+  // debts. Debts without a recorded originalBalance contribute their current
+  // balance to the denominator (0% progress) rather than skewing the ratio.
+  const { totalPaid, totalOriginal } = useMemo(() => {
+    let paid = 0;
+    let original = 0;
+    for (const d of debts) {
+      const base = d.originalBalance > 0 ? d.originalBalance : d.balance;
+      original += base;
+      paid += Math.max(0, base - d.balance);
+    }
+    return { totalPaid: paid, totalOriginal: original };
+  }, [debts]);
+
   // Focus debt = first active debt in payoff order that still needs this month's payment.
   const focusDebt = useMemo(() => {
     return selectMonthlyFocusDebt(debts, result, paidDebtIds);
@@ -151,31 +165,23 @@ export default function ThisMonthTab({
   return (
     <div style={{ maxWidth: "680px", display: "flex", flexDirection: "column", gap: "20px" }}>
 
-      {/* Greeting */}
+      {/* Greeting — the hero below owns the date/months, so the sub-line only
+          carries what the hero can't: the coach's verdict, or setup prompts. */}
       <div>
         <h1 style={{ fontSize: "22px", fontWeight: 800, color: "#0f172a", margin: 0, letterSpacing: "-0.02em" }}>
           {greeting(userName)}
         </h1>
         {hasDebts && result ? (
-          <p style={{ fontSize: "14px", color: "#64748b", marginTop: "4px" }}>
-            {(() => {
-              const months = <strong style={{ color: "#0f172a" }}>{formatMonths(result.months)}</strong>;
-              const date = result.debtFreeDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
-              switch (coachStatus) {
-                case "on_track":
-                  return <>You&apos;re on track to be debt-free in {months} — {date}.</>;
-                case "at_risk":
-                case "off_track":
-                  // The verdict can stem from pace, cash flow, debt load, or a
+          coachStatus && (
+            <p style={{ fontSize: "14px", color: "#64748b", marginTop: "4px" }}>
+              {coachStatus === "on_track"
+                ? "You're on track. Keep the plan working."
+                : // The verdict can stem from pace, cash flow, debt load, or a
                   // bank-reauth issue — so point at the coach without asserting
                   // a specific "behind pace" claim the verdict didn't establish.
-                  return <>On your current plan, debt-free in {months} — {date}. Your coach flagged something to review.</>;
-                default:
-                  // No fresh coach verdict to inherit: state the projection plainly.
-                  return <>On your current plan, debt-free in {months} — {date}.</>;
-              }
-            })()}
-          </p>
+                  "Your coach flagged something to review."}
+            </p>
+          )
         ) : hasDebts ? (
           <p style={{ fontSize: "14px", color: "#64748b", marginTop: "4px" }}>
             Add your income to see your debt-free date.
@@ -187,6 +193,18 @@ export default function ThisMonthTab({
         )}
       </div>
 
+      {/* Debt-free countdown hero — date, months to go, progress, interest */}
+      {hasDebts && result && (
+        <DebtFreeCountdownHero
+          months={result.months}
+          debtFreeDate={result.debtFreeDate}
+          interestSaved={interestSaved}
+          monthsSaved={monthsSaved}
+          totalPaid={totalPaid}
+          totalOriginal={totalOriginal}
+        />
+      )}
+
       {/* Primary coach card */}
       <CoachBriefCard
         hasDebts={hasDebts}
@@ -195,13 +213,6 @@ export default function ThisMonthTab({
           onSetPendingCoachExtra(targetExtra);
           onNavigate("intelligence");
         }}
-      />
-
-      {/* Interest reclaimed banner */}
-      <InterestReclaimedBanner
-        interestSaved={interestSaved}
-        monthsSaved={monthsSaved}
-        hasData={hasDebts && !!result}
       />
 
       {/* Focus debt card */}

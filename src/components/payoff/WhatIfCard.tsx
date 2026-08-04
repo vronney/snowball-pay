@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useSubscription } from "@/lib/hooks";
 import { upgradeEvents } from "@/lib/upgradeEvents";
 import { Events, track } from "@/lib/analytics";
+import { PRO_TRIAL_DAYS } from "@/lib/billing";
 import { Lock, Zap as ZapIcon } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
 import { type PayoffMethod } from "@/lib/snowball";
@@ -81,60 +82,186 @@ export default function WhatIfCard({
     currentInterestPaid - scenario100.totalInterestPaid,
   );
 
+  if (saved50months <= 0 && saved100months <= 0) return null;
+
+  // Free tier: one REAL scenario shown live (reciprocity — the aha moment is
+  // the user's own numbers, never a blurred mock), the second locked. All the
+  // figures are genuinely computed; only apply + more scenarios are Pro.
   if (!isPro) {
+    const openUpgrade = () => upgradeEvents.dispatch("What-if scenarios");
     return (
-      <div style={{ position: "relative" }}>
-        <div style={{ filter: "blur(4px)", pointerEvents: "none", userSelect: "none", opacity: 0.55 }}>
-          <div style={{
-            background: "#ffffff", borderRadius: "16px",
-            border: "1px solid rgba(15,23,42,0.08)", padding: "24px",
-          }}>
-            <div style={{ height: "120px", background: "#f1f5f9", borderRadius: "8px", marginBottom: "12px" }} />
-            <div style={{ height: "32px", background: "#f1f5f9", borderRadius: "6px", width: "60%" }} />
-          </div>
-        </div>
-        <div style={{
-          position: "absolute", inset: 0,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <div style={{
-            background: "#ffffff", border: "1px solid rgba(15,23,42,0.1)",
-            borderRadius: "16px", padding: "20px 28px", textAlign: "center",
-            boxShadow: "0 8px 32px rgba(15,23,42,0.1)", maxWidth: "260px",
-          }}>
-            <div style={{
-              width: "36px", height: "36px", borderRadius: "50%",
-              background: "#eff6ff", display: "flex",
-              alignItems: "center", justifyContent: "center", margin: "0 auto 10px",
-            }}>
-              <Lock size={16} color="#2563eb" />
-            </div>
-            <p style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a", margin: "0 0 4px" }}>
-              Pro feature
-            </p>
-            <p style={{ fontSize: "12px", color: "#64748b", margin: "0 0 12px", lineHeight: 1.4 }}>
-              What-if scenarios are available on the Pro plan.
-            </p>
-            <button
-              onClick={() => upgradeEvents.dispatch("What-if scenarios")}
+      <div
+        className="rounded-2xl p-5"
+        style={{
+          background: "#ffffff",
+          border: "1px solid rgba(15,23,42,0.08)",
+          boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
+        }}
+      >
+        <h2 className="font-semibold text-base mb-1 flex items-center gap-2">
+          <ZapIcon size={16} style={{ color: "#f59e0b" }} />
+          What If You Paid a Little More?
+        </h2>
+        <p className="text-xs mb-4" style={{ color: "#64748b" }}>
+          A real preview from your own plan — here&apos;s what an extra $50 a
+          month does.
+        </p>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          {/* Live sample: +$50, real numbers */}
+          <div
+            style={{
+              padding: "14px 16px",
+              borderRadius: "12px",
+              background: "rgba(245,158,11,0.06)",
+              border: "1px solid rgba(245,158,11,0.18)",
+            }}
+          >
+            <div
               style={{
-                display: "inline-flex", alignItems: "center", gap: "5px",
-                padding: "7px 14px", borderRadius: "8px",
-                background: "#2563eb", color: "#fff",
-                border: "none", cursor: "pointer",
-                fontSize: "12px", fontWeight: 700, fontFamily: "inherit",
+                fontSize: "13px",
+                fontWeight: 700,
+                color: "#b45309",
+                marginBottom: "10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "6px",
               }}
             >
-              <ZapIcon size={12} />
-              Upgrade to Pro
-            </button>
+              <span>+$50/mo extra</span>
+              <span
+                style={{
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  color: "#b45309",
+                  background: "rgba(245,158,11,0.14)",
+                  borderRadius: "999px",
+                  padding: "1px 7px",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Free preview
+              </span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <div>
+                <div style={{ fontSize: "11px", color: "#64748b", marginBottom: "1px" }}>Payoff</div>
+                <div style={{ fontSize: "15px", fontWeight: 700, color: saved50months > 0 ? "#059669" : "#94a3b8" }}>
+                  {saved50months > 0 ? `${formatMonths(saved50months)} sooner` : "no change"}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: "11px", color: "#64748b", marginBottom: "1px" }}>Interest saved</div>
+                <div style={{ fontSize: "15px", fontWeight: 700, color: saved50interest > 0 ? "#059669" : "#94a3b8" }}>
+                  {saved50interest > 0 ? formatCurrencyWhole(saved50interest) : "—"}
+                </div>
+              </div>
+            </div>
           </div>
+
+          {/* Locked: +$100 and beyond */}
+          <button
+            onClick={openUpgrade}
+            style={{
+              padding: "14px 16px",
+              borderRadius: "12px",
+              background: "#f8fafc",
+              border: "1px dashed rgba(15,23,42,0.14)",
+              cursor: "pointer",
+              textAlign: "left",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              gap: "8px",
+              fontFamily: "inherit",
+            }}
+          >
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "5px",
+                fontSize: "13px",
+                fontWeight: 700,
+                color: "#475569",
+              }}
+            >
+              <Lock size={12} style={{ color: "#94a3b8" }} />
+              +$100, +$250, any amount
+            </span>
+            <span style={{ fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
+              Model any extra payment and apply it to your plan with one click.
+            </span>
+            <span
+              style={{
+                fontSize: "10px",
+                fontWeight: 700,
+                color: "#2563eb",
+                background: "rgba(37,99,235,0.08)",
+                border: "1px solid rgba(37,99,235,0.18)",
+                borderRadius: "999px",
+                padding: "1px 7px",
+              }}
+            >
+              Pro
+            </span>
+          </button>
         </div>
+
+        {/* Truthful loss-framed footer: the user's own computed number */}
+        <div
+          style={{
+            marginTop: "14px",
+            paddingTop: "14px",
+            borderTop: "1px solid rgba(15,23,42,0.07)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "12px",
+            flexWrap: "wrap",
+          }}
+        >
+          <p style={{ fontSize: "12px", color: "#64748b", margin: 0, lineHeight: 1.5 }}>
+            {saved100interest > saved50interest && saved100interest > 0 ? (
+              <>
+                At +$100/mo your plan keeps{" "}
+                <strong style={{ color: "#0f172a" }}>{formatCurrencyWhole(saved100interest)}</strong>{" "}
+                from going to interest.
+              </>
+            ) : (
+              <>Scenarios apply straight to your committed plan on Pro.</>
+            )}
+          </p>
+          <button
+            onClick={openUpgrade}
+            className="glow-primary"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px",
+              padding: "8px 14px",
+              borderRadius: "8px",
+              background: "#2563eb",
+              color: "#fff",
+              border: "none",
+              cursor: "pointer",
+              fontSize: "12px",
+              fontWeight: 700,
+              fontFamily: "inherit",
+              whiteSpace: "nowrap",
+            }}
+          >
+            <ZapIcon size={12} />
+            Start my trial and test scenarios
+          </button>
+        </div>
+        <p style={{ fontSize: "11px", color: "#94a3b8", margin: "8px 0 0" }}>
+          $12/mo after a {PRO_TRIAL_DAYS}-day free trial · cancel anytime
+        </p>
       </div>
     );
   }
-
-  if (saved50months <= 0 && saved100months <= 0) return null;
 
   const fmtMonths = (n: number) =>
     n <= 0 ? "no change" : `${formatMonths(n)} sooner`;
