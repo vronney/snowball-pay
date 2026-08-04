@@ -313,11 +313,15 @@ export default function CoachBriefCard({
                 <button
                   type="button"
                   onClick={() => {
+                    // Track only when the action actually executes — without a
+                    // callback the click changes nothing and must not record
+                    // a phantom "applied" event.
+                    if (!onApplyAction) return;
+                    onApplyAction(brief.nextAction.targetExtra!);
                     track(Events.COACH_BRIEF_ACTION_APPLIED, {
                       target_extra: brief.nextAction.targetExtra,
                       status: brief.verdict.status,
                     });
-                    onApplyAction?.(brief.nextAction.targetExtra!);
                   }}
                   className="glow-primary"
                   style={{
