@@ -82,7 +82,17 @@ export default function WhatIfCard({
     currentInterestPaid - scenario100.totalInterestPaid,
   );
 
-  if (saved50months <= 0 && saved100months <= 0) return null;
+  // Hide only when NEITHER months NOR interest improve in either scenario —
+  // an extra payment can leave the payoff month unchanged while still cutting
+  // interest, and that benefit is worth showing.
+  if (
+    saved50months <= 0 &&
+    saved50interest <= 0 &&
+    saved100months <= 0 &&
+    saved100interest <= 0
+  ) {
+    return null;
+  }
 
   // Free tier: one REAL scenario shown live (reciprocity — the aha moment is
   // the user's own numbers, never a blurred mock), the second locked. All the

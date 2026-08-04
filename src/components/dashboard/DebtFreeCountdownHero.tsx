@@ -16,6 +16,9 @@ interface DebtFreeCountdownHeroProps {
   totalPaid: number;
   /** Sum of original balances — the denominator for overall progress. */
   totalOriginal: number;
+  /** False when no debt has a recorded original balance — the "of $X
+   *  original" sub-line would then mislabel the current total as original. */
+  hasOriginalBalances: boolean;
 }
 
 /** Animates a number from 0 to `target` over `duration` ms (ease-out cubic). */
@@ -62,6 +65,7 @@ export default function DebtFreeCountdownHero({
   monthsSaved,
   totalPaid,
   totalOriginal,
+  hasOriginalBalances,
 }: DebtFreeCountdownHeroProps) {
   const animatedInterest = useCountUp(Math.round(interestSaved));
   const progressPct =
@@ -69,10 +73,25 @@ export default function DebtFreeCountdownHero({
       ? Math.min(100, Math.max(0, (totalPaid / totalOriginal) * 100))
       : 0;
 
-  const dateStr = debtFreeDate.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  });
+  // The date is built in local time, so formatting it during render can
+  // hydration-mismatch (server TZ vs viewer TZ near month boundaries).
+  // Initial render uses a deterministic UTC formatting on both sides; a
+  // post-mount effect swaps in the viewer's timezone (usually identical).
+  const [dateStr, setDateStr] = useState(() =>
+    debtFreeDate.toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    }),
+  );
+  useEffect(() => {
+    setDateStr(
+      debtFreeDate.toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+      }),
+    );
+  }, [debtFreeDate]);
 
   const stats = [
     {
@@ -88,7 +107,9 @@ export default function DebtFreeCountdownHero({
     {
       label: "Paid so far",
       value: totalPaid > 0 ? formatCurrencyWhole(totalPaid) : "$0",
-      sub: `of ${formatCurrencyWhole(totalOriginal)} original`,
+      sub: hasOriginalBalances
+        ? `of ${formatCurrencyWhole(totalOriginal)} original`
+        : "across all debts",
     },
   ];
 
