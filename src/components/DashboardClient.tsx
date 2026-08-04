@@ -65,7 +65,13 @@ export default function DashboardClient({
   user: UserInfo | null;
   plaidTestAccess?: boolean;
 }) {
-  const [activeTab, setActiveTab] = useState<Tab>("this-month");
+  const searchParams = useSearchParams();
+  // Seed from a validated ?tab= deep link so the first tab-view event records
+  // the tab the user actually landed on, not a phantom "this-month" view.
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tab = searchParams.get("tab");
+    return isValidTab(tab) ? tab : "this-month";
+  });
   const [pendingCoachExtra, setPendingCoachExtra] = useState<number | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openPaymentDebtId, setOpenPaymentDebtId] = useState<string | null>(null);
@@ -75,7 +81,6 @@ export default function DashboardClient({
     feature?: string;
   }>({ open: false });
 
-  const searchParams = useSearchParams();
   const router = useRouter();
   const startCheckout = useStartCheckout();
   const queryClient = useQueryClient();
@@ -111,8 +116,11 @@ export default function DashboardClient({
 
   // Tab switches are client-side state, not real navigations — reset the
   // scroll position so each "page" starts at the top like a normal link.
+  // The view event makes tab traffic measurable (which surfaces users
+  // actually visit — the Intelligence tab's upsell was previously blind).
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0 });
+    track(Events.DASHBOARD_TAB_VIEWED, { tab: activeTab });
   }, [activeTab]);
 
   useEffect(() => {

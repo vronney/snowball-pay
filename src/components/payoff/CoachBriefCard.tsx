@@ -10,6 +10,7 @@ import {
 } from "@/lib/hooks";
 import { upgradeEvents } from "@/lib/upgradeEvents";
 import { formatCurrency } from "@/lib/utils";
+import { Events, track } from "@/lib/analytics";
 
 const STATUS_META: Record<
   CoachBriefVerdict["status"],
@@ -311,7 +312,17 @@ export default function CoachBriefCard({
                 )}
                 <button
                   type="button"
-                  onClick={() => onApplyAction?.(brief.nextAction.targetExtra!)}
+                  onClick={() => {
+                    // Track only when the action actually executes — without a
+                    // callback the click changes nothing and must not record
+                    // a phantom "applied" event.
+                    if (!onApplyAction) return;
+                    onApplyAction(brief.nextAction.targetExtra!);
+                    track(Events.COACH_BRIEF_ACTION_APPLIED, {
+                      target_extra: brief.nextAction.targetExtra,
+                      status: brief.verdict.status,
+                    });
+                  }}
                   className="glow-primary"
                   style={{
                     display: "inline-flex",
