@@ -18,6 +18,11 @@ describe('parseNumericInput', () => {
     expect(parseNumericInput(' $14,200 ')).toBe(14200);
   });
 
+  it('strips a percent sign (APRs typed as "24.99%")', () => {
+    expect(parseNumericInput('24.99%')).toBe(24.99);
+    expect(parseNumericInput('7 %')).toBe(7);
+  });
+
   it('reads a lone comma as a decimal mark (European APR)', () => {
     expect(parseNumericInput('24,99')).toBe(24.99);
     expect(parseNumericInput('6,9')).toBe(6.9);

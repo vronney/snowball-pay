@@ -16,8 +16,9 @@
 export function parseNumericInput(raw: string): number | null {
   if (typeof raw !== 'string') return null;
 
-  // Strip only explicitly-supported adornments: currency symbols and whitespace.
-  const stripped = raw.trim().replace(/[$£€\s]/g, '');
+  // Strip only explicitly-supported adornments: currency symbols, the percent
+  // sign (people type APRs as "24.99%"), and whitespace.
+  const stripped = raw.trim().replace(/[$£€%\s]/g, '');
 
   // Optional leading sign, then digits and separators only — nothing else.
   const match = /^([+-]?)([0-9.,]+)$/.exec(stripped);

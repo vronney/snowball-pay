@@ -28,6 +28,11 @@ import {
   type DebtRowSeed,
 } from "./configs";
 import { saveCalculatorDraft } from "@/lib/calculatorDraft";
+import {
+  ESTIMATED_APR_BY_CATEGORY,
+  estimateMinimumPayment,
+  estimateDisclosure,
+} from "@/lib/calculatorEstimates";
 import { Events, track } from "@/lib/analytics";
 
 const LOGIN_URL = "/auth/login?returnTo=/dashboard";
@@ -74,6 +79,36 @@ function newRow(): DebtRow {
   };
 }
 
+/**
+ * Effective rate/minimum for a row: blank fields use category estimates so a
+ * balance-only entry still produces an honest payoff date (a 0% fallback made
+ * the plan misleadingly optimistic). Invalid or negative entries still fall
+ * back to 0 — those rows show an inline format error, never a silent estimate.
+ */
+function effectiveRowValues(
+  row: DebtRow,
+  category: Debt["category"],
+  balance: number,
+): { rate: number; minimum: number; estimated: boolean } {
+  const rawRate = parseNumericInput(row.rate);
+  const rawMinimum = parseNumericInput(row.minimum);
+  const rateBlank = row.rate.trim() === "";
+  const minimumBlank = row.minimum.trim() === "";
+  return {
+    rate: rateBlank
+      ? ESTIMATED_APR_BY_CATEGORY[category]
+      : rawRate !== null && rawRate >= 0
+        ? rawRate
+        : 0,
+    minimum: minimumBlank
+      ? estimateMinimumPayment(balance)
+      : rawMinimum !== null && rawMinimum >= 0
+        ? rawMinimum
+        : 0,
+    estimated: rateBlank || minimumBlank,
+  };
+}
+
 function toDebt(
   row: DebtRow,
   index: number,
@@ -81,8 +116,7 @@ function toDebt(
 ): Debt | null {
   const balance = parseNumericInput(row.balance);
   if (balance === null || balance <= 0) return null;
-  const rate = parseNumericInput(row.rate);
-  const minimum = parseNumericInput(row.minimum);
+  const { rate, minimum } = effectiveRowValues(row, category, balance);
   return {
     id: row.id,
     userId: "",
@@ -90,10 +124,8 @@ function toDebt(
     category,
     balance,
     originalBalance: balance,
-    // Negative rate/minimum fail validation and must never reach the math —
-    // fall back to 0 rather than feeding a negative into the payoff engine.
-    interestRate: rate !== null && rate >= 0 ? rate : 0,
-    minimumPayment: minimum !== null && minimum >= 0 ? minimum : 0,
+    interestRate: rate,
+    minimumPayment: minimum,
     creditLimit: 0,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -206,6 +238,10 @@ export default function PublicCalculator({
   // from sample data — the badge and mobile bar key off this instead.
   const [isSampleData, setIsSampleData] = useState(true);
   const calculatorStartedRef = useRef(false);
+  // Fields that already reported a blocked event — one signal per field per
+  // session is enough to locate a leak; per-blur firing flooded the event
+  // stream (hundreds of events from a single stuck visitor).
+  const blockedFieldsRef = useRef<Set<string>>(new Set());
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // ── Derived state ──────────────────────────────────────────────────────────
@@ -215,6 +251,18 @@ export default function PublicCalculator({
       debtRows
         .map((r, i) => toDebt(r, i, config.debtCategory))
         .filter((d): d is Debt => d !== null),
+    [config.debtCategory, debtRows],
+  );
+
+  // True when any counted debt is running on an estimated APR or minimum —
+  // gates the disclosure line under the debt table.
+  const usesEstimates = useMemo(
+    () =>
+      debtRows.some((row) => {
+        const balance = parseNumericInput(row.balance);
+        if (balance === null || balance <= 0) return false;
+        return effectiveRowValues(row, config.debtCategory, balance).estimated;
+      }),
     [config.debtCategory, debtRows],
   );
 
@@ -372,7 +420,12 @@ export default function PublicCalculator({
       }
     }
 
-    if (debtFieldError(field, row[field], { rowStarted: isRowStarted(row) })) {
+    const blockedKey = `${id}:${field}`;
+    if (
+      debtFieldError(field, row[field], { rowStarted: isRowStarted(row) }) &&
+      !blockedFieldsRef.current.has(blockedKey)
+    ) {
+      blockedFieldsRef.current.add(blockedKey);
       // Self-locating telemetry: which field's format/absence stalled a debt.
       track(Events.CALCULATOR_FORM_BLOCKED, {
         missing_fields: [field],
@@ -447,17 +500,27 @@ export default function PublicCalculator({
       .map((r, i) => {
         const balance = parseNumericInput(r.balance);
         if (balance === null || balance <= 0) return null;
-        const rawRate = parseNumericInput(r.rate);
-        const rawMinimum = parseNumericInput(r.minimum);
-        // Persist only valid, non-negative values — a negative here would ride
-        // the signup round trip into the saved plan.
-        const rate = rawRate !== null && rawRate >= 0 ? rawRate : null;
-        const minimum = rawMinimum !== null && rawMinimum >= 0 ? rawMinimum : null;
+        // Persist the same effective values the plan was computed with —
+        // including category estimates for blank rate/minimum — so the plan
+        // the user saw here is the plan that appears after signup. Invalid
+        // entries (which showed an inline error) persist as "".
+        const { rate, minimum } = effectiveRowValues(
+          r,
+          config.debtCategory,
+          balance,
+        );
+        const rateInvalid =
+          r.rate.trim() !== "" &&
+          (parseNumericInput(r.rate) === null || parseNumericInput(r.rate)! < 0);
+        const minimumInvalid =
+          r.minimum.trim() !== "" &&
+          (parseNumericInput(r.minimum) === null ||
+            parseNumericInput(r.minimum)! < 0);
         return {
           name: r.name.trim() || `Debt ${i + 1}`,
           balance: String(balance),
-          rate: rate === null ? "" : String(rate),
-          minimum: minimum === null ? "" : String(minimum),
+          rate: rateInvalid ? "" : String(rate),
+          minimum: minimumInvalid ? "" : String(minimum),
         };
       })
       .filter((d): d is NonNullable<typeof d> => d !== null),
@@ -601,6 +664,11 @@ export default function PublicCalculator({
               onRowRemove={removeRow}
               onRowAdd={addRow}
             />
+            {usesEstimates && (
+              <p className="text-xs -mt-2 px-1" style={{ color: "#8b96a9" }}>
+                {estimateDisclosure(config.debtCategory)}
+              </p>
+            )}
             <BudgetPanel
               takeHome={takeHome}
               essential={essential}
