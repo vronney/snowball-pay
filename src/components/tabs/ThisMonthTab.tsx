@@ -6,9 +6,10 @@ import { calculateMinimumsOnlyResult } from "@/lib/payoffPlan";
 import { calculatePlanMetrics } from "@/lib/payoffPlan";
 import { selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
 import { displayFirstName, formatCurrency, formatMonths, getOrdinalDay } from "@/lib/utils";
-import { usePaymentRecords, useMarkPaid, useCachedCoachBrief } from "@/lib/hooks";
+import { usePaymentRecords, useMarkPaid, useCachedCoachBrief, useSubscription } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import DebtFreeCountdownHero from "@/components/dashboard/DebtFreeCountdownHero";
+import DebtCapUpsell from "@/components/billing/DebtCapUpsell";
 import RadialGauge from "@/components/ui/RadialGauge";
 import RollForwardAdvice from "@/components/payoff/RollForwardAdvice";
 import CoachBriefCard from "@/components/payoff/CoachBriefCard";
@@ -49,6 +50,10 @@ export default function ThisMonthTab({
   // Null (free users, or no brief yet) → neutral, factual copy that makes no
   // pace claim either way.
   const { data: coachCache } = useCachedCoachBrief();
+  // Confirmed-Free gate for the debt-cap prompt — never flash an upsell at a
+  // Pro user while the subscription query is still loading.
+  const { data: subscription } = useSubscription();
+  const isConfirmedFree = subscription != null && subscription.proEligible !== true;
   // A stale brief predates the current balances/income/payments (the coach card
   // shows a "your numbers changed" banner in that case), so its verdict must not
   // be presented as current here — fall back to the neutral projection.
@@ -206,6 +211,16 @@ export default function ThisMonthTab({
           totalPaid={totalPaid}
           totalOriginal={totalOriginal}
           hasOriginalBalances={hasOriginalBalances}
+        />
+      )}
+
+      {/* Debt-cap prompt — the hero above shows the (possibly partial) plan;
+          this names the limitation truthfully for Free users at the cap. */}
+      {hasDebts && (
+        <DebtCapUpsell
+          debtCount={debts.length}
+          planMonths={result?.months ?? null}
+          isConfirmedFree={isConfirmedFree}
         />
       )}
 
