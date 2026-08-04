@@ -19,9 +19,10 @@ describe('ESTIMATED_APR_BY_CATEGORY', () => {
 });
 
 describe('estimateMinimumPayment', () => {
-  it('uses ~2% of balance', () => {
+  it('uses 2% of balance at cent precision (never below 2%)', () => {
     expect(estimateMinimumPayment(10000)).toBe(200);
     expect(estimateMinimumPayment(5000)).toBe(100);
+    expect(estimateMinimumPayment(1301)).toBe(26.02);
   });
 
   it('applies the $25 floor for small balances', () => {
@@ -36,7 +37,9 @@ describe('estimateMinimumPayment', () => {
 });
 
 describe('estimateDisclosure', () => {
-  it('names the category APR used', () => {
-    expect(estimateDisclosure('Credit Card')).toContain('24.99%');
+  it('names the category APR and the minimum-payment floor', () => {
+    const text = estimateDisclosure('Credit Card');
+    expect(text).toContain('24.99%');
+    expect(text).toContain('$25');
   });
 });

@@ -30,11 +30,12 @@ export const ESTIMATED_APR_BY_CATEGORY: Record<Debt['category'], number> = {
  */
 export function estimateMinimumPayment(balance: number): number {
   if (balance <= 0) return 0;
-  return Math.max(25, Math.round(balance * 0.02));
+  // Cent precision — Math.round to whole dollars could land below 2%.
+  return Math.max(25, Math.ceil(balance * 2) / 100);
 }
 
 /** One-line disclosure shown whenever any debt in the plan uses an estimate. */
 export function estimateDisclosure(category: Debt['category']): string {
   const apr = ESTIMATED_APR_BY_CATEGORY[category];
-  return `Left APR or minimum blank? We estimate them (${apr}% avg APR, ~2% of balance as minimum) so you still get a date — refine anytime.`;
+  return `For blank fields we use a ${apr}% estimated APR and the greater of $25 or 2% of the balance as the minimum payment — refine either anytime.`;
 }

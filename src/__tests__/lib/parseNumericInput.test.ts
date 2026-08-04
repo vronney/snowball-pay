@@ -18,9 +18,15 @@ describe('parseNumericInput', () => {
     expect(parseNumericInput(' $14,200 ')).toBe(14200);
   });
 
-  it('strips a percent sign (APRs typed as "24.99%")', () => {
+  it('strips a trailing percent sign (APRs typed as "24.99%")', () => {
     expect(parseNumericInput('24.99%')).toBe(24.99);
     expect(parseNumericInput('7 %')).toBe(7);
+  });
+
+  it('rejects misplaced or repeated percent signs', () => {
+    expect(parseNumericInput('%24.99')).toBeNull();
+    expect(parseNumericInput('24%99')).toBeNull();
+    expect(parseNumericInput('24.99%%')).toBeNull();
   });
 
   it('reads a lone comma as a decimal mark (European APR)', () => {
