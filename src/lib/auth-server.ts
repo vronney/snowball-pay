@@ -1,7 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { Prisma } from '@prisma/client';
 import { auth0 } from '@/lib/auth0';
 import { prisma } from '@/lib/prisma';
+import { captureServerEvent } from '@/lib/analytics-server';
+import { Events } from '@/lib/analyticsEvents';
+import { ANALYTICS_CONSENT_KEY } from '@/lib/analyticsConsent';
+
+/**
+ * Marks a brand-new user row for the account_created capture. The upsert
+ * can't report create-vs-find, so recency of createdAt stands in for it;
+ * the $insert_id below makes the event exactly-once even if two concurrent
+ * first requests both land inside this window.
+ */
+const NEW_ACCOUNT_WINDOW_MS = 10_000;
+
+/**
+ * Fires the account_created funnel event for a just-provisioned user.
+ * Splits the Auth0 drop (signup_started → account_created) from the
+ * onboarding drop (account_created → signup_completed), which fires only
+ * at wizard completion. Consent-gated like every other event; best-effort.
+ */
+async function captureAccountCreated(userId: string): Promise<void> {
+  let consent: 'granted' | 'denied' = 'denied';
+  try {
+    // cookies() throws outside a request scope (e.g. build-time prerender);
+    // treat that as no consent rather than failing provisioning.
+    consent =
+      cookies().get(ANALYTICS_CONSENT_KEY)?.value === 'granted'
+        ? 'granted'
+        : 'denied';
+  } catch {
+    return;
+  }
+  await captureServerEvent({
+    consent,
+    distinctId: userId,
+    event: Events.ACCOUNT_CREATED,
+    insertId: `account_created:${userId}`,
+    properties: { source: 'provisioning' },
+  });
+}
 
 type AuthSuccess = {
   valid: true;
@@ -43,12 +82,16 @@ export async function ensureUserProvisioned(sessionUser: {
   if (!email) return null;
 
   try {
-    return await prisma.user.upsert({
+    const user = await prisma.user.upsert({
       where: { auth0Id: sessionUser.sub },
       update: {},
       create: { auth0Id: sessionUser.sub, email, name },
-      select: { id: true, email: true },
+      select: { id: true, email: true, createdAt: true },
     });
+    if (Date.now() - user.createdAt.getTime() < NEW_ACCOUNT_WINDOW_MS) {
+      await captureAccountCreated(user.id);
+    }
+    return { id: user.id, email: user.email };
   } catch (error) {
     // Same email under a different auth0Id (e.g. the user switched between
     // Google and email/password). Relink ONLY on the email unique-constraint

@@ -1,5 +1,6 @@
 export const Events = {
   SIGNUP_STARTED: 'signup_started',
+  ACCOUNT_CREATED: 'account_created',
   SIGNUP_COMPLETED: 'signup_completed',
   DEBT_ADDED: 'debt_added',
   INCOME_SAVED: 'income_saved',
