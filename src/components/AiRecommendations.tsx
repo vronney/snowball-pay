@@ -25,6 +25,7 @@ import {
   type RecommendationPayload,
 } from "@/lib/hooks";
 import { upgradeEvents } from "@/lib/upgradeEvents";
+import { Events, track } from "@/lib/analytics";
 import { Debt, Income, Expense } from "@/types";
 import { isActiveDebt } from "@/lib/monthlyFocusDebt";
 
@@ -695,19 +696,22 @@ export default function AiRecommendations({
               const onApply =
                 actionPayload?.action_type === "reallocate_funds" &&
                 onAccelerationChange
-                  ? () =>
+                  ? () => {
+                      track(Events.RECOMMENDATION_APPLIED, { type: rec.type });
                       onAccelerationChange(
                         availableCashFlow + actionPayload.source_amount,
-                      )
+                      );
+                    }
                   : undefined;
               return (
                 <RecommendationCard
                   key={originalIndex}
                   rec={rec}
                   index={originalIndex}
-                  onDismiss={() =>
-                    setDismissed((prev) => new Set([...prev, originalIndex]))
-                  }
+                  onDismiss={() => {
+                    track(Events.RECOMMENDATION_DISMISSED, { type: rec.type });
+                    setDismissed((prev) => new Set([...prev, originalIndex]));
+                  }}
                   onApply={onApply}
                   onOpenScripts={onOpenScripts}
                 />

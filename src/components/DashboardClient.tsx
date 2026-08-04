@@ -111,8 +111,11 @@ export default function DashboardClient({
 
   // Tab switches are client-side state, not real navigations — reset the
   // scroll position so each "page" starts at the top like a normal link.
+  // The view event makes tab traffic measurable (which surfaces users
+  // actually visit — the Intelligence tab's upsell was previously blind).
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0 });
+    track(Events.DASHBOARD_TAB_VIEWED, { tab: activeTab });
   }, [activeTab]);
 
   useEffect(() => {

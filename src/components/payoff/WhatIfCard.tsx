@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { useSubscription } from "@/lib/hooks";
 import { upgradeEvents } from "@/lib/upgradeEvents";
+import { Events, track } from "@/lib/analytics";
 import { Lock, Zap as ZapIcon } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
 import { type PayoffMethod } from "@/lib/snowball";
@@ -159,6 +160,7 @@ export default function WhatIfCard({
       effectiveAcceleration + delta,
       availableCashFlow ?? Infinity,
     );
+    track(Events.WHAT_IF_APPLIED, { delta, next_acceleration: next });
     onAccelerationChange(next);
   };
 

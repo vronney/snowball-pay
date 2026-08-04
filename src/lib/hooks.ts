@@ -355,6 +355,9 @@ export function useGenerateRecommendations() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['recommendations'], data);
+      track(Events.RECOMMENDATIONS_GENERATED, {
+        count: data.recommendations?.length ?? 0,
+      });
     },
     onError: (error) => { handleUpgradeError(error); },
   });
@@ -424,6 +427,10 @@ export function useGenerateCoachBrief() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(['coachBrief'], data);
+      track(Events.COACH_BRIEF_GENERATED, {
+        status: data.brief?.verdict?.status,
+        next_action_kind: data.brief?.nextAction?.kind,
+      });
     },
     onError: (error) => { handleUpgradeError(error); },
   });
