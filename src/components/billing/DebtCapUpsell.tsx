@@ -87,7 +87,8 @@ export default function DebtCapUpsell({
             flexShrink: 0,
           }}
         >
-          <Layers size={15} style={{ color: "#2563eb" }} />
+          {/* Neutral — the icon is passive; blue stays on the CTA only. */}
+          <Layers size={15} style={{ color: "#64748b" }} />
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
           <p style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", margin: "0 0 4px" }}>
