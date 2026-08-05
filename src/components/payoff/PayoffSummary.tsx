@@ -8,7 +8,8 @@ interface PayoffSummaryProps {
   planResult: PayoffResult;
   strategyName: string;
   timeStr: string;
-  monthlyPayment: number;
+  totalMinPayments: number;
+  effectiveAcceleration: number;
   interestSavedVsMinimums: number;
   availableCashFlow: number;
 }
@@ -17,10 +18,12 @@ export default function PayoffSummary({
   planResult,
   strategyName,
   timeStr,
-  monthlyPayment,
+  totalMinPayments,
+  effectiveAcceleration,
   interestSavedVsMinimums,
   availableCashFlow,
 }: PayoffSummaryProps) {
+  const monthlyPayment = totalMinPayments + effectiveAcceleration;
   const isComplete = planResult.payoffSchedule.length === 0 && planResult.months === 0;
   const coachTone = isComplete
     ? '#047857'
@@ -48,7 +51,9 @@ export default function PayoffSummary({
       ? 'Keep paid-off accounts recorded and update the plan only if a new balance appears.'
       : availableCashFlow === 0
       ? 'Keep minimums current where possible and revisit expenses before increasing payoff speed.'
-      : `Put the planned ${formatCurrency(monthlyPayment)} toward the current payoff order.`;
+      : effectiveAcceleration > 0
+      ? `Put the planned ${formatCurrency(monthlyPayment)} — ${formatCurrency(totalMinPayments)} in minimums plus ${formatCurrency(effectiveAcceleration)} acceleration — toward the current payoff order.`
+      : `Keep the ${formatCurrency(totalMinPayments)} in minimums current, then use the acceleration slider above when you're ready to speed up.`;
   const displayMonthlyPayment = isComplete ? 0 : monthlyPayment;
 
   return (
@@ -103,6 +108,11 @@ export default function PayoffSummary({
         <div>
           <div className="text-xs mb-1" style={{ color: '#64748b' }}>Monthly {strategyName}</div>
           <div className="mono font-bold text-lg">{formatCurrency(displayMonthlyPayment)}</div>
+          {!isComplete && effectiveAcceleration > 0 && (
+            <div className="mono" style={{ fontSize: '10px', color: '#94a3b8' }}>
+              {formatCurrency(totalMinPayments)} min + {formatCurrency(effectiveAcceleration)} extra
+            </div>
+          )}
         </div>
         <div>
           <div className="text-xs mb-1" style={{ color: '#64748b' }}>Interest Saved vs Minimums</div>

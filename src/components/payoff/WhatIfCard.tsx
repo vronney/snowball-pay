@@ -201,7 +201,8 @@ export default function WhatIfCard({
               +$100, +$250, any amount
             </span>
             <span style={{ fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
-              Model any extra payment and apply it to your plan with one click.
+              Preview any amount side-by-side without touching your committed
+              plan — then apply the winner in one click.
             </span>
             <span
               style={{
