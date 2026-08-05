@@ -100,10 +100,11 @@ export async function POST(request: NextRequest) {
 
     const result = await prisma.$transaction(async (tx) => {
       // The wizard's "extra monthly payment" answer seeds the acceleration
-      // amount (the slider) — the single control for extra toward debt. The
-      // legacy extraPayment budget field no longer feeds plan math.
-      const seededAcceleration =
-        parsed.income.extraPayment > 0 ? parsed.income.extraPayment : null;
+      // amount (the slider) — the single control for extra toward debt. An
+      // explicit 0 is stored as 0 (minimums only); null is reserved for the
+      // "use the full surplus" default and is never written here, so the plan
+      // matches the numbers the user saw in the calculator.
+      const seededAcceleration = parsed.income.extraPayment;
       const income = await tx.income.upsert({
         where: { userId: auth.user!.id },
         update: {

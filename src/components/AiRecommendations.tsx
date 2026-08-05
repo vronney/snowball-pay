@@ -33,7 +33,7 @@ interface Props {
   debts: Debt[];
   income: Income;
   expenses: Expense[];
-  availableCashFlow: number;
+  effectiveAcceleration: number;
   planMonths: number;
   totalInterestPaid: number;
   onAccelerationChange?: (amount: number) => void;
@@ -391,7 +391,7 @@ export default function AiRecommendations({
   debts,
   income,
   expenses,
-  availableCashFlow,
+  effectiveAcceleration,
   planMonths,
   totalInterestPaid,
   onAccelerationChange,
@@ -417,12 +417,12 @@ export default function AiRecommendations({
     monthlyTakeHome: income.monthlyTakeHome,
     essentialExpenses: income.essentialExpenses,
     recurringExpenses,
-    // The committed extra is the effective acceleration (the slider), not the
-    // retired income.extraPayment budget field.
-    extraPayment: availableCashFlow,
+    // Both API fields carry the user's selected acceleration (the slider) —
+    // the retired income.extraPayment budget field is no longer sent.
+    extraPayment: effectiveAcceleration,
     planMonths,
     totalInterestPaid,
-    availableCashFlow,
+    availableCashFlow: effectiveAcceleration,
   };
 
   const currentHash = buildRecommendationHash(payload);
@@ -701,7 +701,7 @@ export default function AiRecommendations({
                   ? () => {
                       track(Events.RECOMMENDATION_APPLIED, { type: rec.type });
                       onAccelerationChange(
-                        availableCashFlow + actionPayload.source_amount,
+                        effectiveAcceleration + actionPayload.source_amount,
                       );
                     }
                   : undefined;

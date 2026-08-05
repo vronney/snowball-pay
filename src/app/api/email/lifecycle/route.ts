@@ -16,12 +16,8 @@ import WelcomeEmail from '@/emails/WelcomeEmail';
 import IncompleteSetupEmail from '@/emails/IncompleteSetupEmail';
 import FirstWinEmail from '@/emails/FirstWinEmail';
 import SharePromptEmail from '@/emails/SharePromptEmail';
-import {
-  calculateDebtSnowball,
-  calculateDebtAvalanche,
-  calculateDebtCustom,
-  type PayoffMethod,
-} from '@/lib/snowball';
+import { calculatePlanMetrics, calculateMinimumsOnlyResult } from '@/lib/payoffPlan';
+import type { Debt } from '@/types';
 import * as React from 'react';
 
 const FROM = 'SnowballPay <noreply@getsnowballpay.com>';
@@ -56,6 +52,7 @@ export async function POST(request: NextRequest) {
       preferences: true,
       debts: { select: { id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true, name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true } },
       income: true,
+      expenses: { select: { amount: true } },
     },
   });
   if (!user?.email) return unauthorized();
@@ -94,22 +91,16 @@ export async function POST(request: NextRequest) {
         try {
           const activeDebts = user.debts.filter((debt) => debt.balance > 0.01);
           if (activeDebts.length > 0) {
-            const method: PayoffMethod = (user.income.payoffMethod as PayoffMethod) || 'snowball';
-            const calc = method === 'avalanche' ? calculateDebtAvalanche
-              : method === 'custom'   ? calculateDebtCustom
-              : calculateDebtSnowball;
-            const plan = calc(
-              activeDebts as Parameters<typeof calc>[0],
-              user.income.monthlyTakeHome,
-              user.income.essentialExpenses,
-              0,
-              0, // legacy extraPayment retired; the pool is pure surplus
+            // Same plan contract as the dashboard: pure-surplus pool with
+            // the user's selected acceleration applied.
+            const metrics = calculatePlanMetrics(
+              user.debts as Debt[],
+              user.income,
+              user.expenses,
             );
-            const minimumsOnly = calculateDebtSnowball(
-              activeDebts as Parameters<typeof calculateDebtSnowball>[0],
-              activeDebts.reduce((s, d) => s + d.minimumPayment, 0),
-              0, 0, 0,
-            );
+            if (!metrics) throw new Error('plan metrics unavailable');
+            const plan = metrics.result;
+            const minimumsOnly = calculateMinimumsOnlyResult(user.debts as Debt[]);
             planProps = {
               debtFreeDate: plan.debtFreeDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
               interestSaved: Math.round(Math.max(0, minimumsOnly.totalInterestPaid - plan.totalInterestPaid)),
@@ -159,22 +150,18 @@ export async function POST(request: NextRequest) {
         await markSent(user.id, user.preferences?.id, checks, key);
         return NextResponse.json({ skipped: true, reason: 'no_active_debts' });
       }
-      const method: PayoffMethod = (user.income.payoffMethod as PayoffMethod) || 'snowball';
-      const calc = method === 'avalanche' ? calculateDebtAvalanche
-        : method === 'custom'   ? calculateDebtCustom
-        : calculateDebtSnowball;
-      const plan = calc(
-        activeDebts as Parameters<typeof calc>[0],
-        user.income.monthlyTakeHome,
-        user.income.essentialExpenses,
-        0,
-        0, // legacy extraPayment retired; the pool is pure surplus
+      // Same plan contract as the dashboard: pure-surplus pool with the
+      // user's selected acceleration applied.
+      const metrics = calculatePlanMetrics(
+        user.debts as Debt[],
+        user.income,
+        user.expenses,
       );
-      const minimumsOnly = calculateDebtSnowball(
-        activeDebts as Parameters<typeof calculateDebtSnowball>[0],
-        activeDebts.reduce((s, d) => s + d.minimumPayment, 0),
-        0, 0, 0,
-      );
+      if (!metrics) {
+        return NextResponse.json({ skipped: true, reason: 'no_plan' });
+      }
+      const plan = metrics.result;
+      const minimumsOnly = calculateMinimumsOnlyResult(user.debts as Debt[]);
       const saved = Math.max(0, minimumsOnly.totalInterestPaid - plan.totalInterestPaid);
       html    = await render(React.createElement(FirstWinEmail, {
         userName:           user.name?.split(' ')[0] ?? undefined,
@@ -195,22 +182,18 @@ export async function POST(request: NextRequest) {
         await markSent(user.id, user.preferences?.id, checks, key);
         return NextResponse.json({ skipped: true, reason: 'no_active_debts' });
       }
-      const method: PayoffMethod = (user.income.payoffMethod as PayoffMethod) || 'snowball';
-      const calc = method === 'avalanche' ? calculateDebtAvalanche
-        : method === 'custom'   ? calculateDebtCustom
-        : calculateDebtSnowball;
-      const plan = calc(
-        activeDebts as Parameters<typeof calc>[0],
-        user.income.monthlyTakeHome,
-        user.income.essentialExpenses,
-        0,
-        0, // legacy extraPayment retired; the pool is pure surplus
+      // Same plan contract as the dashboard: pure-surplus pool with the
+      // user's selected acceleration applied.
+      const metrics = calculatePlanMetrics(
+        user.debts as Debt[],
+        user.income,
+        user.expenses,
       );
-      const minimumsOnly = calculateDebtSnowball(
-        activeDebts as Parameters<typeof calculateDebtSnowball>[0],
-        activeDebts.reduce((s, d) => s + d.minimumPayment, 0),
-        0, 0, 0,
-      );
+      if (!metrics) {
+        return NextResponse.json({ skipped: true, reason: 'no_plan' });
+      }
+      const plan = metrics.result;
+      const minimumsOnly = calculateMinimumsOnlyResult(user.debts as Debt[]);
       const interestSaved = Math.max(0, minimumsOnly.totalInterestPaid - plan.totalInterestPaid);
       const totalDebt     = activeDebts.reduce((s, d) => s + d.balance, 0);
       html    = await render(React.createElement(SharePromptEmail, {

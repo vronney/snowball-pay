@@ -75,7 +75,7 @@ const INCOME = {
 function makeUser(overrides: Record<string, unknown>) {
   return {
     id: 'u1', email: 'new@user.com', name: 'Ronney Vargas',
-    preferences: null, debts: [], income: null,
+    preferences: null, debts: [], income: null, expenses: [],
     ...overrides,
   };
 }

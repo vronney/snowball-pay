@@ -19,7 +19,7 @@ import {
 } from '@/lib/services/emailService';
 import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
 import WeeklyProgressEmail from '@/emails/WeeklyProgressEmail';
-import { calculateResultByMethod, methodFromIncome } from '@/lib/payoffPlan';
+import { calculatePlanMetrics } from '@/lib/payoffPlan';
 import { parseLawfulStoredBrief } from '@/lib/coachBriefSafety';
 import type { Debt } from '@/types';
 import * as React from 'react';
@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
         },
       },
       income: true,
+      expenses: { select: { amount: true } },
       paymentRecords: {
         where: { paidAt: { gte: monthStart } },
         select: { amount: true },
@@ -71,14 +72,16 @@ export async function GET(request: NextRequest) {
 
       let debtFreeDate: string | undefined;
       if (user.income) {
-        const plan = calculateResultByMethod(
+        // Same plan contract as the dashboard: pure-surplus pool with the
+        // user's selected acceleration applied.
+        const metrics = calculatePlanMetrics(
           user.debts as Debt[],
           user.income,
-          0,
-          0, // legacy extraPayment retired; the pool is pure surplus
-          methodFromIncome(user.income),
+          user.expenses,
         );
-        debtFreeDate = plan.debtFreeDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        if (metrics) {
+          debtFreeDate = metrics.result.debtFreeDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        }
       }
 
       const token         = generateUnsubscribeToken(user.id);
