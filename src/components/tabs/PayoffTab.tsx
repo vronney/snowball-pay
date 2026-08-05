@@ -473,7 +473,8 @@ export default function PayoffTab({
         debts={debts}
         income={income}
         expenses={expenses}
-        availableCashFlow={effectiveAcceleration}
+        effectiveAcceleration={effectiveAcceleration}
+        availableCashFlow={availableCashFlow}
         planMonths={planResult.months}
         totalInterestPaid={planResult.totalInterestPaid}
         onAccelerationChange={setAccelerationAmount}

@@ -33,6 +33,7 @@ interface Props {
   debts: Debt[];
   income: Income;
   expenses: Expense[];
+  effectiveAcceleration: number;
   availableCashFlow: number;
   planMonths: number;
   totalInterestPaid: number;
@@ -391,6 +392,7 @@ export default function AiRecommendations({
   debts,
   income,
   expenses,
+  effectiveAcceleration,
   availableCashFlow,
   planMonths,
   totalInterestPaid,
@@ -417,7 +419,10 @@ export default function AiRecommendations({
     monthlyTakeHome: income.monthlyTakeHome,
     essentialExpenses: income.essentialExpenses,
     recurringExpenses,
-    extraPayment: income.extraPayment,
+    // The committed extra is the selected acceleration (the slider); the
+    // retired income.extraPayment budget field is no longer sent. The pool
+    // ceiling travels separately as availableCashFlow.
+    extraPayment: effectiveAcceleration,
     planMonths,
     totalInterestPaid,
     availableCashFlow,
@@ -698,8 +703,13 @@ export default function AiRecommendations({
                 onAccelerationChange
                   ? () => {
                       track(Events.RECOMMENDATION_APPLIED, { type: rec.type });
+                      // Clamp to the pool: a stale recommendation must not
+                      // persist an acceleration above the current surplus.
                       onAccelerationChange(
-                        availableCashFlow + actionPayload.source_amount,
+                        Math.min(
+                          effectiveAcceleration + actionPayload.source_amount,
+                          availableCashFlow,
+                        ),
                       );
                     }
                   : undefined;

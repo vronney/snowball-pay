@@ -11,7 +11,6 @@ import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 export interface PayoffIncomeInput {
   monthlyTakeHome: number;
   essentialExpenses: number;
-  extraPayment?: number | null;
   payoffMethod?: string | null;
   accelerationAmount?: number | null;
 }
@@ -100,12 +99,12 @@ export function calculatePlanMetrics(
   const recurringTotal = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   const totalMinPayments = activeDebts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
   const totalEssential = income.essentialExpenses + recurringTotal;
+  // The pool is pure surplus: the legacy income.extraPayment field no longer
+  // inflates it. The acceleration amount (slider) is the single control for
+  // how much extra goes to debt each month.
   const naturalSurplus =
     income.monthlyTakeHome - totalEssential - totalMinPayments;
-  const availableCashFlow = Math.max(
-    0,
-    naturalSurplus + (income.extraPayment ?? 0),
-  );
+  const availableCashFlow = Math.max(0, naturalSurplus);
   const requestedAcceleration =
     options.accelerationAmount === undefined
       ? income.accelerationAmount

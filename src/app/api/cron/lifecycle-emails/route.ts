@@ -26,12 +26,8 @@ import { getDateRange, formatDateMonthYear } from '@/lib/utils/date';
 import IncompleteSetupEmail from '@/emails/IncompleteSetupEmail';
 import FirstWinEmail from '@/emails/FirstWinEmail';
 import SharePromptEmail from '@/emails/SharePromptEmail';
-import {
-  calculateDebtSnowball,
-  calculateDebtAvalanche,
-  calculateDebtCustom,
-  type PayoffMethod,
-} from '@/lib/snowball';
+import { calculatePlanMetrics, calculateMinimumsOnlyResult } from '@/lib/payoffPlan';
+import type { Debt } from '@/types';
 import * as React from 'react';
 
 export async function GET(request: NextRequest) {
@@ -140,6 +136,7 @@ export async function GET(request: NextRequest) {
       preferences: true,
       debts: { select: { id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true, name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true } },
       income: true,
+      expenses: { select: { amount: true } },
     },
   });
 
@@ -154,23 +151,16 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      const method: PayoffMethod = (user.income.payoffMethod as PayoffMethod) || 'snowball';
-      const calc = method === 'avalanche' ? calculateDebtAvalanche
-        : method === 'custom'   ? calculateDebtCustom
-        : calculateDebtSnowball;
-
-      const plan = calc(
-        activeDebts as Parameters<typeof calc>[0],
-        user.income.monthlyTakeHome,
-        user.income.essentialExpenses,
-        0,
-        user.income.extraPayment ?? 0,
+      // Same plan contract as the dashboard: pure-surplus pool with the
+      // user's selected acceleration applied.
+      const metrics = calculatePlanMetrics(
+        user.debts as Debt[],
+        user.income,
+        user.expenses,
       );
-      const minimumsOnly = calculateDebtSnowball(
-        activeDebts as Parameters<typeof calculateDebtSnowball>[0],
-        activeDebts.reduce((s, d) => s + d.minimumPayment, 0),
-        0, 0, 0,
-      );
+      if (!metrics) continue;
+      const plan = metrics.result;
+      const minimumsOnly = calculateMinimumsOnlyResult(user.debts as Debt[]);
       const saved = Math.max(0, minimumsOnly.totalInterestPaid - plan.totalInterestPaid);
       const debtFreeDate = formatDateMonthYear(plan.debtFreeDate);
 
@@ -213,6 +203,7 @@ export async function GET(request: NextRequest) {
       preferences: true,
       debts: { select: { id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true, name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true } },
       income: true,
+      expenses: { select: { amount: true } },
     },
   });
 
@@ -227,23 +218,16 @@ export async function GET(request: NextRequest) {
         continue;
       }
 
-      const method: PayoffMethod = (user.income.payoffMethod as PayoffMethod) || 'snowball';
-      const calc = method === 'avalanche' ? calculateDebtAvalanche
-        : method === 'custom'   ? calculateDebtCustom
-        : calculateDebtSnowball;
-
-      const plan = calc(
-        activeDebts as Parameters<typeof calc>[0],
-        user.income.monthlyTakeHome,
-        user.income.essentialExpenses,
-        0,
-        user.income.extraPayment ?? 0,
+      // Same plan contract as the dashboard: pure-surplus pool with the
+      // user's selected acceleration applied.
+      const metrics = calculatePlanMetrics(
+        user.debts as Debt[],
+        user.income,
+        user.expenses,
       );
-      const minimumsOnly = calculateDebtSnowball(
-        activeDebts as Parameters<typeof calculateDebtSnowball>[0],
-        activeDebts.reduce((s, d) => s + d.minimumPayment, 0),
-        0, 0, 0,
-      );
+      if (!metrics) continue;
+      const plan = metrics.result;
+      const minimumsOnly = calculateMinimumsOnlyResult(user.debts as Debt[]);
       const interestSaved  = Math.max(0, minimumsOnly.totalInterestPaid - plan.totalInterestPaid);
       const totalDebt      = activeDebts.reduce((s, d) => s + d.balance, 0);
       const debtFreeDate   = formatDateMonthYear(plan.debtFreeDate);

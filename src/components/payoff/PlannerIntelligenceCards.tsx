@@ -434,7 +434,9 @@ export function StrategyLabCard({
     Math.max(0, Number.isFinite(sandboxExtra) ? sandboxExtra : 0),
     finiteAvailableCashFlow,
   );
-  const alreadyApplied = Math.abs(clampedExtra - income.extraPayment) < 0.01;
+  const committedExtra =
+    income.accelerationAmount ?? finiteAvailableCashFlow;
+  const alreadyApplied = Math.abs(clampedExtra - committedExtra) < 0.01;
   const justApplied =
     appliedExtra !== null && Math.abs(appliedExtra - clampedExtra) < 0.01;
 
@@ -448,7 +450,9 @@ export function StrategyLabCard({
     saveIncome.mutate(
       {
         ...income,
-        extraPayment: clampedExtra,
+        // Applying a scenario sets the acceleration amount (the slider) —
+        // the single control for extra toward debt.
+        accelerationAmount: clampedExtra,
       },
       {
         onSuccess: () => setAppliedExtra(clampedExtra),

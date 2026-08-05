@@ -85,10 +85,7 @@ export async function GET(request: NextRequest) {
         recurringTotal -
         totalMinPayments,
     );
-    const availableCashFlow = Math.max(
-      0,
-      naturalSurplus + (income.extraPayment ?? 0),
-    );
+    const availableCashFlow = naturalSurplus;
     const plannedMonthly =
       income.accelerationAmount != null
         ? Math.min(income.accelerationAmount, availableCashFlow)

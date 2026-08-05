@@ -200,7 +200,7 @@ function buildPlaidSyncContext(
 function buildDataHash(input: {
   totalDebt: number;
   totalMin: number;
-  income: { monthlyTakeHome: number; essentialExpenses: number; extraPayment: number } | null;
+  income: { monthlyTakeHome: number; essentialExpenses: number } | null;
   recurringExpenses: number;
   planMonths: number;
   latestSnapshotMonth: string | null;
@@ -213,7 +213,6 @@ function buildDataHash(input: {
     input.totalMin.toFixed(0),
     input.income?.monthlyTakeHome.toFixed(0) ?? '0',
     input.income?.essentialExpenses.toFixed(0) ?? '0',
-    input.income?.extraPayment.toFixed(0) ?? '0',
     input.recurringExpenses.toFixed(0),
     input.planMonths,
     input.latestSnapshotMonth ?? '',
@@ -391,7 +390,6 @@ async function computeCurrentDataHash(userId: string): Promise<string | null> {
     income: {
       monthlyTakeHome: income.monthlyTakeHome,
       essentialExpenses: income.essentialExpenses,
-      extraPayment: income.extraPayment,
     },
     recurringExpenses,
     planMonths: planMetrics.result.months,
@@ -765,7 +763,6 @@ Current plan:
       income: {
         monthlyTakeHome: income.monthlyTakeHome,
         essentialExpenses: income.essentialExpenses,
-        extraPayment: income.extraPayment,
       },
       recurringExpenses,
       planMonths: result.months,
