@@ -474,6 +474,7 @@ export default function PayoffTab({
         income={income}
         expenses={expenses}
         effectiveAcceleration={effectiveAcceleration}
+        availableCashFlow={availableCashFlow}
         planMonths={planResult.months}
         totalInterestPaid={planResult.totalInterestPaid}
         onAccelerationChange={setAccelerationAmount}
