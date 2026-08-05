@@ -1,4 +1,4 @@
-export const UPGRADE_MESSAGE_VERSION = 'contextual_v1';
+export const UPGRADE_MESSAGE_VERSION = 'contextual_v2';
 export const LATE_TRIAL_NOTICE_DAYS = 7;
 
 export interface UpgradeMessage {
@@ -40,7 +40,7 @@ const MESSAGES: Record<string, UpgradeMessage> = {
     description:
       'Your acceleration slider sets the committed amount. Pro what-if scenarios let you preview changes side-by-side first — without touching the plan you are on.',
     benefits: [
-      'Preview any extra amount, not just presets',
+      'Preview +$50 and +$100 scenarios side-by-side',
       'See months and interest saved before you commit',
       'Apply a winning scenario to your plan in one click',
     ],

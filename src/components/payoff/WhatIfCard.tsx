@@ -198,11 +198,11 @@ export default function WhatIfCard({
               }}
             >
               <Lock size={12} style={{ color: "#94a3b8" }} />
-              +$100, +$250, any amount
+              +$100 and one-click apply
             </span>
             <span style={{ fontSize: "12px", color: "#94a3b8", lineHeight: 1.5 }}>
-              Preview any amount side-by-side without touching your committed
-              plan — then apply the winner in one click.
+              Preview +$50 and +$100 side-by-side without touching your
+              committed plan — then apply either in one click.
             </span>
             <span
               style={{

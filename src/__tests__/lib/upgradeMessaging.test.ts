@@ -8,7 +8,7 @@ import {
 
 describe('upgrade messaging', () => {
   it('uses one stable version for funnel segmentation', () => {
-    expect(UPGRADE_MESSAGE_VERSION).toBe('contextual_v1');
+    expect(UPGRADE_MESSAGE_VERSION).toBe('contextual_v2');
   });
 
   it.each([
