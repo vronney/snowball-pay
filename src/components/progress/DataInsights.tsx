@@ -1088,6 +1088,23 @@ export default function DataInsights({
     [debts, income, expenses],
   );
 
+  // The variance chart compares logged snapshot months against the plan, so
+  // its projection must COVER those past months: anchor it at the plan start
+  // (income.createdAt) and seed each debt from its creation balance, exactly
+  // like PayoffTab's chart. The default forward-only plan above starts at
+  // today, matches at most the current month, and would keep the card in its
+  // empty state forever.
+  const varianceMetrics = useMemo(() => {
+    const chartDebts = debts.map((d) => ({
+      ...d,
+      balance:
+        d.originalBalance && d.originalBalance > 0 ? d.originalBalance : d.balance,
+    }));
+    return calculatePlanMetrics(chartDebts, income, expenses, {
+      planStartDate: income?.createdAt ? new Date(income.createdAt) : undefined,
+    });
+  }, [debts, income, expenses]);
+
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -1117,7 +1134,7 @@ export default function DataInsights({
         <PayoffLeverCard debts={debts} income={income} metrics={metrics} />
         <CashFlowWaterfallCard income={income} metrics={metrics} />
         <DebtMixCard debts={debts} />
-        <VarianceCard snapshots={snapshots} metrics={metrics} />
+        <VarianceCard snapshots={snapshots} metrics={varianceMetrics} />
         <InterestPrincipalCard debts={debts} metrics={metrics} />
       </div>
     </section>
