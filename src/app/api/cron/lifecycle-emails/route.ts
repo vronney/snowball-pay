@@ -164,7 +164,7 @@ export async function GET(request: NextRequest) {
         user.income.monthlyTakeHome,
         user.income.essentialExpenses,
         0,
-        user.income.extraPayment ?? 0,
+        0, // legacy extraPayment retired; the pool is pure surplus
       );
       const minimumsOnly = calculateDebtSnowball(
         activeDebts as Parameters<typeof calculateDebtSnowball>[0],
@@ -237,7 +237,7 @@ export async function GET(request: NextRequest) {
         user.income.monthlyTakeHome,
         user.income.essentialExpenses,
         0,
-        user.income.extraPayment ?? 0,
+        0, // legacy extraPayment retired; the pool is pure surplus
       );
       const minimumsOnly = calculateDebtSnowball(
         activeDebts as Parameters<typeof calculateDebtSnowball>[0],

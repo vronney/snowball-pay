@@ -47,12 +47,6 @@ export default function CashFlowOverview({
           <span className="ml-2">- Minimum Debt Payments</span>
           <span className="mono">{formatCurrency(totalMinPayments)}</span>
         </div>
-        {income.extraPayment > 0 && (
-          <div className="flex items-center justify-between" style={{ color: '#64748b' }}>
-            <span className="ml-2">+ Extra Payment (budgeted)</span>
-            <span className="mono">{formatCurrency(income.extraPayment)}</span>
-          </div>
-        )}
         {effectiveAcceleration > 0 && (
           <div className="flex items-center justify-between" style={{ color: '#64748b' }}>
             <span className="ml-2">- Applied to Acceleration</span>

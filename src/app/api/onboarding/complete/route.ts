@@ -99,19 +99,26 @@ export async function POST(request: NextRequest) {
         : parsed.income.payoffMethod;
 
     const result = await prisma.$transaction(async (tx) => {
+      // The wizard's "extra monthly payment" answer seeds the acceleration
+      // amount (the slider) — the single control for extra toward debt. The
+      // legacy extraPayment budget field no longer feeds plan math.
+      const seededAcceleration =
+        parsed.income.extraPayment > 0 ? parsed.income.extraPayment : null;
       const income = await tx.income.upsert({
         where: { userId: auth.user!.id },
         update: {
           monthlyTakeHome: parsed.income.monthlyTakeHome,
           essentialExpenses: parsed.income.essentialExpenses,
-          extraPayment: parsed.income.extraPayment,
+          extraPayment: 0,
+          accelerationAmount: seededAcceleration,
           payoffMethod,
         },
         create: {
           userId: auth.user!.id,
           monthlyTakeHome: parsed.income.monthlyTakeHome,
           essentialExpenses: parsed.income.essentialExpenses,
-          extraPayment: parsed.income.extraPayment,
+          extraPayment: 0,
+          accelerationAmount: seededAcceleration,
           payoffMethod,
         },
       });

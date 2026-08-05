@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
           user.debts as Debt[],
           user.income,
           0,
-          user.income.extraPayment ?? 0,
+          0, // legacy extraPayment retired; the pool is pure surplus
           methodFromIncome(user.income),
         );
         debtFreeDate = plan.debtFreeDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });

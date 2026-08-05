@@ -92,8 +92,7 @@ export function useNotifications({
         income.monthlyTakeHome -
           income.essentialExpenses -
           recurringTotal -
-          totalMin +
-          income.extraPayment,
+          totalMin,
       );
       const accel =
         income.accelerationAmount != null

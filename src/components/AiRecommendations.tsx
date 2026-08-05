@@ -417,7 +417,9 @@ export default function AiRecommendations({
     monthlyTakeHome: income.monthlyTakeHome,
     essentialExpenses: income.essentialExpenses,
     recurringExpenses,
-    extraPayment: income.extraPayment,
+    // The committed extra is the effective acceleration (the slider), not the
+    // retired income.extraPayment budget field.
+    extraPayment: availableCashFlow,
     planMonths,
     totalInterestPaid,
     availableCashFlow,
