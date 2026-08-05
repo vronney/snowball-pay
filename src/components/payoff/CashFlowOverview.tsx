@@ -23,6 +23,7 @@ export default function CashFlowOverview({
   saveIsSuccess,
   onAccelerationChange,
 }: CashFlowOverviewProps) {
+  const remainingCashFlow = availableCashFlow - effectiveAcceleration;
   return (
     <div id="cash-flow-overview" className="rounded-xl p-5 scroll-mt-24" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
       <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
@@ -46,12 +47,24 @@ export default function CashFlowOverview({
           <span className="ml-2">- Minimum Debt Payments</span>
           <span className="mono">{formatCurrency(totalMinPayments)}</span>
         </div>
-        <div className="flex items-center justify-between p-2 rounded-lg mt-2" style={{ background: 'rgba(37,99,235,0.08)' }}>
+        {income.extraPayment > 0 && (
+          <div className="flex items-center justify-between" style={{ color: '#64748b' }}>
+            <span className="ml-2">+ Extra Payment (budgeted)</span>
+            <span className="mono">{formatCurrency(income.extraPayment)}</span>
+          </div>
+        )}
+        {effectiveAcceleration > 0 && (
+          <div className="flex items-center justify-between" style={{ color: '#64748b' }}>
+            <span className="ml-2">- Applied to Acceleration</span>
+            <span className="mono">{formatCurrency(effectiveAcceleration)}</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between p-2 rounded-lg mt-2" style={{ background: 'rgba(15,23,42,0.04)' }}>
           <span style={{ color: '#334155' }}>
             <strong>Available for Acceleration</strong>
           </span>
-          <span className="mono font-bold" style={{ color: '#2563eb' }}>
-            {formatCurrency(availableCashFlow)}
+          <span className="mono font-bold" style={{ color: '#0f172a' }}>
+            {formatCurrency(remainingCashFlow)}
           </span>
         </div>
         {availableCashFlow > 0 && (

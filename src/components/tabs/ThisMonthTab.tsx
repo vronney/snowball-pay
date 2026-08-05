@@ -103,8 +103,6 @@ export default function ThisMonthTab({
     return Math.max(0, minimumsResult.months - result.months);
   }, [result, minimumsResult]);
 
-  const extraPayment = income?.extraPayment ?? 0;
-
   // Overall payoff progress for the hero gauge: principal paid across all
   // debts. Debts without a recorded originalBalance contribute their current
   // balance to the denominator (0% progress) rather than skewing the ratio.
@@ -413,9 +411,9 @@ export default function ThisMonthTab({
               sub: "take-home",
             },
             {
-              label: "Extra Payment",
-              value: formatCurrency(extraPayment),
-              sub: "toward focus debt",
+              label: "Acceleration",
+              value: formatCurrency(focusExtra),
+              sub: focusDebt ? "toward focus debt" : "planned this month",
             },
           ].map((stat, i) => (
             <div
