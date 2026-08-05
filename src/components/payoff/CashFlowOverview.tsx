@@ -72,6 +72,7 @@ export default function CashFlowOverview({
             </div>
             <input
               type="range"
+              aria-label="Apply to Acceleration"
               min={0}
               max={availableCashFlow}
               step={50}
