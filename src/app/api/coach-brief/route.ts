@@ -390,7 +390,6 @@ async function computeCurrentDataHash(userId: string): Promise<string | null> {
     income: {
       monthlyTakeHome: income.monthlyTakeHome,
       essentialExpenses: income.essentialExpenses,
-      extraPayment: income.extraPayment,
     },
     recurringExpenses,
     planMonths: planMetrics.result.months,
