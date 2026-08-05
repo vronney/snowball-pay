@@ -54,7 +54,9 @@ Visitors can change their choice in the Cookies and Similar Technologies section
 
 The direct wizard now asks only for monthly capacity, payoff strategy, and the first debt. The former primary-goal question was removed because its answer was neither persisted nor used to calculate or personalize the plan. Calculator-qualified users continue to use the express confirmation path and should be analyzed separately through `onboarding_express_viewed` and `onboarding_express_completed`.
 
-The Pro preview uses message version `contextual_v1`. Its headline, three benefits, and checkout CTA reflect the attempted feature: unlimited debts, bank sync, what-if scenarios, Payoff Coach, or Intelligence. Unknown and settings entry points use the general follow-through message. Trialing users are excluded from this upgrade path; during the final seven days of a trial, the dashboard routes them to Stripe billing review instead of starting another checkout.
+The Pro preview uses message version `contextual_v2`. Its headline, three benefits, and checkout CTA reflect the attempted feature: unlimited debts, bank sync, what-if scenarios, Payoff Coach, or Intelligence. Unknown and settings entry points use the general follow-through message. Trialing users are excluded from this upgrade path; during the final seven days of a trial, the dashboard routes them to Stripe billing review instead of starting another checkout.
+
+Version history: `contextual_v2` (August 2026) rewrote the what-if message after the acceleration amount control became free for all tiers — the pitch now sells previewing the +$50/+$100 scenarios side-by-side and one-click apply rather than setting an amount, which free users can do with the slider. The acceleration control itself no longer triggers an upgrade preview; its legacy feature strings ('What-if slider', 'Acceleration control') can still arrive from stale clients and map to the acceleration message. Compare funnel metrics within a single message version; `contextual_v1` events form the pre-change baseline.
 
 ## Attribution
 

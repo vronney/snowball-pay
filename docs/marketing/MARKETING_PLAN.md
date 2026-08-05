@@ -479,7 +479,7 @@ A debt elimination command center that gives users a confident, step-by-step pay
 
 ### Current conversion focus (July 2026)
 
-The direct onboarding path is now three required inputs, and the first post-activation Pro experience uses contextual messaging at the moment a user requests a paid capability. Do not start a pricing or paywall A/B test at the current traffic level. First collect a clean `contextual_v1` baseline and review:
+The direct onboarding path is now three required inputs, and the first post-activation Pro experience uses contextual messaging at the moment a user requests a paid capability. Do not start a pricing or paywall A/B test at the current traffic level. The upgrade copy moved to `contextual_v2` in August 2026 (acceleration control opened to free, what-if pitch rewritten), so the clean baseline restarts there — treat `contextual_v1` events as the pre-change comparison, not part of the baseline. Collect the `contextual_v2` baseline and review:
 
 1. Direct onboarding completion by step.
 2. `upgrade_modal_viewed` to `checkout_started`, segmented by normalized trigger.
