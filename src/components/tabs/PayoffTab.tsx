@@ -14,7 +14,6 @@ import {
   useAllSnapshots,
   useSaveIncome,
   usePaymentRecords,
-  useSubscription,
 } from "@/lib/hooks";
 import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
 import { formatMonths } from "@/lib/utils";
@@ -66,16 +65,6 @@ export default function PayoffTab({
   );
   const updateDebt = useUpdateDebt();
   const saveIncome = useSaveIncome();
-  const { data: subData } = useSubscription();
-  // Acceleration is Pro-gated server-side. For non-Pro users a stored amount
-  // (saved before a downgrade) must be inert: plan math falls back to null
-  // (= full available cash flow, the free default) and auto-saves OMIT the
-  // field entirely — otherwise switching strategy after a downgrade would
-  // 403 on the stale amount with no UI left to clear it. While the
-  // subscription query is unresolved, assume allowed to avoid plan flicker.
-  const accelerationAllowed =
-    subData === undefined || subData.proEligible === true;
-  const planAcceleration = accelerationAllowed ? accelerationAmount : null;
   // Tracks what was last loaded from DB — prevents the initial sync from
   // triggering an unnecessary save.  Seeded on mount with the same values as
   // the lazy state initializers so the guard is pre-populated when income is
@@ -123,9 +112,7 @@ export default function PayoffTab({
         essentialExpenses: income.essentialExpenses,
         extraPayment: income.extraPayment,
         payoffMethod,
-        // Omitted (not nulled) for non-Pro: the server skips absent fields,
-        // so a Pro-era amount survives a downgrade for a later resubscribe.
-        ...(accelerationAllowed ? { accelerationAmount } : {}),
+        accelerationAmount,
       });
     }, 600);
     return () => clearTimeout(tid);
@@ -141,12 +128,12 @@ export default function PayoffTab({
   const planMetrics = useMemo(() => {
     return calculatePlanMetrics(debts, income, expenses, {
       method: payoffMethod,
-      accelerationAmount: planAcceleration,
+      accelerationAmount,
       planStartDate,
     });
     // planStartDate is derived from income.createdAt which doesn't change after creation
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debts, income, expenses, payoffMethod, planAcceleration]);
+  }, [debts, income, expenses, payoffMethod, accelerationAmount]);
   const activeDebts = useMemo(() => debts.filter(isActiveDebt), [debts]);
   const planResult = planMetrics?.result ?? null;
   const paidDebtIds = useMemo(
@@ -268,7 +255,7 @@ export default function PayoffTab({
   }));
   const chartPlan = calculatePlanMetrics(chartDebts, income, expenses, {
     method: payoffMethod,
-    accelerationAmount: planAcceleration,
+    accelerationAmount,
     planStartDate,
   });
   const chartPlanResult = chartPlan?.result ?? planResult;

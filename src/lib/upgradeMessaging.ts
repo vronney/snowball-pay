@@ -125,9 +125,11 @@ export function getUpgradeMessage(feature?: string): UpgradeMessage {
 
   if (normalized.includes('unlimited debt')) return MESSAGES.unlimited_debts;
   if (normalized.includes('bank sync')) return MESSAGES.bank_sync;
-  // Before 'what-if': the server's 'What-if slider' feature string is the
-  // acceleration gate, whose modal must describe committing an amount, not
-  // the explore-only what-if scenarios.
+  // Before 'what-if': legacy 'What-if slider' / 'Acceleration control'
+  // feature strings map to the acceleration message, which describes
+  // committing an amount, not the explore-only what-if scenarios. The
+  // acceleration control itself is free for all tiers now, so these
+  // strings only arrive from stale clients.
   if (normalized.includes('acceleration') || normalized.includes('slider'))
     return MESSAGES.acceleration;
   if (normalized.includes('what-if')) return MESSAGES.what_if;

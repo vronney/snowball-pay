@@ -1,8 +1,6 @@
 import { type Income } from '@/types';
 import { formatCurrency } from '@/lib/utils';
-import { useSubscription } from '@/lib/hooks';
-import { upgradeEvents } from '@/lib/upgradeEvents';
-import { Lock, Wallet } from 'lucide-react';
+import { Wallet } from 'lucide-react';
 
 interface CashFlowOverviewProps {
   income: Income;
@@ -25,15 +23,6 @@ export default function CashFlowOverview({
   saveIsSuccess,
   onAccelerationChange,
 }: CashFlowOverviewProps) {
-  // The acceleration amount only persists for Pro (POST /api/income rejects
-  // accelerationAmount > 0 for free users) — so free users get a locked row
-  // instead of a slider whose saves silently fail. proEligible is the server
-  // gate's verdict (paidTier stays 'pro' for past_due while saves 403).
-  // Until the query resolves, render neither branch — no lock flash for Pro.
-  const { data: subData } = useSubscription();
-  const subResolved = subData !== undefined;
-  const proEligible = subData?.proEligible === true;
-
   return (
     <div id="cash-flow-overview" className="rounded-xl p-5 scroll-mt-24" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
       <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
@@ -65,35 +54,7 @@ export default function CashFlowOverview({
             {formatCurrency(availableCashFlow)}
           </span>
         </div>
-        {availableCashFlow > 0 && subResolved && !proEligible && (
-          <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <span className="text-xs flex items-center gap-1.5" style={{ color: '#64748b' }}>
-                  Apply to Acceleration
-                  <Lock size={11} aria-hidden="true" />
-                </span>
-                <p style={{ fontSize: '11px', color: '#64748b', margin: '4px 0 0' }}>
-                  Set exactly how much of your{' '}
-                  <span className="mono">{formatCurrency(availableCashFlow)}</span>/mo
-                  cash flow goes to debt — a Pro control.
-                </p>
-              </div>
-              <button
-                onClick={() => upgradeEvents.dispatch('Acceleration control')}
-                style={{
-                  padding: '7px 14px', borderRadius: '8px', border: 'none',
-                  background: '#2563eb', color: '#ffffff', cursor: 'pointer',
-                  fontSize: '12px', fontWeight: 700, fontFamily: 'inherit',
-                  flexShrink: 0,
-                }}
-              >
-                Upgrade to Pro
-              </button>
-            </div>
-          </div>
-        )}
-        {availableCashFlow > 0 && subResolved && proEligible && (
+        {availableCashFlow > 0 && (
           <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(15,23,42,0.08)' }}>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs" style={{ color: '#64748b' }}>Apply to Acceleration</span>
@@ -111,6 +72,7 @@ export default function CashFlowOverview({
             </div>
             <input
               type="range"
+              aria-label="Apply to Acceleration"
               min={0}
               max={availableCashFlow}
               step={50}
