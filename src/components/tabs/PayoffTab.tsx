@@ -231,7 +231,6 @@ export default function PayoffTab({
     effectiveAcceleration,
     adjustedExtra,
   } = planMetrics;
-  const monthlyPayment = totalMinPayments + effectiveAcceleration;
   const timeStr = formatMonths(planResult.months);
   // Headline metrics use CURRENT balances — the debt-free date is projected forward
   // from today, so it must reflect what's actually still owed.
@@ -426,7 +425,8 @@ export default function PayoffTab({
         planResult={planResult}
         strategyName={strategyName}
         timeStr={timeStr}
-        monthlyPayment={monthlyPayment}
+        totalMinPayments={totalMinPayments}
+        effectiveAcceleration={effectiveAcceleration}
         interestSavedVsMinimums={interestSavedVsMinimums}
         availableCashFlow={availableCashFlow}
       />

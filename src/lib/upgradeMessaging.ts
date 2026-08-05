@@ -1,4 +1,4 @@
-export const UPGRADE_MESSAGE_VERSION = 'contextual_v1';
+export const UPGRADE_MESSAGE_VERSION = 'contextual_v2';
 export const LATE_TRIAL_NOTICE_DAYS = 7;
 
 export interface UpgradeMessage {
@@ -36,13 +36,13 @@ const MESSAGES: Record<string, UpgradeMessage> = {
   },
   what_if: {
     id: 'what_if',
-    headline: 'See which extra payment changes your debt-free date',
+    headline: 'Test payment changes before you commit to them',
     description:
-      'Pro what-if scenarios let you compare realistic payment changes before committing more of your monthly budget.',
+      'Your acceleration slider sets the committed amount. Pro what-if scenarios let you preview changes side-by-side first — without touching the plan you are on.',
     benefits: [
-      'Compare $50 and $100 monthly increases',
-      'See how many months each change saves',
-      'Keep the original plan unchanged while exploring',
+      'Preview +$50 and +$100 scenarios side-by-side',
+      'See months and interest saved before you commit',
+      'Apply a winning scenario to your plan in one click',
     ],
     monthlyCta: 'Start my trial and test scenarios',
   },
