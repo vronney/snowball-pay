@@ -45,23 +45,17 @@ export async function POST(request: NextRequest) {
       where: { userId: auth.user.id },
     });
 
-    // Pro-only fields. The client hides both controls for free users, but
-    // gate the API too so a direct POST can't set them.
-    // - Acceleration: absent/null/0 always passes — clearing a what-if
-    //   (e.g. right after a downgrade) must never be paywalled.
-    // - Custom priority: only ENTERING custom is gated. A record already on
-    //   custom (saved before a downgrade) keeps saving until the user
-    //   switches away; snowball/avalanche always pass.
-    const wantsAcceleration =
-      typeof validated.accelerationAmount === 'number' &&
-      validated.accelerationAmount > 0;
+    // Custom priority is Pro-only. The client hides the control for free
+    // users, but gate the API too so a direct POST can't set it. Only
+    // ENTERING custom is gated: a record already on custom (saved before a
+    // downgrade) keeps saving until the user switches away, and
+    // snowball/avalanche always pass. Acceleration amount is free for all
+    // tiers.
     const entersCustom =
       validated.payoffMethod === 'custom' &&
       existingIncome?.payoffMethod !== 'custom';
-    if ((wantsAcceleration || entersCustom) && !(await isPro(auth.user.id))) {
-      return upgradeRequired(
-        wantsAcceleration ? 'What-if slider' : 'Custom priority order',
-      );
+    if (entersCustom && !(await isPro(auth.user.id))) {
+      return upgradeRequired('Custom priority order');
     }
 
     let income;

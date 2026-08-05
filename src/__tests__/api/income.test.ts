@@ -84,35 +84,8 @@ describe('POST /api/income', () => {
     expect(mockPrisma.income.update).toHaveBeenCalledOnce();
   });
 
-  it('blocks free users from saving a numeric what-if amount', async () => {
+  it('allows free users to save a numeric acceleration amount', async () => {
     vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
-    mockPrisma.user.findUnique.mockResolvedValue({
-      paidTier: 'free',
-      subscriptionStatus: 'inactive',
-      subscriptionEndsAt: null,
-    });
-
-    const res = await POST(makeRequest({ ...BASE_BODY, accelerationAmount: 250 }));
-    const body = await res.json();
-
-    expect(res.status).toBe(403);
-    expect(body).toEqual(
-      expect.objectContaining({
-        error: 'upgrade_required',
-        feature: 'What-if slider',
-      }),
-    );
-    expect(mockPrisma.income.update).not.toHaveBeenCalled();
-    expect(mockPrisma.income.create).not.toHaveBeenCalled();
-  });
-
-  it('allows pro users to save a numeric what-if amount', async () => {
-    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
-    mockPrisma.user.findUnique.mockResolvedValue({
-      paidTier: 'pro',
-      subscriptionStatus: 'active',
-      subscriptionEndsAt: null,
-    });
     mockPrisma.income.findUnique.mockResolvedValue(EXISTING_INCOME);
     mockPrisma.income.update.mockResolvedValue({
       ...EXISTING_INCOME,
@@ -122,6 +95,7 @@ describe('POST /api/income', () => {
     const res = await POST(makeRequest({ ...BASE_BODY, accelerationAmount: 250 }));
 
     expect(res.status).toBe(200);
+    expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
     expect(mockPrisma.income.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ accelerationAmount: 250 }),
