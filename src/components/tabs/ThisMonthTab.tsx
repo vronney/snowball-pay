@@ -413,7 +413,7 @@ export default function ThisMonthTab({
             {
               label: "Acceleration",
               value: formatCurrency(focusExtra),
-              sub: "toward focus debt",
+              sub: focusDebt ? "toward focus debt" : "planned this month",
             },
           ].map((stat, i) => (
             <div

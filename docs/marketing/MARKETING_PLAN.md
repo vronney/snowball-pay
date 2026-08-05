@@ -477,7 +477,7 @@ A debt elimination command center that gives users a confident, step-by-step pay
 7. Set up HARO account and respond to first 3 personal finance requests
 8. Draft Day 0, Day 2, and Day 5 lifecycle emails
 
-### Current conversion focus (July 2026)
+### Current conversion focus (August 2026)
 
 The direct onboarding path is now three required inputs, and the first post-activation Pro experience uses contextual messaging at the moment a user requests a paid capability. Do not start a pricing or paywall A/B test at the current traffic level. The upgrade copy moved to `contextual_v2` in August 2026 (acceleration control opened to free, what-if pitch rewritten), so the clean baseline restarts there — treat `contextual_v1` events as the pre-change comparison, not part of the baseline. Collect the `contextual_v2` baseline and review:
 

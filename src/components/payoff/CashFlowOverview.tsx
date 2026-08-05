@@ -59,11 +59,11 @@ export default function CashFlowOverview({
             <span className="mono">{formatCurrency(effectiveAcceleration)}</span>
           </div>
         )}
-        <div className="flex items-center justify-between p-2 rounded-lg mt-2" style={{ background: 'rgba(37,99,235,0.08)' }}>
+        <div className="flex items-center justify-between p-2 rounded-lg mt-2" style={{ background: 'rgba(15,23,42,0.04)' }}>
           <span style={{ color: '#334155' }}>
             <strong>Available for Acceleration</strong>
           </span>
-          <span className="mono font-bold" style={{ color: '#2563eb' }}>
+          <span className="mono font-bold" style={{ color: '#0f172a' }}>
             {formatCurrency(remainingCashFlow)}
           </span>
         </div>
