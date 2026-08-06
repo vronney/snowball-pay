@@ -667,7 +667,7 @@ function InsightCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`rounded-2xl p-5 ${className}`} style={CARD_STYLE}>
+    <div className={`rounded-xl p-5 ${className}`} style={CARD_STYLE}>
       <div className="mb-4 flex items-start gap-3">
         <div
           className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl"

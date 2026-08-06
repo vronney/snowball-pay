@@ -267,7 +267,7 @@ export function IntelligenceOverviewCard({
 
   return (
     <div
-      className="rounded-2xl p-5 xl:col-span-3 h-auto md:h-full flex flex-col gap-4"
+      className="rounded-xl p-5 xl:col-span-3 h-auto md:h-full flex flex-col gap-4"
       style={COMMAND_CENTER_STYLE}
     >
       <div className="flex items-center gap-2">
@@ -350,7 +350,7 @@ export function ForecastCard({
 }: ForecastCardProps) {
   return (
     <div
-      className="rounded-2xl p-5 xl:col-span-2 h-auto md:h-full flex flex-col"
+      className="rounded-xl p-5 xl:col-span-2 h-auto md:h-full flex flex-col"
       style={CARD_STYLE}
     >
       <div className="flex items-center gap-2 mb-3">
@@ -462,7 +462,7 @@ export function StrategyLabCard({
 
   return (
     <div
-      className="rounded-2xl p-5 h-auto md:h-full flex flex-col"
+      className="rounded-xl p-5 h-auto md:h-full flex flex-col"
       style={CARD_STYLE}
     >
       <div className="flex items-center gap-2 mb-3">
@@ -582,7 +582,7 @@ export function MethodMatrixCard({ strategyMatrix }: MethodMatrixCardProps) {
 
   return (
     <div
-      className="rounded-2xl p-5 h-auto md:h-full flex flex-col"
+      className="rounded-xl p-5 h-auto md:h-full flex flex-col"
       style={CARD_STYLE}
     >
       <div className="flex items-center gap-2 mb-3">
@@ -682,7 +682,7 @@ export function CashFlowMixCard({
 
   return (
     <div
-      className="rounded-2xl p-5 h-auto md:h-full flex flex-col"
+      className="rounded-xl p-5 h-auto md:h-full flex flex-col"
       style={CARD_STYLE}
     >
       <div className="flex items-center gap-2 mb-3">
@@ -774,7 +774,7 @@ export function SmartCalendarCard({
 }) {
   return (
     <div
-      className="rounded-2xl p-5 h-auto md:h-full flex flex-col"
+      className="rounded-xl p-5 h-auto md:h-full flex flex-col"
       style={CARD_STYLE}
     >
       <div className="flex items-center gap-2 mb-3">
@@ -868,7 +868,7 @@ export function GuardrailsCard({
 
   return (
     <div
-      className="rounded-2xl p-5 h-auto md:h-full flex flex-col"
+      className="rounded-xl p-5 h-auto md:h-full flex flex-col"
       style={CARD_STYLE}
     >
       <div className="flex items-center gap-2 mb-4">
@@ -921,7 +921,7 @@ export function GuardrailsCard({
               borderRadius: "999px",
               background: isLow
                 ? "linear-gradient(90deg, #f59e0b, #fbbf24)"
-                : "linear-gradient(90deg, #2563eb, #3b82f6)",
+                : "linear-gradient(90deg, #1d4ed8, #2563eb)",
               transition: "width 0.7s cubic-bezier(0.22,1,0.36,1)",
             }}
           />
@@ -970,7 +970,7 @@ export function PriorityQueueCard({
 }: PriorityQueueCardProps) {
   return (
     <div
-      className="rounded-2xl p-5 h-auto md:h-full flex flex-col"
+      className="rounded-xl p-5 h-auto md:h-full flex flex-col"
       style={CARD_STYLE}
     >
       <div className="flex items-center gap-2 mb-3">
@@ -1040,7 +1040,7 @@ export function MilestonesCard({
 }: MilestonesCardProps) {
   return (
     <div
-      className="rounded-2xl p-5 h-auto md:h-full flex flex-col"
+      className="rounded-xl p-5 h-auto md:h-full flex flex-col"
       style={CARD_STYLE}
     >
       <div className="flex items-center gap-2 mb-3">
@@ -1111,7 +1111,7 @@ interface Insight {
 export function ExplainableInsightsCard({ insights }: { insights: Insight[] }) {
   return (
     <div
-      className="rounded-2xl p-5 xl:col-span-3 h-auto md:h-full flex flex-col"
+      className="rounded-xl p-5 xl:col-span-3 h-auto md:h-full flex flex-col"
       style={CARD_STYLE}
     >
       <div className="flex items-center gap-2 mb-3">

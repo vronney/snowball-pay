@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp, CheckCircle2, Target, AlertCircle, AlertTriangl
 import { type Debt } from "@/types";
 import { getCategoryColor, getOrdinalDay, formatCurrency, formatPercent } from "@/lib/utils";
 import { isDebtBankLinked, isDebtPastDueThisMonth } from "@/lib/debtHelpers";
+import { cardSurface } from "@/lib/designTokens";
 
 interface CompactDebtRowProps {
   debt: Debt;
@@ -179,10 +180,7 @@ export default function CompactDebtRow({
         justifyContent: "space-between",
         gap: "12px",
         padding: "12px 14px",
-        border: "1px solid rgba(15,23,42,0.09)",
-        borderRadius: "12px",
-        background: "#ffffff",
-        boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
+        ...cardSurface,
         cursor: "pointer",
         textAlign: "left",
         fontFamily: "inherit",

@@ -5,6 +5,7 @@ import { Layers } from "lucide-react";
 import { upgradeEvents } from "@/lib/upgradeEvents";
 import { Events, track } from "@/lib/analytics";
 import { formatMonths } from "@/lib/utils";
+import { cardSurface } from "@/lib/designTokens";
 
 /** Free-tier debt cap — mirrors the server gate in /api/debts (PLANS.free). */
 const FREE_DEBT_LIMIT = 5;
@@ -64,15 +65,7 @@ export default function DebtCapUpsell({
   };
 
   return (
-    <div
-      style={{
-        background: "#ffffff",
-        border: "1px solid rgba(15,23,42,0.09)",
-        borderRadius: "12px",
-        padding: "18px 20px",
-        boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-      }}
-    >
+    <div style={{ ...cardSurface, padding: "18px 20px" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
         <div
           style={{

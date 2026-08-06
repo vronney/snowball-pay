@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatCurrencyWhole, formatMonths } from "@/lib/utils";
 import RadialGauge from "@/components/ui/RadialGauge";
+import { cardSurface } from "@/lib/designTokens";
 
 interface DebtFreeCountdownHeroProps {
   /** Months until debt-free on the current plan. */
@@ -114,14 +115,7 @@ export default function DebtFreeCountdownHero({
   ];
 
   return (
-    <div
-      style={{
-        background: "#ffffff",
-        border: "1px solid rgba(15,23,42,0.09)",
-        borderRadius: "12px",
-        boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-      }}
-    >
+    <div style={cardSurface}>
       {/* Countdown row */}
       <div
         style={{

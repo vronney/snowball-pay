@@ -27,7 +27,7 @@ export default function PayoffTimeline({ data }: PayoffTimelineProps) {
   if (data.length === 0) {
     return (
       <div
-        className="rounded-2xl p-5"
+        className="rounded-xl p-5"
         style={{
           background: "rgb(255, 255, 255)",
           border: "1px solid rgba(15, 23, 42, 0.08)",
@@ -44,7 +44,7 @@ export default function PayoffTimeline({ data }: PayoffTimelineProps) {
 
   return (
     <div
-      className="rounded-2xl p-5"
+      className="rounded-xl p-5"
       style={{
         background: "rgb(255, 255, 255)",
         border: "1px solid rgba(15, 23, 42, 0.08)",

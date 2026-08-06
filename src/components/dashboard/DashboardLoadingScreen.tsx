@@ -120,7 +120,7 @@ export default function DashboardLoadingScreen({
                   inset: 0,
                   width: "45%",
                   borderRadius: "999px",
-                  background: "linear-gradient(90deg, #3b82f6, #2563eb)",
+                  background: "linear-gradient(90deg, #2563eb, #1d4ed8)",
                 }}
               />
               <div
@@ -147,7 +147,7 @@ export default function DashboardLoadingScreen({
                   width: "6px",
                   height: "6px",
                   borderRadius: "999px",
-                  background: "#3b82f6",
+                  background: "#2563eb",
                   animation: "db-dot 1s ease-in-out infinite",
                 }}
               />
@@ -156,7 +156,7 @@ export default function DashboardLoadingScreen({
                   width: "6px",
                   height: "6px",
                   borderRadius: "999px",
-                  background: "#3b82f6",
+                  background: "#2563eb",
                   animation: "db-dot 1s ease-in-out 0.15s infinite",
                 }}
               />
@@ -165,7 +165,7 @@ export default function DashboardLoadingScreen({
                   width: "6px",
                   height: "6px",
                   borderRadius: "999px",
-                  background: "#3b82f6",
+                  background: "#2563eb",
                   animation: "db-dot 1s ease-in-out 0.3s infinite",
                 }}
               />

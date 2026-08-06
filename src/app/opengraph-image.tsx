@@ -28,7 +28,7 @@ export default function Image() {
               width: '48px',
               height: '48px',
               borderRadius: '12px',
-              background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+              background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -45,6 +45,11 @@ export default function Image() {
           <span style={{ fontSize: '72px', fontWeight: 900, color: '#ffffff', lineHeight: 1.1, letterSpacing: '-0.04em' }}>
             Eliminate Debt.
           </span>
+          {/* Stays #3b82f6, NOT the #2563eb primary: this card is the one dark
+              surface in the product (#0f172a), and the primary drops to 3.45:1
+              against it versus 4.85:1 here. DESIGN.md's palette is specified
+              white-first and has no dark-surface blue, so this is an exception,
+              not drift — see the 2026-08-06 decision. */}
           <span style={{ fontSize: '72px', fontWeight: 900, color: '#3b82f6', lineHeight: 1.1, letterSpacing: '-0.04em' }}>
             Build Financial Freedom.
           </span>

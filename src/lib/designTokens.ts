@@ -39,10 +39,21 @@ export const easing = {
   celebrate: 'cubic-bezier(0.22,1,0.36,1)',
 } as const;
 
-/** The standard white card surface used across the dashboard. */
+/**
+ * The standard white card surface used across the dashboard.
+ *
+ * Border alpha is 0.09, not the 0.08 this once declared: 0.09 is what the
+ * dashboard actually shipped on every card, so matching it here makes the
+ * migration off hand-rolled copies pixel-identical instead of nudging eight
+ * cards to match one token.
+ *
+ * Spread it, don't retype it — `style={{ ...cardSurface, padding: '20px' }}`.
+ * Padding is deliberately absent: it varies per card and is not a surface
+ * property.
+ */
 export const cardSurface: CSSProperties = {
   background: color.surface,
-  border: '1px solid rgba(15,23,42,0.08)',
+  border: '1px solid rgba(15,23,42,0.09)',
   borderRadius: `${radius.card}px`,
   boxShadow: '0 1px 4px rgba(15,23,42,0.06)',
 };

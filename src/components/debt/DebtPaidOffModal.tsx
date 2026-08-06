@@ -25,7 +25,7 @@ export function DebtPaidOffModal({ debtName, amountCleared, onClose }: DebtPaidO
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-sm rounded-2xl p-8 text-center animate-slideUp"
+        className="relative w-full max-w-sm rounded-xl p-8 text-center animate-slideUp"
         style={{
           background: "#ffffff",
           boxShadow: "0 24px 64px rgba(17,24,39,0.2)",

@@ -174,7 +174,7 @@ export default function UpgradeModal({ feature, interestAtStake = 0, onClose }: 
           <X size={18} />
         </button>
 
-        <span style={{
+        <span className="eyebrow" style={{
           display: "inline-flex",
           borderRadius: "6px",
           background: "#f1f5f9",
@@ -183,7 +183,6 @@ export default function UpgradeModal({ feature, interestAtStake = 0, onClose }: 
           fontSize: "11px",
           fontWeight: 800,
           letterSpacing: "0.06em",
-          textTransform: "uppercase",
           marginBottom: "12px",
         }}>
           SnowballPay Pro

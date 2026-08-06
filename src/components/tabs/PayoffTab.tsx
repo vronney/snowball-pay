@@ -23,6 +23,8 @@ import { track, Events } from "@/lib/analytics";
 import ShareDebtFreeCard from "@/components/dashboard/ShareDebtFreeCard";
 import AiRecommendations from "@/components/AiRecommendations";
 import StrategySelector from "@/components/payoff/StrategySelector";
+import StrategyComparison from "@/components/payoff/StrategyComparison";
+import PlanSection from "@/components/payoff/PlanSection";
 import CustomPriorityEditor from "@/components/payoff/CustomPriorityEditor";
 import CashFlowOverview from "@/components/payoff/CashFlowOverview";
 import PayoffSummary from "@/components/payoff/PayoffSummary";
@@ -179,7 +181,7 @@ export default function PayoffTab({
   if (!income || debts.length === 0) {
     return (
       <div
-        className="rounded-2xl p-8 text-center"
+        className="rounded-xl p-8 text-center"
         style={{
           background: "#ffffff",
           border: "1px solid rgba(15,23,42,0.08)",
@@ -240,6 +242,32 @@ export default function PayoffTab({
     minimumsOnlyResult.totalInterestPaid - planResult.totalInterestPaid,
   );
   const showMinimumsLine = effectiveAcceleration > 0;
+
+  // Snowball↔avalanche comparison for the readout below the selector.
+  //
+  // The chart's `comparisonResult` further down CANNOT be reused here: it is
+  // seeded from chartDebts (creation balances) so the projected lines start
+  // where each debt began. Its months/interest therefore describe a plan that
+  // started in the past, while planResult projects forward from what's still
+  // owed — putting the two side by side would overstate the gap. This one uses
+  // the same `debts` and `effectiveAcceleration` as planResult, so the only
+  // variable between the two rows is the ordering method.
+  //
+  // Custom ordering has no canonical counterpart to compare against, so the
+  // readout is skipped there (same rule the chart's overlay uses).
+  const alternativeMethod: PayoffMethod =
+    payoffMethod === "avalanche" ? "snowball" : "avalanche";
+  const alternativeResult =
+    payoffMethod === "custom" || planResult.months === 0
+      ? null
+      : calculateResultForAcceleration(
+          debts,
+          income,
+          planMetrics,
+          effectiveAcceleration,
+          alternativeMethod,
+          planStartDate,
+        );
 
   // The chart's projected lines are seeded from each debt's CREATION balance
   // (originalBalance) so the plan line starts where the debt actually began. This
@@ -376,11 +404,29 @@ export default function PayoffTab({
   };
 
   return (
-    <section id="section-plan" className="space-y-6">
+    // Grouped into four sections plus a footer. The grouping is additive only:
+    // every card stays in the order it was already in, so this adds landmarks
+    // to the stack without relocating anything a returning user has learned.
+    <section id="section-plan" className="space-y-8">
+      <PlanSection
+        title="Strategy"
+        description="Which debt the plan attacks first, and what that ordering costs or saves."
+      >
       <StrategySelector
         payoffMethod={payoffMethod}
         onMethodChange={setPayoffMethod}
       />
+
+      {alternativeResult && (
+        <StrategyComparison
+          strategyName={strategyName}
+          comparisonName={alternativeMethod === "avalanche" ? "Avalanche" : "Snowball"}
+          currentMonths={planResult.months}
+          currentInterest={planResult.totalInterestPaid}
+          comparisonMonths={alternativeResult.months}
+          comparisonInterest={alternativeResult.totalInterestPaid}
+        />
+      )}
 
       {payoffMethod === "custom" && (
         <CustomPriorityEditor
@@ -396,7 +442,12 @@ export default function PayoffTab({
           onResetPriorities={() => void handleResetPriorities()}
         />
       )}
+      </PlanSection>
 
+      <PlanSection
+        title="Cash flow"
+        description="What's available each month, and what more would buy you."
+      >
       <CashFlowOverview
         income={income}
         recurringTotal={recurringTotal}
@@ -420,7 +471,12 @@ export default function PayoffTab({
         availableCashFlow={availableCashFlow}
         onAccelerationChange={setAccelerationAmount}
       />
+      </PlanSection>
 
+      <PlanSection
+        title="The projection"
+        description="Where this plan lands: totals, balances over time, and the payoff sequence."
+      >
       <PayoffSummary
         planResult={planResult}
         strategyName={strategyName}
@@ -445,7 +501,12 @@ export default function PayoffTab({
       />
 
       <PayoffTimeline data={timelineData} />
+      </PlanSection>
 
+      <PlanSection
+        title="What to do next"
+        description="The moves that follow from the projection above."
+      >
       <FocusDebtExplainer
         payoffSchedule={planResult.payoffSchedule}
         debts={debts}
@@ -488,8 +549,11 @@ export default function PayoffTab({
           onNavigate("intelligence");
         }}
       />
+      </PlanSection>
 
+      <PlanSection title="How this works">
       <StrategyExplanation payoffMethod={payoffMethod} />
+      </PlanSection>
 
       <ReferralPrompt />
 

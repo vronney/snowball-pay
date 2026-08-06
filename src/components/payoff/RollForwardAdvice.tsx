@@ -137,7 +137,7 @@ export default function RollForwardAdvice({
 
   return (
     <div
-      className="rounded-2xl p-4 sm:p-5"
+      className="rounded-xl p-4 sm:p-5"
       style={{
         background: "rgba(37,99,235,0.05)",
         border: "1px solid rgba(37,99,235,0.14)",

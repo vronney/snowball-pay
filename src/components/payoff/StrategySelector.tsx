@@ -38,7 +38,7 @@ export default function StrategySelector({ payoffMethod, onMethodChange }: Strat
               className="rounded-lg px-3 py-2 text-xs font-semibold transition"
               style={{
                 background: selected ? 'rgba(59,130,246,0.14)' : '#f8fafc',
-                border: selected ? '1px solid #3b82f6' : '1px solid rgba(15,23,42,0.08)',
+                border: selected ? '1px solid #2563eb' : '1px solid rgba(15,23,42,0.08)',
                 color: selected ? '#1d4ed8' : locked ? '#64748b' : '#334155',
               }}
             >

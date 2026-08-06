@@ -11,6 +11,7 @@ import {
 import { upgradeEvents } from "@/lib/upgradeEvents";
 import { formatCurrency } from "@/lib/utils";
 import { Events, track } from "@/lib/analytics";
+import { cardSurface, color } from "@/lib/designTokens";
 
 const STATUS_META: Record<
   CoachBriefVerdict["status"],
@@ -87,19 +88,14 @@ export default function CoachBriefCard({
   const StatusIcon = statusMeta?.icon;
 
   return (
-    <div
-      style={{
-        background: "#ffffff",
-        border: "1px solid rgba(15,23,42,0.09)",
-        borderRadius: "12px",
-        padding: "20px",
-        boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-      }}
-    >
+    <div style={{ ...cardSurface, padding: "20px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Sparkles size={14} style={{ color: "#2563eb" }} />
-          <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#2563eb" }}>
+          {/* Muted, not primary: this is a card title, not an active state.
+              "Focus this month" over in ThisMonthTab stays blue because it
+              genuinely marks the active target. */}
+          <Sparkles size={14} style={{ color: color.muted }} />
+          <span className="eyebrow" style={{ fontSize: "11px" }}>
             Coach brief
           </span>
           {generatedAt && !isGenerating && (
@@ -259,15 +255,13 @@ export default function CoachBriefCard({
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
-              <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#0f172a" }}>
+              <span className="eyebrow" style={{ fontSize: "11px", letterSpacing: "0.06em", color: color.text }}>
                 Best move this month
               </span>
               <span
+                className="eyebrow"
                 style={{
-                  fontSize: "10px",
-                  fontWeight: 700,
                   letterSpacing: "0.05em",
-                  textTransform: "uppercase",
                   color: IMPACT_COLOR[brief.nextAction.impact],
                   background: `${IMPACT_COLOR[brief.nextAction.impact]}12`,
                   padding: "2px 7px",

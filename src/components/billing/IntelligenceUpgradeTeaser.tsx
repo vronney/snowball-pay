@@ -9,6 +9,7 @@ import { upgradeEvents } from "@/lib/upgradeEvents";
 import { PLANS } from "@/lib/stripe";
 import { PRO_TRIAL_DAYS } from "@/lib/billing";
 import { formatCurrencyWhole } from "@/lib/utils";
+import { cardSurface, color } from "@/lib/designTokens";
 
 interface IntelligenceUpgradeTeaserProps {
   debts: Debt[];
@@ -80,15 +81,7 @@ export default function IntelligenceUpgradeTeaser({
           padding: "20px",
         }}
       >
-        <span
-          style={{
-            fontSize: "11px",
-            fontWeight: 700,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "#64748b",
-          }}
-        >
+        <span className="eyebrow" style={{ fontSize: "11px" }}>
           Your plan, analyzed
         </span>
         <p style={{ fontSize: "14px", color: "#475569", margin: "6px 0 0", lineHeight: 1.5 }}>
@@ -112,15 +105,7 @@ export default function IntelligenceUpgradeTeaser({
                   padding: "12px 14px",
                 }}
               >
-                <div
-                  style={{
-                    fontSize: "10px",
-                    fontWeight: 700,
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    color: "#94a3b8",
-                  }}
-                >
+                <div className="eyebrow" style={{ letterSpacing: "0.06em", color: color.faint }}>
                   {s.label}
                 </div>
                 <div
@@ -144,13 +129,7 @@ export default function IntelligenceUpgradeTeaser({
       {/* Loss-framed anchor: monthly interest vs the price to fight it */}
       {monthlyInterest > 0 && (
         <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid rgba(15,23,42,0.09)",
-            borderRadius: "12px",
-            padding: "20px",
-            boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-          }}
+          style={{ ...cardSurface, padding: "20px" }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <div
@@ -269,12 +248,9 @@ export default function IntelligenceUpgradeTeaser({
               <span style={{ fontSize: "13px", fontWeight: 600, color: "#334155" }}>{label}</span>
             </div>
             <span
+              className="eyebrow"
               style={{
-                fontSize: "10px",
-                fontWeight: 700,
                 letterSpacing: "0.04em",
-                textTransform: "uppercase",
-                color: "#64748b",
                 background: "#f1f5f9",
                 border: "1px solid rgba(15,23,42,0.10)",
                 borderRadius: "6px",

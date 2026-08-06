@@ -10,11 +10,11 @@ interface StrategyExplanationProps {
 export default function StrategyExplanation({ payoffMethod }: StrategyExplanationProps) {
   return (
     <div
-      className="rounded-2xl p-5"
+      className="rounded-xl p-5"
       style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: 'rgba(15, 23, 42, 0.06) 0px 1px 4px' }}
     >
       <h2 className="font-semibold text-base mb-3 flex items-center gap-2" style={{ color: '#0f172a' }}>
-        <Info size={18} style={{ color: '#3b82f6' }} />
+        <Info size={18} style={{ color: '#64748b' }} />
         How This Strategy Works
       </h2>
       {payoffMethod === 'snowball' && (

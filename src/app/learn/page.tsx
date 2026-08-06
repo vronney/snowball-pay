@@ -1500,7 +1500,7 @@ export default async function LearnPage({
                     left: 0,
                     right: 0,
                     height: "3px",
-                    background: "linear-gradient(90deg, #3b82f6, #2563eb)",
+                    background: "linear-gradient(90deg, #2563eb, #1d4ed8)",
                   }}
                 />
                 <div

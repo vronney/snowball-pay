@@ -5,7 +5,7 @@ import { type Tab } from "@/components/dashboard/types";
 import { calculateMinimumsOnlyResult } from "@/lib/payoffPlan";
 import { calculatePlanMetrics } from "@/lib/payoffPlan";
 import { selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
-import { displayFirstName, formatCurrency, formatMonths, getOrdinalDay } from "@/lib/utils";
+import { displayFirstName, formatCurrency, formatCurrencyWhole, formatMonths, getOrdinalDay } from "@/lib/utils";
 import { usePaymentRecords, useMarkPaid, useCachedCoachBrief, useSubscription } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import DebtFreeCountdownHero from "@/components/dashboard/DebtFreeCountdownHero";
@@ -13,6 +13,8 @@ import DebtCapUpsell from "@/components/billing/DebtCapUpsell";
 import RadialGauge from "@/components/ui/RadialGauge";
 import RollForwardAdvice from "@/components/payoff/RollForwardAdvice";
 import CoachBriefCard from "@/components/payoff/CoachBriefCard";
+import { cardSurface, color } from "@/lib/designTokens";
+import PlanStatStrip from "@/components/dashboard/PlanStatStrip";
 
 interface ThisMonthTabProps {
   debts: Debt[];
@@ -65,11 +67,6 @@ export default function ThisMonthTab({
   );
 
   const totalDebt = useMemo(() => debts.reduce((s, d) => s + d.balance, 0), [debts]);
-
-  const recurringExpenses = useMemo(
-    () => expenses.reduce((s, e) => s + e.amount, 0),
-    [expenses],
-  );
 
   // Accelerated plan (user's actual strategy)
   const planMetrics = useMemo(() => {
@@ -169,7 +166,12 @@ export default function ThisMonthTab({
   const focusPaid = focusDebt ? paidDebtIds.has(focusDebt.id) : false;
 
   return (
-    <div style={{ maxWidth: "680px", display: "flex", flexDirection: "column", gap: "20px" }}>
+    // Two columns on wide desktop, one below. The split is action-path (left)
+    // vs reference data (right), and the DOM order is deliberately the
+    // single-column reading order —
+    // stacked, these render in exactly the sequence the single column used to,
+    // so the narrow layout is unchanged by the reflow.
+    <div style={{ maxWidth: "1120px" }} className="flex flex-col gap-5">
 
       {/* Greeting — the hero below owns the date/months, so the sub-line only
           carries what the hero can't: the coach's verdict, or setup prompts. */}
@@ -198,6 +200,38 @@ export default function ThisMonthTab({
           </p>
         )}
       </div>
+
+      {/* Current numbers, full width above the split — a summary bar reads as
+          one row, not as a card belonging to either column. */}
+      {hasDebts && income && planMetrics && result && (
+        <PlanStatStrip
+          totalDebt={totalDebt}
+          debtCount={debts.length}
+          monthlyTakeHome={income.monthlyTakeHome}
+          totalMinPayments={planMetrics.totalMinPayments}
+          acceleration={focusExtra}
+          // Gated on `result` rather than defaulted: PlanMetrics.result is
+          // non-optional so the old `?? 0` could never fire, but it implied a
+          // state where the strip would show $0 of projected interest as if it
+          // were real. Let the strip not render instead of inventing a zero.
+          projectedInterest={result.totalInterestPaid}
+        />
+      )}
+
+      {/* Splits at xl (1280px), not lg — the 220px sidebar means a 1024px
+          viewport leaves only ~740px of content, and the right column lands at
+          ~300px. The monthly snapshot below uses `sm:grid-cols-3`, a VIEWPORT
+          query, so it stays 3-up inside that narrow column and its mono values
+          overflow by up to 30px (measured). At xl the right column is ~407px
+          and the columns fit. Below 1280 the layout is the single column it
+          has always been, so narrow widths are untouched.
+
+          items-start so a tall left column doesn't stretch the right one's
+          cards to match its height. */}
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-5 items-start">
+
+      {/* ── Left: the action path — where you stand, and what to do now ── */}
+      <div className="flex flex-col gap-5">
 
       {/* Debt-free countdown hero — date, months to go, progress, interest */}
       {hasDebts && result && (
@@ -235,16 +269,12 @@ export default function ThisMonthTab({
       {/* Focus debt card */}
       {focusDebt && (
         <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid rgba(15,23,42,0.09)",
-            borderRadius: "12px",
-            padding: "20px",
-            boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-          }}
+          style={{ ...cardSurface, padding: "20px" }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#2563eb" }}>
+            {/* .eyebrow carries weight/tracking/uppercase; size and the blue
+                accent are this caption's own (it marks the active target). */}
+            <span className="eyebrow" style={{ fontSize: "11px", color: color.primary }}>
               Focus this month
             </span>
             {focusPaid && (
@@ -354,13 +384,7 @@ export default function ThisMonthTab({
       {/* Empty state */}
       {!hasDebts && (
         <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid rgba(15,23,42,0.09)",
-            borderRadius: "12px",
-            padding: "32px 20px",
-            textAlign: "center",
-          }}
+          style={{ ...cardSurface, padding: "32px 20px", textAlign: "center" }}
         >
           <CreditCard size={32} style={{ color: "#cbd5e1", marginBottom: "12px" }} />
           <p style={{ fontSize: "14px", fontWeight: 600, color: "#475569", marginBottom: "8px" }}>No debts added yet</p>
@@ -386,61 +410,18 @@ export default function ThisMonthTab({
         </div>
       )}
 
-      {/* Monthly snapshot — one instrument card, hairline-segmented.
-          Stacks below sm: three fixed columns can't fit cents-bearing mono
-          values at ~360px without overflowing. */}
-      {hasDebts && income && (
-        <div
-          className="grid grid-cols-1 sm:grid-cols-3"
-          style={{
-            background: "#ffffff",
-            border: "1px solid rgba(15,23,42,0.09)",
-            borderRadius: "12px",
-            boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
-          }}
-        >
-          {[
-            {
-              label: "Total Debt",
-              value: formatCurrency(totalDebt),
-              sub: `${debts.length} account${debts.length !== 1 ? "s" : ""}`,
-            },
-            {
-              label: "Monthly Income",
-              value: formatCurrency(income.monthlyTakeHome),
-              sub: "take-home",
-            },
-            {
-              label: "Acceleration",
-              value: formatCurrency(focusExtra),
-              sub: focusDebt ? "toward focus debt" : "planned this month",
-            },
-          ].map((stat, i) => (
-            <div
-              key={stat.label}
-              className={i > 0 ? "border-t sm:border-t-0 sm:border-l" : ""}
-              style={{
-                padding: "16px",
-                borderColor: "rgba(15,23,42,0.07)",
-              }}
-            >
-              <div className="eyebrow" style={{ marginBottom: "4px" }}>{stat.label}</div>
-              <div className="mono" style={{ fontSize: "17px", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>{stat.value}</div>
-              <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>{stat.sub}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      </div>
+      {/* ── Right: reference data — the numbers behind the plan ── */}
+      <div className="flex flex-col gap-5">
+
+      {/* The monthly-snapshot card that used to sit here is now the stat strip
+          above: Total Debt and Monthly Income became strip tiles, and
+          Acceleration became the "min + extra" subline under Monthly payment. */}
 
       {/* All debts list */}
       {debts.length > 1 && (
         <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid rgba(15,23,42,0.09)",
-            borderRadius: "12px",
-            padding: "16px 20px",
-          }}
+          style={{ ...cardSurface, padding: "16px 20px" }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
             <h3 style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a", margin: 0 }}>All Debts</h3>
@@ -456,15 +437,32 @@ export default function ThisMonthTab({
               const paid = paidDebtIds.has(debt.id);
               const isFocus = debt.id === focusDebt?.id;
               const isPaidOff = debt.balance <= 0.01;
+              // Progress is only meaningful when the debt records where it
+              // started AND has actually moved. Without that, a bar would
+              // either read 0% forever or imply paydown that never happened —
+              // so the row drops the bar rather than inventing one.
+              const hasProgress =
+                debt.originalBalance > 0 && debt.originalBalance > debt.balance;
+              const paidPct = hasProgress
+                ? Math.min(
+                    100,
+                    ((debt.originalBalance - debt.balance) / debt.originalBalance) * 100,
+                  )
+                : 0;
               return (
                 <div
                   key={debt.id}
                   style={{
+                    padding: "12px 0",
+                    borderBottom: i < debts.length - 1 ? "1px solid rgba(15,23,42,0.06)" : "none",
+                  }}
+                >
+                <div
+                  style={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    padding: "10px 0",
-                    borderBottom: i < debts.length - 1 ? "1px solid rgba(15,23,42,0.06)" : "none",
+                    gap: "12px",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -494,17 +492,56 @@ export default function ThisMonthTab({
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: "11px", color: "#94a3b8" }}>{formatCurrency(debt.minimumPayment)}/mo minimum</div>
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
                     <div className="mono" style={{ fontSize: "13px", fontWeight: 700, color: isPaidOff ? "#059669" : "#0f172a", fontVariantNumeric: "tabular-nums" }}>
                       {formatCurrency(debt.balance)}
                     </div>
+                    {hasProgress && !isPaidOff && (
+                      <div className="mono" style={{ fontSize: "11px", color: "#94a3b8", fontVariantNumeric: "tabular-nums" }}>
+                        was {formatCurrencyWhole(debt.originalBalance)}
+                      </div>
+                    )}
                     {!isPaidOff && paid && (
                       <div style={{ fontSize: "11px", color: "#10b981", fontWeight: 600 }}>Paid ✓</div>
                     )}
                   </div>
+                </div>
+
+                {/* Paydown bar — blue is the documented progress-fill colour;
+                    a cleared debt switches to success green. */}
+                {hasProgress && (
+                  <div
+                    style={{
+                      height: "4px",
+                      borderRadius: "999px",
+                      background: color.border,
+                      overflow: "hidden",
+                      marginTop: "8px",
+                    }}
+                  >
+                    <div
+                      className="progress-bar"
+                      style={{
+                        height: "100%",
+                        width: `${paidPct}%`,
+                        borderRadius: "999px",
+                        background: isPaidOff ? color.success : color.primary,
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "6px" }}>
+                  {[
+                    hasProgress ? `${paidPct.toFixed(1)}% paid` : null,
+                    `${formatCurrency(debt.minimumPayment)}/mo min`,
+                    debt.dueDate ? `due the ${getOrdinalDay(debt.dueDate)}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
                 </div>
               );
             })}
@@ -550,6 +587,9 @@ export default function ThisMonthTab({
           })}
         </div>
       )}
+
+      </div>
+      </div>
     </div>
   );
 }

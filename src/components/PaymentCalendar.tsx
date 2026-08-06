@@ -133,7 +133,7 @@ export default function PaymentCalendar({ debts, focusDebtId = null, focusExtra 
           onClick={() => setOpen((v) => !v)}
           style={{ display: 'flex', alignItems: 'center', gap: '7px', background: 'none', border: 'none', padding: 0, cursor: 'pointer', textAlign: 'left', minWidth: 0 }}
         >
-          <CalendarDays size={16} style={{ color: '#3b82f6', flexShrink: 0 }} />
+          <CalendarDays size={16} style={{ color: '#64748b', flexShrink: 0 }} />
           <div style={{ minWidth: 0 }}>
             <span className="block whitespace-nowrap font-semibold leading-[1.3] text-xs sm:text-[15px] text-slate-900">Payment Calendar</span>
             {totalDue > 0 && !open && (

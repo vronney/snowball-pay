@@ -76,7 +76,7 @@ export default function FocusDebtExplainer({
     const hasActiveDebts = activeDebts.length > 0;
     return (
       <div
-        className="rounded-2xl p-5"
+        className="rounded-xl p-5"
         style={{
           background: hasActiveDebts ? "rgba(16,185,129,0.07)" : "rgba(5,150,105,0.08)",
           border: "1px solid rgba(16,185,129,0.20)",
@@ -111,7 +111,7 @@ export default function FocusDebtExplainer({
 
   return (
     <div
-      className="rounded-2xl p-5"
+      className="rounded-xl p-5"
       style={{
         background: `linear-gradient(135deg, ${categoryColor}08, ${categoryColor}04)`,
         border: `1px solid ${categoryColor}28`,

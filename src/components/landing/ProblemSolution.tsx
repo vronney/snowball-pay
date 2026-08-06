@@ -198,7 +198,7 @@ export default function ProblemSolution() {
                 width: "40px",
                 height: "40px",
                 borderRadius: "50%",
-                background: "linear-gradient(135deg, #3b82f6, #0ea5e9)",
+                background: "linear-gradient(135deg, #2563eb, #0ea5e9)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
