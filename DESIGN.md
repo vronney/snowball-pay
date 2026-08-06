@@ -106,16 +106,28 @@ These are defined per-milestone in `PaymentCelebrationBanner.tsx` and `JourneyTa
 - **Sidebar:** 220px fixed, icon+label nav, 5 items max
 
 ### Border Radius — Hierarchical, NOT uniform
-| Element      | Radius  |
-|--------------|---------|
-| Cards/panels | 12px    |
-| Inputs       | 8px     |
-| Tags/badges  | 6px     |
-| Buttons      | 8px     |
-| Avatars      | 50%     |
-| Pills/chips  | 9999px  |
+| Element                          | Radius  | Source of truth                     |
+|----------------------------------|---------|-------------------------------------|
+| Cards/panels                     | 12px    | `designTokens.radius.card`          |
+| Tags/badges                      | 6px     | `designTokens.radius.tag`           |
+| In-app buttons                   | 8px     | `designTokens.radius.button`        |
+| In-app inputs                    | 8px     | `designTokens.radius.input`         |
+| Marketing CTA (`.btn-primary`)   | 9999px  | `--btn-radius` in `globals.css`     |
+| Form fields (`.input-field`)     | 14px    | `--input-radius` in `globals.css`   |
+| Avatars                          | 50%     | —                                   |
+| Pills/chips                      | 9999px  | `designTokens.radius.pill`          |
 
 Never apply uniform border-radius to all elements — it reads as AI-generated slop.
+
+**Two button systems, deliberately.** The pill (`.btn-primary`) is the *marketing*
+CTA — landing, pricing, learn pages, calculator. Inside the authenticated dashboard,
+buttons are 8px. The shape difference is the seam between "come in" and "you're in";
+don't unify them. A pill in the dashboard or an 8px CTA on the landing page is drift,
+not a variant.
+
+**`.input-field` is 14px, not 8px.** The 8px input token applies to inputs styled
+inline in dashboard components. The shared `.input-field` class — calculator, debt
+panels, Income & Budget — sits at 14px to pair with the pill CTA it appears beside.
 
 ## Motion
 
@@ -146,6 +158,8 @@ The celebration easing (`cubic-bezier(0.22,1,0.36,1)`) is already used in `Payme
 | 2026-06-10 | Wallet-card debt items | Debt cards evoke a wallet card: flat category-tinted identity band, balance hero with tabular numerals, statement-style APR/min/due row, and a next-step footer tying the card to the snowball plan. Explicitly approved as a restrained hybrid — gradient bank-card chrome remains banned. |
 | 2026-06-10 | Canonical timeline format | All payoff durations render via `formatMonths()` ("1y 2m") — chosen so timeline copy fits on mobile. |
 | 2026-06-10 | Fonts amended to match implementation | The app ships Plus Jakarta Sans + Manrope via next/font; the Geist/DM Sans direction was never implemented and the doc now reflects reality. Hero scale (`5xl` "Geist Mono") reads as the `.mono` stack. |
+| 2026-08-06 | Pill marketing CTA kept; radius doc amended to match | The doc said all buttons were 8px while `.btn-primary` had shipped as a 999px pill and `.input-field` as 14px across landing, pricing, learn, and the calculator. The pill was judged correct — it marks the marketing surface as distinct from the dashboard — so the doc was amended to reality rather than the CSS changed. Radius is now hierarchical *and* surface-aware: marketing CTA is a pill, in-app buttons stay 8px. |
+| 2026-08-06 | Card surface + eyebrow consolidated into tokens | `designTokens.cardSurface` and the `.eyebrow` utility existed but were bypassed by ~30 hand-rolled copies. Dashboard cards and telemetry captions now route through them so a future card/caption change is one edit. `cardSurface`'s border alpha was aligned to the shipped majority (0.09, was 0.08). |
 | 2026-07-23 | Tier 1 console instrumentation | Discovery-console *character* inside Clean Signal (light-mode, restrained-blue rules unchanged): `.eyebrow` telemetry captions (10px/700, 0.08em tracked, uppercase, muted), thin SVG radial gauges for payoff progress (blue fill on `--border` track, `RadialGauge.tsx`), `.glow-primary` soft blue glow on active nav rails and primary CTAs only, and statement-style hairline segmentation of stat groups (This Month snapshot). Full dark holographic reskin explicitly deferred as a Tier 2 rebrand decision. |
 
 ## Anti-Patterns (never do these)

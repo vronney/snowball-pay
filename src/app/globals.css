@@ -22,9 +22,11 @@
   --sp-cyan: #0891b2;
   --sp-green: #0f9f6e;
   --sp-gold: #d97706;
-  --sp-radius-lg: 28px;
-  --sp-radius-md: 18px;
-  --card-radius: 20px;
+  /* Card radius is NOT a CSS var — it lives in designTokens.radius.card (12px)
+     so the app and the doc can't drift apart. Three unconsumed radius vars
+     (28/18/20px) were removed here; they contradicted that 12px rule and read
+     as a second source of truth. Marketing-surface radii below are the real
+     exceptions (DESIGN.md, 2026-08-06). */
   --btn-radius: 999px;
   --input-radius: 14px;
   --card-shadow: 0 18px 48px rgba(17,24,39,0.09);
@@ -93,14 +95,6 @@ body {
     .gauge-fill {
       transition: none;
     }
-  }
-
-  .tab-active {
-    @apply border-b-2 border-blue-500 text-blue-500;
-  }
-
-  .tab-inactive {
-    @apply border-b-2 border-transparent opacity-50 hover:opacity-80;
   }
 
   .input-field {

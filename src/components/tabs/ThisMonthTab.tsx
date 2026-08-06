@@ -13,6 +13,7 @@ import DebtCapUpsell from "@/components/billing/DebtCapUpsell";
 import RadialGauge from "@/components/ui/RadialGauge";
 import RollForwardAdvice from "@/components/payoff/RollForwardAdvice";
 import CoachBriefCard from "@/components/payoff/CoachBriefCard";
+import { cardSurface, color } from "@/lib/designTokens";
 
 interface ThisMonthTabProps {
   debts: Debt[];
@@ -235,16 +236,12 @@ export default function ThisMonthTab({
       {/* Focus debt card */}
       {focusDebt && (
         <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid rgba(15,23,42,0.09)",
-            borderRadius: "12px",
-            padding: "20px",
-            boxShadow: "0 1px 4px rgba(15,23,42,0.06)",
-          }}
+          style={{ ...cardSurface, padding: "20px" }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
-            <span style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#2563eb" }}>
+            {/* .eyebrow carries weight/tracking/uppercase; size and the blue
+                accent are this caption's own (it marks the active target). */}
+            <span className="eyebrow" style={{ fontSize: "11px", color: color.primary }}>
               Focus this month
             </span>
             {focusPaid && (
@@ -354,13 +351,7 @@ export default function ThisMonthTab({
       {/* Empty state */}
       {!hasDebts && (
         <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid rgba(15,23,42,0.09)",
-            borderRadius: "12px",
-            padding: "32px 20px",
-            textAlign: "center",
-          }}
+          style={{ ...cardSurface, padding: "32px 20px", textAlign: "center" }}
         >
           <CreditCard size={32} style={{ color: "#cbd5e1", marginBottom: "12px" }} />
           <p style={{ fontSize: "14px", fontWeight: 600, color: "#475569", marginBottom: "8px" }}>No debts added yet</p>
@@ -392,12 +383,7 @@ export default function ThisMonthTab({
       {hasDebts && income && (
         <div
           className="grid grid-cols-1 sm:grid-cols-3"
-          style={{
-            background: "#ffffff",
-            border: "1px solid rgba(15,23,42,0.09)",
-            borderRadius: "12px",
-            boxShadow: "0 1px 3px rgba(15,23,42,0.04)",
-          }}
+          style={cardSurface}
         >
           {[
             {
@@ -435,12 +421,7 @@ export default function ThisMonthTab({
       {/* All debts list */}
       {debts.length > 1 && (
         <div
-          style={{
-            background: "#ffffff",
-            border: "1px solid rgba(15,23,42,0.09)",
-            borderRadius: "12px",
-            padding: "16px 20px",
-          }}
+          style={{ ...cardSurface, padding: "16px 20px" }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
             <h3 style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a", margin: 0 }}>All Debts</h3>
