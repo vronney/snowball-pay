@@ -11,6 +11,8 @@ import { type PayoffMethod } from "@/lib/snowball";
 import { calculateResultByMethod } from "@/lib/payoffPlan";
 import { formatCurrencyWhole, formatMonths } from "@/lib/utils";
 import { isActiveDebt } from "@/lib/monthlyFocusDebt";
+import { color, easing } from "@/lib/designTokens";
+import { isRungApplicable, ladderHeadroom, rungCaption } from "@/components/payoff/whatIfLadder";
 
 interface WhatIfCardProps {
   debts: Debt[];
@@ -47,50 +49,56 @@ export default function WhatIfCard({
     [expenses],
   );
 
-  const scenario50 = useMemo(
+  // Free users only ever render the +$50 and +$100 figures, so don't simulate
+  // rungs they'll never see — each step is a full amortization run.
+  const stepDeltas = useMemo(
+    () => (isPro ? [25, 50, 100, 200] : [50, 100]),
+    [isPro],
+  );
+
+  const ladder = useMemo(
     () =>
-      calculateResultByMethod(
-        activeDebts,
-        income,
-        recurringTotal,
-        adjustedExtra + 50,
-        payoffMethod,
-      ),
-    [activeDebts, income, recurringTotal, adjustedExtra, payoffMethod],
+      stepDeltas.map((delta) => {
+        const result = calculateResultByMethod(
+          activeDebts,
+          income,
+          recurringTotal,
+          adjustedExtra + delta,
+          payoffMethod,
+        );
+        return {
+          delta,
+          label: `+$${delta}/mo`,
+          months: result.months,
+          interest: result.totalInterestPaid,
+          savedMonths: currentMonths - result.months,
+          savedInterest: Math.max(
+            0,
+            currentInterestPaid - result.totalInterestPaid,
+          ),
+        };
+      }),
+    [
+      stepDeltas,
+      activeDebts,
+      income,
+      recurringTotal,
+      adjustedExtra,
+      payoffMethod,
+      currentMonths,
+      currentInterestPaid,
+    ],
   );
 
-  const scenario100 = useMemo(
-    () =>
-      calculateResultByMethod(
-        activeDebts,
-        income,
-        recurringTotal,
-        adjustedExtra + 100,
-        payoffMethod,
-      ),
-    [activeDebts, income, recurringTotal, adjustedExtra, payoffMethod],
-  );
+  const rung = (delta: number) => ladder.find((s) => s.delta === delta);
+  const saved50months = rung(50)?.savedMonths ?? 0;
+  const saved50interest = rung(50)?.savedInterest ?? 0;
+  const saved100interest = rung(100)?.savedInterest ?? 0;
 
-  const saved50months = currentMonths - scenario50.months;
-  const saved50interest = Math.max(
-    0,
-    currentInterestPaid - scenario50.totalInterestPaid,
-  );
-  const saved100months = currentMonths - scenario100.months;
-  const saved100interest = Math.max(
-    0,
-    currentInterestPaid - scenario100.totalInterestPaid,
-  );
-
-  // Hide only when NEITHER months NOR interest improve in either scenario —
-  // an extra payment can leave the payoff month unchanged while still cutting
-  // interest, and that benefit is worth showing.
-  if (
-    saved50months <= 0 &&
-    saved50interest <= 0 &&
-    saved100months <= 0 &&
-    saved100interest <= 0
-  ) {
+  // Hide only when NO rung improves EITHER months or interest — an extra
+  // payment can leave the payoff month unchanged while still cutting interest,
+  // and that benefit is worth showing.
+  if (ladder.every((s) => s.savedMonths <= 0 && s.savedInterest <= 0)) {
     return null;
   }
 
@@ -274,32 +282,30 @@ export default function WhatIfCard({
     );
   }
 
-  const fmtMonths = (n: number) =>
-    n <= 0 ? "no change" : `${formatMonths(n)} sooner`;
+  // Headroom left before a rung would be clamped on apply. handleApply caps at
+  // availableCashFlow, so a rung above this can't actually be applied in full —
+  // clicking it would quietly deliver less than the tile promises. Those rungs
+  // stay visible (the projection is still a true "what if") but drop the apply
+  // affordance and say what they'd need instead. Logic lives in whatIfLadder.ts
+  // so those rules can be tested without rendering.
+  const headroom = ladderHeadroom(availableCashFlow, effectiveAcceleration);
 
-  const scenarios = [
-    {
-      label: "+$50/mo",
-      delta: 50,
-      months: saved50months,
-      interest: saved50interest,
-    },
-    {
-      label: "+$100/mo",
-      delta: 100,
-      months: saved100months,
-      interest: saved100interest,
-    },
-  ];
+  const canApply = (delta: number) =>
+    isRungApplicable(
+      delta,
+      headroom,
+      !!onAccelerationChange,
+      effectiveAcceleration,
+    );
 
   const handleApply = (delta: number) => {
-    if (!onAccelerationChange || effectiveAcceleration === undefined) return;
+    if (!canApply(delta)) return;
     const next = Math.min(
-      effectiveAcceleration + delta,
+      effectiveAcceleration! + delta,
       availableCashFlow ?? Infinity,
     );
     track(Events.WHAT_IF_APPLIED, { delta, next_acceleration: next });
-    onAccelerationChange(next);
+    onAccelerationChange!(next);
   };
 
   return (
@@ -320,105 +326,101 @@ export default function WhatIfCard({
         timeline and total interest.
       </p>
 
-      <div
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}
-      >
-        {scenarios.map(({ label, delta, months, interest }) => (
+      {/* Ladder: the committed plan first, then each rung. Every tile reads as
+          an absolute outcome so the row is comparable left to right; the saving
+          against the current plan is the line underneath. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+        <div
+          style={{
+            padding: "14px 16px",
+            borderRadius: "12px",
+            background: color.tint,
+            border: `1px solid ${color.tintBorder}`,
+          }}
+        >
+          <div className="eyebrow" style={{ color: color.primary, marginBottom: "8px" }}>
+            Current plan
+          </div>
           <div
-            key={label}
-            onClick={() => handleApply(delta)}
-            style={{
-              padding: "14px 16px",
-              borderRadius: "12px",
-              background: "rgba(245,158,11,0.06)",
-              border: "1px solid rgba(245,158,11,0.18)",
-              cursor: onAccelerationChange ? "pointer" : "default",
-              transition: "transform 0.15s, box-shadow 0.15s",
-            }}
-            onMouseEnter={(e) => {
-              if (!onAccelerationChange) return;
-              (e.currentTarget as HTMLDivElement).style.transform =
-                "translateY(-1px)";
-              (e.currentTarget as HTMLDivElement).style.boxShadow =
-                "0 4px 12px rgba(245,158,11,0.18)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLDivElement).style.transform = "";
-              (e.currentTarget as HTMLDivElement).style.boxShadow = "";
-            }}
+            className="mono"
+            style={{ fontSize: "17px", fontWeight: 800, color: color.text, fontVariantNumeric: "tabular-nums" }}
           >
-            <div
+            {formatMonths(currentMonths)}
+          </div>
+          <div
+            className="mono"
+            style={{ fontSize: "11px", color: color.faint, marginTop: "2px", fontVariantNumeric: "tabular-nums" }}
+          >
+            {formatCurrencyWhole(currentInterestPaid)} interest
+          </div>
+          <div style={{ fontSize: "11px", color: color.muted, marginTop: "6px" }}>
+            where you are now
+          </div>
+        </div>
+
+        {ladder.map(({ label, delta, months, interest, savedMonths, savedInterest }) => {
+          const applicable = canApply(delta);
+          return (
+            <button
+              key={label}
+              type="button"
+              onClick={() => handleApply(delta)}
+              disabled={!applicable}
+              // A real button, not a clickable div: these were unreachable by
+              // keyboard before, and the row is now five of them.
+              aria-label={
+                applicable
+                  ? `Apply ${label} extra to your plan`
+                  : `${label} extra — beyond your current cash flow`
+              }
               style={{
-                fontSize: "13px",
-                fontWeight: 700,
-                color: "#b45309",
-                marginBottom: "10px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
+                padding: "14px 16px",
+                borderRadius: "12px",
+                background: applicable ? "rgba(245,158,11,0.06)" : "#f8fafc",
+                border: `1px ${applicable ? "solid rgba(245,158,11,0.18)" : "dashed rgba(15,23,42,0.14)"}`,
+                cursor: applicable ? "pointer" : "default",
+                textAlign: "left",
+                fontFamily: "inherit",
+                transition: `background 0.2s ${easing.enter}`,
               }}
             >
-              <span>{label} extra</span>
-              {onAccelerationChange && (
-                <span
-                  style={{
-                    fontSize: "10px",
-                    fontWeight: 600,
-                    color: "#d97706",
-                    opacity: 0.8,
-                  }}
-                >
-                  Apply →
-                </span>
-              )}
-            </div>
-            <div
-              style={{ display: "flex", flexDirection: "column", gap: "6px" }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: "#64748b",
-                    marginBottom: "1px",
-                  }}
-                >
-                  Payoff
-                </div>
-                <div
-                  style={{
-                    fontSize: "15px",
-                    fontWeight: 700,
-                    color: months > 0 ? "#059669" : "#94a3b8",
-                  }}
-                >
-                  {fmtMonths(months)}
-                </div>
+              <div
+                className="eyebrow"
+                style={{ color: applicable ? "#b45309" : color.muted, marginBottom: "8px" }}
+              >
+                {label}
               </div>
-              <div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    color: "#64748b",
-                    marginBottom: "1px",
-                  }}
-                >
-                  Interest saved
-                </div>
-                <div
-                  style={{
-                    fontSize: "15px",
-                    fontWeight: 700,
-                    color: interest > 0 ? "#059669" : "#94a3b8",
-                  }}
-                >
-                  {interest > 0 ? formatCurrencyWhole(interest) : "—"}
-                </div>
+              <div
+                className="mono"
+                style={{ fontSize: "17px", fontWeight: 800, color: color.text, fontVariantNumeric: "tabular-nums" }}
+              >
+                {formatMonths(months)}
               </div>
-            </div>
-          </div>
-        ))}
+              <div
+                className="mono"
+                style={{ fontSize: "11px", color: color.faint, marginTop: "2px", fontVariantNumeric: "tabular-nums" }}
+              >
+                {formatCurrencyWhole(interest)} interest
+              </div>
+              <div
+                style={{
+                  fontSize: "11px",
+                  marginTop: "6px",
+                  fontWeight: 600,
+                  color: applicable ? color.successDeep : color.muted,
+                }}
+              >
+                {rungCaption(
+                  { delta, savedMonths, savedInterest },
+                  headroom,
+                  applicable,
+                )}
+              </div>
+            </button>
+          );
+        })}
       </div>
+
     </div>
   );
 }
