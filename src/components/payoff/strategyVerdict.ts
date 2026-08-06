@@ -1,6 +1,6 @@
 import { formatCurrencyWhole, formatMonths } from '@/lib/utils';
 
-export interface StrategyVerdictInput {
+interface StrategyVerdictInput {
   strategyName: string;
   comparisonName: string;
   currentMonths: number;

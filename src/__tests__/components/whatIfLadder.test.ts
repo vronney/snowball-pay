@@ -64,6 +64,25 @@ describe('rungCaption', () => {
     );
   });
 
+  it('falls back to the outcome when a rung is inert but has unlimited headroom', () => {
+    // Inapplicable with Infinity headroom is reachable: no apply handler, or an
+    // unknown acceleration. Deriving the copy from the flag alone rendered a
+    // shortfall of -Infinity here.
+    const caption = rungCaption(rung(), Infinity, false);
+    expect(caption).toBe('6m sooner · saves $1,200');
+    expect(caption).not.toContain('room');
+    expect(caption).not.toContain('∞');
+    expect(caption).not.toContain('NaN');
+  });
+
+  it('falls back to the outcome when headroom is finite but not binding', () => {
+    // delta 100 against 500 of room — inert for some other reason, and a
+    // "needs -$400 more room" caption would be nonsense.
+    const caption = rungCaption(rung({ delta: 100 }), 500, false);
+    expect(caption).toBe('6m sooner · saves $1,200');
+    expect(caption).not.toContain('room');
+  });
+
   it('reports both improvements when both are real', () => {
     expect(rungCaption(rung({ savedMonths: 6, savedInterest: 1200 }), Infinity, true))
       .toBe('6m sooner · saves $1,200');

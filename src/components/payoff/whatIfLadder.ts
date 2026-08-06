@@ -10,7 +10,7 @@ import { formatCurrencyWhole, formatMonths } from '@/lib/utils';
  *  - A caption never claims a saving the simulation didn't produce.
  */
 
-export interface LadderRung {
+interface LadderRung {
   delta: number;
   savedMonths: number;
   savedInterest: number;
@@ -53,11 +53,17 @@ export function rungCaption(
   headroom: number,
   applicable: boolean,
 ): string {
-  if (!applicable) {
-    // Finite headroom is guaranteed here: an infinite headroom makes every
-    // rung applicable, so this branch is only reached with a real shortfall.
-    return `needs ${formatCurrencyWhole(rung.delta - headroom)} more room`;
+  // A rung is inapplicable for three independent reasons — no apply handler,
+  // unknown acceleration, or delta > headroom — and only the third is a
+  // shortfall. Deriving the copy from `!applicable` alone (as this first did)
+  // renders "needs -$∞ more room" when headroom is Infinity but some other
+  // condition blocked the rung. Test the shortfall itself, not the flag.
+  const shortfall = rung.delta - headroom;
+  if (!applicable && Number.isFinite(shortfall) && shortfall > 0) {
+    return `needs ${formatCurrencyWhole(shortfall)} more room`;
   }
+  // Inert for a non-headroom reason: the projection is still true, so the
+  // outcome is the honest thing to show.
   const { savedMonths, savedInterest } = rung;
   if (savedInterest > 0 && savedMonths > 0) {
     return `${formatMonths(savedMonths)} sooner · saves ${formatCurrencyWhole(savedInterest)}`;

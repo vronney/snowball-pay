@@ -203,14 +203,18 @@ export default function ThisMonthTab({
 
       {/* Current numbers, full width above the split — a summary bar reads as
           one row, not as a card belonging to either column. */}
-      {hasDebts && income && planMetrics && (
+      {hasDebts && income && planMetrics && result && (
         <PlanStatStrip
           totalDebt={totalDebt}
           debtCount={debts.length}
           monthlyTakeHome={income.monthlyTakeHome}
           totalMinPayments={planMetrics.totalMinPayments}
           acceleration={focusExtra}
-          projectedInterest={result?.totalInterestPaid ?? 0}
+          // Gated on `result` rather than defaulted: PlanMetrics.result is
+          // non-optional so the old `?? 0` could never fire, but it implied a
+          // state where the strip would show $0 of projected interest as if it
+          // were real. Let the strip not render instead of inventing a zero.
+          projectedInterest={result.totalInterestPaid}
         />
       )}
 

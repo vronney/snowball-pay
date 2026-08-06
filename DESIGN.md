@@ -106,13 +106,14 @@ These are defined per-milestone in `PaymentCelebrationBanner.tsx` and `JourneyTa
 - **Sidebar:** 220px fixed, icon+label nav, 5 items max
 
 ### Border Radius — Hierarchical, NOT uniform
+
 | Element                          | Radius  | Source of truth                     |
 |----------------------------------|---------|-------------------------------------|
 | Cards/panels                     | 12px    | `designTokens.radius.card`          |
 | Tags/badges                      | 6px     | `designTokens.radius.tag`           |
 | In-app buttons                   | 8px     | `designTokens.radius.button`        |
 | In-app inputs                    | 8px     | `designTokens.radius.input`         |
-| Marketing CTA (`.btn-primary`)   | 9999px  | `--btn-radius` in `globals.css`     |
+| Marketing CTA (`.btn-primary`)   | 999px   | `--btn-radius` in `globals.css`     |
 | Form fields (`.input-field`)     | 14px    | `--input-radius` in `globals.css`   |
 | Avatars                          | 50%     | —                                   |
 | Pills/chips                      | 9999px  | `designTokens.radius.pill`          |

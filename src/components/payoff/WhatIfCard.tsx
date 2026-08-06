@@ -365,7 +365,12 @@ export default function WhatIfCard({
               key={label}
               type="button"
               onClick={() => handleApply(delta)}
-              disabled={!applicable}
+              // aria-disabled, not disabled: `disabled` drops the tile out of
+              // the tab order, so the aria-label explaining WHY a rung is out
+              // of reach would never be announced — the users most likely to
+              // need that explanation are the ones who can't see the dashed
+              // border. handleApply already returns early, so it stays inert.
+              aria-disabled={!applicable}
               // A real button, not a clickable div: these were unreachable by
               // keyboard before, and the row is now five of them.
               aria-label={
