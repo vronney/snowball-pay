@@ -170,7 +170,12 @@ export default function ThisMonthTab({
   const focusPaid = focusDebt ? paidDebtIds.has(focusDebt.id) : false;
 
   return (
-    <div style={{ maxWidth: "680px", display: "flex", flexDirection: "column", gap: "20px" }}>
+    // Two columns on wide desktop, one below. The split is action-path (left)
+    // vs reference data (right), and the DOM order is deliberately the
+    // single-column reading order —
+    // stacked, these render in exactly the sequence the single column used to,
+    // so the narrow layout is unchanged by the reflow.
+    <div style={{ maxWidth: "1120px" }} className="flex flex-col gap-5">
 
       {/* Greeting — the hero below owns the date/months, so the sub-line only
           carries what the hero can't: the coach's verdict, or setup prompts. */}
@@ -199,6 +204,21 @@ export default function ThisMonthTab({
           </p>
         )}
       </div>
+
+      {/* Splits at xl (1280px), not lg — the 220px sidebar means a 1024px
+          viewport leaves only ~740px of content, and the right column lands at
+          ~300px. The monthly snapshot below uses `sm:grid-cols-3`, a VIEWPORT
+          query, so it stays 3-up inside that narrow column and its mono values
+          overflow by up to 30px (measured). At xl the right column is ~407px
+          and the columns fit. Below 1280 the layout is the single column it
+          has always been, so narrow widths are untouched.
+
+          items-start so a tall left column doesn't stretch the right one's
+          cards to match its height. */}
+      <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] gap-5 items-start">
+
+      {/* ── Left: the action path — where you stand, and what to do now ── */}
+      <div className="flex flex-col gap-5">
 
       {/* Debt-free countdown hero — date, months to go, progress, interest */}
       {hasDebts && result && (
@@ -377,6 +397,10 @@ export default function ThisMonthTab({
         </div>
       )}
 
+      </div>
+      {/* ── Right: reference data — the numbers behind the plan ── */}
+      <div className="flex flex-col gap-5">
+
       {/* Monthly snapshot — one instrument card, hairline-segmented.
           Stacks below sm: three fixed columns can't fit cents-bearing mono
           values at ~360px without overflowing. */}
@@ -531,6 +555,9 @@ export default function ThisMonthTab({
           })}
         </div>
       )}
+
+      </div>
+      </div>
     </div>
   );
 }
