@@ -5,7 +5,7 @@ import { type Tab } from "@/components/dashboard/types";
 import { calculateMinimumsOnlyResult } from "@/lib/payoffPlan";
 import { calculatePlanMetrics } from "@/lib/payoffPlan";
 import { selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
-import { displayFirstName, formatCurrency, formatMonths, getOrdinalDay } from "@/lib/utils";
+import { displayFirstName, formatCurrency, formatCurrencyWhole, formatMonths, getOrdinalDay } from "@/lib/utils";
 import { usePaymentRecords, useMarkPaid, useCachedCoachBrief, useSubscription } from "@/lib/hooks";
 import { Skeleton } from "@/components/ui/skeleton";
 import DebtFreeCountdownHero from "@/components/dashboard/DebtFreeCountdownHero";
@@ -14,6 +14,7 @@ import RadialGauge from "@/components/ui/RadialGauge";
 import RollForwardAdvice from "@/components/payoff/RollForwardAdvice";
 import CoachBriefCard from "@/components/payoff/CoachBriefCard";
 import { cardSurface, color } from "@/lib/designTokens";
+import PlanStatStrip from "@/components/dashboard/PlanStatStrip";
 
 interface ThisMonthTabProps {
   debts: Debt[];
@@ -66,11 +67,6 @@ export default function ThisMonthTab({
   );
 
   const totalDebt = useMemo(() => debts.reduce((s, d) => s + d.balance, 0), [debts]);
-
-  const recurringExpenses = useMemo(
-    () => expenses.reduce((s, e) => s + e.amount, 0),
-    [expenses],
-  );
 
   // Accelerated plan (user's actual strategy)
   const planMetrics = useMemo(() => {
@@ -204,6 +200,19 @@ export default function ThisMonthTab({
           </p>
         )}
       </div>
+
+      {/* Current numbers, full width above the split — a summary bar reads as
+          one row, not as a card belonging to either column. */}
+      {hasDebts && income && planMetrics && (
+        <PlanStatStrip
+          totalDebt={totalDebt}
+          debtCount={debts.length}
+          monthlyTakeHome={income.monthlyTakeHome}
+          totalMinPayments={planMetrics.totalMinPayments}
+          acceleration={focusExtra}
+          projectedInterest={result?.totalInterestPaid ?? 0}
+        />
+      )}
 
       {/* Splits at xl (1280px), not lg — the 220px sidebar means a 1024px
           viewport leaves only ~740px of content, and the right column lands at
@@ -401,46 +410,9 @@ export default function ThisMonthTab({
       {/* ── Right: reference data — the numbers behind the plan ── */}
       <div className="flex flex-col gap-5">
 
-      {/* Monthly snapshot — one instrument card, hairline-segmented.
-          Stacks below sm: three fixed columns can't fit cents-bearing mono
-          values at ~360px without overflowing. */}
-      {hasDebts && income && (
-        <div
-          className="grid grid-cols-1 sm:grid-cols-3"
-          style={cardSurface}
-        >
-          {[
-            {
-              label: "Total Debt",
-              value: formatCurrency(totalDebt),
-              sub: `${debts.length} account${debts.length !== 1 ? "s" : ""}`,
-            },
-            {
-              label: "Monthly Income",
-              value: formatCurrency(income.monthlyTakeHome),
-              sub: "take-home",
-            },
-            {
-              label: "Acceleration",
-              value: formatCurrency(focusExtra),
-              sub: focusDebt ? "toward focus debt" : "planned this month",
-            },
-          ].map((stat, i) => (
-            <div
-              key={stat.label}
-              className={i > 0 ? "border-t sm:border-t-0 sm:border-l" : ""}
-              style={{
-                padding: "16px",
-                borderColor: "rgba(15,23,42,0.07)",
-              }}
-            >
-              <div className="eyebrow" style={{ marginBottom: "4px" }}>{stat.label}</div>
-              <div className="mono" style={{ fontSize: "17px", fontWeight: 800, color: "#0f172a", fontVariantNumeric: "tabular-nums" }}>{stat.value}</div>
-              <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "2px" }}>{stat.sub}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* The monthly-snapshot card that used to sit here is now the stat strip
+          above: Total Debt and Monthly Income became strip tiles, and
+          Acceleration became the "min + extra" subline under Monthly payment. */}
 
       {/* All debts list */}
       {debts.length > 1 && (
@@ -461,15 +433,32 @@ export default function ThisMonthTab({
               const paid = paidDebtIds.has(debt.id);
               const isFocus = debt.id === focusDebt?.id;
               const isPaidOff = debt.balance <= 0.01;
+              // Progress is only meaningful when the debt records where it
+              // started AND has actually moved. Without that, a bar would
+              // either read 0% forever or imply paydown that never happened —
+              // so the row drops the bar rather than inventing one.
+              const hasProgress =
+                debt.originalBalance > 0 && debt.originalBalance > debt.balance;
+              const paidPct = hasProgress
+                ? Math.min(
+                    100,
+                    ((debt.originalBalance - debt.balance) / debt.originalBalance) * 100,
+                  )
+                : 0;
               return (
                 <div
                   key={debt.id}
                   style={{
+                    padding: "12px 0",
+                    borderBottom: i < debts.length - 1 ? "1px solid rgba(15,23,42,0.06)" : "none",
+                  }}
+                >
+                <div
+                  style={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    padding: "10px 0",
-                    borderBottom: i < debts.length - 1 ? "1px solid rgba(15,23,42,0.06)" : "none",
+                    gap: "12px",
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
@@ -499,17 +488,56 @@ export default function ThisMonthTab({
                           </span>
                         )}
                       </div>
-                      <div style={{ fontSize: "11px", color: "#94a3b8" }}>{formatCurrency(debt.minimumPayment)}/mo minimum</div>
                     </div>
                   </div>
-                  <div style={{ textAlign: "right" }}>
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
                     <div className="mono" style={{ fontSize: "13px", fontWeight: 700, color: isPaidOff ? "#059669" : "#0f172a", fontVariantNumeric: "tabular-nums" }}>
                       {formatCurrency(debt.balance)}
                     </div>
+                    {hasProgress && !isPaidOff && (
+                      <div className="mono" style={{ fontSize: "11px", color: "#94a3b8", fontVariantNumeric: "tabular-nums" }}>
+                        was {formatCurrencyWhole(debt.originalBalance)}
+                      </div>
+                    )}
                     {!isPaidOff && paid && (
                       <div style={{ fontSize: "11px", color: "#10b981", fontWeight: 600 }}>Paid ✓</div>
                     )}
                   </div>
+                </div>
+
+                {/* Paydown bar — blue is the documented progress-fill colour;
+                    a cleared debt switches to success green. */}
+                {hasProgress && (
+                  <div
+                    style={{
+                      height: "4px",
+                      borderRadius: "999px",
+                      background: color.border,
+                      overflow: "hidden",
+                      marginTop: "8px",
+                    }}
+                  >
+                    <div
+                      className="progress-bar"
+                      style={{
+                        height: "100%",
+                        width: `${paidPct}%`,
+                        borderRadius: "999px",
+                        background: isPaidOff ? color.success : color.primary,
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "6px" }}>
+                  {[
+                    hasProgress ? `${paidPct.toFixed(1)}% paid` : null,
+                    `${formatCurrency(debt.minimumPayment)}/mo min`,
+                    debt.dueDate ? `due the ${getOrdinalDay(debt.dueDate)}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
                 </div>
               );
             })}

@@ -24,6 +24,7 @@ import ShareDebtFreeCard from "@/components/dashboard/ShareDebtFreeCard";
 import AiRecommendations from "@/components/AiRecommendations";
 import StrategySelector from "@/components/payoff/StrategySelector";
 import StrategyComparison from "@/components/payoff/StrategyComparison";
+import PlanSection from "@/components/payoff/PlanSection";
 import CustomPriorityEditor from "@/components/payoff/CustomPriorityEditor";
 import CashFlowOverview from "@/components/payoff/CashFlowOverview";
 import PayoffSummary from "@/components/payoff/PayoffSummary";
@@ -403,7 +404,14 @@ export default function PayoffTab({
   };
 
   return (
-    <section id="section-plan" className="space-y-6">
+    // Grouped into four sections plus a footer. The grouping is additive only:
+    // every card stays in the order it was already in, so this adds landmarks
+    // to the stack without relocating anything a returning user has learned.
+    <section id="section-plan" className="space-y-8">
+      <PlanSection
+        title="Strategy"
+        description="Which debt the plan attacks first, and what that ordering costs or saves."
+      >
       <StrategySelector
         payoffMethod={payoffMethod}
         onMethodChange={setPayoffMethod}
@@ -434,7 +442,12 @@ export default function PayoffTab({
           onResetPriorities={() => void handleResetPriorities()}
         />
       )}
+      </PlanSection>
 
+      <PlanSection
+        title="Cash flow"
+        description="What's available each month, and what more would buy you."
+      >
       <CashFlowOverview
         income={income}
         recurringTotal={recurringTotal}
@@ -458,7 +471,12 @@ export default function PayoffTab({
         availableCashFlow={availableCashFlow}
         onAccelerationChange={setAccelerationAmount}
       />
+      </PlanSection>
 
+      <PlanSection
+        title="The projection"
+        description="Where this plan lands: totals, balances over time, and the payoff sequence."
+      >
       <PayoffSummary
         planResult={planResult}
         strategyName={strategyName}
@@ -483,7 +501,12 @@ export default function PayoffTab({
       />
 
       <PayoffTimeline data={timelineData} />
+      </PlanSection>
 
+      <PlanSection
+        title="What to do next"
+        description="The moves that follow from the projection above."
+      >
       <FocusDebtExplainer
         payoffSchedule={planResult.payoffSchedule}
         debts={debts}
@@ -526,8 +549,11 @@ export default function PayoffTab({
           onNavigate("intelligence");
         }}
       />
+      </PlanSection>
 
+      <PlanSection title="How this works">
       <StrategyExplanation payoffMethod={payoffMethod} />
+      </PlanSection>
 
       <ReferralPrompt />
 
