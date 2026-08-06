@@ -101,7 +101,7 @@ export default function WhatIfCard({
     const openUpgrade = () => upgradeEvents.dispatch("What-if scenarios");
     return (
       <div
-        className="rounded-2xl p-5"
+        className="rounded-xl p-5"
         style={{
           background: "#ffffff",
           border: "1px solid rgba(15,23,42,0.08)",
@@ -304,7 +304,7 @@ export default function WhatIfCard({
 
   return (
     <div
-      className="rounded-2xl p-5"
+      className="rounded-xl p-5"
       style={{
         background: "#ffffff",
         border: "1px solid rgba(15,23,42,0.08)",

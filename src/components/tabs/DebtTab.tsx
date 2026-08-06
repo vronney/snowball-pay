@@ -123,7 +123,7 @@ function DebtTabLoadingSkeleton() {
 
         <aside className="xl:col-span-4 2xl:col-span-4 order-1 xl:order-2 self-start space-y-4">
           <div
-            className="rounded-2xl p-5"
+            className="rounded-xl p-5"
             style={{
               background: "#ffffff",
               border: "1px solid rgba(15,23,42,0.08)",
@@ -784,7 +784,7 @@ export default function DebtTab({
                       >
                         <Inbox
                           size={26}
-                          style={{ color: "#3b82f6", opacity: 0.7 }}
+                          style={{ color: "#2563eb", opacity: 0.7 }}
                         />
                       </div>
                       <p
@@ -856,14 +856,14 @@ export default function DebtTab({
               is hidden on mobile because the FAB provides that action there */}
           {showForm && (
             <div
-              className="rounded-2xl p-5 snowball-glow"
+              className="rounded-xl p-5 snowball-glow"
               style={{
                 background: "#ffffff",
                 border: "1px solid rgba(15,23,42,0.08)",
               }}
             >
               <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
-                <PlusCircle size={18} style={{ color: "#3b82f6" }} />
+                <PlusCircle size={18} style={{ color: "#2563eb" }} />
                 <span>Add New Debt</span>
               </h2>
               <DebtForm

@@ -14,7 +14,7 @@ export default function PayoffOrderList({ payoffSchedule, payoffOrderLabel }: Pa
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="rounded-2xl" style={{ background: 'rgb(255, 255, 255)', border: '1px solid rgba(15, 23, 42, 0.08)', boxShadow: 'rgba(15, 23, 42, 0.06) 0px 1px 4px' }}>
+    <div className="rounded-xl" style={{ background: 'rgb(255, 255, 255)', border: '1px solid rgba(15, 23, 42, 0.08)', boxShadow: 'rgba(15, 23, 42, 0.06) 0px 1px 4px' }}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
@@ -22,7 +22,7 @@ export default function PayoffOrderList({ payoffSchedule, payoffOrderLabel }: Pa
         style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
       >
         <span className="font-semibold text-base flex items-center gap-2" style={{ color: '#0f172a' }}>
-          <ListOrdered size={18} style={{ color: '#3b82f6' }} />
+          <ListOrdered size={18} style={{ color: '#2563eb' }} />
           {payoffOrderLabel}
         </span>
         <ChevronDown size={16} style={{ color: '#94a3b8', transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }} />

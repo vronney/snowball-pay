@@ -28,6 +28,7 @@ import { upgradeEvents } from "@/lib/upgradeEvents";
 import { Events, track } from "@/lib/analytics";
 import { Debt, Income, Expense } from "@/types";
 import { isActiveDebt } from "@/lib/monthlyFocusDebt";
+import { easing, primaryButton } from "@/lib/designTokens";
 
 interface Props {
   debts: Debt[];
@@ -65,7 +66,7 @@ const TYPE_META: Record<
     color: "#10b981",
   },
   strategy: { label: "Strategy", icon: Sparkles, color: "#8b5cf6" },
-  cashflow: { label: "Cash Flow", icon: TrendingUp, color: "#3b82f6" },
+  cashflow: { label: "Cash Flow", icon: TrendingUp, color: "#2563eb" },
   priority: { label: "Priority", icon: Target, color: "#f59e0b" },
   savings: { label: "Savings", icon: Banknote, color: "#10b981" },
 };
@@ -534,18 +535,16 @@ export default function AiRecommendations({
               <button
                 onClick={handleGenerate}
                 style={{
+                  ...primaryButton,
                   padding: "7px 14px",
-                  borderRadius: "9px",
-                  background: "linear-gradient(135deg, #2563eb, #1d4ed8)",
-                  border: "1px solid rgba(29,78,216,0.4)",
-                  color: "#ffffff",
-                  cursor: "pointer",
                   fontSize: "13px",
                   fontWeight: 600,
                   display: "flex",
                   alignItems: "center",
                   gap: "6px",
-                  transition: "all 0.2s cubic-bezier(0.34,1.56,0.64,1)",
+                  // Was a gradient fill on an overshoot curve — both are listed
+                  // anti-patterns (gradient CTAs; easing outside the motion scale).
+                  transition: `background 0.2s ${easing.enter}`,
                 }}
               >
                 <Sparkles size={13} />

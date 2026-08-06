@@ -110,14 +110,14 @@ export default function IncomeTab({
     <section id="section-income">
       {/* Income Section */}
       <div
-        className="rounded-2xl p-5 snowball-glow mb-6"
+        className="rounded-xl p-5 snowball-glow mb-6"
         style={{
           background: "#ffffff",
           border: "1px solid rgba(15,23,42,0.08)",
         }}
       >
         <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
-          <Calculator size={18} style={{ color: "#3b82f6" }} />
+          <Calculator size={18} style={{ color: "#2563eb" }} />
           Monthly Budget
         </h2>
         <form onSubmit={handleIncomeSubmit} className="space-y-4">
@@ -289,7 +289,7 @@ export default function IncomeTab({
             type="submit"
             disabled={saveIncome.isPending}
             className="btn-primary w-full sm:w-auto px-3"
-            style={{ background: "#3b82f6" }}
+            style={{ background: "#2563eb" }}
           >
             Save Budget
           </button>
@@ -304,7 +304,7 @@ export default function IncomeTab({
 
       {/* Recurring Expenses Section */}
       <div
-        className="rounded-2xl snowball-glow"
+        className="rounded-xl snowball-glow"
         style={{
           background: "#ffffff",
           border: "1px solid rgba(15,23,42,0.08)",
@@ -325,7 +325,7 @@ export default function IncomeTab({
             className="font-semibold text-base flex items-center gap-2"
             style={{ color: "#0f172a" }}
           >
-            <Repeat size={18} style={{ color: "#3b82f6" }} />
+            <Repeat size={18} style={{ color: "#2563eb" }} />
             Recurring Expenses
           </span>
           <ChevronDown
@@ -388,7 +388,7 @@ export default function IncomeTab({
                   type="submit"
                   disabled={createExpense.isPending}
                   className="btn-primary w-full"
-                  style={{ background: "#3b82f6" }}
+                  style={{ background: "#2563eb" }}
                 >
                   <Plus size={16} />
                   Add
@@ -491,7 +491,7 @@ export default function IncomeTab({
                   <span className="opacity-60">Recurring Expenses Total:</span>
                   <span
                     className="mono font-semibold"
-                    style={{ color: "#3b82f6" }}
+                    style={{ color: "#2563eb" }}
                   >
                     {formatCurrency(recurringTotal)}
                   </span>

@@ -179,7 +179,7 @@ export default function PayoffTab({
   if (!income || debts.length === 0) {
     return (
       <div
-        className="rounded-2xl p-8 text-center"
+        className="rounded-xl p-8 text-center"
         style={{
           background: "#ffffff",
           border: "1px solid rgba(15,23,42,0.08)",

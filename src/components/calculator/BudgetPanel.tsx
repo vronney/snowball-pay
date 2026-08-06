@@ -132,7 +132,7 @@ export default function BudgetPanel({
               handle covers the number on touch screens. */}
           <div
             className="text-right text-sm font-semibold mb-1"
-            style={{ color: extraNum > 0 ? '#3b82f6' : '#94a3b8' }}
+            style={{ color: extraNum > 0 ? '#2563eb' : '#94a3b8' }}
           >
             {formatCurrency(extraNum)} / mo extra
           </div>
@@ -145,7 +145,7 @@ export default function BudgetPanel({
             onChange={(e) => onExtraChange(e.target.value)}
             disabled={availableForDebt <= 0}
             className="w-full"
-            style={{ accentColor: '#3b82f6', cursor: availableForDebt > 0 ? 'pointer' : 'not-allowed' }}
+            style={{ accentColor: '#2563eb', cursor: availableForDebt > 0 ? 'pointer' : 'not-allowed' }}
           />
           <div className="flex justify-between text-xs mt-1" style={{ color: '#94a3b8' }}>
             <span>$0</span>

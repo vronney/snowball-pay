@@ -111,7 +111,7 @@ export default function ResultsPanel({
           <div className="text-xs mb-1" style={{ color: "#64748b" }}>
             Debt-Free In
           </div>
-          <div className="text-5xl font-bold mb-1" style={{ color: "#3b82f6" }}>
+          <div className="text-5xl font-bold mb-1" style={{ color: "#2563eb" }}>
             {timeStr}
           </div>
           <div className="text-sm" style={{ color: "#64748b" }}>
@@ -180,7 +180,7 @@ export default function ResultsPanel({
           }}
           className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold transition"
           style={{
-            background: "#3b82f6",
+            background: "#2563eb",
             color: "#fff",
             border: "none",
             cursor: "pointer",
@@ -273,7 +273,7 @@ export default function ResultsPanel({
           }}
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition"
           style={{
-            background: "#3b82f6",
+            background: "#2563eb",
             color: "#fff",
             border: "none",
             cursor: "pointer",

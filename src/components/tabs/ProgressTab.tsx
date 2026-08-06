@@ -339,8 +339,8 @@ export default function ProgressTab({
         </div>
         <Skeleton className="h-64 rounded-xl" />
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <Skeleton className="h-80 rounded-2xl" />
-          <Skeleton className="h-80 rounded-2xl" />
+          <Skeleton className="h-80 rounded-xl" />
+          <Skeleton className="h-80 rounded-xl" />
         </div>
       </section>
     );
@@ -349,7 +349,7 @@ export default function ProgressTab({
   if (debts.length === 0) {
     return (
       <div
-        className="rounded-2xl p-8 text-center"
+        className="rounded-xl p-8 text-center"
         style={{
           background: "#ffffff",
           border: "1px solid rgba(15,23,42,0.08)",

@@ -24,7 +24,7 @@ export default function CustomPriorityEditor({
   onResetPriorities,
 }: CustomPriorityEditorProps) {
   return (
-    <div className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
+    <div className="rounded-xl p-5" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
       <div
         className="flex items-center justify-between gap-3 cursor-pointer"
         style={{ marginBottom: priorityOpen ? '16px' : '0' }}
