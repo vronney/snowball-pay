@@ -66,7 +66,12 @@ const TYPE_META: Record<
     color: "#10b981",
   },
   strategy: { label: "Strategy", icon: Sparkles, color: "#8b5cf6" },
-  cashflow: { label: "Cash Flow", icon: TrendingUp, color: "#2563eb" },
+  // Cyan, not the primary blue: spending_insight above already claims #2563eb,
+  // and the A2 colour sweep collapsed this entry onto it — two categories that
+  // used to be distinguishable rendered identically. This is a category
+  // identity palette (same class as the milestone colours), so the fix is to
+  // restore distinctness rather than to neutralise it.
+  cashflow: { label: "Cash Flow", icon: TrendingUp, color: "#0891b2" },
   priority: { label: "Priority", icon: Target, color: "#f59e0b" },
   savings: { label: "Savings", icon: Banknote, color: "#10b981" },
 };

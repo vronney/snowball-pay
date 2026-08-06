@@ -59,7 +59,7 @@ export default function PayoffSummary({
   return (
     <div className="rounded-xl p-5 snowball-glow" style={{ background: 'rgb(255, 255, 255)', border: '1px solid rgba(15, 23, 42, 0.08)', boxShadow: 'rgba(15, 23, 42, 0.06) 0px 1px 4px' }}>
       <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
-        <Zap size={18} style={{ color: '#2563eb' }} />
+        <Zap size={18} style={{ color: '#64748b' }} />
         {strategyName} Payoff Plan
       </h2>
       <div
@@ -91,7 +91,7 @@ export default function PayoffSummary({
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div>
           <div className="text-xs mb-1" style={{ color: '#64748b' }}>Debt-Free In</div>
-          <div className="mono font-bold text-lg" style={{ color: '#2563eb' }}>
+          <div className="mono font-bold text-lg" style={{ color: '#0f172a' }}>
             {isComplete ? 'Complete' : planResult.months >= 360 ? '30+ years' : timeStr}
           </div>
         </div>

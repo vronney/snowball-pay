@@ -111,7 +111,7 @@ export default function ResultsPanel({
           <div className="text-xs mb-1" style={{ color: "#64748b" }}>
             Debt-Free In
           </div>
-          <div className="text-5xl font-bold mb-1" style={{ color: "#2563eb" }}>
+          <div className="text-5xl font-bold mb-1" style={{ color: "#0f172a" }}>
             {timeStr}
           </div>
           <div className="text-sm" style={{ color: "#64748b" }}>

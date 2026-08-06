@@ -117,7 +117,7 @@ export default function IncomeTab({
         }}
       >
         <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
-          <Calculator size={18} style={{ color: "#2563eb" }} />
+          <Calculator size={18} style={{ color: "#64748b" }} />
           Monthly Budget
         </h2>
         <form onSubmit={handleIncomeSubmit} className="space-y-4">
@@ -325,7 +325,7 @@ export default function IncomeTab({
             className="font-semibold text-base flex items-center gap-2"
             style={{ color: "#0f172a" }}
           >
-            <Repeat size={18} style={{ color: "#2563eb" }} />
+            <Repeat size={18} style={{ color: "#64748b" }} />
             Recurring Expenses
           </span>
           <ChevronDown
@@ -491,7 +491,7 @@ export default function IncomeTab({
                   <span className="opacity-60">Recurring Expenses Total:</span>
                   <span
                     className="mono font-semibold"
-                    style={{ color: "#2563eb" }}
+                    style={{ color: "#0f172a" }}
                   >
                     {formatCurrency(recurringTotal)}
                   </span>

@@ -91,8 +91,11 @@ export default function CoachBriefCard({
     <div style={{ ...cardSurface, padding: "20px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "4px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Sparkles size={14} style={{ color: color.primary }} />
-          <span className="eyebrow" style={{ fontSize: "11px", color: color.primary }}>
+          {/* Muted, not primary: this is a card title, not an active state.
+              "Focus this month" over in ThisMonthTab stays blue because it
+              genuinely marks the active target. */}
+          <Sparkles size={14} style={{ color: color.muted }} />
+          <span className="eyebrow" style={{ fontSize: "11px" }}>
             Coach brief
           </span>
           {generatedAt && !isGenerating && (

@@ -22,7 +22,7 @@ export default function PayoffOrderList({ payoffSchedule, payoffOrderLabel }: Pa
         style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
       >
         <span className="font-semibold text-base flex items-center gap-2" style={{ color: '#0f172a' }}>
-          <ListOrdered size={18} style={{ color: '#2563eb' }} />
+          <ListOrdered size={18} style={{ color: '#64748b' }} />
           {payoffOrderLabel}
         </span>
         <ChevronDown size={16} style={{ color: '#94a3b8', transition: 'transform 0.2s', transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }} />

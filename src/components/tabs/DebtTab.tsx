@@ -784,7 +784,7 @@ export default function DebtTab({
                       >
                         <Inbox
                           size={26}
-                          style={{ color: "#2563eb", opacity: 0.7 }}
+                          style={{ color: "#64748b", opacity: 0.7 }}
                         />
                       </div>
                       <p
@@ -863,7 +863,7 @@ export default function DebtTab({
               }}
             >
               <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
-                <PlusCircle size={18} style={{ color: "#2563eb" }} />
+                <PlusCircle size={18} style={{ color: "#64748b" }} />
                 <span>Add New Debt</span>
               </h2>
               <DebtForm
