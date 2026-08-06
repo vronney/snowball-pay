@@ -2,6 +2,7 @@
 
 import { formatCurrencyWhole, formatMonths } from '@/lib/utils';
 import { cardSurface, color } from '@/lib/designTokens';
+import { strategyVerdict } from '@/components/payoff/strategyVerdict';
 
 interface StrategyComparisonProps {
   /** Label for the plan the user is actually on ("Snowball" / "Avalanche"). */
@@ -35,13 +36,6 @@ export default function StrategyComparison({
   comparisonMonths,
   comparisonInterest,
 }: StrategyComparisonProps) {
-  // Round before comparing: sub-dollar and sub-month differences are noise
-  // from the amortization loop, not a real trade-off worth naming.
-  const interestGap = Math.round(currentInterest) - Math.round(comparisonInterest);
-  const monthsGap = currentMonths - comparisonMonths;
-  const comparisonIsCheaper = interestGap > 0;
-  const identical = interestGap === 0 && monthsGap === 0;
-
   const rows = [
     {
       label: `Your plan (${strategyName})`,
@@ -57,26 +51,14 @@ export default function StrategyComparison({
     },
   ];
 
-  let verdict: string;
-  if (identical) {
-    verdict = `Both methods finish on the same date for the same interest — with your balances and rates, the payoff order works out identical either way.`;
-  } else if (comparisonIsCheaper) {
-    const monthsClause =
-      monthsGap > 0
-        ? ` and finishes ${formatMonths(monthsGap)} sooner`
-        : monthsGap < 0
-          ? ` but takes ${formatMonths(-monthsGap)} longer`
-          : '';
-    // Only Snowball has a non-financial rationale to name; when the user is on
-    // Avalanche and something else is cheaper, state the number and stop.
-    const tradeOff =
-      strategyName === 'Snowball'
-        ? ` ${strategyName} trades that for clearing your smallest balance first, which is why it's the default.`
-        : '';
-    verdict = `${comparisonName} costs ${formatCurrencyWhole(interestGap)} less interest${monthsClause}.${tradeOff} Switch above and the whole plan recalculates.`;
-  } else {
-    verdict = `Your ${strategyName.toLowerCase()} plan costs ${formatCurrencyWhole(-interestGap)} less interest than ${comparisonName.toLowerCase()} would. You're on the cheaper of the two.`;
-  }
+  const verdict = strategyVerdict({
+    strategyName,
+    comparisonName,
+    currentMonths,
+    currentInterest,
+    comparisonMonths,
+    comparisonInterest,
+  });
 
   return (
     <div style={{ ...cardSurface, padding: '20px' }}>
