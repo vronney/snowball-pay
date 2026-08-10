@@ -52,6 +52,8 @@ Visitors can change their choice in the Cookies and Similar Technologies section
 
 `signup_completed` means successful payoff-plan setup, not merely creation of an Auth0 identity. This makes it a useful Google Ads conversion instead of a button-click proxy.
 
+`signup_completed` is also the activation measure, and `debt_added` must never be used as a funnel step after it. The onboarding API rejects a payload with no debts, so every `signup_completed` already created at least one debt — server-side, which emits no client event. `debt_added` fires from exactly one place, the dashboard's add-another-debt form, so a `signup_completed → debt_added` funnel step reads 0% by construction and looks like an activation cliff that does not exist. To measure activation depth, break `signup_completed` down by its `debt_count` property instead.
+
 The direct wizard now asks only for monthly capacity, payoff strategy, and the first debt. The former primary-goal question was removed because its answer was neither persisted nor used to calculate or personalize the plan. Calculator-qualified users continue to use the express confirmation path and should be analyzed separately through `onboarding_express_viewed` and `onboarding_express_completed`.
 
 The Pro preview uses message version `contextual_v2`. Its headline, three benefits, and checkout CTA reflect the attempted feature: unlimited debts, bank sync, what-if scenarios, Payoff Coach, or Intelligence. Unknown and settings entry points use the general follow-through message. Trialing users are excluded from this upgrade path; during the final seven days of a trial, the dashboard routes them to Stripe billing review instead of starting another checkout.
