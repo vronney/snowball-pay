@@ -39,6 +39,7 @@ function makeRequest() {
 describe('GET /api/user/subscription', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    delete process.env.PLAID_ALLOWED_EMAILS;
   });
 
   it('returns 401 when unauthenticated', async () => {
@@ -57,6 +58,7 @@ describe('GET /api/user/subscription', () => {
       subscriptionStatus: 'trialing',
       subscriptionEndsAt: trialEnd,
       stripeCustomerId: 'cus_123',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
     });
 
     const res = await GET(makeRequest());
@@ -80,6 +82,7 @@ describe('GET /api/user/subscription', () => {
       subscriptionStatus: 'active',
       subscriptionEndsAt: cancelAt,
       stripeCustomerId: 'cus_123',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
     });
 
     const res = await GET(makeRequest());
@@ -97,6 +100,7 @@ describe('GET /api/user/subscription', () => {
       subscriptionStatus: 'active',
       subscriptionEndsAt: pastEnd,
       stripeCustomerId: 'cus_123',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
     });
 
     const res = await GET(makeRequest());
@@ -117,6 +121,7 @@ describe('GET /api/user/subscription', () => {
       subscriptionStatus: 'trialing',
       subscriptionEndsAt: expiredTrialEnd,
       stripeCustomerId: 'cus_123',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
     });
 
     const res = await GET(makeRequest());
@@ -137,6 +142,7 @@ describe('GET /api/user/subscription', () => {
       subscriptionStatus: 'trialing',
       subscriptionEndsAt: recentTrialEnd,
       stripeCustomerId: 'cus_123',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
     });
 
     const res = await GET(makeRequest());
@@ -145,5 +151,68 @@ describe('GET /api/user/subscription', () => {
     expect(res.status).toBe(200);
     expect(body.paidTier).toBe('pro');
     expect(body.subscriptionStatus).toBe('trialing');
+  });
+
+  it('grants the free signup window to a new free user', async () => {
+    const createdAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      paidTier: 'free',
+      subscriptionStatus: 'inactive',
+      subscriptionEndsAt: null,
+      stripeCustomerId: null,
+      createdAt,
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.paidTier).toBe('free');
+    expect(body.signupTrialActive).toBe(true);
+    expect(body.signupTrialEndsAt).toBe(
+      new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+    );
+    // Pro features open during the window…
+    expect(body.proEligible).toBe(true);
+    // …but Plaid stays paid-only (each linked account costs real money).
+    expect(body.plaidEligible).toBe(false);
+  });
+
+  it('ends the free signup window after 7 days', async () => {
+    const createdAt = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      paidTier: 'free',
+      subscriptionStatus: 'inactive',
+      subscriptionEndsAt: null,
+      stripeCustomerId: null,
+      createdAt,
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(body.signupTrialActive).toBe(false);
+    expect(body.proEligible).toBe(false);
+    expect(body.plaidEligible).toBe(false);
+  });
+
+  it('does not flag the signup window for paying subscribers', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      paidTier: 'pro',
+      subscriptionStatus: 'active',
+      subscriptionEndsAt: null,
+      stripeCustomerId: 'cus_123',
+      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(body.paidTier).toBe('pro');
+    expect(body.signupTrialActive).toBe(false);
+    expect(body.plaidEligible).toBe(true);
   });
 });

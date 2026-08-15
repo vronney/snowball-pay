@@ -4,6 +4,7 @@ import { getStripe, PLANS } from '@/lib/stripe';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 import { canUsePlaid } from '@/lib/plaid';
 import { isPro } from '@/lib/gates';
+import { signupTrialEndsAt } from '@/lib/billing';
 
 const ACTIVE_STATUSES = ['active', 'trialing'];
 const TRIAL_GRACE_MS = 2 * 60 * 60 * 1000;
@@ -24,6 +25,7 @@ export async function GET(request: NextRequest) {
         subscriptionEndsAt: true,
         stripeCustomerId: true,
         stripeSubscriptionId: true,
+        createdAt: true,
       },
     });
 
@@ -54,6 +56,13 @@ export async function GET(request: NextRequest) {
     const expired = isStale(endsAt);
     const isCanceling = !expired && status === 'active' && endsAt !== null;
 
+    // The free signup window: every account's first days include Pro, no card.
+    // Only meaningful while the user isn't on a live paid subscription.
+    const paidPro = !expired && paidTier === 'pro' && ACTIVE_STATUSES.includes(status);
+    const trialEnd = user?.createdAt ? signupTrialEndsAt(user.createdAt) : null;
+    const signupTrialActive =
+      !paidPro && trialEnd !== null && trialEnd.getTime() > Date.now();
+
     return NextResponse.json({
       paidTier: expired ? 'free' : paidTier,
       subscriptionStatus: expired ? 'canceled' : status,
@@ -70,6 +79,10 @@ export async function GET(request: NextRequest) {
       // gates must use this, not paidTier — past_due keeps paidTier 'pro'
       // while isPro() (and therefore every gated route) says free.
       proEligible: await isPro(auth.user.id),
+      // Free signup window (7 days of Pro on every new account, no card).
+      // The countdown banner and post-expiry upgrade prompt key off these.
+      signupTrialEndsAt: trialEnd,
+      signupTrialActive,
     });
   } catch (error) {
     console.error('Subscription fetch error:', error);

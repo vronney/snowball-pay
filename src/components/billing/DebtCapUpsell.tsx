@@ -126,7 +126,7 @@ export default function DebtCapUpsell({
                 fontFamily: "inherit",
               }}
             >
-              Add every debt — start my free trial
+              Add every debt — upgrade to Pro
             </button>
             <button
               onClick={handleDismiss}

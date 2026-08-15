@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockPrisma, mockItemRemove, mockIsPlaidAllowed, mockIsPro } = vi.hoisted(() => ({
+const { mockPrisma, mockItemRemove, mockIsPlaidAllowed, mockHasPaidPro } = vi.hoisted(() => ({
   mockPrisma: {
     user: { findUnique: vi.fn() },
     debt: { updateMany: vi.fn() },
@@ -9,7 +9,7 @@ const { mockPrisma, mockItemRemove, mockIsPlaidAllowed, mockIsPro } = vi.hoisted
   },
   mockItemRemove: vi.fn(),
   mockIsPlaidAllowed: vi.fn(),
-  mockIsPro: vi.fn(),
+  mockHasPaidPro: vi.fn(),
 }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
@@ -21,7 +21,7 @@ vi.mock('@/lib/plaid', () => ({
 vi.mock('@/lib/plaidCrypto', () => ({
   decryptToken: vi.fn((token: string) => `decrypted-${token}`),
 }));
-vi.mock('@/lib/gates', () => ({ isPro: mockIsPro }));
+vi.mock('@/lib/gates', () => ({ hasPaidPro: mockHasPaidPro }));
 
 import { removePlaidItemsForCanceledUser } from '@/lib/plaidCleanup';
 
@@ -42,7 +42,7 @@ describe('removePlaidItemsForCanceledUser', () => {
     mockPrisma.plaidItem.delete.mockResolvedValue({});
     mockItemRemove.mockResolvedValue({});
     mockIsPlaidAllowed.mockReturnValue(false);
-    mockIsPro.mockResolvedValue(false);
+    mockHasPaidPro.mockResolvedValue(false);
   });
 
   it('revokes every item with Plaid and deletes the local rows', async () => {
@@ -79,8 +79,8 @@ describe('removePlaidItemsForCanceledUser', () => {
     expect(mockPrisma.plaidItem.delete).not.toHaveBeenCalled();
   });
 
-  it('keeps items when the user is Pro again (out-of-order webhooks)', async () => {
-    mockIsPro.mockResolvedValue(true);
+  it('keeps items when the user is paid Pro again (out-of-order webhooks)', async () => {
+    mockHasPaidPro.mockResolvedValue(true);
 
     const result = await removePlaidItemsForCanceledUser('user_1');
 

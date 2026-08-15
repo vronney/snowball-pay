@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe, getStripeProPriceId } from '@/lib/stripe';
-import { PRO_TRIAL_DAYS } from '@/lib/billing';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 import { ANALYTICS_CONSENT_KEY } from '@/lib/analyticsConsent';
@@ -68,8 +67,10 @@ export async function POST(request: NextRequest) {
         },
         expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_SESSION_TTL_MINUTES * 60,
         metadata: { userId: auth.user.id, billing: 'monthly', analyticsConsent },
+        // No Stripe trial: the free week lives on the account itself (every
+        // signup gets SIGNUP_TRIAL_DAYS of Pro, no card), so checkout charges
+        // immediately.
         subscription_data: {
-          trial_period_days: PRO_TRIAL_DAYS,
           metadata: { userId: auth.user.id, billing: 'monthly', analyticsConsent },
         },
         success_url: `${appUrl}/dashboard?upgrade=success`,

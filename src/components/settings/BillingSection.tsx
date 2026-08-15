@@ -75,6 +75,20 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
                 Canceling
               </span>
             )}
+            {!isPro && sub?.signupTrialActive && (
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "#2563eb",
+                  background: "rgba(37,99,235,0.08)",
+                  padding: "2px 8px",
+                  borderRadius: "999px",
+                }}
+              >
+                Free Pro week
+              </span>
+            )}
             {isPro && !sub?.isCanceling && sub?.subscriptionStatus === "trialing" && (
               <span
                 style={{
@@ -142,8 +156,18 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
             </p>
           ) : (
             <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
-              Upgrade to unlock Payoff Coach reviews, unlimited debts, custom priority order, and
-              deeper payoff charts.
+              {sub?.signupTrialActive && sub.signupTrialEndsAt ? (
+                <>
+                  Full Pro access is free until{" "}
+                  {new Date(sub.signupTrialEndsAt).toLocaleDateString()}. Upgrade to keep Payoff
+                  Coach reviews, unlimited debts, and custom priority order after that.
+                </>
+              ) : (
+                <>
+                  Upgrade to unlock Payoff Coach reviews, unlimited debts, custom priority order,
+                  and deeper payoff charts.
+                </>
+              )}
             </p>
           )}
         </div>

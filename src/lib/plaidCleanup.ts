@@ -14,7 +14,7 @@
 import { prisma } from '@/lib/prisma';
 import { plaidClient, logPlaidError, isPlaidAllowed } from '@/lib/plaid';
 import { decryptToken } from '@/lib/plaidCrypto';
-import { isPro } from '@/lib/gates';
+import { hasPaidPro } from '@/lib/gates';
 
 export type PlaidCleanupResult =
   | { outcome: 'removed'; removed: number; revokeErrors: number }
@@ -39,9 +39,10 @@ export async function removePlaidItemsForCanceledUser(
     // Allowlisted testers keep bank sync regardless of subscription status.
     if (isPlaidAllowed(user.email)) return { outcome: 'skipped_allowlisted' };
 
-    // Out-of-order webhook protection: if a newer subscription is already
-    // active by the time the deleted event lands, keep the links.
-    if (await isPro(userId)) return { outcome: 'skipped_still_pro' };
+    // Out-of-order webhook protection: if a newer PAID subscription is already
+    // active by the time the deleted event lands, keep the links. Same gate as
+    // canUsePlaid — the free signup window doesn't keep billable items alive.
+    if (await hasPaidPro(userId)) return { outcome: 'skipped_still_pro' };
 
     let removed = 0;
     let revokeErrors = 0;

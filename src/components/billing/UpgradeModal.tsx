@@ -5,7 +5,6 @@ import { createPortal } from "react-dom";
 import { Check, X, Zap } from "lucide-react";
 import { getErrorMessage, useStartCheckout } from "@/lib/hooks";
 import { PLANS } from "@/lib/stripe";
-import { PRO_TRIAL_DAYS } from "@/lib/billing";
 import { track, Events } from "@/lib/analytics";
 import { formatCurrency, formatCurrencyWhole } from "@/lib/utils";
 import { getUpgradeMessage, UPGRADE_MESSAGE_VERSION } from "@/lib/upgradeMessaging";
@@ -240,7 +239,7 @@ export default function UpgradeModal({ feature, interestAtStake = 0, onClose }: 
             ${monthlyPrice}
           </span>
           <span style={{ fontSize: "13px", color: "#64748b" }}>
-            /month after a {PRO_TRIAL_DAYS}-day trial
+            /month
           </span>
         </div>
 
@@ -306,7 +305,7 @@ export default function UpgradeModal({ feature, interestAtStake = 0, onClose }: 
         )}
 
         <p style={{ fontSize: "11px", color: "#94a3b8", textAlign: "center", margin: "8px 0 0" }}>
-          Cancel anytime. No charge during the trial.
+          Cancel anytime. Your debts and plan stay if you downgrade.
         </p>
       </section>
     </div>,

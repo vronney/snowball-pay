@@ -36,7 +36,7 @@ export default function CheckoutRecoveryEmail({
         </Text>
         <Text style={{ fontSize: '15px', color: '#475569', lineHeight: '1.7', margin: '0 0 22px' }}>
           You started upgrading to Pro but did not finish checkout. Your session is saved —
-          the link below reopens it exactly where you left off, free trial included.
+          the link below reopens it exactly where you left off.
         </Text>
         <Section style={{
           background: '#f8fafc',
@@ -57,7 +57,7 @@ export default function CheckoutRecoveryEmail({
           </Text>
           <Text style={{ fontSize: '14px', color: '#334155', lineHeight: '1.6', margin: 0 }}>
             Link accounts securely so balances update themselves, and keep your payoff plan
-            accurate without manual edits. The trial lets you verify it fits before paying.
+            accurate without manual edits. Cancel anytime — your debts and plan stay either way.
           </Text>
         </Section>
         <Button href={recoveryUrl} style={{

@@ -157,7 +157,7 @@ describe('POST /api/stripe/checkout', () => {
 
   // --- Checkout session shape ---
 
-  it('creates subscription session with 14-day trial and correct price', async () => {
+  it('creates subscription session with no Stripe trial and correct price', async () => {
     vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
     mockPrisma.user.findUnique.mockResolvedValue({ stripeCustomerId: 'cus_existing_456', email: 'test@example.com' });
     mockStripe.checkout.sessions.create.mockResolvedValue({ url: CHECKOUT_URL });
@@ -173,18 +173,24 @@ describe('POST /api/stripe/checkout', () => {
           billing: 'monthly',
           analyticsConsent: 'denied',
         },
-        subscription_data: expect.objectContaining({
-          trial_period_days: 14,
+        subscription_data: {
           metadata: {
             userId: 'user-1',
             billing: 'monthly',
             analyticsConsent: 'denied',
           },
-        }),
+        },
         success_url: 'http://localhost:3000/dashboard?upgrade=success',
         cancel_url: 'http://localhost:3000/dashboard?upgrade=canceled',
       }),
     );
+
+    // The free week lives on the account (signup window), not on Stripe —
+    // checkout must charge immediately.
+    const sessionArgs = mockStripe.checkout.sessions.create.mock.calls[0][0] as {
+      subscription_data: Record<string, unknown>;
+    };
+    expect(sessionArgs.subscription_data.trial_period_days).toBeUndefined();
   });
 
   it('enables abandoned-checkout recovery with a ~2 hour session expiry', async () => {
