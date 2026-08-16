@@ -24,6 +24,7 @@ describe('upgrade messaging', () => {
     ['Intelligence', 'intelligence'],
     ['Custom priority order', 'custom_priority'],
     ['Export payoff plan', 'export_plan'],
+    ['Trial ended', 'trial_ended'],
   ])('maps %s to the %s value message', (feature, expectedId) => {
     expect(getUpgradeMessage(feature).id).toBe(expectedId);
   });

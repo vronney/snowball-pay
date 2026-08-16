@@ -106,6 +106,18 @@ const MESSAGES: Record<string, UpgradeMessage> = {
     ],
     monthlyCta: 'Upgrade and export my plan',
   },
+  trial_ended: {
+    id: 'trial_ended',
+    headline: 'Your free week of Pro just ended',
+    description:
+      'You had the full toolkit all week — coach notes, what-if scenarios, every debt in one plan. If it helped, keep it. Your debts and plan stay safe on Free either way.',
+    benefits: [
+      'Keep coach notes and monthly check-ins',
+      'Keep what-if scenarios and forecasts',
+      'Keep every debt in one payoff plan',
+    ],
+    monthlyCta: 'Keep Pro',
+  },
   general: {
     id: 'general',
     headline: 'Keep your payoff plan working month after month',
@@ -135,6 +147,7 @@ export function getUpgradeMessage(feature?: string): UpgradeMessage {
   if (normalized.includes('what-if')) return MESSAGES.what_if;
   if (normalized.includes('coach')) return MESSAGES.coach;
   if (normalized.includes('intelligence')) return MESSAGES.intelligence;
+  if (normalized.includes('trial ended')) return MESSAGES.trial_ended;
   if (normalized.includes('custom priority')) return MESSAGES.custom_priority;
   if (normalized.includes('export')) return MESSAGES.export_plan;
   return MESSAGES.general;

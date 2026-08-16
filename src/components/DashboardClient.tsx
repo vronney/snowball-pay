@@ -33,6 +33,7 @@ import { calculateMinimumsOnlyResult, calculatePlanMetrics } from "@/lib/payoffP
 import { shouldStartOnboarding } from "@/lib/onboardingGate";
 import TrialCountdownBanner from "@/components/dashboard/TrialCountdownBanner";
 import { useSubscription } from "@/lib/hooks";
+import { POST_TRIAL_PROMPT_DAYS } from "@/lib/billing";
 import { track, Events } from "@/lib/analytics";
 import { useIdleTimeout } from "@/lib/hooks/useIdleTimeout";
 import { runLogoutClientCleanup } from "@/lib/logout-client";
@@ -155,6 +156,27 @@ export default function DashboardClient({
     });
   }, []);
 
+  // One-time pop-up when the account's free Pro week has just ended: put the
+  // subscribe decision in front of the user directly, then let the banner and
+  // feature gates take over. Keyed in localStorage by the trial-end date so it
+  // fires once per account, not on every visit.
+  const { data: subData } = useSubscription();
+  useEffect(() => {
+    if (!subData) return;
+    if (subData.paidTier === "pro" || subData.subscriptionStatus === "trialing") return;
+    if (subData.signupTrialActive || !subData.signupTrialEndsAt) return;
+    const sinceEnd = Date.now() - new Date(subData.signupTrialEndsAt).getTime();
+    if (sinceEnd < 0 || sinceEnd > POST_TRIAL_PROMPT_DAYS * 24 * 60 * 60 * 1000) return;
+    try {
+      const key = `sp_trial_end_prompt:${subData.signupTrialEndsAt}`;
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, "1");
+    } catch {
+      // Private mode etc. — still show the prompt; worst case it repeats.
+    }
+    setUpgradeModal({ open: true, feature: "Trial ended" });
+  }, [subData]);
+
   // Onboarding committed what the free tier allows but had to skip some
   // calculator debts — surface the upgrade path instead of staying silent
   // about the debts that didn't make it in.
@@ -178,7 +200,6 @@ export default function DashboardClient({
   const today = new Date();
   const { data: paymentsData } = usePaymentRecords(today.getFullYear(), today.getMonth());
   const markPaid = useMarkPaid();
-  const { data: subData } = useSubscription();
   // Real gate: plaidEligible is the server's canUsePlaid() verdict (allowlist
   // OR active Pro). Using it instead of paidTier keeps the header button
   // honest for e.g. past_due subs, whose paidTier stays "pro" while every

@@ -10,9 +10,8 @@ import {
 } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import { shouldShowLateTrialNotice } from "@/lib/upgradeMessaging";
+import { POST_TRIAL_PROMPT_DAYS } from "@/lib/billing";
 
-/** How long after the free week ends the upgrade prompt keeps showing. */
-const POST_TRIAL_PROMPT_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Returns whole days remaining until a future date string (0 when past). */

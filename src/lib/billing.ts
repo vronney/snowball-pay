@@ -3,6 +3,10 @@
 // change and no backfill; accounts older than the window are simply past it.
 export const SIGNUP_TRIAL_DAYS = 7;
 
+// How long after the free week ends the dashboard keeps actively prompting
+// (banner + one-time modal). Past this, only contextual feature gates upsell.
+export const POST_TRIAL_PROMPT_DAYS = 7;
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** When the account's free Pro window ends (createdAt + SIGNUP_TRIAL_DAYS). */
