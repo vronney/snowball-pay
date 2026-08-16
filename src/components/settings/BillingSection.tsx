@@ -80,8 +80,8 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
                 style={{
                   fontSize: "11px",
                   fontWeight: 700,
-                  color: "#2563eb",
-                  background: "rgba(37,99,235,0.08)",
+                  color: "#0f766e",
+                  background: "rgba(15,118,110,0.1)",
                   padding: "2px 8px",
                   borderRadius: "999px",
                 }}

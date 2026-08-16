@@ -10,7 +10,7 @@ import {
 } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import { shouldShowLateTrialNotice } from "@/lib/upgradeMessaging";
-import { POST_TRIAL_PROMPT_DAYS } from "@/lib/billing";
+import { isInPostTrialPromptWindow } from "@/lib/billing";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -199,9 +199,7 @@ export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }:
   // --- Free week just ended: prompt to subscribe for a limited window, then
   // stop nagging (feature-level gates keep offering upgrades contextually). ---
   if (sub.signupTrialEndsAt) {
-    const endMs = new Date(sub.signupTrialEndsAt).getTime();
-    const sinceEnd = Date.now() - endMs;
-    if (sinceEnd >= 0 && sinceEnd < POST_TRIAL_PROMPT_DAYS * DAY_MS) {
+    if (isInPostTrialPromptWindow(sub.signupTrialEndsAt)) {
       return (
         <BannerShell
           urgent

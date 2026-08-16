@@ -76,17 +76,26 @@ describe('gates', () => {
   });
 
   it('keeps the signup window open for a user who canceled a paid sub in week one', async () => {
-    // Subscribed on day 1, canceled on day 2 — the account's free week still
-    // covers Pro features, but not metered (paid-only) ones.
+    // Subscribed and canceled within the first day — the account's free week
+    // still covers Pro features, but not metered (paid-only) ones.
     mockPrisma.user.findUnique.mockResolvedValue({
       paidTier: 'free',
       subscriptionStatus: 'canceled',
-      subscriptionEndsAt: daysAgo(1),
-      createdAt: daysAgo(3),
+      subscriptionEndsAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+      createdAt: daysAgo(1),
     });
 
     expect(await getUserTier('user-1')).toBe('pro');
     expect(await hasPaidPro('user-1')).toBe(false);
+  });
+
+  it('gives no window to accounts that predate the feature launch', async () => {
+    // Created before SIGNUP_TRIAL_LAUNCH: never promised a free week, so they
+    // neither get one nor see "your free week ended" messaging.
+    mockPrisma.user.findUnique.mockResolvedValue(freeUser(new Date('2026-08-10T00:00:00Z')));
+
+    expect(await getUserTier('user-1')).toBe('free');
+    expect(await isPro('user-1')).toBe(false);
   });
 
   it('defaults to free when no user row exists', async () => {

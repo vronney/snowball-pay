@@ -33,7 +33,10 @@ const plans = [
     badge: `First ${SIGNUP_TRIAL_DAYS} days free`,
     featured: true,
     cta: `Start ${SIGNUP_TRIAL_DAYS} Days Free`,
-    href: "/auth/login?returnTo=/dashboard&screen_hint=signup",
+    // Carries Pro intent through signup. Brand-new accounts land in their
+    // free week and checkout is NOT auto-started (DashboardClient skips it
+    // while signupTrialActive); accounts past the week go straight to Stripe.
+    href: "/auth/login?returnTo=%2Fdashboard%3Fcheckout%3Dpro&screen_hint=signup",
     analyticsSource: "pricing_pro",
     features: [
       "Unlimited debts",

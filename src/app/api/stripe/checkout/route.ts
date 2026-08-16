@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe, getStripeProPriceId } from '@/lib/stripe';
+import { signupTrialDaysRemaining } from '@/lib/billing';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 import { ANALYTICS_CONSENT_KEY } from '@/lib/analyticsConsent';
@@ -33,10 +34,11 @@ export async function POST(request: NextRequest) {
     // we recreate it and retry checkout once.
     const user = await prisma.user.findUnique({
       where: { id: auth.user.id },
-      select: { stripeCustomerId: true, email: true },
+      select: { stripeCustomerId: true, email: true, createdAt: true },
     });
 
     let customerId = user?.stripeCustomerId;
+    const freeDaysLeft = user?.createdAt ? signupTrialDaysRemaining(user.createdAt) : 0;
     const stripe = getStripe();
     const priceId = getStripeProPriceId();
     const userEmail = user?.email ?? auth.user.email;
@@ -67,10 +69,12 @@ export async function POST(request: NextRequest) {
         },
         expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_SESSION_TTL_MINUTES * 60,
         metadata: { userId: auth.user.id, billing: 'monthly', analyticsConsent },
-        // No Stripe trial: the free week lives on the account itself (every
-        // signup gets SIGNUP_TRIAL_DAYS of Pro, no card), so checkout charges
-        // immediately.
+        // The free week lives on the account (every signup gets
+        // SIGNUP_TRIAL_DAYS of Pro, no card). Subscribing MID-week keeps the
+        // promised days: billing starts when the free week ends. Past the
+        // week, there is no Stripe trial — checkout charges immediately.
         subscription_data: {
+          ...(freeDaysLeft > 0 ? { trial_period_days: freeDaysLeft } : {}),
           metadata: { userId: auth.user.id, billing: 'monthly', analyticsConsent },
         },
         success_url: `${appUrl}/dashboard?upgrade=success`,

@@ -159,7 +159,12 @@ describe('POST /api/stripe/checkout', () => {
 
   it('creates subscription session with no Stripe trial and correct price', async () => {
     vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
-    mockPrisma.user.findUnique.mockResolvedValue({ stripeCustomerId: 'cus_existing_456', email: 'test@example.com' });
+    // Account well past its free signup week — checkout charges immediately.
+    mockPrisma.user.findUnique.mockResolvedValue({
+      stripeCustomerId: 'cus_existing_456',
+      email: 'test@example.com',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    });
     mockStripe.checkout.sessions.create.mockResolvedValue({ url: CHECKOUT_URL });
 
     await POST(makeRequest());
@@ -191,6 +196,26 @@ describe('POST /api/stripe/checkout', () => {
       subscription_data: Record<string, unknown>;
     };
     expect(sessionArgs.subscription_data.trial_period_days).toBeUndefined();
+  });
+
+  it('aligns a mid-free-week subscription so billing starts when the week ends', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    // Signed up 1 day ago → 6 whole free days remain; subscribing now must
+    // not forfeit them, so Stripe gets trial_period_days = 6.
+    mockPrisma.user.findUnique.mockResolvedValue({
+      stripeCustomerId: 'cus_existing_456',
+      email: 'test@example.com',
+      createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    });
+    mockStripe.checkout.sessions.create.mockResolvedValue({ url: CHECKOUT_URL });
+
+    await POST(makeRequest());
+
+    expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subscription_data: expect.objectContaining({ trial_period_days: 6 }),
+      }),
+    );
   });
 
   it('enables abandoned-checkout recovery with a ~2 hour session expiry', async () => {

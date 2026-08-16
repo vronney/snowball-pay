@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getStripe, PLANS } from '@/lib/stripe';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 import { canUsePlaid } from '@/lib/plaid';
-import { isPro } from '@/lib/gates';
+import { isPro, hasPaidPro } from '@/lib/gates';
 import { signupTrialEndsAt } from '@/lib/billing';
 
 const ACTIVE_STATUSES = ['active', 'trialing'];
@@ -57,8 +57,10 @@ export async function GET(request: NextRequest) {
     const isCanceling = !expired && status === 'active' && endsAt !== null;
 
     // The free signup window: every account's first days include Pro, no card.
-    // Only meaningful while the user isn't on a live paid subscription.
-    const paidPro = !expired && paidTier === 'pro' && ACTIVE_STATUSES.includes(status);
+    // Only meaningful while the user isn't on a live paid subscription —
+    // hasPaidPro() is the same verdict the gates enforce (it re-reads the row,
+    // which the stale-repair above has already patched if it ran).
+    const paidPro = await hasPaidPro(auth.user.id);
     const trialEnd = user?.createdAt ? signupTrialEndsAt(user.createdAt) : null;
     const signupTrialActive =
       !paidPro && trialEnd !== null && trialEnd.getTime() > Date.now();

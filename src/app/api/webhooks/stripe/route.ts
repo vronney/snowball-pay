@@ -106,8 +106,8 @@ export async function POST(request: NextRequest) {
           },
         });
         // Revoke the ex-subscriber's Plaid items so dormant links stop
-        // billing. Runs after the downgrade write (its isPro check must see
-        // 'free'); logs and swallows failures internally.
+        // billing. Runs after the downgrade write (its hasPaidPro check must
+        // see the downgraded row); logs and swallows failures internally.
         await removePlaidItemsForCanceledUser(userId);
         break;
       }
