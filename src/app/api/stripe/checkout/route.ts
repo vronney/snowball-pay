@@ -40,7 +40,10 @@ export async function POST(request: NextRequest) {
 
     let customerId = user?.stripeCustomerId;
     // Grant-anchored (not createdAt) so a deleted-and-recreated account can't
-    // mint a fresh Stripe trial either.
+    // mint a fresh Stripe trial either. Checkout Sessions only accept WHOLE
+    // trial days (trial_period_days — there is no trial_end field), so the
+    // fractional remainder is deliberately rounded UP: a mid-trial subscriber
+    // may get up to 23h of bonus trial, never less than promised.
     const signupTrialEnd = await getSignupTrialEnd(auth.user.id);
     const freeDaysLeft = signupTrialEnd ? wholeDaysRemaining(signupTrialEnd) : 0;
     const stripe = getStripe();

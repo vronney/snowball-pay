@@ -1,7 +1,8 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { PLANS, type PaidTier } from '@/lib/stripe';
-import { normalizeTrialEmail, signupTrialEndsAt, SIGNUP_TRIAL_LAUNCH } from '@/lib/billing';
+import { signupTrialEndsAt, SIGNUP_TRIAL_LAUNCH } from '@/lib/billing';
+import { trialGrantKey } from '@/lib/trialGrantKey';
 
 export const FREE_DEBT_LIMIT = PLANS.free.debtLimit;
 
@@ -68,7 +69,7 @@ async function resolveSignupTrialEnd(user: BillingUser): Promise<Date | null> {
   let anchor = user.createdAt;
   try {
     const grant = await prisma.trialGrant.findUnique({
-      where: { email: normalizeTrialEmail(user.email) },
+      where: { emailHash: trialGrantKey(user.email) },
       select: { grantedAt: true },
     });
     if (grant) anchor = grant.grantedAt;

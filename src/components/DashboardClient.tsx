@@ -176,6 +176,22 @@ export default function DashboardClient({
     setUpgradeModal({ open: true, feature: "Trial ended" });
   }, [subData]);
 
+  // A dashboard left open across the trial boundary would otherwise keep the
+  // cached "trial active" state forever (staleTime only marks data stale — it
+  // doesn't schedule a refetch), so the banner and the expiry modal would lag
+  // while the server has already reverted the account to Free. Refetch right
+  // after the reported end time; the 14-day window fits comfortably inside
+  // setTimeout's 32-bit range.
+  useEffect(() => {
+    if (!subData?.signupTrialActive || !subData.signupTrialEndsAt) return;
+    const msUntilEnd = new Date(subData.signupTrialEndsAt).getTime() - Date.now() + 30_000;
+    if (msUntilEnd <= 0) return;
+    const timer = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ["subscription"] });
+    }, msUntilEnd);
+    return () => clearTimeout(timer);
+  }, [subData?.signupTrialActive, subData?.signupTrialEndsAt, queryClient]);
+
   // Deep-linked Pro intent (?checkout=pro from the pricing page, emails, or
   // legacy links): start Stripe checkout once the subscription resolves —
   // unless the free signup trial already covers Pro (brand-new signups) or the

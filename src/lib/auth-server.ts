@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { captureServerEvent } from '@/lib/analytics-server';
 import { Events } from '@/lib/analyticsEvents';
 import { ANALYTICS_CONSENT_KEY } from '@/lib/analyticsConsent';
-import { normalizeTrialEmail } from '@/lib/billing';
+import { trialGrantKey } from '@/lib/trialGrantKey';
 
 /**
  * Marks a brand-new user row for the account_created capture. The upsert
@@ -92,16 +92,18 @@ export async function ensureUserProvisioned(sessionUser: {
     const isNew = Date.now() - user.createdAt.getTime() < NEW_ACCOUNT_WINDOW_MS;
     if (isNew) {
       await captureAccountCreated(user.id);
-      // Durable free-trial marker, keyed by email with NO relation to User so
-      // it survives account deletion — deleting and re-provisioning cannot
-      // restart the signup Pro window. update:{} keeps the ORIGINAL grantedAt
-      // if this email was ever provisioned before.
+      // Durable free-trial marker, keyed by an email digest with NO relation
+      // to User so it survives account deletion — deleting and re-provisioning
+      // cannot restart the signup Pro window. update:{} keeps the ORIGINAL
+      // grantedAt if this identity was ever provisioned before. The deletion
+      // route writes the same marker for accounts that predate this code, so
+      // pre-existing users are covered at the moment it matters.
       try {
-        const grantEmail = normalizeTrialEmail(user.email);
+        const emailHash = trialGrantKey(user.email);
         await prisma.trialGrant.upsert({
-          where: { email: grantEmail },
+          where: { emailHash },
           update: {},
-          create: { email: grantEmail, grantedAt: user.createdAt },
+          create: { emailHash, grantedAt: user.createdAt },
         });
       } catch {
         // Never fail provisioning over the marker (e.g. table not pushed yet);

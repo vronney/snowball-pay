@@ -6,6 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 import { getStripe } from '@/lib/stripe';
 import { deleteAuth0User } from '@/lib/auth0-management';
+import { trialGrantKey } from '@/lib/trialGrantKey';
 import { plaidClient } from '@/lib/plaid';
 import { decryptToken } from '@/lib/plaidCrypto';
 import AccountDeletionEmail from '@/emails/AccountDeletionEmail';
@@ -92,6 +93,7 @@ export async function DELETE(request: NextRequest) {
         email: true,
         name: true,
         auth0Id: true,
+        createdAt: true,
         stripeSubscriptionId: true,
         subscriptionStatus: true,
       },
@@ -110,6 +112,17 @@ export async function DELETE(request: NextRequest) {
     await revokePlaidItems(userId);
 
     await prisma.$transaction(async (tx) => {
+      // Free-trial tombstone BEFORE the delete, anchored to the ORIGINAL
+      // createdAt. Provisioning only writes grants for rows created after the
+      // feature shipped, so this is what stops accounts that predate it from
+      // resetting their signup Pro window via delete + re-signup. Stores only
+      // a keyed digest — no identifying data survives the deletion.
+      const emailHash = trialGrantKey(user.email);
+      await tx.trialGrant.upsert({
+        where: { emailHash },
+        update: {},
+        create: { emailHash, grantedAt: user.createdAt },
+      });
       await tx.paymentRecord.deleteMany({ where: { userId } });
       await tx.balanceSnapshot.deleteMany({ where: { userId } });
       await tx.aiRecommendationCache.deleteMany({ where: { userId } });
