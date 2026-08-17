@@ -9,6 +9,7 @@ import {
   useStartCheckout,
 } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
+import { formatCurrencyWhole } from "@/lib/utils";
 import { shouldShowLateTrialNotice } from "@/lib/upgradeMessaging";
 import { isInPostTrialPromptWindow } from "@/lib/billing";
 
@@ -151,7 +152,7 @@ export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }:
   // messaging.
   if (sub.paidTier === "pro") return null;
 
-  const price = typeof sub.monthlyPrice === "number" ? `$${sub.monthlyPrice}/mo` : null;
+  const price = typeof sub.monthlyPrice === "number" ? `${formatCurrencyWhole(sub.monthlyPrice)}/mo` : null;
   const checkoutError = checkout.isError
     ? getErrorMessage(checkout.error, "Could not start checkout. Please try again.")
     : null;
@@ -183,12 +184,9 @@ export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }:
       <BannerShell
         urgent={days <= 2}
         label={label}
-        detail={
-          (hasLinkedBankDebt
-            ? "After that, coach notes, what-if scenarios, and bank sync pause. "
-            : "After that, coach notes and what-if scenarios pause. ") +
-          "Your debts and plan stay."
-        }
+        // Bank sync is paid-only and never part of the free window, so the
+        // signup-trial messaging must not claim it will "pause" at expiry.
+        detail="After that, coach notes and what-if scenarios pause. Your debts and plan stay."
         error={checkoutError}
         onDismiss={() => setDismissed(true)}
         cta={upgradeCta(price ? `Keep Pro — ${price}` : "Keep Pro", "signup_trial_banner")}

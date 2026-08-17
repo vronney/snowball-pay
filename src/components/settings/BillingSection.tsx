@@ -69,7 +69,7 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
                   color: "#ef4444",
                   background: "rgba(239,68,68,0.08)",
                   padding: "2px 8px",
-                  borderRadius: "999px",
+                  borderRadius: "6px",
                 }}
               >
                 Canceling
@@ -83,7 +83,7 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
                   color: "#0f766e",
                   background: "rgba(15,118,110,0.1)",
                   padding: "2px 8px",
-                  borderRadius: "999px",
+                  borderRadius: "6px",
                 }}
               >
                 Free Pro trial
@@ -97,7 +97,7 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
                   color: "#d97706",
                   background: "rgba(217,119,6,0.1)",
                   padding: "2px 8px",
-                  borderRadius: "999px",
+                  borderRadius: "6px",
                 }}
               >
                 Trial
@@ -111,7 +111,7 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
                   color: '#0f766e',
                   background: 'rgba(15,118,110,0.1)',
                   padding: "2px 8px",
-                  borderRadius: "999px",
+                  borderRadius: "6px",
                 }}
               >
                 Active

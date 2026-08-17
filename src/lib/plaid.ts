@@ -76,15 +76,25 @@ export function isPlaidAllowed(email: string | null | undefined): boolean {
  * Plaid call costs real money (see the Contracts & Rates note — $0.20 per
  * connected account/month), so access must be tied to payment once this
  * leaves the allowlist-only testing stage. Deliberately hasPaidPro, not
- * isPro: the free 7-day signup window grants Pro features but has no card
- * on file, and must not open metered Plaid spend.
+ * isPro: the free signup window grants Pro features but has no card on
+ * file, and must not open metered Plaid spend.
+ *
+ * plaidAccessAllowed is the same rule for callers that already hold a paid
+ * verdict (e.g. the subscription endpoint's single-read BillingVerdict) —
+ * canUsePlaid delegates to it so the rule has one definition.
  */
+export function plaidAccessAllowed(
+  email: string | null | undefined,
+  paidPro: boolean
+): boolean {
+  return isPlaidAllowed(email) || paidPro;
+}
+
 export async function canUsePlaid(
   userId: string,
   email: string | null | undefined
 ): Promise<boolean> {
-  if (isPlaidAllowed(email)) return true;
-  return hasPaidPro(userId);
+  return plaidAccessAllowed(email, await hasPaidPro(userId));
 }
 
 /**

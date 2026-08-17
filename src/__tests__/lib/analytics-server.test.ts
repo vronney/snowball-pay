@@ -90,4 +90,20 @@ describe('server analytics', () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('allows server analytics outside production when explicitly enabled', async () => {
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_KEY', 'phc_test');
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    vi.stubEnv('ANALYTICS_ALLOW_DEV', 'true');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await captureServerEvent({
+      consent: 'granted',
+      distinctId: 'user-1',
+      event: 'subscription_started',
+    });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
 });

@@ -56,6 +56,7 @@ describe('analytics client', () => {
     track('plan_generated');
 
     expect(posthog.init).toHaveBeenCalledTimes(1);
+    expect(posthog.capture).toHaveBeenCalledWith('plan_generated', undefined);
   });
 
   it('initialises before events and identity, and only initialises once', async () => {

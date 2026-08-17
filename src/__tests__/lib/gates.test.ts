@@ -58,6 +58,7 @@ describe('gates', () => {
 
   it('treats an active paid subscription as pro regardless of account age', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
+      email: 'person@example.com',
       paidTier: 'pro',
       subscriptionStatus: 'active',
       subscriptionEndsAt: null,
@@ -70,6 +71,7 @@ describe('gates', () => {
 
   it('treats a canceled subscription past its end date as free after the window', async () => {
     mockPrisma.user.findUnique.mockResolvedValue({
+      email: 'person@example.com',
       paidTier: 'pro',
       subscriptionStatus: 'canceled',
       subscriptionEndsAt: daysAgo(1),
@@ -84,6 +86,7 @@ describe('gates', () => {
     // Subscribed and canceled within the first day — the account's free week
     // still covers Pro features, but not metered (paid-only) ones.
     mockPrisma.user.findUnique.mockResolvedValue({
+      email: 'person@example.com',
       paidTier: 'free',
       subscriptionStatus: 'canceled',
       subscriptionEndsAt: new Date(Date.now() - 12 * 60 * 60 * 1000),

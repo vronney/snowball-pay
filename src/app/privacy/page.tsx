@@ -366,8 +366,9 @@ export default function PrivacyPolicyPage() {
               If you delete your account, all associated data — including debts, income, expenses, payoff
               plans, balance snapshots, uploaded document records, and AI recommendation caches — is
               permanently deleted from our production database within <strong>30 days</strong>. To prevent
-              repeated free-trial signups, we retain a one-way cryptographic hash of your email address
-              (which cannot be reversed to identify you) and the date your free trial was granted.
+              repeated free-trial signups, we retain a pseudonymous identifier derived from your email
+              address via a one-way keyed hash, together with the date your free trial was granted —
+              this record contains no readable personal information.
             </li>
             <li>
               <strong>Linked-account (Plaid) data:</strong> Retained only while the account stays linked.

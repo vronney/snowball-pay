@@ -161,17 +161,22 @@ export default function DashboardClient({
   // feature gates take over. Keyed in localStorage by the trial-end date so it
   // fires once per account, not on every visit.
   const { data: subData } = useSubscription();
+  const trialPromptShownRef = useRef<string | null>(null);
   useEffect(() => {
     if (!subData) return;
     if (subData.paidTier === "pro" || subData.subscriptionStatus === "trialing") return;
     if (subData.signupTrialActive || !subData.signupTrialEndsAt) return;
     if (!isInPostTrialPromptWindow(subData.signupTrialEndsAt)) return;
+    const key = `sp_trial_end_prompt:${subData.signupTrialEndsAt}`;
+    // In-memory guard first: when localStorage is unavailable (private mode),
+    // this still keeps refetches within the session from reopening the modal.
+    if (trialPromptShownRef.current === key) return;
+    trialPromptShownRef.current = key;
     try {
-      const key = `sp_trial_end_prompt:${subData.signupTrialEndsAt}`;
       if (localStorage.getItem(key)) return;
       localStorage.setItem(key, "1");
     } catch {
-      // Private mode etc. — still show the prompt; worst case it repeats.
+      // Storage unavailable — the ref above bounds repeats to one per session.
     }
     setUpgradeModal({ open: true, feature: "Trial ended" });
   }, [subData]);

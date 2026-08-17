@@ -6,6 +6,9 @@ const { mockPrisma } = vi.hoisted(() => {
     user: {
       findUnique: vi.fn(),
     },
+    trialGrant: {
+      findUnique: vi.fn(),
+    },
   };
   return { mockPrisma };
 });
@@ -39,6 +42,7 @@ function makeRequest() {
 describe('GET /api/user/subscription', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.trialGrant.findUnique.mockResolvedValue(null);
     delete process.env.PLAID_ALLOWED_EMAILS;
   });
 
@@ -157,6 +161,7 @@ describe('GET /api/user/subscription', () => {
     const createdAt = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
     vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
     mockPrisma.user.findUnique.mockResolvedValue({
+      email: 'test@example.com',
       paidTier: 'free',
       subscriptionStatus: 'inactive',
       subscriptionEndsAt: null,
@@ -214,5 +219,28 @@ describe('GET /api/user/subscription', () => {
     expect(body.paidTier).toBe('pro');
     expect(body.signupTrialActive).toBe(false);
     expect(body.plaidEligible).toBe(true);
+  });
+
+  it('anchors the window to the trial grant at the API boundary', async () => {
+    // Fresh row (deleted + re-provisioned yesterday) but a durable grant from
+    // 40 days ago: the API must report the trial as consumed, not restarted.
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      email: 'test@example.com',
+      paidTier: 'free',
+      subscriptionStatus: 'inactive',
+      subscriptionEndsAt: null,
+      stripeCustomerId: null,
+      createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+    });
+    mockPrisma.trialGrant.findUnique.mockResolvedValue({
+      grantedAt: new Date(Date.now() - 40 * 24 * 60 * 60 * 1000),
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(body.signupTrialActive).toBe(false);
+    expect(body.proEligible).toBe(false);
   });
 });

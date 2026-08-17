@@ -67,16 +67,48 @@ async function resolveSignupTrialEnd(user: BillingUser): Promise<Date | null> {
   if (user.createdAt.getTime() < SIGNUP_TRIAL_LAUNCH.getTime()) return null;
 
   let anchor = user.createdAt;
-  try {
-    const grant = await prisma.trialGrant.findUnique({
-      where: { emailHash: trialGrantKey(user.email) },
-      select: { grantedAt: true },
-    });
-    if (grant) anchor = grant.grantedAt;
-  } catch {
-    // trial_grants not deployed yet (db push pending) — fall back to createdAt.
+  if (typeof user.email === 'string' && user.email) {
+    const emailHash = trialGrantKey(user.email);
+    try {
+      const grant = await prisma.trialGrant.findUnique({
+        where: { emailHash },
+        select: { grantedAt: true },
+      });
+      if (grant) anchor = grant.grantedAt;
+    } catch (error) {
+      // trial_grants not deployed yet (db push pending) or a transient read
+      // failure — fall back to createdAt, but say so: a persistently failing
+      // lookup silently weakens the delete-and-recreate protection.
+      console.error('[gates] TrialGrant lookup failed; falling back to createdAt', error);
+    }
   }
   return signupTrialEndsAt(anchor);
+}
+
+/**
+ * Every billing verdict a caller needs from ONE user read + one grant read.
+ * The subscription endpoint is hot (post-checkout polling, several client
+ * consumers), and calling isPro / hasPaidPro / canUsePlaid individually
+ * re-reads the same row each time.
+ */
+export interface BillingVerdict {
+  paidPro: boolean;
+  proEligible: boolean;
+  signupTrialEndsAt: Date | null;
+}
+
+export async function resolveBillingVerdict(userId: string): Promise<BillingVerdict> {
+  if (forceProInDev()) {
+    return { paidPro: true, proEligible: true, signupTrialEndsAt: null };
+  }
+  const user = await fetchBillingUser(userId);
+  if (!user) return { paidPro: false, proEligible: false, signupTrialEndsAt: null };
+
+  const paidPro = hasActiveSubscription(user);
+  const signupTrialEndsAt = await resolveSignupTrialEnd(user);
+  const trialActive =
+    signupTrialEndsAt !== null && signupTrialEndsAt.getTime() > Date.now();
+  return { paidPro, proEligible: paidPro || trialActive, signupTrialEndsAt };
 }
 
 /**

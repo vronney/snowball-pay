@@ -105,9 +105,12 @@ export async function ensureUserProvisioned(sessionUser: {
           update: {},
           create: { emailHash, grantedAt: user.createdAt },
         });
-      } catch {
+      } catch (error) {
         // Never fail provisioning over the marker (e.g. table not pushed yet);
-        // gates fall back to createdAt until it exists.
+        // gates fall back to createdAt until it exists, and the account-
+        // deletion route re-writes the marker at the moment it matters. Log
+        // it so a persistently failing write is visible, not silent.
+        console.error('[provisioning] TrialGrant upsert failed', error);
       }
     }
     return { id: user.id, email: user.email, isNew };
