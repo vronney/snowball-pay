@@ -19,6 +19,8 @@ describe('analytics client', () => {
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_KEY', 'phc_test');
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_HOST', 'https://analytics.example.com');
     vi.stubGlobal('window', {
+      // The internal-host guard only lets the production site emit analytics.
+      location: { hostname: 'getsnowballpay.com' },
       localStorage: {
         getItem: vi.fn(() => 'granted'),
       },
@@ -28,6 +30,33 @@ describe('analytics client', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
+  });
+
+  it('emits nothing from internal hosts (localhost, previews) without the dev override', async () => {
+    vi.stubGlobal('window', {
+      location: { hostname: 'localhost' },
+      localStorage: { getItem: vi.fn(() => 'granted') },
+    });
+    const { track } = await import('@/lib/analytics');
+
+    track('plan_generated');
+
+    expect(posthog.init).not.toHaveBeenCalled();
+    expect(posthog.capture).not.toHaveBeenCalled();
+  });
+
+  it('lets internal hosts emit when NEXT_PUBLIC_ANALYTICS_ALLOW_DEV is set', async () => {
+    vi.stubEnv('NEXT_PUBLIC_ANALYTICS_ALLOW_DEV', 'true');
+    vi.stubGlobal('window', {
+      location: { hostname: 'localhost' },
+      localStorage: { getItem: vi.fn(() => 'granted') },
+    });
+    const { track } = await import('@/lib/analytics');
+
+    track('plan_generated');
+
+    expect(posthog.init).toHaveBeenCalledTimes(1);
+    expect(posthog.capture).toHaveBeenCalledWith('plan_generated', undefined);
   });
 
   it('initialises before events and identity, and only initialises once', async () => {
@@ -73,6 +102,7 @@ describe('analytics client', () => {
 
   it('captures cookieless anonymous events before a consent choice', async () => {
     vi.stubGlobal('window', {
+      location: { hostname: 'getsnowballpay.com' },
       localStorage: {
         getItem: vi.fn(() => null),
       },
@@ -96,6 +126,7 @@ describe('analytics client', () => {
   it('upgrades the anonymous client in place when consent is granted', async () => {
     let consent: string | null = null;
     vi.stubGlobal('window', {
+      location: { hostname: 'getsnowballpay.com' },
       localStorage: {
         getItem: vi.fn(() => consent),
       },
@@ -116,6 +147,7 @@ describe('analytics client', () => {
 
   it('keeps analytics disabled after consent is denied', async () => {
     vi.stubGlobal('window', {
+      location: { hostname: 'getsnowballpay.com' },
       localStorage: {
         getItem: vi.fn(() => 'denied'),
       },
@@ -133,6 +165,7 @@ describe('analytics client', () => {
   it('opts back in when a visitor grants consent after previously revoking it', async () => {
     let consent = 'granted';
     vi.stubGlobal('window', {
+      location: { hostname: 'getsnowballpay.com' },
       localStorage: {
         getItem: vi.fn(() => consent),
       },

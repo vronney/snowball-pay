@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCompleteOnboarding,
+  useSubscription,
   type OnboardingCompletePayload,
   type OnboardingDebtPayload,
 } from "@/lib/hooks";
@@ -553,6 +554,10 @@ export function OnboardingWizard({
   const router = useRouter();
   const searchParams = useSearchParams();
   const completeOnboarding = useCompleteOnboarding();
+  // Drives the debt-cap notice: during the free signup week (and for paying
+  // Pro) every calculator debt is committed, so the "first 5 only" warning
+  // renders solely when the server verdict is a resolved free tier.
+  const { data: subscription } = useSubscription();
 
   const [step, setStep] = useState(0);
   const [state, setState] = useState<StepState>(INITIAL_STATE);
@@ -1065,7 +1070,7 @@ export function OnboardingWizard({
               </ul>
             </div>
 
-            {calcDraft.debts.length > FREE_DEBT_LIMIT && (
+            {calcDraft.debts.length > FREE_DEBT_LIMIT && subscription?.proEligible === false && (
               <p
                 className="rounded-lg px-3 py-2 text-xs mb-3"
                 style={{

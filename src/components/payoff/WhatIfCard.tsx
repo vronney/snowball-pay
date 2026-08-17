@@ -4,7 +4,6 @@ import { useMemo } from "react";
 import { useSubscription } from "@/lib/hooks";
 import { upgradeEvents } from "@/lib/upgradeEvents";
 import { Events, track } from "@/lib/analytics";
-import { PRO_TRIAL_DAYS } from "@/lib/billing";
 import { Lock, Zap as ZapIcon } from "lucide-react";
 import { type Debt, type Income, type Expense } from "@/types";
 import { type PayoffMethod } from "@/lib/snowball";
@@ -272,11 +271,11 @@ export default function WhatIfCard({
             }}
           >
             <ZapIcon size={12} />
-            Start my trial and test scenarios
+            Upgrade and test scenarios
           </button>
         </div>
         <p style={{ fontSize: "11px", color: "#94a3b8", margin: "8px 0 0" }}>
-          $12/mo after a {PRO_TRIAL_DAYS}-day free trial · cancel anytime
+          $12/mo · cancel anytime
         </p>
       </div>
     );

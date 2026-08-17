@@ -6,7 +6,7 @@ import {
   type AccountBase,
   type LiabilitiesObject,
 } from 'plaid';
-import { isPro } from '@/lib/gates';
+import { hasPaidPro } from '@/lib/gates';
 import { isDebtBankLinked } from '@/lib/debtHelpers';
 import { prisma } from '@/lib/prisma';
 
@@ -71,18 +71,33 @@ export function isPlaidAllowed(email: string | null | undefined): boolean {
 }
 
 /**
- * The real production gate: a user can use Plaid if they're an active Pro
+ * The real production gate: a user can use Plaid if they're a PAYING Pro
  * subscriber, OR their email is on the manual override list above. Every
  * Plaid call costs real money (see the Contracts & Rates note — $0.20 per
  * connected account/month), so access must be tied to payment once this
- * leaves the allowlist-only testing stage.
+ * leaves the allowlist-only testing stage. Deliberately hasPaidPro, not
+ * isPro: the free signup window grants Pro features but has no card on
+ * file, and must not open metered Plaid spend.
+ *
+ * plaidAccessAllowed is the same rule for callers that already hold a paid
+ * verdict (e.g. the subscription endpoint's single-read BillingVerdict) —
+ * canUsePlaid delegates to it so the rule has one definition.
  */
+export function plaidAccessAllowed(
+  email: string | null | undefined,
+  paidPro: boolean
+): boolean {
+  return isPlaidAllowed(email) || paidPro;
+}
+
 export async function canUsePlaid(
   userId: string,
   email: string | null | undefined
 ): Promise<boolean> {
+  // Allowlist short-circuits BEFORE the billing lookup: allowlisted testers
+  // must keep access even when the billing read is slow or failing.
   if (isPlaidAllowed(email)) return true;
-  return isPro(userId);
+  return plaidAccessAllowed(email, await hasPaidPro(userId));
 }
 
 /**

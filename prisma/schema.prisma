@@ -39,6 +39,27 @@ model User {
   @@map("users")
 }
 
+// ---------------------------------------------------------------------------
+// Trial Grant — records that an identity has been granted the free signup Pro
+// window. Deliberately NO relation to User: it must survive account deletion,
+// so deleting the account and re-provisioning (which mints a fresh
+// User.createdAt) cannot restart the free-trial clock. Written at first
+// provisioning and again by the account-deletion route (anchored to the
+// ORIGINAL createdAt); gates anchor the window to grantedAt when a row exists.
+//
+// Privacy: the key is a non-reversible keyed digest of the normalized email
+// (see src/lib/trialGrantKey.ts), NOT the address itself — account deletion
+// must leave no directly identifying data behind, only an abuse-prevention
+// marker.
+// ---------------------------------------------------------------------------
+model TrialGrant {
+  id        String   @id @default(cuid())
+  emailHash String   @unique // keyed digest of the normalized email
+  grantedAt DateTime @default(now())
+
+  @@map("trial_grants")
+}
+
 model UserPreferences {
   id           String   @id @default(cuid())
   userId       String   @unique

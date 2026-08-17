@@ -69,10 +69,24 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
                   color: "#ef4444",
                   background: "rgba(239,68,68,0.08)",
                   padding: "2px 8px",
-                  borderRadius: "999px",
+                  borderRadius: "6px",
                 }}
               >
                 Canceling
+              </span>
+            )}
+            {!isPro && sub?.signupTrialActive && (
+              <span
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  color: "#0f766e",
+                  background: "rgba(15,118,110,0.1)",
+                  padding: "2px 8px",
+                  borderRadius: "6px",
+                }}
+              >
+                Free Pro trial
               </span>
             )}
             {isPro && !sub?.isCanceling && sub?.subscriptionStatus === "trialing" && (
@@ -83,7 +97,7 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
                   color: "#d97706",
                   background: "rgba(217,119,6,0.1)",
                   padding: "2px 8px",
-                  borderRadius: "999px",
+                  borderRadius: "6px",
                 }}
               >
                 Trial
@@ -97,7 +111,7 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
                   color: '#0f766e',
                   background: 'rgba(15,118,110,0.1)',
                   padding: "2px 8px",
-                  borderRadius: "999px",
+                  borderRadius: "6px",
                 }}
               >
                 Active
@@ -142,8 +156,18 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
             </p>
           ) : (
             <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
-              Upgrade to unlock Payoff Coach reviews, unlimited debts, custom priority order, and
-              deeper payoff charts.
+              {sub?.signupTrialActive && sub.signupTrialEndsAt ? (
+                <>
+                  Pro planning features are free until{" "}
+                  {new Date(sub.signupTrialEndsAt).toLocaleDateString()}. Upgrade to keep Payoff
+                  Coach reviews, unlimited debts, and custom priority order after that.
+                </>
+              ) : (
+                <>
+                  Upgrade to unlock Payoff Coach reviews, unlimited debts, custom priority order,
+                  and deeper payoff charts.
+                </>
+              )}
             </p>
           )}
         </div>

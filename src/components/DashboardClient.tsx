@@ -33,6 +33,7 @@ import { calculateMinimumsOnlyResult, calculatePlanMetrics } from "@/lib/payoffP
 import { shouldStartOnboarding } from "@/lib/onboardingGate";
 import TrialCountdownBanner from "@/components/dashboard/TrialCountdownBanner";
 import { useSubscription } from "@/lib/hooks";
+import { isInPostTrialPromptWindow } from "@/lib/billing";
 import { track, Events } from "@/lib/analytics";
 import { useIdleTimeout } from "@/lib/hooks/useIdleTimeout";
 import { runLogoutClientCleanup } from "@/lib/logout-client";
@@ -103,10 +104,10 @@ export default function DashboardClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const [pendingProCheckout, setPendingProCheckout] = useState(false);
   useEffect(() => {
     if (searchParams.get("checkout") === "pro") {
-      track(Events.CHECKOUT_STARTED, { source: "pricing_page" });
-      startCheckout.mutate();
+      setPendingProCheckout(true);
       const url = new URL(window.location.href);
       url.searchParams.delete("checkout");
       window.history.replaceState({}, "", url.toString());
@@ -155,6 +156,60 @@ export default function DashboardClient({
     });
   }, []);
 
+  // One-time pop-up when the account's free Pro trial has just ended: put the
+  // subscribe decision in front of the user directly, then let the banner and
+  // feature gates take over. Keyed in localStorage by the trial-end date so it
+  // fires once per account, not on every visit.
+  const { data: subData } = useSubscription();
+  const trialPromptShownRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!subData) return;
+    if (subData.paidTier === "pro" || subData.subscriptionStatus === "trialing") return;
+    if (subData.signupTrialActive || !subData.signupTrialEndsAt) return;
+    if (!isInPostTrialPromptWindow(subData.signupTrialEndsAt)) return;
+    const key = `sp_trial_end_prompt:${subData.signupTrialEndsAt}`;
+    // In-memory guard first: when localStorage is unavailable (private mode),
+    // this still keeps refetches within the session from reopening the modal.
+    if (trialPromptShownRef.current === key) return;
+    trialPromptShownRef.current = key;
+    try {
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, "1");
+    } catch {
+      // Storage unavailable — the ref above bounds repeats to one per session.
+    }
+    setUpgradeModal({ open: true, feature: "Trial ended" });
+  }, [subData]);
+
+  // A dashboard left open across the trial boundary would otherwise keep the
+  // cached "trial active" state forever (staleTime only marks data stale — it
+  // doesn't schedule a refetch), so the banner and the expiry modal would lag
+  // while the server has already reverted the account to Free. Refetch right
+  // after the reported end time; the 14-day window fits comfortably inside
+  // setTimeout's 32-bit range.
+  useEffect(() => {
+    if (!subData?.signupTrialActive || !subData.signupTrialEndsAt) return;
+    const msUntilEnd = new Date(subData.signupTrialEndsAt).getTime() - Date.now() + 30_000;
+    if (msUntilEnd <= 0) return;
+    const timer = setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ["subscription"] });
+    }, msUntilEnd);
+    return () => clearTimeout(timer);
+  }, [subData?.signupTrialActive, subData?.signupTrialEndsAt, queryClient]);
+
+  // Deep-linked Pro intent (?checkout=pro from the pricing page, emails, or
+  // legacy links): start Stripe checkout once the subscription resolves —
+  // unless the free signup trial already covers Pro (brand-new signups) or the
+  // user is already paying.
+  useEffect(() => {
+    if (!pendingProCheckout || !subData) return;
+    setPendingProCheckout(false);
+    if (subData.paidTier === "pro" || subData.signupTrialActive) return;
+    track(Events.CHECKOUT_STARTED, { source: "pricing_page" });
+    startCheckout.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingProCheckout, subData]);
+
   // Onboarding committed what the free tier allows but had to skip some
   // calculator debts — surface the upgrade path instead of staying silent
   // about the debts that didn't make it in.
@@ -178,7 +233,6 @@ export default function DashboardClient({
   const today = new Date();
   const { data: paymentsData } = usePaymentRecords(today.getFullYear(), today.getMonth());
   const markPaid = useMarkPaid();
-  const { data: subData } = useSubscription();
   // Real gate: plaidEligible is the server's canUsePlaid() verdict (allowlist
   // OR active Pro). Using it instead of paidTier keeps the header button
   // honest for e.g. past_due subs, whose paidTier stays "pro" while every

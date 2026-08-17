@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe, getStripeProPriceId } from '@/lib/stripe';
-import { PRO_TRIAL_DAYS } from '@/lib/billing';
+import { getSignupTrialEnd } from '@/lib/gates';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 import { ANALYTICS_CONSENT_KEY } from '@/lib/analyticsConsent';
@@ -38,6 +38,31 @@ export async function POST(request: NextRequest) {
     });
 
     let customerId = user?.stripeCustomerId;
+    // Grant-anchored (not createdAt) so a deleted-and-recreated account can't
+    // mint a fresh Stripe trial either. The EXACT end timestamp goes to Stripe
+    // as subscription_data.trial_end, so the first charge lands when the free
+    // window ends — no whole-day rounding drift, and no extension if the
+    // session is completed later. Stripe requires trial_end to be at least
+    // 48 hours out, so inside that horizon (with a latency margin) we fall
+    // back to whole trial_period_days (1-2, no such constraint) — the
+    // subscriber may gain a few bonus hours but never loses promised time.
+    // Under an hour left, skip the trial and charge now.
+    const HOUR_MS = 60 * 60 * 1000;
+    const DAY_MS = 24 * HOUR_MS;
+    const MIN_TRIAL_END_LEAD_MS = 49 * HOUR_MS; // Stripe's 48h floor + margin
+    const MIN_TRIAL_REMAINING_MS = HOUR_MS;
+    const signupTrialEnd = await getSignupTrialEnd(auth.user.id);
+    const trialRemainingMs = signupTrialEnd
+      ? signupTrialEnd.getTime() - Date.now()
+      : 0;
+    const trialEndTs =
+      trialRemainingMs > MIN_TRIAL_END_LEAD_MS
+        ? Math.floor(signupTrialEnd!.getTime() / 1000)
+        : null;
+    const fallbackTrialDays =
+      trialEndTs === null && trialRemainingMs > MIN_TRIAL_REMAINING_MS
+        ? Math.ceil(trialRemainingMs / DAY_MS)
+        : 0;
     const stripe = getStripe();
     const priceId = getStripeProPriceId();
     const userEmail = user?.email ?? auth.user.email;
@@ -68,8 +93,16 @@ export async function POST(request: NextRequest) {
         },
         expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_SESSION_TTL_MINUTES * 60,
         metadata: { userId: auth.user.id, billing: 'monthly', analyticsConsent },
+        // The free trial lives on the account (every signup gets
+        // SIGNUP_TRIAL_DAYS days of Pro, no card). Subscribing MID-trial keeps
+        // the promised days: billing starts exactly when the free window ends.
+        // Past it, there is no Stripe trial — checkout charges immediately.
         subscription_data: {
-          trial_period_days: PRO_TRIAL_DAYS,
+          ...(trialEndTs
+            ? { trial_end: trialEndTs }
+            : fallbackTrialDays > 0
+              ? { trial_period_days: fallbackTrialDays }
+              : {}),
           metadata: { userId: auth.user.id, billing: 'monthly', analyticsConsent },
         },
         success_url: `${appUrl}/dashboard?upgrade=success`,

@@ -1,7 +1,7 @@
 "use client";
 
 import { track, Events } from "@/lib/analytics";
-import { PRO_TRIAL_DAYS } from "@/lib/billing";
+import { SIGNUP_TRIAL_DAYS } from "@/lib/billing";
 
 const plans = [
   {
@@ -16,6 +16,7 @@ const plans = [
     href: "/auth/login?returnTo=/dashboard&screen_hint=signup",
     analyticsSource: "pricing_free",
     features: [
+      `All Pro planning features free for your first ${SIGNUP_TRIAL_DAYS} days`,
       "Free calculators before signup",
       "Track up to 5 debts",
       "Snowball and Avalanche strategies",
@@ -27,11 +28,14 @@ const plans = [
     name: "Pro",
     tagline: "Monthly payoff coach",
     price: 12,
-    period: "per month after trial",
+    period: "per month",
     desc: "Use debt-free progress charts plus coach notes to see what changed, what it means, and which safe payment move to make next.",
-    badge: `${PRO_TRIAL_DAYS}-day trial`,
+    badge: `First ${SIGNUP_TRIAL_DAYS} days free`,
     featured: true,
-    cta: "Start Pro Trial",
+    cta: `Start ${SIGNUP_TRIAL_DAYS} Days Free`,
+    // Carries Pro intent through signup. Brand-new accounts land in their
+    // free trial and checkout is NOT auto-started (DashboardClient skips it
+    // while signupTrialActive); accounts past the trial go straight to Stripe.
     href: "/auth/login?returnTo=%2Fdashboard%3Fcheckout%3Dpro&screen_hint=signup",
     analyticsSource: "pricing_pro",
     features: [
@@ -412,7 +416,8 @@ export default function Pricing() {
             marginTop: "34px",
           }}
         >
-          Free plan requires no card. Pro trial lasts {PRO_TRIAL_DAYS} days and can be canceled before billing.
+          Every new account starts with {SIGNUP_TRIAL_DAYS} days of Pro planning features — no card required.
+          Keep Pro for $12/month after, or stay on Free.
         </p>
       </div>
     </section>

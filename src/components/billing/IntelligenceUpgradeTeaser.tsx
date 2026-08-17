@@ -7,7 +7,6 @@ import { isActiveDebt } from "@/lib/monthlyFocusDebt";
 import { useAprNegotiation } from "@/lib/apr-negotiation/useAprNegotiation";
 import { upgradeEvents } from "@/lib/upgradeEvents";
 import { PLANS } from "@/lib/stripe";
-import { PRO_TRIAL_DAYS } from "@/lib/billing";
 import { formatCurrencyWhole } from "@/lib/utils";
 import { cardSurface, color } from "@/lib/designTokens";
 
@@ -184,7 +183,7 @@ export default function IntelligenceUpgradeTeaser({
                 {formatCurrencyWhole(monthlyPrice)}
               </span>
               <span style={{ fontSize: "12px", color: "#94a3b8" }}>
-                /mo · {PRO_TRIAL_DAYS}-day free trial
+                /mo · cancel anytime
               </span>
             </div>
             <button

@@ -22,6 +22,9 @@ const { mockStripe, mockPrisma } = vi.hoisted(() => {
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    trialGrant: {
+      findUnique: vi.fn(),
+    },
   };
 
   return { mockStripe, mockPrisma };
@@ -30,6 +33,12 @@ const { mockStripe, mockPrisma } = vi.hoisted(() => {
 vi.mock('@/lib/stripe', () => ({
   getStripe: vi.fn(() => mockStripe),
   getStripeProPriceId: vi.fn(() => 'price_test_pro'),
+  // The route pulls in gates (for the grant-anchored trial window), which
+  // reads PLANS at module load.
+  PLANS: {
+    free: { debtLimit: 5 },
+    pro: { debtLimit: Infinity, price: 12 },
+  },
 }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
@@ -71,6 +80,7 @@ function makeRequest(analyticsConsent?: 'granted' | 'denied') {
 describe('POST /api/stripe/checkout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.trialGrant.findUnique.mockResolvedValue(null);
     process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000';
   });
 
@@ -157,9 +167,14 @@ describe('POST /api/stripe/checkout', () => {
 
   // --- Checkout session shape ---
 
-  it('creates subscription session with 14-day trial and correct price', async () => {
+  it('creates subscription session with no Stripe trial and correct price', async () => {
     vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
-    mockPrisma.user.findUnique.mockResolvedValue({ stripeCustomerId: 'cus_existing_456', email: 'test@example.com' });
+    // Account well past its free signup week — checkout charges immediately.
+    mockPrisma.user.findUnique.mockResolvedValue({
+      stripeCustomerId: 'cus_existing_456',
+      email: 'test@example.com',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    });
     mockStripe.checkout.sessions.create.mockResolvedValue({ url: CHECKOUT_URL });
 
     await POST(makeRequest());
@@ -173,18 +188,98 @@ describe('POST /api/stripe/checkout', () => {
           billing: 'monthly',
           analyticsConsent: 'denied',
         },
-        subscription_data: expect.objectContaining({
-          trial_period_days: 14,
+        subscription_data: {
           metadata: {
             userId: 'user-1',
             billing: 'monthly',
             analyticsConsent: 'denied',
           },
-        }),
+        },
         success_url: 'http://localhost:3000/dashboard?upgrade=success',
         cancel_url: 'http://localhost:3000/dashboard?upgrade=canceled',
       }),
     );
+
+    // The free window lives on the account, not on Stripe — a post-window
+    // checkout must charge immediately, with no trial in any form.
+    const sessionArgs = mockStripe.checkout.sessions.create.mock.calls[0][0] as {
+      subscription_data: Record<string, unknown>;
+    };
+    expect(sessionArgs.subscription_data.trial_period_days).toBeUndefined();
+    expect(sessionArgs.subscription_data.trial_end).toBeUndefined();
+  });
+
+  it('aligns a mid-trial subscription to the exact free-window end', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    // Signed up 1 day ago → 13 days remain; subscribing now must not forfeit
+    // them, so Stripe gets the exact end as subscription_data.trial_end.
+    const createdAt = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      stripeCustomerId: 'cus_existing_456',
+      email: 'test@example.com',
+      createdAt,
+    });
+    mockStripe.checkout.sessions.create.mockResolvedValue({ url: CHECKOUT_URL });
+
+    await POST(makeRequest());
+
+    const expectedTrialEnd = Math.floor(
+      (createdAt.getTime() + 14 * 24 * 60 * 60 * 1000) / 1000,
+    );
+    expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subscription_data: expect.objectContaining({ trial_end: expectedTrialEnd }),
+      }),
+    );
+  });
+
+  it('falls back to whole trial days inside the 48-hour trial_end horizon', async () => {
+    // 47 hours remain — under Stripe's 48h trial_end floor, so checkout must
+    // send trial_period_days (2) instead of a rejected timestamp. The clock is
+    // pinned well past SIGNUP_TRIAL_LAUNCH so a 12-day-old account can exist
+    // without tripping the launch cutoff.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-09-10T12:00:00Z'));
+      vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+      const createdAt = new Date(Date.now() - (14 * 24 - 47) * 60 * 60 * 1000);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        stripeCustomerId: 'cus_existing_456',
+        email: 'test@example.com',
+        createdAt,
+      });
+      mockStripe.checkout.sessions.create.mockResolvedValue({ url: CHECKOUT_URL });
+
+      await POST(makeRequest());
+
+      const sessionArgs = mockStripe.checkout.sessions.create.mock.calls[0][0] as {
+        subscription_data: Record<string, unknown>;
+      };
+      expect(sessionArgs.subscription_data.trial_end).toBeUndefined();
+      expect(sessionArgs.subscription_data.trial_period_days).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('skips the Stripe trial when less than an hour of the window remains', async () => {
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    // Window ends in 30 minutes — below Stripe's future-timestamp floor, so
+    // checkout charges now instead of creating a sliver of a trial.
+    const createdAt = new Date(Date.now() - (14 * 24 * 60 * 60 * 1000 - 30 * 60 * 1000));
+    mockPrisma.user.findUnique.mockResolvedValue({
+      stripeCustomerId: 'cus_existing_456',
+      email: 'test@example.com',
+      createdAt,
+    });
+    mockStripe.checkout.sessions.create.mockResolvedValue({ url: CHECKOUT_URL });
+
+    await POST(makeRequest());
+
+    const sessionArgs = mockStripe.checkout.sessions.create.mock.calls[0][0] as {
+      subscription_data: Record<string, unknown>;
+    };
+    expect(sessionArgs.subscription_data.trial_end).toBeUndefined();
   });
 
   it('enables abandoned-checkout recovery with a ~2 hour session expiry', async () => {

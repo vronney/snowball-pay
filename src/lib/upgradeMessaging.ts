@@ -1,4 +1,6 @@
-export const UPGRADE_MESSAGE_VERSION = 'contextual_v2';
+import { SIGNUP_TRIAL_DAYS } from '@/lib/billing';
+
+export const UPGRADE_MESSAGE_VERSION = 'contextual_v3';
 export const LATE_TRIAL_NOTICE_DAYS = 7;
 
 export interface UpgradeMessage {
@@ -20,7 +22,7 @@ const MESSAGES: Record<string, UpgradeMessage> = {
       'Keep a complete payoff order and timeline',
       'Adjust priorities when your situation changes',
     ],
-    monthlyCta: 'Start my trial and add every debt',
+    monthlyCta: 'Upgrade and add every debt',
   },
   bank_sync: {
     id: 'bank_sync',
@@ -32,7 +34,7 @@ const MESSAGES: Record<string, UpgradeMessage> = {
       'Refresh balances from the debt card',
       'Keep the payoff forecast based on current balances',
     ],
-    monthlyCta: 'Start my trial and connect accounts',
+    monthlyCta: 'Upgrade and connect accounts',
   },
   what_if: {
     id: 'what_if',
@@ -44,7 +46,7 @@ const MESSAGES: Record<string, UpgradeMessage> = {
       'See months and interest saved before you commit',
       'Apply a winning scenario to your plan in one click',
     ],
-    monthlyCta: 'Start my trial and test scenarios',
+    monthlyCta: 'Upgrade and test scenarios',
   },
   coach: {
     id: 'coach',
@@ -56,7 +58,7 @@ const MESSAGES: Record<string, UpgradeMessage> = {
       'Review risks and next actions in one place',
       'Adapt the plan when balances or cash flow change',
     ],
-    monthlyCta: 'Start my trial and unlock the coach',
+    monthlyCta: 'Upgrade and unlock the coach',
   },
   intelligence: {
     id: 'intelligence',
@@ -68,7 +70,7 @@ const MESSAGES: Record<string, UpgradeMessage> = {
       'Review cash-flow and buffer guardrails',
       'Track the plan against real progress',
     ],
-    monthlyCta: 'Start my trial and open Intelligence',
+    monthlyCta: 'Upgrade and open Intelligence',
   },
   acceleration: {
     id: 'acceleration',
@@ -80,7 +82,7 @@ const MESSAGES: Record<string, UpgradeMessage> = {
       'Watch the payoff date move as you adjust it',
       'Change or clear the amount anytime',
     ],
-    monthlyCta: 'Start my trial and set my pace',
+    monthlyCta: 'Upgrade and set my pace',
   },
   custom_priority: {
     id: 'custom_priority',
@@ -92,7 +94,7 @@ const MESSAGES: Record<string, UpgradeMessage> = {
       'Keep the timeline and interest math accurate',
       'Switch back to snowball or avalanche anytime',
     ],
-    monthlyCta: 'Start my trial and set my order',
+    monthlyCta: 'Upgrade and set my order',
   },
   export_plan: {
     id: 'export_plan',
@@ -104,7 +106,19 @@ const MESSAGES: Record<string, UpgradeMessage> = {
       'Keep reminders in the tools you already check',
       'Re-export anytime as the plan changes',
     ],
-    monthlyCta: 'Start my trial and export my plan',
+    monthlyCta: 'Upgrade and export my plan',
+  },
+  trial_ended: {
+    id: 'trial_ended',
+    headline: 'Your free Pro trial just ended',
+    description:
+      `You had the full toolkit for ${SIGNUP_TRIAL_DAYS} days — coach notes, what-if scenarios, every debt in one plan. If it helped, keep it. Your debts and plan stay safe on Free either way.`,
+    benefits: [
+      'Keep coach notes and monthly check-ins',
+      'Keep what-if scenarios and forecasts',
+      'Keep every debt in one payoff plan',
+    ],
+    monthlyCta: 'Keep Pro',
   },
   general: {
     id: 'general',
@@ -116,7 +130,7 @@ const MESSAGES: Record<string, UpgradeMessage> = {
       'What-if scenarios and deeper forecasts',
       'Unlimited debts and complete payoff history',
     ],
-    monthlyCta: 'Start my Pro trial',
+    monthlyCta: 'Upgrade to Pro',
   },
 };
 
@@ -135,6 +149,7 @@ export function getUpgradeMessage(feature?: string): UpgradeMessage {
   if (normalized.includes('what-if')) return MESSAGES.what_if;
   if (normalized.includes('coach')) return MESSAGES.coach;
   if (normalized.includes('intelligence')) return MESSAGES.intelligence;
+  if (normalized.includes('trial ended')) return MESSAGES.trial_ended;
   if (normalized.includes('custom priority')) return MESSAGES.custom_priority;
   if (normalized.includes('export')) return MESSAGES.export_plan;
   return MESSAGES.general;

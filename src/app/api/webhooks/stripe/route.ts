@@ -106,8 +106,8 @@ export async function POST(request: NextRequest) {
           },
         });
         // Revoke the ex-subscriber's Plaid items so dormant links stop
-        // billing. Runs after the downgrade write (its isPro check must see
-        // 'free'); logs and swallows failures internally.
+        // billing. Runs after the downgrade write (its hasPaidPro check must
+        // see the downgraded row); logs and swallows failures internally.
         await removePlaidItemsForCanceledUser(userId);
         break;
       }
@@ -122,9 +122,11 @@ export async function POST(request: NextRequest) {
           console.warn('Webhook: checkout.session.completed missing userId metadata');
           break;
         }
-        // Fetch the subscription to get its current status
+        // Fetch the subscription to get its current status. Fallback assumes
+        // 'active' — a post-trial checkout carries no Stripe trial (the free
+        // window lives on the account, pre-checkout).
         let subFields = {
-          subscriptionStatus: 'trialing',
+          subscriptionStatus: 'active',
           paidTier: 'pro',
           subscriptionEndsAt: null as Date | null,
         };

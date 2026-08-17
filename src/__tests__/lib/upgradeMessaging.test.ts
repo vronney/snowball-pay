@@ -8,7 +8,7 @@ import {
 
 describe('upgrade messaging', () => {
   it('uses one stable version for funnel segmentation', () => {
-    expect(UPGRADE_MESSAGE_VERSION).toBe('contextual_v2');
+    expect(UPGRADE_MESSAGE_VERSION).toBe('contextual_v3');
   });
 
   it.each([
@@ -24,6 +24,7 @@ describe('upgrade messaging', () => {
     ['Intelligence', 'intelligence'],
     ['Custom priority order', 'custom_priority'],
     ['Export payoff plan', 'export_plan'],
+    ['Trial ended', 'trial_ended'],
   ])('maps %s to the %s value message', (feature, expectedId) => {
     expect(getUpgradeMessage(feature).id).toBe(expectedId);
   });

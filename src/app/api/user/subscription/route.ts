@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getStripe, PLANS } from '@/lib/stripe';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
-import { canUsePlaid } from '@/lib/plaid';
-import { isPro } from '@/lib/gates';
+import { plaidAccessAllowed } from '@/lib/plaid';
+import { resolveBillingVerdict } from '@/lib/gates';
 
 const ACTIVE_STATUSES = ['active', 'trialing'];
 const TRIAL_GRACE_MS = 2 * 60 * 60 * 1000;
@@ -54,6 +54,15 @@ export async function GET(request: NextRequest) {
     const expired = isStale(endsAt);
     const isCanceling = !expired && status === 'active' && endsAt !== null;
 
+    // One read pair for every gate verdict (this endpoint is hot: checkout
+    // polling + several client consumers). resolveBillingVerdict re-reads the
+    // row the stale-repair above has already patched if it ran, and its
+    // grant-anchored trial end matches exactly what getUserTier grants.
+    const verdict = await resolveBillingVerdict(auth.user.id);
+    const trialEnd = verdict.signupTrialEndsAt;
+    const signupTrialActive =
+      !verdict.paidPro && trialEnd !== null && trialEnd.getTime() > Date.now();
+
     return NextResponse.json({
       paidTier: expired ? 'free' : paidTier,
       subscriptionStatus: expired ? 'canceled' : status,
@@ -61,15 +70,19 @@ export async function GET(request: NextRequest) {
       isCanceling,
       hasCustomer: !!user?.stripeCustomerId,
       monthlyPrice: PLANS.pro.price,
-      // The ACTUAL gate the Plaid routes enforce (allowlist OR active Pro) so
-      // the UI can tell a downgraded user their bank sync is paused. Must be
-      // this exact function — deriving from the tier fields above can diverge
-      // (e.g. past_due keeps paidTier 'pro' here but fails canUsePlaid).
-      plaidEligible: await canUsePlaid(auth.user.id, auth.user.email),
+      // The ACTUAL gate the Plaid routes enforce (allowlist OR PAID Pro) so
+      // the UI can tell a downgraded user their bank sync is paused. Same rule
+      // canUsePlaid delegates to — deriving from the tier fields above can
+      // diverge (e.g. past_due keeps paidTier 'pro' here but fails the gate).
+      plaidEligible: plaidAccessAllowed(auth.user.email, verdict.paidPro),
       // The ACTUAL verdict every Pro-gated API route enforces. Client feature
       // gates must use this, not paidTier — past_due keeps paidTier 'pro'
       // while isPro() (and therefore every gated route) says free.
-      proEligible: await isPro(auth.user.id),
+      proEligible: verdict.proEligible,
+      // Free signup trial (full Pro on every new account, no card).
+      // The countdown banner and post-expiry upgrade prompt key off these.
+      signupTrialEndsAt: trialEnd,
+      signupTrialActive,
     });
   } catch (error) {
     console.error('Subscription fetch error:', error);

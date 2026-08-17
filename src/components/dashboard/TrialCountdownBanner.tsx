@@ -1,17 +1,26 @@
 "use client";
 
-import { ExternalLink, X } from "lucide-react";
+import { ExternalLink, X, Zap } from "lucide-react";
 import { useState } from "react";
-import { getErrorMessage, type SubscriptionInfo, useOpenBillingPortal } from "@/lib/hooks";
+import {
+  getErrorMessage,
+  type SubscriptionInfo,
+  useOpenBillingPortal,
+  useStartCheckout,
+} from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
+import { formatCurrencyWhole } from "@/lib/utils";
 import { shouldShowLateTrialNotice } from "@/lib/upgradeMessaging";
+import { isInPostTrialPromptWindow } from "@/lib/billing";
 
-/** Returns whole days remaining until a future date string, or null if not applicable. */
-function daysUntil(dateStr: string): number | null {
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Returns whole days remaining until a future date string (0 when past). */
+function daysUntil(dateStr: string): number {
   const end = new Date(dateStr).getTime();
   const now = Date.now();
   if (end <= now) return 0;
-  return Math.ceil((end - now) / (1000 * 60 * 60 * 24));
+  return Math.ceil((end - now) / DAY_MS);
 }
 
 interface TrialCountdownBannerProps {
@@ -20,34 +29,16 @@ interface TrialCountdownBannerProps {
   hasLinkedBankDebt?: boolean;
 }
 
-export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }: TrialCountdownBannerProps) {
-  const [dismissed, setDismissed] = useState(false);
-  const portal = useOpenBillingPortal();
+interface BannerShellProps {
+  urgent: boolean;
+  label: string;
+  detail: string;
+  error: string | null;
+  cta: React.ReactNode;
+  onDismiss: () => void;
+}
 
-  if (dismissed) return null;
-  if (!sub || sub.subscriptionStatus !== "trialing" || !sub.subscriptionEndsAt) return null;
-
-  const days = daysUntil(sub.subscriptionEndsAt);
-  if (days === null || !shouldShowLateTrialNotice(days)) return null;
-
-  const urgent = days <= 3;
-  const label = days === 0
-    ? "Your trial ends today"
-    : days === 1
-      ? "1 day left in your trial"
-      : `${days} days left in your Pro trial`;
-  const portalError = portal.isError
-    ? getErrorMessage(portal.error, "Could not open billing. Please try again.")
-    : null;
-
-  function handleReviewBilling() {
-    track(Events.BILLING_PORTAL_OPENED, {
-      source: "trial_countdown",
-      intent: "review_trial_billing",
-    });
-    portal.mutate(undefined);
-  }
-
+function BannerShell({ urgent, label, detail, error, cta, onDismiss }: BannerShellProps) {
   return (
     <div
       style={{
@@ -64,38 +55,18 @@ export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }:
     >
       <div>
         <span style={{ fontWeight: 700 }}>{label}.</span>{" "}
-        Stripe will charge the payment method selected at checkout when the trial ends unless you cancel.
-        <span style={{ display: "block", marginTop: "2px", fontSize: "12px" }}>
-          {hasLinkedBankDebt
-            ? "If the trial ends, coach notes, what-if scenarios, and bank sync pause."
-            : "If the trial ends, coach notes and what-if scenarios pause."}
-        </span>
-        {portalError && (
+        <span style={{ display: "block", marginTop: "2px", fontSize: "12px" }}>{detail}</span>
+        {error && (
           <span role="alert" style={{ display: "block", marginTop: "4px", color: "#b91c1c" }}>
-            {portalError}
+            {error}
           </span>
         )}
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "8px", flexShrink: 0 }}>
+        {cta}
         <button
-          onClick={handleReviewBilling}
-          disabled={portal.isPending}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: "5px",
-            padding: "6px 12px", borderRadius: "8px",
-            background: "#2563eb", color: "#fff",
-            border: "none", cursor: portal.isPending ? "wait" : "pointer", fontFamily: "inherit",
-            fontSize: "12px", fontWeight: 700,
-            opacity: portal.isPending ? 0.7 : 1,
-          }}
-        >
-          <ExternalLink size={12} />
-          {portal.isPending ? "Opening…" : "Review billing"}
-        </button>
-
-        <button
-          onClick={() => setDismissed(true)}
+          onClick={onDismiss}
           style={{
             background: "none", border: "none", cursor: "pointer",
             color: urgent ? "#92400e" : "#64748b", padding: "2px",
@@ -108,4 +79,137 @@ export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }:
       </div>
     </div>
   );
+}
+
+const ctaButtonStyle = (pending: boolean) => ({
+  display: "inline-flex" as const,
+  alignItems: "center" as const,
+  gap: "5px",
+  padding: "6px 12px",
+  borderRadius: "8px",
+  background: "#2563eb",
+  color: "#fff",
+  border: "none",
+  cursor: pending ? ("wait" as const) : ("pointer" as const),
+  fontFamily: "inherit",
+  fontSize: "12px",
+  fontWeight: 700,
+  opacity: pending ? 0.7 : 1,
+});
+
+export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }: TrialCountdownBannerProps) {
+  const [dismissed, setDismissed] = useState(false);
+  const portal = useOpenBillingPortal();
+  const checkout = useStartCheckout();
+
+  if (dismissed || !sub) return null;
+
+  // --- Legacy Stripe card trial (pre-signup-window subscribers): keep the
+  // billing warning until those trials finish converting or canceling. ---
+  if (sub.subscriptionStatus === "trialing" && sub.subscriptionEndsAt) {
+    const days = daysUntil(sub.subscriptionEndsAt);
+    if (!shouldShowLateTrialNotice(days)) return null;
+
+    const label = days === 0
+      ? "Your trial ends today"
+      : days === 1
+        ? "1 day left in your trial"
+        : `${days} days left in your Pro trial`;
+
+    return (
+      <BannerShell
+        urgent={days <= 3}
+        label={label}
+        detail={
+          "Stripe will charge the payment method selected at checkout when the trial ends unless you cancel. " +
+          (hasLinkedBankDebt
+            ? "If the trial ends, coach notes, what-if scenarios, and bank sync pause."
+            : "If the trial ends, coach notes and what-if scenarios pause.")
+        }
+        error={portal.isError ? getErrorMessage(portal.error, "Could not open billing. Please try again.") : null}
+        onDismiss={() => setDismissed(true)}
+        cta={
+          <button
+            onClick={() => {
+              track(Events.BILLING_PORTAL_OPENED, {
+                source: "trial_countdown",
+                intent: "review_trial_billing",
+              });
+              portal.mutate(undefined);
+            }}
+            disabled={portal.isPending}
+            style={ctaButtonStyle(portal.isPending)}
+          >
+            <ExternalLink size={12} />
+            {portal.isPending ? "Opening…" : "Review billing"}
+          </button>
+        }
+      />
+    );
+  }
+
+  // Paid (or canceling-but-still-paid) subscribers never see the free-trial
+  // messaging.
+  if (sub.paidTier === "pro") return null;
+
+  const price = typeof sub.monthlyPrice === "number" ? `${formatCurrencyWhole(sub.monthlyPrice)}/mo` : null;
+  const checkoutError = checkout.isError
+    ? getErrorMessage(checkout.error, "Could not start checkout. Please try again.")
+    : null;
+
+  const upgradeCta = (label: string, source: string) => (
+    <button
+      onClick={() => {
+        track(Events.CHECKOUT_STARTED, { source, billing: "monthly" });
+        checkout.mutate();
+      }}
+      disabled={checkout.isPending}
+      style={ctaButtonStyle(checkout.isPending)}
+    >
+      <Zap size={12} />
+      {checkout.isPending ? "Redirecting…" : label}
+    </button>
+  );
+
+  // --- Free signup window: countdown through the free trial days. ---
+  if (sub.signupTrialActive && sub.signupTrialEndsAt) {
+    const days = daysUntil(sub.signupTrialEndsAt);
+    const label = days === 0
+      ? "Your free Pro access ends today"
+      : days === 1
+        ? "1 day left of free Pro access"
+        : `${days} days left of free Pro access`;
+
+    return (
+      <BannerShell
+        urgent={days <= 2}
+        label={label}
+        // Bank sync is paid-only and never part of the free window, so the
+        // signup-trial messaging must not claim it will "pause" at expiry.
+        detail="After that, coach notes and what-if scenarios pause. Your debts and plan stay."
+        error={checkoutError}
+        onDismiss={() => setDismissed(true)}
+        cta={upgradeCta(price ? `Keep Pro — ${price}` : "Keep Pro", "signup_trial_banner")}
+      />
+    );
+  }
+
+  // --- Free trial just ended: prompt to subscribe for a limited window, then
+  // stop nagging (feature-level gates keep offering upgrades contextually). ---
+  if (sub.signupTrialEndsAt) {
+    if (isInPostTrialPromptWindow(sub.signupTrialEndsAt)) {
+      return (
+        <BannerShell
+          urgent
+          label="Your free Pro trial has ended"
+          detail="Your debts and plan are safe on Free. Upgrade to keep coach notes, what-if scenarios, and unlimited debts."
+          error={checkoutError}
+          onDismiss={() => setDismissed(true)}
+          cta={upgradeCta(price ? `Upgrade — ${price}` : "Upgrade to Pro", "signup_trial_expired_banner")}
+        />
+      );
+    }
+  }
+
+  return null;
 }

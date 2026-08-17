@@ -20,6 +20,18 @@ export { Events } from '@/lib/analyticsEvents';
 const KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
 const HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com';
 
+// Only the production site emits analytics. Localhost dev servers and Vercel
+// preview deployments inherit the production PostHog key through env vars,
+// and their events pollute funnel reports as phantom users (2026-08-16: QA
+// checkout testing read as a trial-funnel prospect in the weekly review).
+// Set NEXT_PUBLIC_ANALYTICS_ALLOW_DEV=true to test events deliberately.
+const PRODUCTION_HOSTNAMES = new Set(['getsnowballpay.com', 'www.getsnowballpay.com']);
+
+function isInternalHost(): boolean {
+  if (process.env.NEXT_PUBLIC_ANALYTICS_ALLOW_DEV === 'true') return false;
+  return !PRODUCTION_HOSTNAMES.has(window.location.hostname);
+}
+
 type AnalyticsMode = 'anonymous' | 'full';
 let mode: AnalyticsMode | null = null;
 let optedOut = false;
@@ -40,7 +52,7 @@ function modeConfig(target: AnalyticsMode) {
  * Returns false when capture is not allowed (no key, SSR, or consent denied).
  */
 export function initialiseAnalytics(): boolean {
-  if (!KEY || !isBrowser()) return false;
+  if (!KEY || !isBrowser() || isInternalHost()) return false;
   const consent = getAnalyticsConsent();
   if (consent === 'denied') return false;
   const target: AnalyticsMode = consent === 'granted' ? 'full' : 'anonymous';
