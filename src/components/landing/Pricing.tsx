@@ -34,8 +34,8 @@ const plans = [
     featured: true,
     cta: `Start ${SIGNUP_TRIAL_DAYS} Days Free`,
     // Carries Pro intent through signup. Brand-new accounts land in their
-    // free week and checkout is NOT auto-started (DashboardClient skips it
-    // while signupTrialActive); accounts past the week go straight to Stripe.
+    // free trial and checkout is NOT auto-started (DashboardClient skips it
+    // while signupTrialActive); accounts past the trial go straight to Stripe.
     href: "/auth/login?returnTo=%2Fdashboard%3Fcheckout%3Dpro&screen_hint=signup",
     analyticsSource: "pricing_pro",
     features: [

@@ -3,8 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getStripe, PLANS } from '@/lib/stripe';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 import { canUsePlaid } from '@/lib/plaid';
-import { isPro, hasPaidPro } from '@/lib/gates';
-import { signupTrialEndsAt } from '@/lib/billing';
+import { isPro, hasPaidPro, getSignupTrialEnd } from '@/lib/gates';
 
 const ACTIVE_STATUSES = ['active', 'trialing'];
 const TRIAL_GRACE_MS = 2 * 60 * 60 * 1000;
@@ -25,7 +24,6 @@ export async function GET(request: NextRequest) {
         subscriptionEndsAt: true,
         stripeCustomerId: true,
         stripeSubscriptionId: true,
-        createdAt: true,
       },
     });
 
@@ -56,12 +54,13 @@ export async function GET(request: NextRequest) {
     const expired = isStale(endsAt);
     const isCanceling = !expired && status === 'active' && endsAt !== null;
 
-    // The free signup window: every account's first days include Pro, no card.
-    // Only meaningful while the user isn't on a live paid subscription —
+    // The free signup window: every new account's first days include Pro, no
+    // card. Only meaningful while the user isn't on a live paid subscription —
     // hasPaidPro() is the same verdict the gates enforce (it re-reads the row,
-    // which the stale-repair above has already patched if it ran).
+    // which the stale-repair above has already patched if it ran), and
+    // getSignupTrialEnd() is grant-anchored, matching what getUserTier grants.
     const paidPro = await hasPaidPro(auth.user.id);
-    const trialEnd = user?.createdAt ? signupTrialEndsAt(user.createdAt) : null;
+    const trialEnd = await getSignupTrialEnd(auth.user.id);
     const signupTrialActive =
       !paidPro && trialEnd !== null && trialEnd.getTime() > Date.now();
 
@@ -81,7 +80,7 @@ export async function GET(request: NextRequest) {
       // gates must use this, not paidTier — past_due keeps paidTier 'pro'
       // while isPro() (and therefore every gated route) says free.
       proEligible: await isPro(auth.user.id),
-      // Free signup window (7 days of Pro on every new account, no card).
+      // Free signup trial (full Pro on every new account, no card).
       // The countdown banner and post-expiry upgrade prompt key off these.
       signupTrialEndsAt: trialEnd,
       signupTrialActive,

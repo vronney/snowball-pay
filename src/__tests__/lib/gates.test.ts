@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const { mockPrisma } = vi.hoisted(() => ({
-  mockPrisma: { user: { findUnique: vi.fn() } },
+  mockPrisma: {
+    user: { findUnique: vi.fn() },
+    trialGrant: { findUnique: vi.fn() },
+  },
 }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
@@ -22,6 +25,7 @@ function daysAgo(days: number): Date {
 
 function freeUser(createdAt: Date) {
   return {
+    email: 'person@example.com',
     paidTier: 'free',
     subscriptionStatus: 'inactive',
     subscriptionEndsAt: null,
@@ -32,6 +36,7 @@ function freeUser(createdAt: Date) {
 describe('gates', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.trialGrant.findUnique.mockResolvedValue(null);
     delete process.env.FORCE_PRO;
   });
 
@@ -45,7 +50,7 @@ describe('gates', () => {
   });
 
   it('reverts to free once the signup window has passed', async () => {
-    mockPrisma.user.findUnique.mockResolvedValue(freeUser(daysAgo(8)));
+    mockPrisma.user.findUnique.mockResolvedValue(freeUser(daysAgo(15)));
 
     expect(await getUserTier('user-1')).toBe('free');
     expect(await isPro('user-1')).toBe(false);
@@ -87,6 +92,17 @@ describe('gates', () => {
 
     expect(await getUserTier('user-1')).toBe('pro');
     expect(await hasPaidPro('user-1')).toBe(false);
+  });
+
+
+  it('anchors the window to the trial grant, so delete+recreate cannot reset it', async () => {
+    // The account row looks brand new (deleted and re-provisioned yesterday),
+    // but the durable TrialGrant shows this email consumed its window long ago.
+    mockPrisma.user.findUnique.mockResolvedValue(freeUser(daysAgo(1)));
+    mockPrisma.trialGrant.findUnique.mockResolvedValue({ grantedAt: daysAgo(40) });
+
+    expect(await getUserTier('user-1')).toBe('free');
+    expect(await isPro('user-1')).toBe(false);
   });
 
   it('gives no window to accounts that predate the feature launch', async () => {

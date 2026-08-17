@@ -156,7 +156,7 @@ export default function DashboardClient({
     });
   }, []);
 
-  // One-time pop-up when the account's free Pro week has just ended: put the
+  // One-time pop-up when the account's free Pro trial has just ended: put the
   // subscribe decision in front of the user directly, then let the banner and
   // feature gates take over. Keyed in localStorage by the trial-end date so it
   // fires once per account, not on every visit.
@@ -178,7 +178,7 @@ export default function DashboardClient({
 
   // Deep-linked Pro intent (?checkout=pro from the pricing page, emails, or
   // legacy links): start Stripe checkout once the subscription resolves —
-  // unless the free signup week already covers Pro (brand-new signups) or the
+  // unless the free signup trial already covers Pro (brand-new signups) or the
   // user is already paying.
   useEffect(() => {
     if (!pendingProCheckout || !subData) return;

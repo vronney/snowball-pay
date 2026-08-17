@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { PLANS, type PaidTier } from '@/lib/stripe';
-import { isSignupTrialActive } from '@/lib/billing';
+import { normalizeTrialEmail, signupTrialEndsAt, SIGNUP_TRIAL_LAUNCH } from '@/lib/billing';
 
 export const FREE_DEBT_LIMIT = PLANS.free.debtLimit;
 
@@ -12,6 +12,7 @@ const SUBSCRIPTION_GRACE_MS = 2 * 60 * 60 * 1000;
 const ACTIVE_STATUSES = ['active', 'trialing'];
 
 interface BillingUser {
+  email: string;
   paidTier: string;
   subscriptionStatus: string;
   subscriptionEndsAt: Date | null;
@@ -28,6 +29,7 @@ function fetchBillingUser(userId: string): Promise<BillingUser | null> {
   return prisma.user.findUnique({
     where: { id: userId },
     select: {
+      email: true,
       paidTier: true,
       subscriptionStatus: true,
       subscriptionEndsAt: true,
@@ -50,10 +52,46 @@ function hasActiveSubscription(user: BillingUser): boolean {
 }
 
 /**
+ * Resolves when the user's free signup window ends, or null when they have
+ * none. Anchored to the TrialGrant tombstone (keyed by email, written at
+ * first provisioning, survives account deletion) so deleting the account and
+ * re-provisioning — which mints a fresh User.createdAt — cannot restart the
+ * clock. Falls back to createdAt when no grant exists (accounts provisioned
+ * before grants shipped, or the table not yet pushed).
+ */
+async function resolveSignupTrialEnd(user: BillingUser): Promise<Date | null> {
+  // Pre-launch accounts never have a window — skip the grant lookup. The
+  // instanceof guard also keeps partial rows (test doubles) on the safe path.
+  if (!(user.createdAt instanceof Date)) return null;
+  if (user.createdAt.getTime() < SIGNUP_TRIAL_LAUNCH.getTime()) return null;
+
+  let anchor = user.createdAt;
+  try {
+    const grant = await prisma.trialGrant.findUnique({
+      where: { email: normalizeTrialEmail(user.email) },
+      select: { grantedAt: true },
+    });
+    if (grant) anchor = grant.grantedAt;
+  } catch {
+    // trial_grants not deployed yet (db push pending) — fall back to createdAt.
+  }
+  return signupTrialEndsAt(anchor);
+}
+
+/**
+ * The user's signup-window end, for display and checkout trial alignment.
+ * Null when the account has no window (pre-launch account or no user row).
+ */
+export async function getSignupTrialEnd(userId: string): Promise<Date | null> {
+  const user = await fetchBillingUser(userId);
+  return user ? resolveSignupTrialEnd(user) : null;
+}
+
+/**
  * Returns the user's current tier: 'pro' when they have an active paid
- * subscription OR are inside the free signup window (every account's first
- * SIGNUP_TRIAL_DAYS include Pro, no card required). Defaults to 'free' if no
- * user row exists yet.
+ * subscription OR are inside the free signup window (every new account's
+ * first SIGNUP_TRIAL_DAYS include Pro, no card required). Defaults to 'free'
+ * if no user row exists yet.
  */
 export async function getUserTier(userId: string): Promise<PaidTier> {
   if (forceProInDev()) return 'pro';
@@ -61,7 +99,9 @@ export async function getUserTier(userId: string): Promise<PaidTier> {
   const user = await fetchBillingUser(userId);
   if (!user) return 'free';
   if (hasActiveSubscription(user)) return 'pro';
-  if (user.createdAt && isSignupTrialActive(user.createdAt)) return 'pro';
+
+  const trialEnd = await resolveSignupTrialEnd(user);
+  if (trialEnd !== null && trialEnd.getTime() > Date.now()) return 'pro';
   return 'free';
 }
 

@@ -171,7 +171,7 @@ describe('GET /api/user/subscription', () => {
     expect(body.paidTier).toBe('free');
     expect(body.signupTrialActive).toBe(true);
     expect(body.signupTrialEndsAt).toBe(
-      new Date(createdAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      new Date(createdAt.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString(),
     );
     // Pro features open during the window…
     expect(body.proEligible).toBe(true);
@@ -179,8 +179,8 @@ describe('GET /api/user/subscription', () => {
     expect(body.plaidEligible).toBe(false);
   });
 
-  it('ends the free signup window after 7 days', async () => {
-    const createdAt = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+  it('ends the free signup window after 14 days', async () => {
+    const createdAt = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000);
     vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
     mockPrisma.user.findUnique.mockResolvedValue({
       paidTier: 'free',

@@ -108,9 +108,9 @@ const MESSAGES: Record<string, UpgradeMessage> = {
   },
   trial_ended: {
     id: 'trial_ended',
-    headline: 'Your free week of Pro just ended',
+    headline: 'Your free Pro trial just ended',
     description:
-      'You had the full toolkit all week — coach notes, what-if scenarios, every debt in one plan. If it helped, keep it. Your debts and plan stay safe on Free either way.',
+      'You had the full toolkit for two weeks — coach notes, what-if scenarios, every debt in one plan. If it helped, keep it. Your debts and plan stay safe on Free either way.',
     benefits: [
       'Keep coach notes and monthly check-ins',
       'Keep what-if scenarios and forecasts',

@@ -39,6 +39,21 @@ model User {
   @@map("users")
 }
 
+// ---------------------------------------------------------------------------
+// Trial Grant — records that an email has been granted the free signup Pro
+// window. Deliberately NO relation to User: it must survive account deletion,
+// so deleting the account and re-provisioning (which mints a fresh
+// User.createdAt) cannot restart the free-trial clock. Written once at first
+// provisioning; gates anchor the window to grantedAt when a row exists.
+// ---------------------------------------------------------------------------
+model TrialGrant {
+  id        String   @id @default(cuid())
+  email     String   @unique // normalized (trimmed, lowercased)
+  grantedAt DateTime @default(now())
+
+  @@map("trial_grants")
+}
+
 model UserPreferences {
   id           String   @id @default(cuid())
   userId       String   @unique

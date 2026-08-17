@@ -749,7 +749,7 @@ export interface SubscriptionInfo {
    * every gated route 403s.
    */
   proEligible?: boolean;
-  /** End of the account's free 7-day Pro window (ISO), derived from signup date. */
+  /** End of the account's free signup Pro trial (ISO). */
   signupTrialEndsAt?: string | null;
   /** True while the free signup window is active and the user isn't on a paid sub. */
   signupTrialActive?: boolean;

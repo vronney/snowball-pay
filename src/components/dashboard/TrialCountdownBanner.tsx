@@ -147,7 +147,7 @@ export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }:
     );
   }
 
-  // Paid (or canceling-but-still-paid) subscribers never see the free-week
+  // Paid (or canceling-but-still-paid) subscribers never see the free-trial
   // messaging.
   if (sub.paidTier === "pro") return null;
 
@@ -170,7 +170,7 @@ export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }:
     </button>
   );
 
-  // --- Free signup window: countdown through the 7 free days. ---
+  // --- Free signup window: countdown through the free trial days. ---
   if (sub.signupTrialActive && sub.signupTrialEndsAt) {
     const days = daysUntil(sub.signupTrialEndsAt);
     const label = days === 0
@@ -196,14 +196,14 @@ export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }:
     );
   }
 
-  // --- Free week just ended: prompt to subscribe for a limited window, then
+  // --- Free trial just ended: prompt to subscribe for a limited window, then
   // stop nagging (feature-level gates keep offering upgrades contextually). ---
   if (sub.signupTrialEndsAt) {
     if (isInPostTrialPromptWindow(sub.signupTrialEndsAt)) {
       return (
         <BannerShell
           urgent
-          label="Your free week of Pro has ended"
+          label="Your free Pro trial has ended"
           detail="Your debts and plan are safe on Free. Upgrade to keep coach notes, what-if scenarios, and unlimited debts."
           error={checkoutError}
           onDismiss={() => setDismissed(true)}

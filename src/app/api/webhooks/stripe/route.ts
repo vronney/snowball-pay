@@ -123,8 +123,8 @@ export async function POST(request: NextRequest) {
           break;
         }
         // Fetch the subscription to get its current status. Fallback assumes
-        // 'active' — new checkouts carry no Stripe trial (the free week lives
-        // on the account, pre-checkout).
+        // 'active' — a post-trial checkout carries no Stripe trial (the free
+        // window lives on the account, pre-checkout).
         let subFields = {
           subscriptionStatus: 'active',
           paidTier: 'pro',

@@ -86,7 +86,7 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
                   borderRadius: "999px",
                 }}
               >
-                Free Pro week
+                Free Pro trial
               </span>
             )}
             {isPro && !sub?.isCanceling && sub?.subscriptionStatus === "trialing" && (

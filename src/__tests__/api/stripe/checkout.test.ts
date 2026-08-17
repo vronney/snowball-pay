@@ -30,6 +30,12 @@ const { mockStripe, mockPrisma } = vi.hoisted(() => {
 vi.mock('@/lib/stripe', () => ({
   getStripe: vi.fn(() => mockStripe),
   getStripeProPriceId: vi.fn(() => 'price_test_pro'),
+  // The route pulls in gates (for the grant-anchored trial window), which
+  // reads PLANS at module load.
+  PLANS: {
+    free: { debtLimit: 5 },
+    pro: { debtLimit: Infinity, price: 12 },
+  },
 }));
 
 vi.mock('@/lib/prisma', () => ({ prisma: mockPrisma }));
@@ -198,10 +204,10 @@ describe('POST /api/stripe/checkout', () => {
     expect(sessionArgs.subscription_data.trial_period_days).toBeUndefined();
   });
 
-  it('aligns a mid-free-week subscription so billing starts when the week ends', async () => {
+  it('aligns a mid-trial subscription so billing starts when the free window ends', async () => {
     vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
-    // Signed up 1 day ago → 6 whole free days remain; subscribing now must
-    // not forfeit them, so Stripe gets trial_period_days = 6.
+    // Signed up 1 day ago → 13 whole free days remain; subscribing now must
+    // not forfeit them, so Stripe gets trial_period_days = 13.
     mockPrisma.user.findUnique.mockResolvedValue({
       stripeCustomerId: 'cus_existing_456',
       email: 'test@example.com',
@@ -213,7 +219,7 @@ describe('POST /api/stripe/checkout', () => {
 
     expect(mockStripe.checkout.sessions.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        subscription_data: expect.objectContaining({ trial_period_days: 6 }),
+        subscription_data: expect.objectContaining({ trial_period_days: 13 }),
       }),
     );
   });

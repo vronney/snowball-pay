@@ -127,7 +127,7 @@ The current product surface supports a freemium model:
 
 - Free: up to 5 debts, Snowball and Avalanche strategies, monthly payoff
   calendar, progress visualization, and mobile-friendly planning. Every new
-  account starts with 7 days of full Pro access — no card required
+  account starts with 14 days of full Pro access — no card required
 - Pro: $12/month, unlimited debts, custom priority order, personalized
   recommendations, deeper planning tools, and priority support
 
