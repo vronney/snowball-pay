@@ -20,6 +20,16 @@ export async function captureServerEvent({
   properties = {},
 }: ServerAnalyticsEvent): Promise<void> {
   if (consent !== 'granted') return;
+  // Mirror the client-side internal-host guard: only the production
+  // deployment emits server events. Previews and local runs share the
+  // production key via env and would pollute funnel reports otherwise.
+  // Set ANALYTICS_ALLOW_DEV=true to test server events deliberately.
+  if (
+    process.env.VERCEL_ENV !== 'production' &&
+    process.env.ANALYTICS_ALLOW_DEV !== 'true'
+  ) {
+    return;
+  }
   const apiKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
   if (!apiKey) return;
 

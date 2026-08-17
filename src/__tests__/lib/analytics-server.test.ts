@@ -11,6 +11,7 @@ describe('server analytics', () => {
   it('bounds a stalled capture request without failing the caller', async () => {
     vi.useFakeTimers();
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_KEY', 'phc_test');
+    vi.stubEnv('VERCEL_ENV', 'production');
     const fetchMock = vi.fn(
       (_url: string, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
         init?.signal?.addEventListener('abort', () => {
@@ -34,6 +35,7 @@ describe('server analytics', () => {
 
   it('sanitises properties without allowing reserved IDs to be overridden', async () => {
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_KEY', 'phc_test');
+    vi.stubEnv('VERCEL_ENV', 'production');
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
@@ -61,11 +63,27 @@ describe('server analytics', () => {
 
   it('does not call PostHog when server-side consent is denied', async () => {
     vi.stubEnv('NEXT_PUBLIC_POSTHOG_KEY', 'phc_test');
+    vi.stubEnv('VERCEL_ENV', 'production');
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
 
     await captureServerEvent({
       consent: 'denied',
+      distinctId: 'user-1',
+      event: 'subscription_started',
+    });
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('emits nothing outside the production deployment (previews, local)', async () => {
+    vi.stubEnv('NEXT_PUBLIC_POSTHOG_KEY', 'phc_test');
+    vi.stubEnv('VERCEL_ENV', 'preview');
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    await captureServerEvent({
+      consent: 'granted',
       distinctId: 'user-1',
       event: 'subscription_started',
     });
