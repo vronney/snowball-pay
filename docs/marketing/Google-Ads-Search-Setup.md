@@ -196,7 +196,7 @@ Create **one RSA per ad group**. Each RSA = up to **15 headlines (max 30 charact
 ### Shared descriptions (use in every ad group)
 ```
 See your debt-free date, payoff order, and how much interest you save. Free to start.
-Free plan includes your debt-free date and payoff order. No card needed to begin.
+All Pro features free for your first 14 days — no card. Keep Pro for $12/mo.
 Snowball or avalanche — see which gets you debt-free sooner. Free to try.
 A clear, prioritized plan to pay off debt month by month. Start free today.
 ```
@@ -214,7 +214,7 @@ Start Free - No Card Needed
 See Your Payoff Order
 Save on Interest
 Track Every Debt
-14-Day Pro Trial
+14 Days of Pro Free
 Built for Real Budgets
 Your Debt-Free Date Today
 Compare Payoff Strategies
@@ -234,7 +234,7 @@ Your Payoff Order, Step 1
 Start Free - No Card Needed
 Save on Interest
 When Will I Be Debt Free?
-14-Day Pro Trial
+14 Days of Pro Free
 Pay Off Debt, Step by Step
 See Your Debt-Free Date
 ```
@@ -255,7 +255,7 @@ Run Both, Pick the Winner
 Start Free - No Card Needed
 Payoff Debt Faster
 Your Fastest Path to Zero
-14-Day Pro Trial
+14 Days of Pro Free
 ```
 
 ### Ad Group 4 — Credit Card Payoff — Headlines
@@ -274,7 +274,7 @@ Save on Interest
 Month-by-Month Schedule
 Multiple Cards? One Plan.
 When Will I Be Debt Free?
-14-Day Pro Trial
+14 Days of Pro Free
 ```
 
 ### Ad Group 5 — Get Out of Debt — Headlines
@@ -293,7 +293,7 @@ A Realistic Payoff Plan
 When Will I Be Debt Free?
 Month-by-Month Schedule
 Take Control of Your Debt
-14-Day Pro Trial
+14 Days of Pro Free
 ```
 
 > **Pinning tip:** mostly let Google rotate. Optionally pin **"Free Debt Payoff Calculator"** (or the ad group's lead headline) to **Position 1** so the offer always shows. Don't pin more than 1–2, or you lose the testing benefit.
@@ -301,7 +301,7 @@ Take Control of Your Debt
 ### Optional but recommended — Assets (extensions)
 At campaign level, add:
 - **Sitelinks (4):** `See Your Debt-Free Date`, `Snowball vs Avalanche`, `Free Calculator`, `Pricing`
-- **Callouts (4–6):** `Free to start`, `No card needed`, `Snowball & avalanche`, `Interest saved`, `Month-by-month plan`, `14-day Pro trial`
+- **Callouts (4–6):** `Free to start`, `No card needed`, `Snowball & avalanche`, `Interest saved`, `Month-by-month plan`, `14 days of Pro free`
 - **Structured snippet:** Type = "Features" → `Debt-free date, Payoff order, Interest saved, Progress tracking`
 
 ---
