@@ -40,7 +40,7 @@
     "jose": "^6.2.3",
     "lucide-react": "^0.294.0",
     "next": "14.2.35",
-    "pdf-parse": "^1.1.1",
+    "pdf-parse": "^2.4.5",
     "plaid": "^42.2.0",
     "postcss": "^8.4.31",
     "posthog-js": "^1.364.7",
