@@ -1,3 +1,16 @@
+// Deployment validation: the free-trial tombstone must be HMAC-keyed in
+// production (src/lib/trialGrantKey.ts falls back to an unkeyed digest when
+// the secret is absent — acceptable for dev/preview, not production). Failing
+// the BUILD blocks a misconfigured production deploy while the previous
+// deployment stays live; runtime call sites stay best-effort.
+if (process.env.VERCEL_ENV === 'production' && !process.env.TRIAL_GRANT_SECRET) {
+  throw new Error(
+    'TRIAL_GRANT_SECRET is required for production builds. Set it in Vercel ' +
+      'environment variables (see .env.example) so trial-grant identifiers ' +
+      'are keyed, per the privacy policy.'
+  );
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   async headers() {

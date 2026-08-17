@@ -158,7 +158,7 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
             <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>
               {sub?.signupTrialActive && sub.signupTrialEndsAt ? (
                 <>
-                  Full Pro access is free until{" "}
+                  Pro planning features are free until{" "}
                   {new Date(sub.signupTrialEndsAt).toLocaleDateString()}. Upgrade to keep Payoff
                   Coach reviews, unlimited debts, and custom priority order after that.
                 </>

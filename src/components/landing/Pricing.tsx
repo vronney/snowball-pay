@@ -16,7 +16,7 @@ const plans = [
     href: "/auth/login?returnTo=/dashboard&screen_hint=signup",
     analyticsSource: "pricing_free",
     features: [
-      `Full Pro access for your first ${SIGNUP_TRIAL_DAYS} days`,
+      `All Pro planning features free for your first ${SIGNUP_TRIAL_DAYS} days`,
       "Free calculators before signup",
       "Track up to 5 debts",
       "Snowball and Avalanche strategies",
@@ -416,7 +416,7 @@ export default function Pricing() {
             marginTop: "34px",
           }}
         >
-          Every new account starts with {SIGNUP_TRIAL_DAYS} days of full Pro access — no card required.
+          Every new account starts with {SIGNUP_TRIAL_DAYS} days of Pro planning features — no card required.
           Keep Pro for $12/month after, or stay on Free.
         </p>
       </div>
