@@ -189,6 +189,12 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+# Marks this as a production build so next.config.js enforces required
+# secrets (TRIAL_GRANT_SECRET) at build time — pass the secret alongside it:
+#   docker build --build-arg TRIAL_GRANT_SECRET=... .
+ARG TRIAL_GRANT_SECRET
+ENV DEPLOY_ENV=production
+ENV TRIAL_GRANT_SECRET=$TRIAL_GRANT_SECRET
 RUN npm run build
 
 FROM node:18-alpine

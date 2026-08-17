@@ -2,11 +2,17 @@
 // production (src/lib/trialGrantKey.ts falls back to an unkeyed digest when
 // the secret is absent — acceptable for dev/preview, not production). Failing
 // the BUILD blocks a misconfigured production deploy while the previous
-// deployment stays live; runtime call sites stay best-effort.
-if (process.env.VERCEL_ENV === 'production' && !process.env.TRIAL_GRANT_SECRET) {
+// deployment stays live; runtime call sites stay best-effort. Vercel marks
+// production builds itself; non-Vercel production paths (the Docker recipe in
+// DEPLOYMENT.md) set DEPLOY_ENV=production to opt into the same check —
+// NODE_ENV can't be used here because `next build` sets it for every build,
+// including local and preview ones.
+const isProductionBuild =
+  process.env.VERCEL_ENV === 'production' || process.env.DEPLOY_ENV === 'production';
+if (isProductionBuild && !process.env.TRIAL_GRANT_SECRET) {
   throw new Error(
-    'TRIAL_GRANT_SECRET is required for production builds. Set it in Vercel ' +
-      'environment variables (see .env.example) so trial-grant identifiers ' +
+    'TRIAL_GRANT_SECRET is required for production builds. Set it in the ' +
+      'deployment environment (see .env.example) so trial-grant identifiers ' +
       'are keyed, per the privacy policy.'
   );
 }
