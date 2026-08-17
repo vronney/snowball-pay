@@ -233,6 +233,35 @@ describe('POST /api/stripe/checkout', () => {
     );
   });
 
+  it('falls back to whole trial days inside the 48-hour trial_end horizon', async () => {
+    // 47 hours remain — under Stripe's 48h trial_end floor, so checkout must
+    // send trial_period_days (2) instead of a rejected timestamp. The clock is
+    // pinned well past SIGNUP_TRIAL_LAUNCH so a 12-day-old account can exist
+    // without tripping the launch cutoff.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-09-10T12:00:00Z'));
+      vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+      const createdAt = new Date(Date.now() - (14 * 24 - 47) * 60 * 60 * 1000);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        stripeCustomerId: 'cus_existing_456',
+        email: 'test@example.com',
+        createdAt,
+      });
+      mockStripe.checkout.sessions.create.mockResolvedValue({ url: CHECKOUT_URL });
+
+      await POST(makeRequest());
+
+      const sessionArgs = mockStripe.checkout.sessions.create.mock.calls[0][0] as {
+        subscription_data: Record<string, unknown>;
+      };
+      expect(sessionArgs.subscription_data.trial_end).toBeUndefined();
+      expect(sessionArgs.subscription_data.trial_period_days).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('skips the Stripe trial when less than an hour of the window remains', async () => {
     vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
     // Window ends in 30 minutes — below Stripe's future-timestamp floor, so

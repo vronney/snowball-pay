@@ -42,14 +42,27 @@ export async function POST(request: NextRequest) {
     // mint a fresh Stripe trial either. The EXACT end timestamp goes to Stripe
     // as subscription_data.trial_end, so the first charge lands when the free
     // window ends — no whole-day rounding drift, and no extension if the
-    // session is completed later. Stripe requires trial_end to be in the
-    // future; with less than an hour left we skip the trial and charge now.
-    const MIN_TRIAL_REMAINING_MS = 60 * 60 * 1000;
+    // session is completed later. Stripe requires trial_end to be at least
+    // 48 hours out, so inside that horizon (with a latency margin) we fall
+    // back to whole trial_period_days (1-2, no such constraint) — the
+    // subscriber may gain a few bonus hours but never loses promised time.
+    // Under an hour left, skip the trial and charge now.
+    const HOUR_MS = 60 * 60 * 1000;
+    const DAY_MS = 24 * HOUR_MS;
+    const MIN_TRIAL_END_LEAD_MS = 49 * HOUR_MS; // Stripe's 48h floor + margin
+    const MIN_TRIAL_REMAINING_MS = HOUR_MS;
     const signupTrialEnd = await getSignupTrialEnd(auth.user.id);
+    const trialRemainingMs = signupTrialEnd
+      ? signupTrialEnd.getTime() - Date.now()
+      : 0;
     const trialEndTs =
-      signupTrialEnd && signupTrialEnd.getTime() - Date.now() > MIN_TRIAL_REMAINING_MS
-        ? Math.floor(signupTrialEnd.getTime() / 1000)
+      trialRemainingMs > MIN_TRIAL_END_LEAD_MS
+        ? Math.floor(signupTrialEnd!.getTime() / 1000)
         : null;
+    const fallbackTrialDays =
+      trialEndTs === null && trialRemainingMs > MIN_TRIAL_REMAINING_MS
+        ? Math.ceil(trialRemainingMs / DAY_MS)
+        : 0;
     const stripe = getStripe();
     const priceId = getStripeProPriceId();
     const userEmail = user?.email ?? auth.user.email;
@@ -85,7 +98,11 @@ export async function POST(request: NextRequest) {
         // the promised days: billing starts exactly when the free window ends.
         // Past it, there is no Stripe trial — checkout charges immediately.
         subscription_data: {
-          ...(trialEndTs ? { trial_end: trialEndTs } : {}),
+          ...(trialEndTs
+            ? { trial_end: trialEndTs }
+            : fallbackTrialDays > 0
+              ? { trial_period_days: fallbackTrialDays }
+              : {}),
           metadata: { userId: auth.user.id, billing: 'monthly', analyticsConsent },
         },
         success_url: `${appUrl}/dashboard?upgrade=success`,

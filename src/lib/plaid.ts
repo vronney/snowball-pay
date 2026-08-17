@@ -94,6 +94,9 @@ export async function canUsePlaid(
   userId: string,
   email: string | null | undefined
 ): Promise<boolean> {
+  // Allowlist short-circuits BEFORE the billing lookup: allowlisted testers
+  // must keep access even when the billing read is slow or failing.
+  if (isPlaidAllowed(email)) return true;
   return plaidAccessAllowed(email, await hasPaidPro(userId));
 }
 
