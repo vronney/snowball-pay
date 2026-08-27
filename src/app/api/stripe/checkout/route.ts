@@ -87,10 +87,17 @@ export async function POST(request: NextRequest) {
         allow_promotion_codes: true,
         // Abandoned-checkout recovery: when the session expires unpaid, Stripe
         // fires checkout.session.expired with a 30-day recovery URL that the
-        // webhook emails to the user (see /api/webhooks/stripe).
-        after_expiration: {
-          recovery: { enabled: true, allow_promotion_codes: true },
-        },
+        // webhook emails to the user (see /api/webhooks/stripe). Stripe
+        // rejects recovery combined with an absolute subscription_data
+        // .trial_end (the recovered session, redeemable for 30 days, could
+        // outlive the timestamp), so mid-trial checkouts skip recovery.
+        ...(trialEndTs
+          ? {}
+          : {
+              after_expiration: {
+                recovery: { enabled: true, allow_promotion_codes: true },
+              },
+            }),
         expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_SESSION_TTL_MINUTES * 60,
         metadata: { userId: auth.user.id, billing: 'monthly', analyticsConsent },
         // The free trial lives on the account (every signup gets

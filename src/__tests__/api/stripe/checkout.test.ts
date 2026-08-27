@@ -233,6 +233,62 @@ describe('POST /api/stripe/checkout', () => {
     );
   });
 
+  it('omits abandoned-checkout recovery when sending an exact trial_end', async () => {
+    // Stripe rejects after_expiration.recovery together with
+    // subscription_data.trial_end ("Please pass in only one") — the 30-day
+    // recovery URL could outlive the absolute timestamp. Mid-trial checkout
+    // must therefore drop recovery, or every trial-window upgrade 500s.
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    const createdAt = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      stripeCustomerId: 'cus_existing_456',
+      email: 'test@example.com',
+      createdAt,
+    });
+    mockStripe.checkout.sessions.create.mockResolvedValue({ url: CHECKOUT_URL });
+
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+
+    const sessionArgs = mockStripe.checkout.sessions.create.mock.calls[0][0] as {
+      after_expiration?: unknown;
+      subscription_data: Record<string, unknown>;
+    };
+    expect(sessionArgs.subscription_data.trial_end).toBeDefined();
+    expect(sessionArgs.after_expiration).toBeUndefined();
+  });
+
+  it('keeps abandoned-checkout recovery on the trial_period_days fallback', async () => {
+    // Only the absolute trial_end conflicts with recovery; the relative
+    // trial_period_days fallback (inside Stripe's 48h trial_end floor) keeps
+    // the recovery email flow.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-09-10T12:00:00Z'));
+      vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+      const createdAt = new Date(Date.now() - (14 * 24 - 47) * 60 * 60 * 1000);
+      mockPrisma.user.findUnique.mockResolvedValue({
+        stripeCustomerId: 'cus_existing_456',
+        email: 'test@example.com',
+        createdAt,
+      });
+      mockStripe.checkout.sessions.create.mockResolvedValue({ url: CHECKOUT_URL });
+
+      await POST(makeRequest());
+
+      const sessionArgs = mockStripe.checkout.sessions.create.mock.calls[0][0] as {
+        after_expiration?: unknown;
+        subscription_data: Record<string, unknown>;
+      };
+      expect(sessionArgs.subscription_data.trial_period_days).toBe(2);
+      expect(sessionArgs.after_expiration).toEqual({
+        recovery: { enabled: true, allow_promotion_codes: true },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('falls back to whole trial days inside the 48-hour trial_end horizon', async () => {
     // 47 hours remain — under Stripe's 48h trial_end floor, so checkout must
     // send trial_period_days (2) instead of a rejected timestamp. The clock is
