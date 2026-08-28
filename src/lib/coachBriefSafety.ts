@@ -56,6 +56,22 @@ export const CoachBriefSchema = z.object({
 
 export type CoachBrief = z.infer<typeof CoachBriefSchema>;
 
+/**
+ * Normalizes a raw MODEL response before schema validation. The model's
+ * "outcome" value is never shown to anyone — withComputedOutcome() in the
+ * route always replaces it with plan-engine math derived from targetExtra —
+ * so an outcome object with invented keys (the model was never told the
+ * exact shape) must not fail the whole response into the deterministic
+ * fallback. Cached briefs do NOT go through this: their outcome is
+ * server-computed and stays strictly validated by CoachBriefSchema.
+ */
+export function normalizeModelBrief(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const candidate = raw as { nextAction?: unknown };
+  if (!candidate.nextAction || typeof candidate.nextAction !== 'object') return raw;
+  return { ...candidate, nextAction: { ...(candidate.nextAction as object), outcome: null } };
+}
+
 /** The slice of a debt the elimination-claim check needs to fact-check math. */
 export interface EliminationCheckDebt {
   name: string;

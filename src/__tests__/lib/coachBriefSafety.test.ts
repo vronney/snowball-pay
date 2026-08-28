@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CoachBriefSchema, isBriefLawful, findBriefViolation, parseLawfulStoredBrief, toClientBrief, type CoachBrief, type StoredCoachBrief } from '@/lib/coachBriefSafety';
+import { CoachBriefSchema, normalizeModelBrief, isBriefLawful, findBriefViolation, parseLawfulStoredBrief, toClientBrief, type CoachBrief, type StoredCoachBrief } from '@/lib/coachBriefSafety';
 
 function nextAction(overrides: Partial<CoachBrief['nextAction']> = {}): CoachBrief {
   return {
@@ -328,6 +328,59 @@ describe('findBriefViolation — reason codes for diagnosable logging', () => {
       redirectAmount: 565,
     });
     expect(findBriefViolation(brief, 500, 500)).toBe('unsafe_minimum_text');
+  });
+});
+
+describe('normalizeModelBrief — model outcome previews must not sink the response', () => {
+  it('rescues the 2026-08-28 production incident: set_acceleration with invented outcome keys', () => {
+    // The prompt told the model to "return an outcome object with your
+    // preview" without ever defining its keys, so it invented some. That
+    // failed CoachBriefSchema with exactly two invalid_type issues at
+    // nextAction.outcome.bufferAfter / .monthsSavedVsMin and dumped a valid
+    // AI brief into the deterministic fallback.
+    const raw = nextAction({
+      kind: 'set_acceleration',
+      targetExtra: 300,
+      outcome: { newPayoffMonths: 41, interestSaved: 1200 } as unknown as CoachBrief['nextAction']['outcome'],
+    });
+
+    // Proves the test is meaningful: without normalization this still fails.
+    const withoutFix = CoachBriefSchema.safeParse(raw);
+    expect(withoutFix.success).toBe(false);
+    expect(
+      withoutFix.success ? [] : withoutFix.error.issues.map((i) => i.path.join('.')),
+    ).toEqual(['nextAction.outcome.bufferAfter', 'nextAction.outcome.monthsSavedVsMin']);
+
+    const normalized = CoachBriefSchema.safeParse(normalizeModelBrief(raw));
+    expect(normalized.success).toBe(true);
+    if (normalized.success) {
+      expect(normalized.data.nextAction.outcome).toBeNull();
+      expect(normalized.data.nextAction.targetExtra).toBe(300);
+    }
+  });
+
+  it('nulls a stray outcome on a non-set_acceleration kind instead of rejecting the brief', () => {
+    const raw = nextAction({
+      kind: 'log_payments',
+      targetExtra: null,
+      outcome: { bufferAfter: 300, monthsSavedVsMin: 4 },
+    });
+    expect(CoachBriefSchema.safeParse(raw).success).toBe(false); // superRefine invariant, still intact for cached briefs
+    expect(CoachBriefSchema.safeParse(normalizeModelBrief(raw)).success).toBe(true);
+  });
+
+  it('still rejects a stray targetExtra on a non-set_acceleration kind after normalization', () => {
+    // targetExtra IS used by the server (outcome is recomputed from it), so
+    // normalization must not launder it.
+    const raw = nextAction({ kind: 'keep_course', targetExtra: 200, outcome: null });
+    expect(CoachBriefSchema.safeParse(normalizeModelBrief(raw)).success).toBe(false);
+  });
+
+  it('passes through non-object and shapeless values untouched', () => {
+    expect(normalizeModelBrief(null)).toBeNull();
+    expect(normalizeModelBrief('not json')).toBe('not json');
+    expect(normalizeModelBrief({ verdict: {} })).toEqual({ verdict: {} });
+    expect(normalizeModelBrief({ nextAction: 'oops' })).toEqual({ nextAction: 'oops' });
   });
 });
 
