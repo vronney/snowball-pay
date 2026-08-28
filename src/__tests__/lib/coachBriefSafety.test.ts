@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CoachBriefSchema, isBriefLawful, findBriefViolation, parseLawfulStoredBrief, toClientBrief, type CoachBrief, type StoredCoachBrief } from '@/lib/coachBriefSafety';
+import { CoachBriefSchema, normalizeModelBrief, isBriefLawful, findBriefViolation, parseLawfulStoredBrief, toClientBrief, type CoachBrief, type StoredCoachBrief } from '@/lib/coachBriefSafety';
 
 function nextAction(overrides: Partial<CoachBrief['nextAction']> = {}): CoachBrief {
   return {
@@ -328,6 +328,162 @@ describe('findBriefViolation — reason codes for diagnosable logging', () => {
       redirectAmount: 565,
     });
     expect(findBriefViolation(brief, 500, 500)).toBe('unsafe_minimum_text');
+  });
+});
+
+describe('isBriefLawful — verdict text is scanned by the laws too', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+
+  function withVerdict(overrides: Partial<CoachBrief['verdict']>, redirectAmount = 0): CoachBrief {
+    const base = nextAction({ redirectAmount });
+    return { ...base, verdict: { ...base.verdict, ...overrides } };
+  }
+
+  it('rejects unsafe-minimum advice hidden in verdict.summary', () => {
+    // The adversarial-review gap: verdict.headline/summary are model free text
+    // shown to the user, but the laws only scanned nextAction before this.
+    const brief = withVerdict({
+      summary: 'Skip the Chase minimum this month to rebuild your cash buffer.',
+    });
+    expect(findBriefViolation(brief, 500, 500)).toBe('unsafe_minimum_text');
+    expect(isBriefLawful(brief, 500, 500)).toBe(false);
+  });
+
+  it('rejects unsafe-minimum advice in verdict.headline', () => {
+    const brief = withVerdict({ headline: 'Hold off on the Amex minimum' });
+    expect(findBriefViolation(brief, 500, 500)).toBe('unsafe_minimum_text');
+  });
+
+  it('rejects an elimination claim in verdict.summary the math cannot support', () => {
+    const brief = withVerdict(
+      { summary: 'Paying $565 total eliminates CreditOne 6610 by month-end.' },
+      500,
+    );
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+
+  it('allows a verdict elimination claim the payment actually covers', () => {
+    const brief = withVerdict(
+      { summary: 'Paying $565 total eliminates CreditOne 6610 by month-end.' },
+      500,
+    );
+    expect(isBriefLawful(brief, 500, 500, [{ ...CREDIT_ONE, balance: 550 }])).toBe(true);
+  });
+
+  it('allows benign descriptive verdict text with real numbers', () => {
+    const brief = withVerdict({
+      headline: 'Debt payments are a third of income',
+      summary: 'Total debt is $11,378 with payments at 32% of take-home pay, and last month you missed one payment.',
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBeNull();
+  });
+
+  it('does not let a benign verdict mention of a small debt vouch for an impossible nextAction claim (CodeRabbit-flagged)', () => {
+    // Attribution is per block: the verdict names the coverable CreditOne
+    // (descriptively), but the nextAction's payoff claim is about the $10k
+    // Delta Amex — concatenated attribution would let CreditOne's small
+    // balance validate the impossible claim.
+    const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+    const smallCreditOne = { ...CREDIT_ONE, balance: 400 };
+    const base = nextAction({
+      title: 'Go all-in on Delta Amex',
+      body: 'Paying $750 total this month eliminates Delta Amex.',
+      action: 'Pay $750 to Delta Amex',
+      redirectAmount: 500,
+    });
+    const brief = {
+      ...base,
+      verdict: {
+        ...base.verdict,
+        summary: 'CreditOne 6610 is nearly done at $400, and cash flow has buffer.',
+      },
+    };
+    expect(findBriefViolation(brief, 500, 500, [smallCreditOne, DELTA_AMEX])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('does not let a benign nextAction mention vouch for an impossible verdict claim', () => {
+    const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+    const smallCreditOne = { ...CREDIT_ONE, balance: 400 };
+    const base = nextAction({
+      body: 'Keep sending the $500 acceleration to CreditOne 6610 this month.',
+      redirectAmount: 500,
+    });
+    const brief = {
+      ...base,
+      verdict: { ...base.verdict, summary: 'This month wipes out Delta Amex entirely.' },
+    };
+    expect(findBriefViolation(brief, 500, 500, [smallCreditOne, DELTA_AMEX])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('purges a cached brief whose verdict carries an unverifiable elimination claim', () => {
+    const stored: StoredCoachBrief = {
+      ...withVerdict(
+        { summary: 'This wipes out CreditOne 6610 by Friday.' },
+        500,
+      ),
+      _meta: { effectiveAcceleration: 500, availableCashFlow: 500, debts: [CREDIT_ONE] },
+    };
+    expect(parseLawfulStoredBrief(stored)).toBeNull();
+  });
+});
+
+describe('normalizeModelBrief — model outcome previews must not sink the response', () => {
+  it('rescues the 2026-08-28 production incident: set_acceleration with invented outcome keys', () => {
+    // The prompt told the model to "return an outcome object with your
+    // preview" without ever defining its keys, so it invented some. That
+    // failed CoachBriefSchema with exactly two invalid_type issues at
+    // nextAction.outcome.bufferAfter / .monthsSavedVsMin and dumped a valid
+    // AI brief into the deterministic fallback.
+    const raw = nextAction({
+      kind: 'set_acceleration',
+      targetExtra: 300,
+      outcome: { newPayoffMonths: 41, interestSaved: 1200 } as unknown as CoachBrief['nextAction']['outcome'],
+    });
+
+    // Proves the test is meaningful: without normalization this still fails.
+    const withoutFix = CoachBriefSchema.safeParse(raw);
+    expect(withoutFix.success).toBe(false);
+    // Membership, not order — Zod issue ordering is not contractual across versions.
+    const failedPaths = withoutFix.success ? [] : withoutFix.error.issues.map((i) => i.path.join('.'));
+    expect(failedPaths).toHaveLength(2);
+    expect(failedPaths).toEqual(
+      expect.arrayContaining(['nextAction.outcome.bufferAfter', 'nextAction.outcome.monthsSavedVsMin']),
+    );
+
+    const normalized = CoachBriefSchema.safeParse(normalizeModelBrief(raw));
+    expect(normalized.success).toBe(true);
+    if (normalized.success) {
+      expect(normalized.data.nextAction.outcome).toBeNull();
+      expect(normalized.data.nextAction.targetExtra).toBe(300);
+    }
+  });
+
+  it('nulls a stray outcome on a non-set_acceleration kind instead of rejecting the brief', () => {
+    const raw = nextAction({
+      kind: 'log_payments',
+      targetExtra: null,
+      outcome: { bufferAfter: 300, monthsSavedVsMin: 4 },
+    });
+    expect(CoachBriefSchema.safeParse(raw).success).toBe(false); // superRefine invariant, still intact for cached briefs
+    expect(CoachBriefSchema.safeParse(normalizeModelBrief(raw)).success).toBe(true);
+  });
+
+  it('still rejects a stray targetExtra on a non-set_acceleration kind after normalization', () => {
+    // targetExtra IS used by the server (outcome is recomputed from it), so
+    // normalization must not launder it.
+    const raw = nextAction({ kind: 'keep_course', targetExtra: 200, outcome: null });
+    expect(CoachBriefSchema.safeParse(normalizeModelBrief(raw)).success).toBe(false);
+  });
+
+  it('passes through non-object and shapeless values untouched', () => {
+    expect(normalizeModelBrief(null)).toBeNull();
+    expect(normalizeModelBrief('not json')).toBe('not json');
+    expect(normalizeModelBrief({ verdict: {} })).toEqual({ verdict: {} });
+    expect(normalizeModelBrief({ nextAction: 'oops' })).toEqual({ nextAction: 'oops' });
   });
 });
 

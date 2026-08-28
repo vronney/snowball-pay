@@ -38,9 +38,13 @@ export const CoachBriefSchema = z.object({
   }).superRefine((nextAction, ctx) => {
     // HARD LAW (shape): targetExtra is a concrete money move and outcome is its
     // computed forecast — both only make sense for a set_acceleration action.
-    // Enforced in code, not just the prompt, so a stray non-null value on any
-    // other kind fails parsing (→ deterministic fallback / cache purge) instead
-    // of reaching the client, where the CTA keys off exactly these fields.
+    // Enforced in code, not just the prompt. The targetExtra half fires on both
+    // paths; the outcome half effectively guards CACHED briefs only, because
+    // fresh model responses go through normalizeModelBrief (outcome → null)
+    // before parsing and the server recomputes outcome regardless. A stray
+    // non-null value that does reach this check fails parsing (→ deterministic
+    // fallback / cache purge) instead of reaching the client, where the CTA
+    // keys off exactly these fields.
     if (
       nextAction.kind !== 'set_acceleration' &&
       (nextAction.targetExtra !== null || nextAction.outcome !== null)
@@ -55,6 +59,22 @@ export const CoachBriefSchema = z.object({
 });
 
 export type CoachBrief = z.infer<typeof CoachBriefSchema>;
+
+/**
+ * Normalizes a raw MODEL response before schema validation. The model's
+ * "outcome" value is never shown to anyone — withComputedOutcome() in the
+ * route always replaces it with plan-engine math derived from targetExtra —
+ * so an outcome object with invented keys (the model was never told the
+ * exact shape) must not fail the whole response into the deterministic
+ * fallback. Cached briefs do NOT go through this: their outcome is
+ * server-computed and stays strictly validated by CoachBriefSchema.
+ */
+export function normalizeModelBrief(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw;
+  const candidate = raw as { nextAction?: unknown };
+  if (!candidate.nextAction || typeof candidate.nextAction !== 'object') return raw;
+  return { ...candidate, nextAction: { ...(candidate.nextAction as object), outcome: null } };
+}
 
 /** The slice of a debt the elimination-claim check needs to fact-check math. */
 export interface EliminationCheckDebt {
@@ -106,6 +126,18 @@ export const ELIMINATION_CLAIM_RE =
   /\b(?:eliminat\w+|paid\s+off|pay(?:s|ing)?\s+off|pay(?:s|ing)?\s+\w+(?:\s+\w+)?\s+off|(?<!steer\s)clear(?:s|ed|ing)?\b|zero(?:s|ed)?\s+out|(?:reach(?:es)?|hits?|down\s+to)\s+\$?(?:0|zero)\b|wipe[sd]?\s+out|knock(?:s|ed|ing)?\s+out|gone\s+by)\b/i;
 
 /**
+ * Every piece of model-authored free text the text-based laws must scan. The
+ * verdict is descriptive rather than prescriptive, but it is shown to the user
+ * just the same — "skip the Chase minimum this month" phrased as a summary is
+ * exactly as harmful as the same words in the action. A false positive here
+ * only downgrades to the deterministic fallback; a scan gap re-opens the bug
+ * the law exists to stop.
+ */
+function lawScannedText(brief: CoachBrief): string {
+  return `${brief.verdict.headline} ${brief.verdict.summary} ${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`;
+}
+
+/**
  * Third law: an "eliminates it this month"-style claim must be arithmetically
  * possible. The most a single debt can receive this month is its own minimum
  * plus the proposed extra (redirectAmount) — if that can't cover the debt's
@@ -122,11 +154,30 @@ function makesUnverifiedEliminationClaim(
   brief: CoachBrief,
   debts: EliminationCheckDebt[],
 ): boolean {
-  const text = `${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`;
+  // Claim attribution is scoped PER BLOCK (verdict vs nextAction), not across
+  // the full concatenation: a benign mention of a small, coverable debt in the
+  // verdict must not vouch for an impossible payoff claim about a different
+  // debt in the nextAction (CodeRabbit-flagged on the verdict-scan change).
+  // For nextAction claims this is exactly the pre-verdict-scan behavior.
+  const blocks = [
+    `${brief.verdict.headline} ${brief.verdict.summary}`,
+    `${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`,
+  ];
+  return blocks.some((block) =>
+    blockMakesUnverifiedClaim(block, brief.nextAction.redirectAmount, debts),
+  );
+}
+
+/** Runs the elimination-claim law against one text block in isolation. */
+function blockMakesUnverifiedClaim(
+  text: string,
+  redirectAmount: number,
+  debts: EliminationCheckDebt[],
+): boolean {
   if (!ELIMINATION_CLAIM_RE.test(text)) return false;
 
   const canEliminate = (d: EliminationCheckDebt) =>
-    brief.nextAction.redirectAmount + d.minimumPayment + REDIRECT_TOLERANCE >= d.balance;
+    redirectAmount + d.minimumPayment + REDIRECT_TOLERANCE >= d.balance;
 
   // Attribute debt names longest-first, blanking out each match before
   // checking shorter names — otherwise "Chase" would count as named whenever
@@ -172,7 +223,7 @@ export function findBriefViolation(
   availableCashFlow: number,
   debts: EliminationCheckDebt[] = [],
 ): LawViolation | null {
-  const text = `${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`;
+  const text = lawScannedText(brief);
   if (UNSAFE_MINIMUM_ADVICE_RE.test(text)) return 'unsafe_minimum_text';
   if (brief.nextAction.redirectAmount > effectiveAcceleration + REDIRECT_TOLERANCE) {
     return 'redirect_exceeds_ceiling';

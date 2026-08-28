@@ -9,7 +9,7 @@ import { calculatePlanMetrics, calculateMinimumsOnlyResult, isPayoffMethod } fro
 import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 import { selectMonthlyFocusDebt } from '@/lib/monthlyFocusDebt';
 import { formatMonths } from '@/lib/utils';
-import { CoachBriefSchema, findBriefViolation, toClientBrief, parseLawfulStoredBrief, type CoachBrief, type StoredCoachBrief } from '@/lib/coachBriefSafety';
+import { CoachBriefSchema, normalizeModelBrief, findBriefViolation, toClientBrief, parseLawfulStoredBrief, type CoachBrief, type StoredCoachBrief } from '@/lib/coachBriefSafety';
 import type { Debt } from '@/types';
 
 export const maxDuration = 30;
@@ -27,7 +27,8 @@ HARD LAW — enforced by code, not just this prompt. A response that breaks it i
 - The ONLY money you may propose moving between debts is the discretionary "Planned acceleration" amount stated in the data below. That figure is a hard ceiling.
 - "redirectAmount" must equal the total EXTRA dollars (never any minimum) your nextAction proposes moving this month. It is compared programmatically against the stated Planned acceleration — if it exceeds that ceiling, the response is rejected outright. Use 0 when nextAction does not move money between debts.
 - "kind" must be one of: "set_acceleration", "reconnect_bank", "log_payments", "review_refinance", or "keep_course".
-- Use "set_acceleration" only when recommending a new total monthly EXTRA/acceleration payment. In that case, "targetExtra" MUST be a number of 0 or more (e.g. 750; 0 means drop extra to zero and pay minimums only) — never null — and cannot exceed the stated Available cash flow after essentials and minimums. A "set_acceleration" action with "targetExtra": null is rejected. Return an "outcome" object with your preview; the server will replace it with plan-engine math.
+- Use "set_acceleration" only when recommending a new total monthly EXTRA/acceleration payment. In that case, "targetExtra" MUST be a number of 0 or more (e.g. 750; 0 means drop extra to zero and pay minimums only) — never null — and cannot exceed the stated Available cash flow after essentials and minimums. A "set_acceleration" action with "targetExtra": null is rejected.
+- "outcome" must ALWAYS be null, for every kind including "set_acceleration" — the server computes the real outcome from "targetExtra" with plan-engine math. Never invent an outcome object.
 - For every other kind, return "targetExtra": null and "outcome": null.
 - Never claim a debt will be paid off, eliminated, cleared, wiped out, or reach zero within any timeframe unless the total payment you propose for it (its minimum + the extra) covers its FULL current balance from the data. This is checked arithmetically — an impossible claim is rejected outright. When a balance will remain, state the remaining balance instead.
 - Keep tone calm and practical. No shame, hype, or vague encouragement.
@@ -694,7 +695,7 @@ Current plan:
         parsedJson = parseClaudeJson(rawText);
       }
 
-      const claudeResponse = parsedJson ? CoachBriefSchema.safeParse(parsedJson) : null;
+      const claudeResponse = parsedJson ? CoachBriefSchema.safeParse(normalizeModelBrief(parsedJson)) : null;
       const violation = claudeResponse?.success
         ? findBriefViolation(
             claudeResponse.data,
@@ -722,8 +723,27 @@ Current plan:
       if (claudeResponse?.success && !violation) {
         brief = claudeResponse.data;
       } else {
+        if (!parsedJson) {
+          // Both attempts came back unparseable. Content-free by design:
+          // parseClaudeJson's own warn previews raw model text, but at the
+          // route level stop_reason is all the diagnosis needs.
+          console.error('Coach brief response unparseable after retry', {
+            stopReason: msg.stop_reason,
+          });
+        }
         if (parsedJson && claudeResponse && !claudeResponse.success) {
-          console.error('Zod validation failed on coach brief response', { issues: claudeResponse.error.issues });
+          // Flatten paths to strings — console.error's default inspect depth
+          // renders nested path arrays as '[Array]', which made the 2026-08-28
+          // production failure (invented outcome keys) undiagnosable from logs.
+          // Codes and paths ONLY — no issue.message: Zod's invalid_enum_value
+          // message embeds the received value verbatim, and enum fields are
+          // model-authored free text that can carry debt names or amounts.
+          console.error('Zod validation failed on coach brief response', {
+            issues: claudeResponse.error.issues.map((issue) => ({
+              code: issue.code,
+              path: issue.path.join('.'),
+            })),
+          });
         }
         brief = buildFallbackBrief({
           totalDebt,
