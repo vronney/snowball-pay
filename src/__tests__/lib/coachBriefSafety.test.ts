@@ -331,6 +331,65 @@ describe('findBriefViolation — reason codes for diagnosable logging', () => {
   });
 });
 
+describe('isBriefLawful — verdict text is scanned by the laws too', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+
+  function withVerdict(overrides: Partial<CoachBrief['verdict']>, redirectAmount = 0): CoachBrief {
+    const base = nextAction({ redirectAmount });
+    return { ...base, verdict: { ...base.verdict, ...overrides } };
+  }
+
+  it('rejects unsafe-minimum advice hidden in verdict.summary', () => {
+    // The adversarial-review gap: verdict.headline/summary are model free text
+    // shown to the user, but the laws only scanned nextAction before this.
+    const brief = withVerdict({
+      summary: 'Skip the Chase minimum this month to rebuild your cash buffer.',
+    });
+    expect(findBriefViolation(brief, 500, 500)).toBe('unsafe_minimum_text');
+    expect(isBriefLawful(brief, 500, 500)).toBe(false);
+  });
+
+  it('rejects unsafe-minimum advice in verdict.headline', () => {
+    const brief = withVerdict({ headline: 'Hold off on the Amex minimum' });
+    expect(findBriefViolation(brief, 500, 500)).toBe('unsafe_minimum_text');
+  });
+
+  it('rejects an elimination claim in verdict.summary the math cannot support', () => {
+    const brief = withVerdict(
+      { summary: 'Paying $565 total eliminates CreditOne 6610 by month-end.' },
+      500,
+    );
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+
+  it('allows a verdict elimination claim the payment actually covers', () => {
+    const brief = withVerdict(
+      { summary: 'Paying $565 total eliminates CreditOne 6610 by month-end.' },
+      500,
+    );
+    expect(isBriefLawful(brief, 500, 500, [{ ...CREDIT_ONE, balance: 550 }])).toBe(true);
+  });
+
+  it('allows benign descriptive verdict text with real numbers', () => {
+    const brief = withVerdict({
+      headline: 'Debt payments are a third of income',
+      summary: 'Total debt is $11,378 with payments at 32% of take-home pay, and last month you missed one payment.',
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBeNull();
+  });
+
+  it('purges a cached brief whose verdict carries an unverifiable elimination claim', () => {
+    const stored: StoredCoachBrief = {
+      ...withVerdict(
+        { summary: 'This wipes out CreditOne 6610 by Friday.' },
+        500,
+      ),
+      _meta: { effectiveAcceleration: 500, availableCashFlow: 500, debts: [CREDIT_ONE] },
+    };
+    expect(parseLawfulStoredBrief(stored)).toBeNull();
+  });
+});
+
 describe('normalizeModelBrief — model outcome previews must not sink the response', () => {
   it('rescues the 2026-08-28 production incident: set_acceleration with invented outcome keys', () => {
     // The prompt told the model to "return an outcome object with your

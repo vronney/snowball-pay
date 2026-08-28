@@ -126,6 +126,18 @@ export const ELIMINATION_CLAIM_RE =
   /\b(?:eliminat\w+|paid\s+off|pay(?:s|ing)?\s+off|pay(?:s|ing)?\s+\w+(?:\s+\w+)?\s+off|(?<!steer\s)clear(?:s|ed|ing)?\b|zero(?:s|ed)?\s+out|(?:reach(?:es)?|hits?|down\s+to)\s+\$?(?:0|zero)\b|wipe[sd]?\s+out|knock(?:s|ed|ing)?\s+out|gone\s+by)\b/i;
 
 /**
+ * Every piece of model-authored free text the text-based laws must scan. The
+ * verdict is descriptive rather than prescriptive, but it is shown to the user
+ * just the same — "skip the Chase minimum this month" phrased as a summary is
+ * exactly as harmful as the same words in the action. A false positive here
+ * only downgrades to the deterministic fallback; a scan gap re-opens the bug
+ * the law exists to stop.
+ */
+function lawScannedText(brief: CoachBrief): string {
+  return `${brief.verdict.headline} ${brief.verdict.summary} ${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`;
+}
+
+/**
  * Third law: an "eliminates it this month"-style claim must be arithmetically
  * possible. The most a single debt can receive this month is its own minimum
  * plus the proposed extra (redirectAmount) — if that can't cover the debt's
@@ -142,7 +154,7 @@ function makesUnverifiedEliminationClaim(
   brief: CoachBrief,
   debts: EliminationCheckDebt[],
 ): boolean {
-  const text = `${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`;
+  const text = lawScannedText(brief);
   if (!ELIMINATION_CLAIM_RE.test(text)) return false;
 
   const canEliminate = (d: EliminationCheckDebt) =>
@@ -192,7 +204,7 @@ export function findBriefViolation(
   availableCashFlow: number,
   debts: EliminationCheckDebt[] = [],
 ): LawViolation | null {
-  const text = `${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`;
+  const text = lawScannedText(brief);
   if (UNSAFE_MINIMUM_ADVICE_RE.test(text)) return 'unsafe_minimum_text';
   if (brief.nextAction.redirectAmount > effectiveAcceleration + REDIRECT_TOLERANCE) {
     return 'redirect_exceeds_ceiling';

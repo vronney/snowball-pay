@@ -51,9 +51,16 @@ export function parseClaudeJson(raw: string): unknown | null {
     try {
       return JSON.parse(repaired);
     } catch (error) {
+      // Content-free by design: `extracted` is raw model output that can embed
+      // user financial data (debt names, dollar amounts) on routes like
+      // /api/coach-brief, so no preview — and no error.message either, since
+      // JSON.parse SyntaxErrors quote a snippet of the input. Shape signals
+      // only; routes add their own content-free context (e.g. stop_reason).
       console.warn('Failed to parse Claude JSON response', {
-        error: error instanceof Error ? error.message : String(error),
-        preview: extracted.slice(0, 300),
+        error: error instanceof Error ? error.name : 'Error',
+        length: extracted.length,
+        hasBraces: extracted.includes('{') && extracted.includes('}'),
+        hadCodeFence: raw.includes('```'),
       });
       return null;
     }
