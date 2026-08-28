@@ -378,6 +378,47 @@ describe('isBriefLawful — verdict text is scanned by the laws too', () => {
     expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBeNull();
   });
 
+  it('does not let a benign verdict mention of a small debt vouch for an impossible nextAction claim (CodeRabbit-flagged)', () => {
+    // Attribution is per block: the verdict names the coverable CreditOne
+    // (descriptively), but the nextAction's payoff claim is about the $10k
+    // Delta Amex — concatenated attribution would let CreditOne's small
+    // balance validate the impossible claim.
+    const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+    const smallCreditOne = { ...CREDIT_ONE, balance: 400 };
+    const base = nextAction({
+      title: 'Go all-in on Delta Amex',
+      body: 'Paying $750 total this month eliminates Delta Amex.',
+      action: 'Pay $750 to Delta Amex',
+      redirectAmount: 500,
+    });
+    const brief = {
+      ...base,
+      verdict: {
+        ...base.verdict,
+        summary: 'CreditOne 6610 is nearly done at $400, and cash flow has buffer.',
+      },
+    };
+    expect(findBriefViolation(brief, 500, 500, [smallCreditOne, DELTA_AMEX])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('does not let a benign nextAction mention vouch for an impossible verdict claim', () => {
+    const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+    const smallCreditOne = { ...CREDIT_ONE, balance: 400 };
+    const base = nextAction({
+      body: 'Keep sending the $500 acceleration to CreditOne 6610 this month.',
+      redirectAmount: 500,
+    });
+    const brief = {
+      ...base,
+      verdict: { ...base.verdict, summary: 'This month wipes out Delta Amex entirely.' },
+    };
+    expect(findBriefViolation(brief, 500, 500, [smallCreditOne, DELTA_AMEX])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
   it('purges a cached brief whose verdict carries an unverifiable elimination claim', () => {
     const stored: StoredCoachBrief = {
       ...withVerdict(

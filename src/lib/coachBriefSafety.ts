@@ -154,11 +154,30 @@ function makesUnverifiedEliminationClaim(
   brief: CoachBrief,
   debts: EliminationCheckDebt[],
 ): boolean {
-  const text = lawScannedText(brief);
+  // Claim attribution is scoped PER BLOCK (verdict vs nextAction), not across
+  // the full concatenation: a benign mention of a small, coverable debt in the
+  // verdict must not vouch for an impossible payoff claim about a different
+  // debt in the nextAction (CodeRabbit-flagged on the verdict-scan change).
+  // For nextAction claims this is exactly the pre-verdict-scan behavior.
+  const blocks = [
+    `${brief.verdict.headline} ${brief.verdict.summary}`,
+    `${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`,
+  ];
+  return blocks.some((block) =>
+    blockMakesUnverifiedClaim(block, brief.nextAction.redirectAmount, debts),
+  );
+}
+
+/** Runs the elimination-claim law against one text block in isolation. */
+function blockMakesUnverifiedClaim(
+  text: string,
+  redirectAmount: number,
+  debts: EliminationCheckDebt[],
+): boolean {
   if (!ELIMINATION_CLAIM_RE.test(text)) return false;
 
   const canEliminate = (d: EliminationCheckDebt) =>
-    brief.nextAction.redirectAmount + d.minimumPayment + REDIRECT_TOLERANCE >= d.balance;
+    redirectAmount + d.minimumPayment + REDIRECT_TOLERANCE >= d.balance;
 
   // Attribute debt names longest-first, blanking out each match before
   // checking shorter names — otherwise "Chase" would count as named whenever

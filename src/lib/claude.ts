@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 
 export const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+/** Removes a leading/trailing markdown code fence the model may wrap JSON in. */
 function stripCodeFences(raw: string): string {
   return raw
     .replace(/^\s*```(?:json)?\s*/i, '')
@@ -9,6 +10,7 @@ function stripCodeFences(raw: string): string {
     .trim();
 }
 
+/** Slices out the outermost {...} or [...] block, dropping surrounding prose. */
 function extractJsonBlock(raw: string): string {
   const firstObjStart = raw.indexOf('{');
   const lastObjEnd = raw.lastIndexOf('}');
@@ -25,6 +27,7 @@ function extractJsonBlock(raw: string): string {
   return raw.trim();
 }
 
+/** Best-effort repair of near-JSON: smart quotes, comments, unquoted keys, trailing commas. */
 function repairLikelyJson(raw: string): string {
   return raw
     .replace(/[\u201C\u201D]/g, '"')
@@ -40,6 +43,11 @@ function repairLikelyJson(raw: string): string {
     .trim();
 }
 
+/**
+ * Parses a model text response into JSON, tolerating fences, prose, and
+ * near-JSON syntax. Returns null (never throws) when unrecoverable; the
+ * failure log is deliberately content-free — see the catch below.
+ */
 export function parseClaudeJson(raw: string): unknown | null {
   const cleaned = stripCodeFences(raw);
   const extracted = extractJsonBlock(cleaned);
@@ -67,6 +75,7 @@ export function parseClaudeJson(raw: string): unknown | null {
   }
 }
 
+/** Joins all text blocks of an Anthropic message into one trimmed string. */
 export function extractTextBlocks(content: Anthropic.Messages.Message['content']): string {
   return content
     .map((block) => (block.type === 'text' ? block.text : ''))
