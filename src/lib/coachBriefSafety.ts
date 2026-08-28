@@ -38,9 +38,13 @@ export const CoachBriefSchema = z.object({
   }).superRefine((nextAction, ctx) => {
     // HARD LAW (shape): targetExtra is a concrete money move and outcome is its
     // computed forecast — both only make sense for a set_acceleration action.
-    // Enforced in code, not just the prompt, so a stray non-null value on any
-    // other kind fails parsing (→ deterministic fallback / cache purge) instead
-    // of reaching the client, where the CTA keys off exactly these fields.
+    // Enforced in code, not just the prompt. The targetExtra half fires on both
+    // paths; the outcome half effectively guards CACHED briefs only, because
+    // fresh model responses go through normalizeModelBrief (outcome → null)
+    // before parsing and the server recomputes outcome regardless. A stray
+    // non-null value that does reach this check fails parsing (→ deterministic
+    // fallback / cache purge) instead of reaching the client, where the CTA
+    // keys off exactly these fields.
     if (
       nextAction.kind !== 'set_acceleration' &&
       (nextAction.targetExtra !== null || nextAction.outcome !== null)

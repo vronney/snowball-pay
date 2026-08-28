@@ -347,9 +347,12 @@ describe('normalizeModelBrief — model outcome previews must not sink the respo
     // Proves the test is meaningful: without normalization this still fails.
     const withoutFix = CoachBriefSchema.safeParse(raw);
     expect(withoutFix.success).toBe(false);
-    expect(
-      withoutFix.success ? [] : withoutFix.error.issues.map((i) => i.path.join('.')),
-    ).toEqual(['nextAction.outcome.bufferAfter', 'nextAction.outcome.monthsSavedVsMin']);
+    // Membership, not order — Zod issue ordering is not contractual across versions.
+    const failedPaths = withoutFix.success ? [] : withoutFix.error.issues.map((i) => i.path.join('.'));
+    expect(failedPaths).toHaveLength(2);
+    expect(failedPaths).toEqual(
+      expect.arrayContaining(['nextAction.outcome.bufferAfter', 'nextAction.outcome.monthsSavedVsMin']),
+    );
 
     const normalized = CoachBriefSchema.safeParse(normalizeModelBrief(raw));
     expect(normalized.success).toBe(true);

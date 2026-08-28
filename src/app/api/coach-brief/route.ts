@@ -723,17 +723,25 @@ Current plan:
       if (claudeResponse?.success && !violation) {
         brief = claudeResponse.data;
       } else {
+        if (!parsedJson) {
+          // Both attempts came back unparseable. Content-free by design:
+          // parseClaudeJson's own warn previews raw model text, but at the
+          // route level stop_reason is all the diagnosis needs.
+          console.error('Coach brief response unparseable after retry', {
+            stopReason: msg.stop_reason,
+          });
+        }
         if (parsedJson && claudeResponse && !claudeResponse.success) {
           // Flatten paths to strings — console.error's default inspect depth
           // renders nested path arrays as '[Array]', which made the 2026-08-28
           // production failure (invented outcome keys) undiagnosable from logs.
-          // Codes and paths only; issue messages carry no user data here either,
-          // but paths are all the diagnosis needs.
+          // Codes and paths ONLY — no issue.message: Zod's invalid_enum_value
+          // message embeds the received value verbatim, and enum fields are
+          // model-authored free text that can carry debt names or amounts.
           console.error('Zod validation failed on coach brief response', {
             issues: claudeResponse.error.issues.map((issue) => ({
               code: issue.code,
               path: issue.path.join('.'),
-              message: issue.message,
             })),
           });
         }
