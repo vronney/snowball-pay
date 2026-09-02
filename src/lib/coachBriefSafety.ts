@@ -200,20 +200,26 @@ export function buildEliminationClaimRe(debtNames: string[] = []): RegExp {
     .filter((name) => name.length >= 2)
     .map((name) => escapeForRegex(name).replace(/\s+/g, String.raw`\s+`));
   const target = String.raw`(?:\$[\d,]+|(?<!\w)(?:${[BALANCE_OBJECT_NOUNS, ...names].join('|')})(?!\w))`;
-  // "payment(s) cleared" is bank-sync phrasing ("confirm September payments
-  // cleared") about a transaction posting, not a balance reaching zero.
-  const clearVerb = String.raw`(?<!steer\s)(?<!payment\s)(?<!payments\s)\bclear(?:s|ed|ing)?\b${PARTITIVE_AMOUNT}`;
+  // "payment(s) cleared" and "minimum cleared" are bank-sync phrasing about a
+  // transaction posting, not a balance reaching zero ("confirm September
+  // payments cleared", "confirm the $65 minimum cleared").
+  const notBankSync = String.raw`(?<!steer\s)(?<!payment\s)(?<!payments\s)(?<!minimum\s)(?<!minimums\s)`;
+  const clearVerb = String.raw`${notBankSync}\bclear(?:s|ed|ing)?\b${PARTITIVE_AMOUNT}`;
+  // Inflected only. After a target, a BARE "clear" is far more often the
+  // adjective ("...balance and clear picture") than the verb.
+  const inflectedClearVerb = String.raw`${notBankSync}\bclear(?:s|ed|ing)\b`;
   const clearClaim = [
     // "clears it" — the pronoun stands in for the debt. "clears it up" is an
     // idiom about confusion, never a balance.
     String.raw`${clearVerb}\s+it\b(?!\s+up)`,
     // "clears the $1,209 balance" / "clearing your CreditOne 6610"
     `${clearVerb}[^.]{0,40}?${target}`,
-    // Passive: "CreditOne 6610 is cleared this month". Deliberately requires a
-    // copula rather than mere proximity — a plain "<target> ... clear" window
-    // matched ordinary prose that happens to follow a figure, e.g. "confirm
-    // the $1209 balance and clear the stale-data risk".
-    String.raw`${target}(?:\s+\w+){0,2}\s+(?:is|are|was|were|gets?|got|will\s+be|would\s+be|should\s+be)\s+(?:fully\s+|completely\s+|finally\s+)?clear(?:ed|ing)\b`,
+    // The debt as SUBJECT, active or passive: "CreditOne 6610 clears in 3
+    // months", "CreditOne 6610 is cleared this month". A conjunction between
+    // the two means a new predicate has started, so the verb is no longer
+    // about the target — that is what made a plain proximity window match
+    // "confirm the $1209 balance and clear the stale-data risk".
+    String.raw`${target}(?:\s+(?!and\b|or\b|but\b|then\b|so\b|while\b|plus\b)\w+){0,2}\s+(?:(?:is|are|was|were|gets?|got|will\s+be|would\s+be|should\s+be)\s+(?:fully\s+|completely\s+|finally\s+)?)?${inflectedClearVerb}`,
   ].join('|');
 
   return new RegExp(String.raw`\b(?:${UNAMBIGUOUS_PAYOFF_VERBS})\b|${clearClaim}`, 'i');
@@ -307,22 +313,40 @@ function lawScannedText(brief: CoachBrief): string {
 }
 
 /**
- * The most extra (never-a-minimum) money this action could put on a single
- * debt this month — the numerator of the elimination check's affordability
- * math. redirectAmount alone is wrong for a `set_acceleration`: that action
- * moves money by RAISING the monthly extra, so its redirectAmount is 0 and
- * the real figure is targetExtra. Using redirectAmount there rejected honest
- * copy like "raise your extra to $2,000, which clears your $1,500 card".
+ * The most extra (never-a-minimum) money that could land on a single debt in
+ * one month — the numerator of the elimination check's affordability math.
+ * Three independent figures, and the check needs their true upper bound:
  *
- * Both are read (via max) rather than branching on kind, because each is an
- * independent claim about money moving this month and the check needs their
- * true upper bound. Overstating it can only ALLOW a claim; the ceiling laws
- * above already cap both figures against real discretionary cash, so neither
- * can be inflated to launder an impossible claim through this one.
+ * - `effectiveAcceleration` — the extra the plan ALREADY sends every month.
+ *   This is the floor, and leaving it out was the bug: the prompt requires
+ *   `redirectAmount: 0` for an action that moves no money between debts, so a
+ *   `keep_course` or `reconnect_bank` brief describing the plan's existing
+ *   pace ("at current pace, CreditOne clears in ~3 months") was measured
+ *   against $0 of extra and rejected as a hallucination. The money is real
+ *   and already allocated; the claim is about it.
+ * - `targetExtra` — a `set_acceleration` moves money by RAISING the monthly
+ *   extra, so its own redirectAmount is 0 and this carries the real figure.
+ *   It is the one input that can legitimately exceed the acceleration floor.
+ * - `redirectAmount` — kept for defence in depth only. The ceiling law runs
+ *   BEFORE this one and already caps it at effectiveAcceleration + tolerance,
+ *   so today it can never be the max by more than the rounding tolerance.
+ *
+ * Every figure here is either server-computed (the acceleration, from the
+ * plan engine) or already capped by an earlier law against real discretionary
+ * cash, so the model cannot inflate any of them to launder a claim through
+ * this check.
  */
-function maxExtraOnOneDebt(nextAction: CoachBrief['nextAction']): number {
+function maxExtraOnOneDebt(
+  nextAction: CoachBrief['nextAction'],
+  effectiveAcceleration: number,
+): number {
   const target = Number.isFinite(nextAction.targetExtra) ? (nextAction.targetExtra as number) : 0;
-  return Math.max(target, nextAction.redirectAmount);
+  // Number.isFinite, not typeof: a NaN acceleration must fall back to 0
+  // rather than poison every comparison into passing.
+  const accelerationFloor = Number.isFinite(effectiveAcceleration)
+    ? Math.max(0, effectiveAcceleration)
+    : 0;
+  return Math.max(target, nextAction.redirectAmount, accelerationFloor);
 }
 
 /**
@@ -342,6 +366,7 @@ function maxExtraOnOneDebt(nextAction: CoachBrief['nextAction']): number {
 function makesUnverifiedEliminationClaim(
   brief: CoachBrief,
   debts: EliminationCheckDebt[],
+  effectiveAcceleration: number,
 ): boolean {
   // Claim attribution is scoped PER BLOCK (verdict vs nextAction), not across
   // the full concatenation: a benign mention of a small, coverable debt in the
@@ -355,7 +380,7 @@ function makesUnverifiedEliminationClaim(
     [brief.verdict.headline, brief.verdict.summary].join('. '),
     [brief.nextAction.title, brief.nextAction.body, brief.nextAction.action].join('. '),
   ];
-  const extraAvailable = maxExtraOnOneDebt(brief.nextAction);
+  const extraAvailable = maxExtraOnOneDebt(brief.nextAction, effectiveAcceleration);
   return blocks.some((block) => blockMakesUnverifiedClaim(block, extraAvailable, debts));
 }
 
@@ -455,7 +480,9 @@ export function findBriefViolation(
       return 'set_acceleration_target_invalid';
     }
   }
-  if (makesUnverifiedEliminationClaim(brief, debts)) return 'unverified_elimination_claim';
+  if (makesUnverifiedEliminationClaim(brief, debts, effectiveAcceleration)) {
+    return 'unverified_elimination_claim';
+  }
   return null;
 }
 

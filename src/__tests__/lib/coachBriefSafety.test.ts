@@ -319,20 +319,21 @@ describe('elimination law — a set_acceleration claim is checked against target
     );
   });
 
-  it('uses whichever of targetExtra and redirectAmount is larger', () => {
-    // Each is an independent claim about money moving this month, so the
-    // affordability ceiling is their max. Here redirectAmount is the larger.
+  it('lets targetExtra exceed the current acceleration, which is what raising it means', () => {
+    // targetExtra is the one input that can legitimately sit above the
+    // acceleration floor: the action proposes raising the monthly extra from
+    // $200 to $1,600, and only that larger figure covers the $1,500 card.
     const brief = nextAction({
       kind: 'set_acceleration',
-      body: 'This eliminates Store Card this month.',
-      targetExtra: 0,
-      outcome: { bufferAfter: 900, monthsSavedVsMin: 0 },
-      redirectAmount: 1500,
+      body: 'Raising the monthly extra to $1,600 clears Store Card this month.',
+      targetExtra: 1600,
+      outcome: { bufferAfter: 100, monthsSavedVsMin: 9 },
+      redirectAmount: 0,
     });
-    expect(findBriefViolation(brief, 1500, 1500, [CARD_1500])).toBeNull();
+    expect(findBriefViolation(brief, 200, 1700, [CARD_1500])).toBeNull();
   });
 
-  it('leaves non-set_acceleration kinds on redirectAmount alone (targetExtra is null there)', () => {
+  it('holds a non-set_acceleration kind to the money the plan actually has', () => {
     const covered = nextAction({
       body: 'This eliminates Store Card this month.',
       redirectAmount: 1500,
@@ -360,6 +361,91 @@ describe('elimination law — a set_acceleration claim is checked against target
       _meta: { effectiveAcceleration: 300, availableCashFlow: 400, debts: [CARD_1500] },
     };
     expect(parseLawfulStoredBrief(stored)).toBeNull();
+  });
+});
+
+describe("elimination law — the plan's existing acceleration is the affordability floor", () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+  const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+
+  it('allows a keep_course claim about the pace the plan already funds', () => {
+    // The gap: the prompt mandates redirectAmount 0 for an action that moves
+    // no money, so this was measured against $0 of extra ($65/mo) and
+    // rejected. The plan already sends $500/mo, making the real pace $565 and
+    // the 3-month claim true.
+    const brief = nextAction({
+      kind: 'keep_course',
+      title: 'Keep the current course',
+      body: 'At current pace, CreditOne 6610 clears in ~3 months, freeing its $65 minimum for Delta Amex.',
+      action: 'Stay on the current plan',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it('allows a reconnect_bank brief to describe the same funded pace', () => {
+    const brief = nextAction({
+      kind: 'reconnect_bank',
+      body: 'Balances may be stale, but at the current $565/mo pace CreditOne 6610 clears in 3 months.',
+      action: 'Reconnect Credit One Bank',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it('still rejects a claim the existing acceleration cannot reach either', () => {
+    // $500 + $250 over 3 months is $2,250 against a $10,169 balance.
+    const brief = nextAction({
+      kind: 'keep_course',
+      body: 'At current pace, Delta Amex clears in 3 months.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 500, 900, [DELTA_AMEX])).toBe('unverified_elimination_claim');
+  });
+
+  it('does not let the floor disarm the same-month math', () => {
+    // The reported incident, restated as a no-money action: $500 + $65 is
+    // still $565 against a $1,209 balance in one month.
+    const brief = nextAction({
+      kind: 'keep_course',
+      body: 'This month wipes out CreditOne 6610 entirely.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+
+  it('gives a minimums-only plan no floor at all', () => {
+    const brief = nextAction({
+      kind: 'keep_course',
+      body: 'At current pace, CreditOne 6610 clears in 3 months.',
+      redirectAmount: 0,
+    });
+    // $0 acceleration: 3 months of the $65 minimum is $195, not $1,209.
+    expect(findBriefViolation(brief, 0, 0, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+
+  it('reads the floor from _meta for a cached brief', () => {
+    const body = 'At current pace, CreditOne 6610 clears in ~3 months.';
+    const funded: StoredCoachBrief = {
+      ...nextAction({ kind: 'keep_course', body, redirectAmount: 0 }),
+      _meta: { effectiveAcceleration: 500, availableCashFlow: 900, debts: [CREDIT_ONE] },
+    };
+    expect(parseLawfulStoredBrief(funded)).not.toBeNull();
+
+    const unfunded: StoredCoachBrief = {
+      ...nextAction({ kind: 'keep_course', body, redirectAmount: 0 }),
+      _meta: { effectiveAcceleration: 0, availableCashFlow: 900, debts: [CREDIT_ONE] },
+    };
+    expect(parseLawfulStoredBrief(unfunded)).toBeNull();
+  });
+
+  it('treats a NaN acceleration as no floor rather than an infinite one', () => {
+    const brief = nextAction({
+      kind: 'keep_course',
+      body: 'At current pace, CreditOne 6610 clears in 3 months.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, NaN, 900, [CREDIT_ONE])).toBe('unverified_elimination_claim');
   });
 });
 
@@ -393,7 +479,9 @@ describe('elimination law — "clear" must point at something payoff-shaped', ()
   });
 
   it('needs the debt list to use a bare debt name as the object', () => {
-    const brief = nextAction({ body: 'Paying $565 clears CreditOne 6610 by month-end.', redirectAmount: 500 });
+    // No dollar amount and no balance noun, so the debt name is the only
+    // thing that can make this a payoff claim.
+    const brief = nextAction({ body: 'Your plan clears CreditOne 6610 by month-end.', redirectAmount: 500 });
     expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
     // Documents the dependency, same as the unsafe-minimum law. Both callers
     // pass a debt list; with none there is no name to recognise as an object.
