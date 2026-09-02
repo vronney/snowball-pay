@@ -319,6 +319,25 @@ describe('elimination law — a set_acceleration claim is checked against target
     );
   });
 
+  it('drops the acceleration floor when set_acceleration LOWERS the extra', () => {
+    // Codex, PR #91: a set_acceleration replaces the monthly extra, so the
+    // acceleration it proposes to remove must not fund the claim. Dropping the
+    // extra to $0 leaves the $35 minimum, nowhere near the $900 balance.
+    const CARD_900 = { name: 'Store Card', balance: 900, minimumPayment: 35 };
+    const brief = nextAction({
+      kind: 'set_acceleration',
+      title: 'Drop your extra to zero this month',
+      body: 'Cash is tight, so drop the extra to zero; the Store Card is still cleared this month.',
+      action: 'Set extra payment to $0',
+      targetExtra: 0,
+      outcome: { bufferAfter: 1000, monthsSavedVsMin: 0 },
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 1000, 1000, [CARD_900])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
   it('lets targetExtra exceed the current acceleration, which is what raising it means', () => {
     // targetExtra is the one input that can legitimately sit above the
     // acceleration floor: the action proposes raising the monthly extra from
@@ -460,6 +479,9 @@ describe('elimination law — "clear" must point at something payoff-shaped', ()
     'Stale account data blocks clear picture.',
     'Reconnect now to confirm the $1209 balance and clear the stale-data risk.',
     'Reconnect to confirm September payment of $65 minimum cleared.',
+    // Bare "clear" as an adjective, with a balance noun further along.
+    'Missing logs hide payment status and block clear visibility into which debt may have slipped.',
+    'Stale sync blocks a clear read on your card balances.',
   ])('allows "clear" used about anything but a balance: %s', (phrase) => {
     const brief = nextAction({ kind: 'reconnect_bank', body: phrase, redirectAmount: 0 });
     expect(findBriefViolation(brief, 200, 760, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
@@ -471,6 +493,9 @@ describe('elimination law — "clear" must point at something payoff-shaped', ()
     'Paying $565 clears the card by month-end.',
     'One $565 payment and CreditOne 6610 is cleared by month-end.',
     'Send $565 to CreditOne 6610 and that clears it by month-end.',
+    // Bare "clear" still counts when its object comes straight after.
+    'Send $565 this month to clear the $1,209 balance.',
+    'Send $565 this month to clear CreditOne 6610.',
   ])('still rejects an unaffordable payoff claim: %s', (phrase) => {
     const brief = nextAction({ body: phrase, redirectAmount: 500 });
     expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(
@@ -535,9 +560,9 @@ describe('elimination law — a claim is measured against the runway it states',
   const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
 
   it('allows the live-model multi-month claim its runway actually covers', () => {
-    // Verbatim from a live-model run, rejected before this change: $350 extra
-    // + the $65 minimum is $415/mo, and 4 months of that is $1,660 against a
-    // $1,209 balance. True, but one month of it ($415) is not.
+    // Verbatim from a live-model run, rejected before this change. The budget
+    // is the $500 acceleration floor plus the $65 minimum, so $565/mo: four
+    // months is $2,260 against a $1,209 balance, and one month ($565) is not.
     const brief = nextAction({
       title: 'Target CreditOne aggressively this month',
       body: 'CreditOne 6610 is your highest-utilization card. Redirect $350 of your $500 planned acceleration to eliminate it within 4 months, freeing $65/mo for Discover.',
@@ -574,8 +599,9 @@ describe('elimination law — a claim is measured against the runway it states',
     ['within three months', 3],
     ['over the next 3 months', 3],
   ])('reads the runway from "%s"', (phrase) => {
-    // $65 min + $350 extra = $415/mo. 3 months ($1,245) covers the $1,209
-    // balance; 2 months ($830) does not.
+    // The budget is the acceleration floor ($500), not the $350 redirect, so
+    // $65 min + $500 = $565/mo. 3 months ($1,695) covers the $1,209 balance;
+    // 2 months ($1,130) does not.
     const brief = nextAction({ body: `This eliminates CreditOne 6610 ${phrase}.`, redirectAmount: 350 });
     expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBeNull();
 
@@ -588,7 +614,8 @@ describe('elimination law — a claim is measured against the runway it states',
       body: 'Staying the course eliminates Delta Amex within 2 years.',
       redirectAmount: 250,
     });
-    // 24 months x ($250 extra + $250 minimum) = $12,000 against $10,169.
+    // Again the $500 acceleration floor is the budget, not the $250 redirect:
+    // 24 months x ($500 + $250 minimum) = $18,000 against $10,169.
     expect(findBriefViolation(brief, 500, 500, [DELTA_AMEX])).toBeNull();
   });
 
@@ -666,6 +693,44 @@ describe('elimination law — a claim is measured against the runway it states',
     expect(findBriefViolation(before, 500, 900, [DELTA_AMEX])).toBe('unverified_elimination_claim');
   });
 
+  it('keeps an explicit deadline authoritative over an earlier rate comparative', () => {
+    // Codex, PR #91: a comparative returns "no date to check", which skips the
+    // arithmetic entirely, so an earlier "faster" must not suppress a later
+    // "by month-end" and wave through any balance.
+    const brief = nextAction({
+      body: 'Pay off Delta Amex faster, by month-end.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [DELTA_AMEX])).toBe('unverified_elimination_claim');
+  });
+
+  it('does not give a bounding hedge the extra month an approximate one earns', () => {
+    // Codex, PR #91: "under 2 months" promises completion BEFORE two months,
+    // so it must not be read as three. $565 x 2 is $1,130 against $1,209.
+    const bounded = nextAction({
+      body: 'Paying $565/mo clears it in under 2 months.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(bounded, 500, 900, [CREDIT_ONE])).toBe(
+      'unverified_elimination_claim',
+    );
+
+    const nearly = nextAction({
+      body: 'Paying $565/mo clears it in nearly 2 months.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(nearly, 500, 900, [CREDIT_ONE])).toBe(
+      'unverified_elimination_claim',
+    );
+
+    // The approximate form still earns it.
+    const approximate = nextAction({
+      body: 'Paying $565/mo clears it in about 2 months.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(approximate, 500, 900, [CREDIT_ONE])).toBeNull();
+  });
+
   it('lets the marker nearest the claim win', () => {
     // Verbatim: "fastest" attaches to the payoff, "immediately" to reducing
     // utilization. Rule order let the trailing adverb win and rejected it.
@@ -723,6 +788,46 @@ describe('elimination law — a claim is measured against the runway it states',
     expect(findBriefViolation(twoMonths, 500, 900, [CREDIT_ONE])).toBe(
       'unverified_elimination_claim',
     );
+  });
+
+  it('does not bind a generic-object claim to a debt named after it', () => {
+    // Verbatim from a live sweep: "this card" is the focus Store Card, and
+    // CreditOne 6610 is named only as where attention moves next. $35 + $400
+    // covers the $410 Store Card.
+    const STORE_CARD = { name: 'Store Card', balance: 410, minimumPayment: 35 };
+    const CREDIT_ONE_820 = { name: 'CreditOne 6610', balance: 820, minimumPayment: 45 };
+    const brief = nextAction({
+      body: 'Continuing $400/mo extra, beyond the $35 minimum, keeps you on pace to eliminate this card and move to CreditOne 6610 next.',
+      redirectAmount: 400,
+    });
+    expect(findBriefViolation(brief, 400, 700, [STORE_CARD, CREDIT_ONE_820])).toBeNull();
+  });
+
+  it('checks every claim in a compound sentence, not just the first', () => {
+    // CodeRabbit, PR #91: one sentence can claim payoff of two debts. Only the
+    // first match was evaluated, and any named debt being coverable passed the
+    // whole sentence — so the affordable Store Card waved through an
+    // impossible Delta Amex payoff.
+    const STORE_CARD = { name: 'Store Card', balance: 410, minimumPayment: 35 };
+    const brief = nextAction({
+      body: 'This clears Store Card and wipes out Delta Amex by month-end.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [STORE_CARD, DELTA_AMEX])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('still allows a compound sentence where each claim stands on its own', () => {
+    // The fix must stay per-claim rather than "every named debt must be
+    // coverable": naming a debt is not claiming its payoff. Here Delta Amex is
+    // named only as the debt that keeps receiving its minimum.
+    const STORE_CARD = { name: 'Store Card', balance: 410, minimumPayment: 35 };
+    const brief = nextAction({
+      body: 'Keep paying the Delta Amex minimum while this clears Store Card by month-end.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [STORE_CARD, DELTA_AMEX])).toBeNull();
   });
 
   it('does not let a debt named for another reason answer for a pronoun claim', () => {
@@ -1036,6 +1141,12 @@ describe('unsafe-minimum law — "miss" needs the payment as its object', () => 
     'Missing payments on high-utilization cards will spike APR and damage credit score.',
     'Missing a payment triggers late fees and a penalty APR.',
     'Stale data could mask a missed payment or create reconciliation delay.',
+    // Verbatim: a count of payments absent from the log. A determiner or
+    // number in front makes "missing" an adjective, not a directive.
+    "This eliminates manual logging gaps (like September's 2 missing payments) and flags issues early.",
+    "Reconnecting removes logging gaps like September's missing 2 payments.",
+    'Reconnect to recover the missing payments from September.',
+    'Reconnect to recover your missing payments from September.',
     // Verbatim: what is delayed is the logging, not the payment.
     "Stale data may delay accurate payment logging for this month's $65 minimum.",
     'Reauth gaps can pause payment tracking until you reconnect.',
