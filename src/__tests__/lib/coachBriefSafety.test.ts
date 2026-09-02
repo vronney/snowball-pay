@@ -485,6 +485,10 @@ describe('elimination law — "clear" must point at something payoff-shaped', ()
     // Verbatim: "balance data" is sync freshness; the balance noun is a
     // modifier here, not the thing being cleared.
     'This clears stale balance data and confirms whether September payments posted.',
+    // Verbatim: the object is the risk; "$385" behind "on" only qualifies it.
+    // (A balance NOUN later in the window would still match — that shape has
+    // not been observed, and shortening the window risks real payoff claims.)
+    'Auto-sync eliminates late-payment risk on $385/mo minimums.',
     'Reconnecting clears the card history gap from September.',
   ])('allows "clear" used about anything but a balance: %s', (phrase) => {
     const brief = nextAction({ kind: 'reconnect_bank', body: phrase, redirectAmount: 0 });
@@ -822,6 +826,30 @@ describe('elimination law — a claim is measured against the runway it states',
     );
   });
 
+  it("does not let a later claim's runway marker govern an earlier claim", () => {
+    // Codex, PR #91: "faster" belongs to the Store Card claim, but the search
+    // ran to the end of the sentence, returned "no date to check" for the
+    // Delta Amex payoff, and skipped its arithmetic entirely.
+    const STORE_CARD = { name: 'Store Card', balance: 410, minimumPayment: 35 };
+    const brief = nextAction({
+      body: 'Pay off Delta Amex and then clear Store Card faster.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [STORE_CARD, DELTA_AMEX])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('still reads a runway that belongs to a single-claim sentence', () => {
+    // For one claim the clause IS the sentence, so clause-bounding changed
+    // nothing here.
+    const brief = nextAction({
+      body: 'Paying $565/mo clears CreditOne 6610 in 3 months.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBeNull();
+  });
+
   it('still allows a compound sentence where each claim stands on its own', () => {
     // The fix must stay per-claim rather than "every named debt must be
     // coverable": naming a debt is not claiming its payoff. Here Delta Amex is
@@ -1151,6 +1179,9 @@ describe('unsafe-minimum law — "miss" needs the payment as its object', () => 
     "Reconnecting removes logging gaps like September's missing 2 payments.",
     'Reconnect to recover the missing payments from September.',
     'Reconnect to recover your missing payments from September.',
+    // Verbatim: a warning about failing to NOTICE a payment that was missed.
+    'Stale data risks missing a genuine missed payment or misalignment.',
+    'Autopay prevents missing a minimum payment while balances sync.',
     // Verbatim: an instruction to write down the ones already absent.
     'Check bank and card statements; log missing payments.',
     'Review statements and record missing payments for September.',
@@ -1174,6 +1205,47 @@ describe('unsafe-minimum law — "miss" needs the payment as its object', () => 
     ]) {
       expect(findBriefViolation(nextAction({ body: phrase }), 500, 500, [CREDIT_ONE])).toBeNull();
     }
+  });
+});
+
+describe('unsafe-minimum law — a pronoun directive after a named payment', () => {
+  const STORE_CARD = { name: 'Store Card', balance: 410, minimumPayment: 35 };
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+
+  it.each([
+    // Codex, PR #91: both context branches are sentence-bounded, so a
+    // directive naming its target only by pronoun in the NEXT sentence went
+    // out unchecked.
+    'The Store Card minimum is due. Delay it until next month.',
+    'The Store Card minimum is due. Pause it this cycle.',
+    'Your $65 minimum posts Friday. Hold off on it until payday.',
+    'The CreditOne 6610 payment is due. Skip it while cash is tight.',
+  ])('rejects suppression whose object is a pronoun: %s', (phrase) => {
+    const brief = nextAction({ body: phrase, redirectAmount: 0 });
+    expect(findBriefViolation(brief, 500, 900, [STORE_CARD, CREDIT_ONE])).toBe(
+      'unsafe_minimum_text',
+    );
+  });
+
+  it.each([
+    // The record-compound guard still applies across the break, so a
+    // bookkeeping noun phrase does not become a payment directive.
+    'Payment logging is stale. Skip it if you already logged.',
+    'Payment history is missing. Skip it and reconnect instead.',
+  ])('still allows a pronoun directive about a record: %s', (phrase) => {
+    const brief = nextAction({ kind: 'reconnect_bank', body: phrase, redirectAmount: 0 });
+    expect(findBriefViolation(brief, 200, 760, [STORE_CARD, CREDIT_ONE])).toBeNull();
+  });
+
+  it('does not reach back more than one sentence', () => {
+    // The reach is deliberately one break: an unrelated later sentence must
+    // not be bound to a payment named paragraphs earlier.
+    const brief = nextAction({
+      kind: 'reconnect_bank',
+      body: 'The Store Card minimum is due. Balances synced fine. Skip it if you prefer the app.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 200, 760, [STORE_CARD])).toBeNull();
   });
 });
 

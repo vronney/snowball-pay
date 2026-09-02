@@ -159,7 +159,11 @@ const NOT_A_WARNING = String.raw`(?![^.]{0,70}?\b(?:${CONSEQUENCE_WORDS})\b)`;
 // the ones already absent, the opposite of advice to skip any.
 const ATTRIBUTIVE_LEADS = String.raw`\d+|the|those|these|any|all|some|both|several|few|many|two|three|four|five|your|its|their|his|her|our|\w+'s|\w+s'`;
 const RECORD_VERBS = String.raw`log(?:s|ged|ging)?|record(?:s|ed|ing)?|recover(?:s|ed|ing)?|backfill(?:s|ed|ing)?|reconcile[sd]?|enter(?:s|ed|ing)?|add(?:s|ed|ing)?|find(?:s|ing)?|found|spot(?:s|ted|ting)?|catch(?:es|ing)?|flag(?:s|ged|ging)?|report(?:s|ed|ing)?|review(?:s|ed|ing)?|check(?:s|ed|ing)?|identif(?:y|ies|ied)|note[sd]?`;
-const NOT_ATTRIBUTIVE = String.raw`(?<!\b(?:${ATTRIBUTIVE_LEADS}|${RECORD_VERBS})\s)`;
+// "Stale data RISKS missing a payment" warns about failing to NOTICE one, and
+// "PREVENTS missing a payment" is the advice the law wants given. Both read as
+// directives to skip without this.
+const RISK_VERBS = String.raw`risk(?:s|ed|ing)?|prevent(?:s|ed|ing)?|detect(?:s|ed|ing)?|notice[sd]?|noticing|stop(?:s|ped|ping)?\s+you\s+from`;
+const NOT_ATTRIBUTIVE = String.raw`(?<!\b(?:${ATTRIBUTIVE_LEADS}|${RECORD_VERBS}|${RISK_VERBS})\s)`;
 const MISSED_PAYMENT = [
   String.raw`${NOT_NEGATED}${NOT_ATTRIBUTIVE}\bmiss(?:es|ing)?\s+(?:${MISS_DETERMINERS})\s+(?:\w+\s+){0,2}?(?:${PAYMENT_WORDS})(?!\w)${NOT_RECORD_COMPOUND}${NOT_A_WARNING}`,
   String.raw`${NOT_NEGATED}${NOT_ATTRIBUTIVE}\bmiss(?:es|ing)?\s+(?:${PLURAL_PAYMENT_WORDS})(?!\w)${NOT_RECORD_COMPOUND}${NOT_A_WARNING}`,
@@ -223,6 +227,14 @@ export function buildUnsafeMinimumAdviceRe(debtNames: string[] = []): RegExp {
       // payment really is what gets paused. Bare proximity read a noun as a
       // verb: "could mask a missed PAYMENT or create reconciliation DELAY".
       String.raw`${context}${SAME_SENTENCE}(?:is|are|was|were|gets?|got|will\s+be|would\s+be|should\s+be|can\s+be|being)\s+(?:${PAYMENT_SCOPED_VERBS})(?:d|ed|ing)?\b`,
+      // A directive whose object is only a PRONOUN, with the payment named in
+      // the sentence before: "The Store Card minimum is due. Delay it until
+      // next month." Both branches above are sentence-bounded, so neither saw
+      // it and the advice went out (Codex, PR #91). This is the one place the
+      // law reaches across a sentence break, and only for a pronoun object —
+      // the record-compound guard still applies, so "Payment logging is
+      // stale. Skip it if you already logged." stays allowed.
+      String.raw`${context}${NOT_RECORD_COMPOUND}[^.!?]{0,60}[.!?]\s+[^.!?]{0,40}?${verb}\s+(?:on\s+|it\s+)?(?:it|them|that)\b`,
       MISSED_PAYMENT,
       MINIMUM_CUT,
     ].join('|'),
@@ -342,7 +354,11 @@ export function buildEliminationClaimRe(debtNames: string[] = []): RegExp {
   // Same compound-noun shape the "miss" law already guards against.
   const balanceNoun = String.raw`(?<![\w-])(?:${BALANCE_OBJECT_NOUNS})(?![\w-])(?!\s+(?:${RECORD_HEAD_NOUNS})\b)`;
   const namedDebt = names.length > 0 ? String.raw`|(?<!\w)(?:${names.join('|')})(?!\w)` : '';
-  const target = String.raw`(?:\$[\d,]+|${balanceNoun}${namedDebt})`;
+  // A dollar amount behind a preposition qualifies something else rather than
+  // naming what is paid off: "auto-sync eliminates late-payment risk ON $385/mo
+  // minimums" is about risk, not about clearing $385.
+  const amount = String.raw`(?<!\b(?:on|for|of|about|against|with|from|per|into|across)\s)\$[\d,]+`;
+  const target = String.raw`(?:${amount}|${balanceNoun}${namedDebt})`;
   // No bare dollar amount: before the verb, money is the payer, not the payee.
   const subjectTarget = String.raw`(?:${balanceNoun}${namedDebt})`;
   // "payment(s) cleared" and "minimum cleared" are bank-sync phrasing about a
@@ -738,9 +754,17 @@ function blockMakesUnverifiedClaim(
       const clauseStart = i > 0 ? (matches[i - 1].index ?? 0) + matches[i - 1][0].length : 0;
       const clauseEnd = i < matches.length - 1 ? (matches[i + 1].index ?? 0) : sentence.length;
 
-      // What follows the claim verb is the clause the runway belongs to; the
-      // whole sentence is the fallback.
-      const horizonMonths = claimHorizonMonths(sentence.slice(end), sentence);
+      // Both the runway search and its fallback stop at `clauseEnd`, the next
+      // claim's start. Reading to the end of the sentence let a later claim's
+      // marker govern an earlier one: in "Pay off Delta Amex and then clear
+      // Store Card faster", the trailing "faster" returned "no date to check"
+      // for the Delta payoff and skipped its arithmetic entirely (Codex,
+      // PR #91). For a single-claim sentence the clause IS the sentence, so
+      // nothing changes there.
+      const horizonMonths = claimHorizonMonths(
+        sentence.slice(end, clauseEnd),
+        sentence.slice(clauseStart, clauseEnd),
+      );
 
       // Three attribution cases, by what the match itself captured:
       //  1. It NAMES a debt ("clears Store Card") — bound to that debt.
