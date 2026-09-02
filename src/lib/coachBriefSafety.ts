@@ -183,6 +183,78 @@ export const ELIMINATION_CLAIM_RE = new RegExp(
   'i',
 );
 
+// ── Claim horizon ────────────────────────────────────────────────────────
+// How long a payoff claim gives itself. The law used to assume every claim
+// meant THIS month, so honest copy with a stated runway ("redirect $350 to
+// eliminate it within 4 months") was measured against one month of money and
+// rejected as a hallucination — the largest remaining source of false
+// rejections in live-model sampling.
+//
+// The horizon is not a blanket exemption: it multiplies the affordability
+// math, so a claim is still verified, just against the runway it actually
+// stated. "Eliminate Delta Amex within 4 months" on $415/mo is still
+// impossible and still rejected.
+
+// A same-month COMPLETION DEADLINE ("by month-end"). This wins outright, so
+// naming a longer runway alongside it can never launder the reported incident
+// shape ("$565 eliminates it by month-end ... over the next 4 months").
+const SAME_MONTH_DEADLINE_RE =
+  /\b(?:by\s+month[-\s]?end|by\s+the\s+end\s+of\s+(?:the|this)\s+(?:month|week)|end\s+of\s+the\s+month|within\s+the\s+month|by\s+(?:mon|tues|wednes|thurs|fri|satur|sun)day|today|immediately)\b/i;
+
+// Weaker time framing that usually says when the ACTION happens, not when the
+// balance ends: "redirect $500 extra this month to eliminate it in 3 months"
+// is a 3-month claim, not a same-month one. So this only sets the runway when
+// the sentence states no explicit one — a real deadline above still wins, and
+// a bare "this eliminates it this month" still gets the strict math.
+const SAME_MONTH_FRAMING_RE = /\b(?:this\s+month|this\s+week|this\s+cycle|right\s+now)\b/i;
+
+// A number of months/years, but only behind a horizon preposition. The
+// preposition is required so a savings figure like "debt-free 11 months
+// sooner" is never mistaken for a runway the claim gets to spend.
+const SPELLED_NUMBERS: Record<string, number> = {
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
+  seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12,
+};
+// The count tolerates the hedges models actually write ("in ~2.2 months",
+// "in about 3 months"); a fractional runway is used as stated rather than
+// rounded, since rounding down would re-reject the claim it exists to allow.
+const HORIZON_RE = new RegExp(
+  String.raw`\b(?:(?:with)?in|over|across|for)\s+(?:the\s+next\s+)?(?:~|about|around|roughly|approximately|nearly|under)?\s*(\d{1,2}(?:\.\d+)?|${Object.keys(SPELLED_NUMBERS).join('|')})\s+(month|year)s?\b`,
+  'gi',
+);
+
+// Rate comparatives claim a debt goes faster, never that it reaches zero on a
+// given date ("redirect the acceleration here to clear the balance fastest").
+// There is no date to fact-check, so the arithmetic check does not apply.
+// "sooner" is deliberately absent: it overwhelmingly attaches to the
+// whole-plan timeline this law already ignores ("debt-free 11 months
+// sooner"), where it would exempt an otherwise bare payoff claim in the same
+// sentence.
+const RATE_COMPARATIVE_RE = /\b(?:faster|fastest|quicker|quickest|more\s+quickly|ahead\s+of\s+schedule)\b/i;
+
+/**
+ * Months of payments a claim in this sentence may be measured against.
+ * 1 (the strict default) when the claim is same-month or states no runway,
+ * N when it states one, and Infinity for a rate comparative with no date to
+ * check. Returns the SMALLEST stated runway, so a sentence naming several is
+ * held to the tightest one.
+ */
+function claimHorizonMonths(text: string): number {
+  if (SAME_MONTH_DEADLINE_RE.test(text)) return 1;
+
+  let smallest = Infinity;
+  for (const match of text.matchAll(HORIZON_RE)) {
+    const raw = match[1].toLowerCase();
+    const count = SPELLED_NUMBERS[raw] ?? Number.parseFloat(raw);
+    if (!Number.isFinite(count) || count <= 0) continue;
+    smallest = Math.min(smallest, match[2].toLowerCase() === 'year' ? count * 12 : count);
+  }
+  if (Number.isFinite(smallest)) return smallest;
+
+  if (SAME_MONTH_FRAMING_RE.test(text)) return 1;
+  return RATE_COMPARATIVE_RE.test(text) ? Infinity : 1;
+}
+
 /**
  * Every piece of model-authored free text the text-based laws must scan. The
  * verdict is descriptive rather than prescriptive, but it is shown to the user
@@ -216,10 +288,11 @@ function maxExtraOnOneDebt(nextAction: CoachBrief['nextAction']): number {
 
 /**
  * Third law: an "eliminates it this month"-style claim must be arithmetically
- * possible. The most a single debt can receive this month is its own minimum
- * plus the proposed extra — if that can't cover the debt's balance, the claim
- * is a hallucination (reported incident: "$565 total eliminates it by
- * month-end" against a $1,209 balance).
+ * possible. The most a single debt can receive is its own minimum plus the
+ * proposed extra, times the runway the claim gives itself (one month unless
+ * it says otherwise — see claimHorizonMonths) — if that can't cover the
+ * debt's balance, the claim is a hallucination (reported incident: "$565
+ * total eliminates it by month-end" against a $1,209 balance).
  *
  * Attribution: if the text names debts, the claim must hold for at least one
  * named debt; if it names none, it must hold for at least one active debt.
@@ -236,9 +309,12 @@ function makesUnverifiedEliminationClaim(
   // verdict must not vouch for an impossible payoff claim about a different
   // debt in the nextAction (CodeRabbit-flagged on the verdict-scan change).
   // For nextAction claims this is exactly the pre-verdict-scan behavior.
+  // Joined with '. ' so each field is its own sentence: a title framing the
+  // whole brief ("Target CreditOne aggressively this month") must not merge
+  // into the body's claim and impose a same-month runway on it.
   const blocks = [
-    `${brief.verdict.headline} ${brief.verdict.summary}`,
-    `${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`,
+    [brief.verdict.headline, brief.verdict.summary].join('. '),
+    [brief.nextAction.title, brief.nextAction.body, brief.nextAction.action].join('. '),
   ];
   const extraAvailable = maxExtraOnOneDebt(brief.nextAction);
   return blocks.some((block) => blockMakesUnverifiedClaim(block, extraAvailable, debts));
@@ -252,8 +328,13 @@ function blockMakesUnverifiedClaim(
 ): boolean {
   if (!ELIMINATION_CLAIM_RE.test(text)) return false;
 
-  const canEliminate = (d: EliminationCheckDebt) =>
-    extraAvailable + d.minimumPayment + REDIRECT_TOLERANCE >= d.balance;
+  // Interest is deliberately ignored across the horizon: the check only ever
+  // rejects claims that are impossible even on the arithmetic most generous
+  // to the model, so an approximation that overstates paydown is the safe
+  // direction to err in.
+  const canEliminate = (d: EliminationCheckDebt, horizonMonths: number) =>
+    horizonMonths === Infinity ||
+    horizonMonths * (extraAvailable + d.minimumPayment) + REDIRECT_TOLERANCE >= d.balance;
 
   // Attribute debt names longest-first, blanking out each match before
   // checking shorter names — otherwise "Chase" would count as named whenever
@@ -272,8 +353,22 @@ function blockMakesUnverifiedClaim(
     }
   }
 
+  // Attribution stays BLOCK-scoped (a debt named anywhere in the block can
+  // answer for a claim in it), but the runway is per CLAIM SENTENCE, since
+  // that is the unit that actually states a deadline. Each claim sentence
+  // must stand on its own: one impossible claim condemns the block even when
+  // a neighbouring sentence makes a possible one.
   const candidates = named.length > 0 ? named : debts;
-  return !candidates.some(canEliminate);
+  const claimSentences = text
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => ELIMINATION_CLAIM_RE.test(sentence));
+  // Fall back to the whole block if splitting finds nothing — the block-level
+  // regex already matched, so a claim is present either way and must be checked.
+  const units = claimSentences.length > 0 ? claimSentences : [text];
+  return units.some((sentence) => {
+    const horizonMonths = claimHorizonMonths(sentence);
+    return !candidates.some((debt) => canEliminate(debt, horizonMonths));
+  });
 }
 
 // Which of the four independent laws a brief broke. Kept as a stable string

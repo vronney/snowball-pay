@@ -363,6 +363,140 @@ describe('elimination law — a set_acceleration claim is checked against target
   });
 });
 
+describe('elimination law — a claim is measured against the runway it states', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+  const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+
+  it('allows the live-model multi-month claim its runway actually covers', () => {
+    // Verbatim from a live-model run, rejected before this change: $350 extra
+    // + the $65 minimum is $415/mo, and 4 months of that is $1,660 against a
+    // $1,209 balance. True, but one month of it ($415) is not.
+    const brief = nextAction({
+      title: 'Target CreditOne aggressively this month',
+      body: 'CreditOne 6610 is your highest-utilization card. Redirect $350 of your $500 planned acceleration to eliminate it within 4 months, freeing $65/mo for Discover.',
+      action: 'Allocate $350 extra to CreditOne 6610',
+      redirectAmount: 350,
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it('allows a rate comparative, which names no date to fact-check', () => {
+    // Also verbatim: "clear $1209 balance fastest" claims speed, not a payoff
+    // date, so there is nothing for the arithmetic to falsify.
+    const brief = nextAction({
+      body: 'Paying the $65 minimum, redirect the $500 acceleration here to clear the $1209 balance fastest and lower utilization.',
+      action: 'Apply $565 total to CreditOne 6610 this cycle',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it('still rejects a multi-month claim the runway cannot cover', () => {
+    // The loosening must stay a real check: $500 + $250 over 4 months is
+    // $3,000 against a $10,169 balance.
+    const brief = nextAction({
+      body: 'Redirect the full acceleration to eliminate Delta Amex within 4 months.',
+      action: 'Send $500 extra to Delta Amex',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 500, [DELTA_AMEX])).toBe('unverified_elimination_claim');
+  });
+
+  it.each([
+    ['in 3 months', 3],
+    ['within three months', 3],
+    ['over the next 3 months', 3],
+  ])('reads the runway from "%s"', (phrase) => {
+    // $65 min + $350 extra = $415/mo. 3 months ($1,245) covers the $1,209
+    // balance; 2 months ($830) does not.
+    const brief = nextAction({ body: `This eliminates CreditOne 6610 ${phrase}.`, redirectAmount: 350 });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBeNull();
+
+    const tooShort = nextAction({ body: 'This eliminates CreditOne 6610 in 2 months.', redirectAmount: 350 });
+    expect(findBriefViolation(tooShort, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+
+  it('converts a runway stated in years', () => {
+    const brief = nextAction({
+      body: 'Staying the course eliminates Delta Amex within 2 years.',
+      redirectAmount: 250,
+    });
+    // 24 months x ($250 extra + $250 minimum) = $12,000 against $10,169.
+    expect(findBriefViolation(brief, 500, 500, [DELTA_AMEX])).toBeNull();
+  });
+
+  it('reads a hedged or fractional runway', () => {
+    // Verbatim shape from a live-model run: "will clear the $1,209 balance in
+    // ~2.2 months". $565/mo x 2.2 is $1,243, so the claim holds.
+    const brief = nextAction({
+      body: 'Applying $500 extra monthly plus the $65 minimum will clear the $1,209 balance in ~2.2 months.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBeNull();
+
+    const hedged = nextAction({
+      body: 'This eliminates CreditOne 6610 in about 3 months.',
+      redirectAmount: 350,
+    });
+    expect(findBriefViolation(hedged, 500, 500, [CREDIT_ONE])).toBeNull();
+  });
+
+  it('treats "this month" as when the action happens, not when the balance ends', () => {
+    // Also verbatim: "Redirect $500 extra this month to eliminate it in 3
+    // months" is a 3-month claim. Reading the framing as a deadline made it a
+    // one-month claim and rejected it.
+    const brief = nextAction({
+      body: 'Redirect $500 extra this month to eliminate it in 3 months, freeing the $65 minimum.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBeNull();
+  });
+
+  it('still applies the strict math to "this month" when no runway is stated', () => {
+    // The incident shape, and the reason the framing is not simply ignored:
+    // $565 against a $1,209 balance with no runway named.
+    const brief = nextAction({
+      body: 'Paying it entirely this month ($65 minimum + $500 extra = $565 total) eliminates CreditOne 6610.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+
+  it('lets an explicit same-month deadline override a longer runway in the same block', () => {
+    // The incident shape must never be launderable by naming a longer horizon
+    // elsewhere in the sentence.
+    const brief = nextAction({
+      body: 'Your plan runs for 4 months, but this $565 payment eliminates CreditOne 6610 by month-end.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+
+  it('holds a sentence naming several runways to the shortest', () => {
+    const brief = nextAction({
+      body: 'This eliminates CreditOne 6610 in 2 months, and Delta Amex within 12 months.',
+      redirectAmount: 350,
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+
+  it('does not read a savings figure as a runway', () => {
+    // "11 months sooner" is how much time the plan saves, not time this claim
+    // gets to spend. Without the required preposition it is ignored, so the
+    // claim stays on the strict one-month math.
+    const brief = nextAction({
+      body: 'Being debt-free 11 months sooner, this payment eliminates Delta Amex.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 500, [DELTA_AMEX])).toBe('unverified_elimination_claim');
+  });
+
+  it('still defaults to one month when no runway is stated', () => {
+    const brief = nextAction({ body: 'One payment wipes out CreditOne 6610.', redirectAmount: 500 });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+});
+
 describe('elimination law — partitive "$X of" phrasing is not a payoff claim', () => {
   const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
 
