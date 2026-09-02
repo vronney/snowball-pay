@@ -107,23 +107,71 @@ export type StoredCoachBrief = CoachBrief & {
 //      A model claiming to move more than that MUST be pulling from a
 //      minimum, regardless of how it phrased the sentence.
 // ─────────────────────────────────────────────────────────────────────────
-// The pause/stop/skip/etc. verbs match anywhere — there's no legitimate
-// coach-brief phrasing that uses them. "reduce"/"lower" are narrower: they're
-// only unsafe near "minimum" (bare matches would also reject benign copy like
-// "lowers your total interest paid" or "lower your APR by calling the issuer").
-export const UNSAFE_MINIMUM_ADVICE_RE =
-  /\b(pause|stop paying|skip|don'?t pay|miss(?:ing)?|hold off|defer|delay|withhold)\b|\b(?:reduc(?:e|ing)|lower(?:ing)?)\b[^.]{0,40}\bminimum\b|\bminimum\b[^.]{0,40}\b(?:reduc(?:e|ing)|lower(?:ing)?)\b/i;
+// Verbs that name the act of not paying are unsafe in ANY sentence — there is
+// no benign coach-brief phrasing for them.
+const ALWAYS_UNSAFE_VERBS = String.raw`stop\s+paying|don'?t\s+pay|do\s+not\s+pay|withhold`;
+
+// Verbs that are only unsafe when the sentence is about a payment. Matched
+// bare, they rejected copy the prompt itself asks for — "missing September
+// logging creates visibility risk" (the 2026-09-02 production rejection: a
+// reconnect_bank brief with redirectAmount 0), "reconnect without delay",
+// "skip the coffee runs" — and every false positive silently swapped the paid
+// AI brief for the deterministic fallback. They now have to share a sentence
+// (40 chars, no period) with a payment word or an active debt's name. An
+// immediately-preceding negation ("never miss", "avoid missing", "without
+// delay") exempts them: unsafe advice still needs one positive directive
+// somewhere, and that occurrence is caught.
+const PAYMENT_SCOPED_VERBS = String.raw`pause|skip|miss(?:ing)?|hold\s+off|defer|delay`;
+const NOT_NEGATED = String.raw`(?<!\b(?:never|don'?t|do\s+not|avoid|without|not|no)\s)`;
+const PAYMENT_WORDS = String.raw`minimums?|payments?|pay(?:s|ing)?|autopay|installments?|due\s+dates?|bills?`;
+const SAME_SENTENCE = String.raw`[^.]{0,40}`;
+
+// "reduce"/"lower" stay narrower still: only unsafe next to "minimum", since
+// "lower your extra payment" is legitimate set_acceleration advice and bare
+// matches would also reject "lowers your total interest paid".
+const MINIMUM_CUT = String.raw`\b(?:reduc(?:e|ing)|lower(?:ing)?)\b[^.]{0,40}\bminimum\b|\bminimum\b[^.]{0,40}\b(?:reduc(?:e|ing)|lower(?:ing)?)\b`;
+
+function escapeForRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Builds the unsafe-minimum text law for one brief. Active debt names count as
+ * payment context, so "pause CreditOne 6610" is still caught in a sentence
+ * that never says "payment" — the reported incident's action was that shape.
+ * With no debt list the payment words alone provide the context.
+ */
+export function buildUnsafeMinimumAdviceRe(debtNames: string[] = []): RegExp {
+  const names = debtNames
+    .map((name) => name.trim())
+    .filter((name) => name.length >= 2)
+    .map((name) => escapeForRegex(name).replace(/\s+/g, String.raw`\s+`));
+  const context = String.raw`(?<!\w)(?:${[PAYMENT_WORDS, ...names].join('|')})(?!\w)`;
+  const verb = String.raw`${NOT_NEGATED}\b(?:${PAYMENT_SCOPED_VERBS})\b`;
+  return new RegExp(
+    [
+      String.raw`\b(?:${ALWAYS_UNSAFE_VERBS})\b`,
+      `${verb}${SAME_SENTENCE}${context}`,
+      `${context}${SAME_SENTENCE}${verb}`,
+      MINIMUM_CUT,
+    ].join('|'),
+    'i',
+  );
+}
 
 export const REDIRECT_TOLERANCE = 1; // dollars — absorbs rounding only
 
 // Elimination-claim verbs: phrases asserting a specific debt hits zero.
 // Deliberately does NOT include timeline phrases like "debt-free in 11
 // months" — those describe the whole plan, not a single debt's balance.
-// "clear(s/ed/ing)" is matched broadly (minus "steer clear") on purpose: a
-// false positive only downgrades to the deterministic fallback, while a
-// missed synonym re-opens the exact bug this law exists to stop.
+// "clear(s/ed/ing)" is matched broadly on purpose — minus "steer clear" and
+// "payment(s) cleared", a bank-sync phrase reconnect_bank briefs actually use
+// ("confirm September payments cleared") that describes a transaction posting,
+// not a balance reaching zero. A false positive only downgrades to the
+// deterministic fallback, while a missed synonym re-opens the exact bug this
+// law exists to stop.
 export const ELIMINATION_CLAIM_RE =
-  /\b(?:eliminat\w+|paid\s+off|pay(?:s|ing)?\s+off|pay(?:s|ing)?\s+\w+(?:\s+\w+)?\s+off|(?<!steer\s)clear(?:s|ed|ing)?\b|zero(?:s|ed)?\s+out|(?:reach(?:es)?|hits?|down\s+to)\s+\$?(?:0|zero)\b|wipe[sd]?\s+out|knock(?:s|ed|ing)?\s+out|gone\s+by)\b/i;
+  /\b(?:eliminat\w+|paid\s+off|pay(?:s|ing)?\s+off|pay(?:s|ing)?\s+\w+(?:\s+\w+)?\s+off|(?<!steer\s)(?<!payment\s)(?<!payments\s)clear(?:s|ed|ing)?\b|zero(?:s|ed)?\s+out|(?:reach(?:es)?|hits?|down\s+to)\s+\$?(?:0|zero)\b|wipe[sd]?\s+out|knock(?:s|ed|ing)?\s+out|gone\s+by)\b/i;
 
 /**
  * Every piece of model-authored free text the text-based laws must scan. The
@@ -224,7 +272,9 @@ export function findBriefViolation(
   debts: EliminationCheckDebt[] = [],
 ): LawViolation | null {
   const text = lawScannedText(brief);
-  if (UNSAFE_MINIMUM_ADVICE_RE.test(text)) return 'unsafe_minimum_text';
+  if (buildUnsafeMinimumAdviceRe(debts.map((d) => d.name)).test(text)) {
+    return 'unsafe_minimum_text';
+  }
   if (brief.nextAction.redirectAmount > effectiveAcceleration + REDIRECT_TOLERANCE) {
     return 'redirect_exceeds_ceiling';
   }

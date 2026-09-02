@@ -282,6 +282,100 @@ describe('isBriefLawful — elimination claims must be arithmetically possible',
   });
 });
 
+describe('unsafe-minimum text law — suppression verbs are scoped to a payment context', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+  const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+
+  it('allows the 2026-09-02 production brief that was wrongly rejected', () => {
+    // Reproduced against the live model with the real system prompt: a
+    // reconnect_bank action (redirectAmount 0, targetExtra null, ceiling $200,
+    // cash flow $760.52) whose only trigger was a descriptive "missing".
+    const brief = {
+      verdict: {
+        status: 'at_risk' as const,
+        headline: 'Stale CreditOne data blocks clarity.',
+        summary:
+          'CreditOne Plaid sync is stale (7+ days); balances may be outdated. Actual Aug paydown of $580 tracks the plan, but missing September logging creates visibility risk.',
+      },
+      nextAction: {
+        title: 'Reconnect CreditOne Bank Plaid link.',
+        body: 'CreditOne 6610 requires reauth. Reconnect now to confirm current balance and ensure September payments posted correctly.',
+        action: 'Log into Plaid settings and reauthorize Credit One Bank.',
+        impact: 'high' as const,
+        kind: 'reconnect_bank' as const,
+        targetExtra: null,
+        outcome: null,
+        redirectAmount: 0,
+      },
+    };
+    expect(findBriefViolation(brief, 200, 760.52, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it.each([
+    'Reconnect Credit One Bank without delay so balances stay current.',
+    'Hold off on changing the plan until the linked balances refresh.',
+    'Skip the coffee runs and redirect that $60 to your focus debt.',
+    'Never miss your minimum payment; the extra goes on top of it.',
+    'Set up autopay so you avoid missing a payment.',
+  ])('allows benign copy that only happens to contain a suppression verb: %s', (phrase) => {
+    const brief = nextAction({ kind: 'reconnect_bank', body: phrase, redirectAmount: 0 });
+    expect(findBriefViolation(brief, 200, 760, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it.each([
+    'Skip paying Discover this cycle.',
+    'Delay the Chase minimum by a week.',
+    'Defer this bill until next month to free up cash.',
+    "Don't skip the Amex minimum, skip the Chase minimum instead.",
+    'Pause the CreditOne payment until cash flow improves.',
+  ])('still rejects suppression aimed at a payment: %s', (phrase) => {
+    const brief = nextAction({ body: phrase, redirectAmount: 0 });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBe('unsafe_minimum_text');
+  });
+
+  it.each([
+    'Pause CreditOne 6610 until cash flow improves.',
+    'Skip CreditOne 6610 this month and send its $65 to Delta Amex.',
+  ])('uses an active debt name as payment context when no payment word appears: %s', (phrase) => {
+    const brief = nextAction({ body: phrase, redirectAmount: 0 });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBe('unsafe_minimum_text');
+    // Documents the dependency: with no debt list there is no context to
+    // anchor on. Both callers (POST and parseLawfulStoredBrief) pass one.
+    expect(findBriefViolation(brief, 500, 500, [])).toBeNull();
+  });
+
+  it('escapes regex metacharacters in debt names', () => {
+    const weird = { name: 'Loan (Mom+Dad) [0%]', balance: 900, minimumPayment: 50 };
+    const brief = nextAction({ body: 'Skip Loan (Mom+Dad) [0%] this month.', redirectAmount: 0 });
+    expect(findBriefViolation(brief, 500, 500, [weird])).toBe('unsafe_minimum_text');
+  });
+
+  it('keeps rejecting the always-unsafe verbs with no payment context at all', () => {
+    for (const phrase of ['Stop paying CreditOne this month.', 'Withhold it until next month.']) {
+      expect(findBriefViolation(nextAction({ body: phrase }), 500, 500)).toBe('unsafe_minimum_text');
+    }
+  });
+
+  it('does not read "payments cleared" (bank-sync phrasing) as a payoff claim', () => {
+    // Same live-model reproduction: "confirm September payments cleared" is
+    // about transactions posting, not a balance reaching zero.
+    const brief = nextAction({
+      kind: 'reconnect_bank',
+      body: 'Reauth the Credit One Bank connection to sync balances and confirm September payments cleared.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 200, 760, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it('still catches "clears <debt>" as an elimination claim', () => {
+    const brief = nextAction({
+      body: 'Paying $565 clears CreditOne 6610 by month-end.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+});
+
 describe('findBriefViolation — reason codes for diagnosable logging', () => {
   it('returns null for a lawful brief', () => {
     const brief = nextAction({ redirectAmount: 500 });
