@@ -170,8 +170,18 @@ export const REDIRECT_TOLERANCE = 1; // dollars — absorbs rounding only
 // not a balance reaching zero. A false positive only downgrades to the
 // deterministic fallback, while a missed synonym re-opens the exact bug this
 // law exists to stop.
-export const ELIMINATION_CLAIM_RE =
-  /\b(?:eliminat\w+|paid\s+off|pay(?:s|ing)?\s+off|pay(?:s|ing)?\s+\w+(?:\s+\w+)?\s+off|(?<!steer\s)(?<!payment\s)(?<!payments\s)clear(?:s|ed|ing)?\b|zero(?:s|ed)?\s+out|(?:reach(?:es)?|hits?|down\s+to)\s+\$?(?:0|zero)\b|wipe[sd]?\s+out|knock(?:s|ed|ing)?\s+out|gone\s+by)\b/i;
+//
+// "eliminate $200 of its $1,209 balance" is exempt: "<verb> $<amount> of" is
+// partitive by construction — it states how much comes OFF a balance, which
+// is the opposite of claiming the balance ends at zero. Observed in live
+// model output and rejected as an unverified claim. The dollar sign is
+// required so only this explicit amount-then-"of" shape is exempt; a bare
+// "eliminates it" or "eliminates the $1,209 balance" still matches.
+const PARTITIVE_AMOUNT = String.raw`(?!\s+\$[\d,]+(?:\.\d+)?\s+of\b)`;
+export const ELIMINATION_CLAIM_RE = new RegExp(
+  String.raw`\b(?:eliminat\w+${PARTITIVE_AMOUNT}|paid\s+off|pay(?:s|ing)?\s+off|pay(?:s|ing)?\s+\w+(?:\s+\w+)?\s+off|(?<!steer\s)(?<!payment\s)(?<!payments\s)clear(?:s|ed|ing)?\b|zero(?:s|ed)?\s+out|(?:reach(?:es)?|hits?|down\s+to)\s+\$?(?:0|zero)\b|wipe[sd]?\s+out|knock(?:s|ed|ing)?\s+out|gone\s+by)\b`,
+  'i',
+);
 
 /**
  * Every piece of model-authored free text the text-based laws must scan. The
@@ -186,11 +196,30 @@ function lawScannedText(brief: CoachBrief): string {
 }
 
 /**
+ * The most extra (never-a-minimum) money this action could put on a single
+ * debt this month — the numerator of the elimination check's affordability
+ * math. redirectAmount alone is wrong for a `set_acceleration`: that action
+ * moves money by RAISING the monthly extra, so its redirectAmount is 0 and
+ * the real figure is targetExtra. Using redirectAmount there rejected honest
+ * copy like "raise your extra to $2,000, which clears your $1,500 card".
+ *
+ * Both are read (via max) rather than branching on kind, because each is an
+ * independent claim about money moving this month and the check needs their
+ * true upper bound. Overstating it can only ALLOW a claim; the ceiling laws
+ * above already cap both figures against real discretionary cash, so neither
+ * can be inflated to launder an impossible claim through this one.
+ */
+function maxExtraOnOneDebt(nextAction: CoachBrief['nextAction']): number {
+  const target = Number.isFinite(nextAction.targetExtra) ? (nextAction.targetExtra as number) : 0;
+  return Math.max(target, nextAction.redirectAmount);
+}
+
+/**
  * Third law: an "eliminates it this month"-style claim must be arithmetically
  * possible. The most a single debt can receive this month is its own minimum
- * plus the proposed extra (redirectAmount) — if that can't cover the debt's
- * balance, the claim is a hallucination (reported incident: "$565 total
- * eliminates it by month-end" against a $1,209 balance).
+ * plus the proposed extra — if that can't cover the debt's balance, the claim
+ * is a hallucination (reported incident: "$565 total eliminates it by
+ * month-end" against a $1,209 balance).
  *
  * Attribution: if the text names debts, the claim must hold for at least one
  * named debt; if it names none, it must hold for at least one active debt.
@@ -211,21 +240,20 @@ function makesUnverifiedEliminationClaim(
     `${brief.verdict.headline} ${brief.verdict.summary}`,
     `${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`,
   ];
-  return blocks.some((block) =>
-    blockMakesUnverifiedClaim(block, brief.nextAction.redirectAmount, debts),
-  );
+  const extraAvailable = maxExtraOnOneDebt(brief.nextAction);
+  return blocks.some((block) => blockMakesUnverifiedClaim(block, extraAvailable, debts));
 }
 
 /** Runs the elimination-claim law against one text block in isolation. */
 function blockMakesUnverifiedClaim(
   text: string,
-  redirectAmount: number,
+  extraAvailable: number,
   debts: EliminationCheckDebt[],
 ): boolean {
   if (!ELIMINATION_CLAIM_RE.test(text)) return false;
 
   const canEliminate = (d: EliminationCheckDebt) =>
-    redirectAmount + d.minimumPayment + REDIRECT_TOLERANCE >= d.balance;
+    extraAvailable + d.minimumPayment + REDIRECT_TOLERANCE >= d.balance;
 
   // Attribute debt names longest-first, blanking out each match before
   // checking shorter names — otherwise "Chase" would count as named whenever

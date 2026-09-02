@@ -282,6 +282,130 @@ describe('isBriefLawful — elimination claims must be arithmetically possible',
   });
 });
 
+describe('elimination law — a set_acceleration claim is checked against targetExtra', () => {
+  const CARD_1500 = { name: 'Store Card', balance: 1500, minimumPayment: 40 };
+  const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+
+  it('allows a payoff claim the new extra payment actually covers', () => {
+    // The gap: a set_acceleration moves money by RAISING the monthly extra,
+    // so redirectAmount is 0 and targetExtra carries the real figure. Checking
+    // redirectAmount alone made $0 + $40 the ceiling, so this honest claim was
+    // rejected as a hallucination.
+    const brief = nextAction({
+      kind: 'set_acceleration',
+      title: 'Raise your extra to $2,000',
+      body: 'Raising the monthly extra to $2,000 clears Store Card outright this month.',
+      action: 'Set extra payment to $2,000',
+      targetExtra: 2000,
+      outcome: { bufferAfter: 100, monthsSavedVsMin: 12 },
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 2000, 2100, [CARD_1500, DELTA_AMEX])).toBeNull();
+  });
+
+  it('still rejects a set_acceleration payoff claim targetExtra cannot cover', () => {
+    // Loosening must not disarm the law: $2,000 + the $250 minimum is nowhere
+    // near the $10,169 Delta Amex balance.
+    const brief = nextAction({
+      kind: 'set_acceleration',
+      body: 'Raising the monthly extra to $2,000 clears Delta Amex outright this month.',
+      action: 'Set extra payment to $2,000',
+      targetExtra: 2000,
+      outcome: { bufferAfter: 100, monthsSavedVsMin: 12 },
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 2000, 2100, [CARD_1500, DELTA_AMEX])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('uses whichever of targetExtra and redirectAmount is larger', () => {
+    // Each is an independent claim about money moving this month, so the
+    // affordability ceiling is their max. Here redirectAmount is the larger.
+    const brief = nextAction({
+      kind: 'set_acceleration',
+      body: 'This eliminates Store Card this month.',
+      targetExtra: 0,
+      outcome: { bufferAfter: 900, monthsSavedVsMin: 0 },
+      redirectAmount: 1500,
+    });
+    expect(findBriefViolation(brief, 1500, 1500, [CARD_1500])).toBeNull();
+  });
+
+  it('leaves non-set_acceleration kinds on redirectAmount alone (targetExtra is null there)', () => {
+    const covered = nextAction({
+      body: 'This eliminates Store Card this month.',
+      redirectAmount: 1500,
+    });
+    expect(findBriefViolation(covered, 1500, 1500, [CARD_1500])).toBeNull();
+
+    const notCovered = nextAction({
+      body: 'This eliminates Store Card this month.',
+      redirectAmount: 200,
+    });
+    expect(findBriefViolation(notCovered, 200, 200, [CARD_1500])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('purges a cached set_acceleration brief whose targetExtra cannot cover its claim', () => {
+    const stored: StoredCoachBrief = {
+      ...nextAction({
+        kind: 'set_acceleration',
+        body: 'Raising the extra to $300 clears Store Card this month.',
+        targetExtra: 300,
+        outcome: { bufferAfter: 100, monthsSavedVsMin: 3 },
+        redirectAmount: 0,
+      }),
+      _meta: { effectiveAcceleration: 300, availableCashFlow: 400, debts: [CARD_1500] },
+    };
+    expect(parseLawfulStoredBrief(stored)).toBeNull();
+  });
+});
+
+describe('elimination law — partitive "$X of" phrasing is not a payoff claim', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+
+  it('allows the live-model partial-paydown wording', () => {
+    // Observed in a live-model run: it says how much comes OFF the balance,
+    // never that the balance ends at zero, but it was rejected.
+    const brief = nextAction({
+      body: "Increase its acceleration to eliminate $200 of its $1209 balance faster, reducing utilization below 90%.",
+      action: 'Allocate $200 of the $500 acceleration to CreditOne 6610',
+      redirectAmount: 200,
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBeNull();
+  });
+
+  it.each([
+    'That eliminates $1,209.50 of your revolving balance.',
+    'This eliminates $200 of its balance.',
+  ])('allows other partitive amounts: %s', (phrase) => {
+    const brief = nextAction({ body: phrase, redirectAmount: 200 });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBeNull();
+  });
+
+  it.each([
+    // No amount at all — the classic whole-balance claim.
+    'Paying $565 this month eliminates CreditOne 6610 by month-end.',
+    // An amount, but no partitive "of" — this claims the balance itself goes.
+    'This eliminates the $1,209 CreditOne 6610 balance by month-end.',
+    // "of" without a dollar amount is not the partitive shape.
+    'This eliminates all of the CreditOne 6610 balance this month.',
+  ])('still rejects unverifiable whole-balance claims: %s', (phrase) => {
+    const brief = nextAction({ body: phrase, redirectAmount: 500 });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+
+  it('does not let the exemption launder a second, whole-balance claim in the same block', () => {
+    const brief = nextAction({
+      body: 'This eliminates $200 of the balance now and wipes out CreditOne 6610 by Friday.',
+      redirectAmount: 200,
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+});
+
 describe('unsafe-minimum text law — suppression verbs are scoped to a payment context', () => {
   const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
   const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
