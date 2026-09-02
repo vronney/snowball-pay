@@ -154,8 +154,12 @@ const CONSEQUENCE_WORDS = String.raw`spikes?|damages?|damaging|hurts?|harms?|tri
 const NOT_A_WARNING = String.raw`(?![^.]{0,70}?\b(?:${CONSEQUENCE_WORDS})\b)`;
 // "September's MISSING 2 payments" counts payments absent from the log. A
 // determiner, number or possessive in front makes "missing" an adjective on
-// the noun, never a directive to skip one.
-const NOT_ATTRIBUTIVE = String.raw`(?<!\b(?:\d+|the|those|these|any|all|some|both|several|few|many|two|three|four|five|your|its|their|his|her|our|\w+'s|\w+s')\s)`;
+// the noun, never a directive to skip one — and so does a record-handling
+// verb governing it: "log MISSING payments" is an instruction to write down
+// the ones already absent, the opposite of advice to skip any.
+const ATTRIBUTIVE_LEADS = String.raw`\d+|the|those|these|any|all|some|both|several|few|many|two|three|four|five|your|its|their|his|her|our|\w+'s|\w+s'`;
+const RECORD_VERBS = String.raw`log(?:s|ged|ging)?|record(?:s|ed|ing)?|recover(?:s|ed|ing)?|backfill(?:s|ed|ing)?|reconcile[sd]?|enter(?:s|ed|ing)?|add(?:s|ed|ing)?|find(?:s|ing)?|found|spot(?:s|ted|ting)?|catch(?:es|ing)?|flag(?:s|ged|ging)?|report(?:s|ed|ing)?|review(?:s|ed|ing)?|check(?:s|ed|ing)?|identif(?:y|ies|ied)|note[sd]?`;
+const NOT_ATTRIBUTIVE = String.raw`(?<!\b(?:${ATTRIBUTIVE_LEADS}|${RECORD_VERBS})\s)`;
 const MISSED_PAYMENT = [
   String.raw`${NOT_NEGATED}${NOT_ATTRIBUTIVE}\bmiss(?:es|ing)?\s+(?:${MISS_DETERMINERS})\s+(?:\w+\s+){0,2}?(?:${PAYMENT_WORDS})(?!\w)${NOT_RECORD_COMPOUND}${NOT_A_WARNING}`,
   String.raw`${NOT_NEGATED}${NOT_ATTRIBUTIVE}\bmiss(?:es|ing)?\s+(?:${PLURAL_PAYMENT_WORDS})(?!\w)${NOT_RECORD_COMPOUND}${NOT_A_WARNING}`,
@@ -180,6 +184,22 @@ function escapeForRegex(value: string): string {
 }
 
 /**
+ * Folds typographic apostrophes to the ASCII one before any law reads the
+ * text. Models emit U+2019 freely, and every apostrophe in these patterns was
+ * written ASCII, so a curly one slipped past `don't pay` — unsafe advice
+ * bypassing the law outright — while `September's` defeated the attributive
+ * guard in the other direction and caused a false rejection (CodeRabbit,
+ * PR #91). Normalising once beats patching each pattern and cannot be
+ * forgotten by the next one added.
+ *
+ * Each replacement is a single character, so string offsets are preserved and
+ * match indices still line up with the text the callers slice.
+ */
+function normalizeApostrophes(value: string): string {
+  return value.replace(/[‘’ʼ՚＇]/g, "'");
+}
+
+/**
  * Builds the unsafe-minimum text law for one brief. Active debt names count as
  * payment context, so "pause CreditOne 6610" is still caught in a sentence
  * that never says "payment" — the reported incident's action was that shape.
@@ -187,7 +207,7 @@ function escapeForRegex(value: string): string {
  */
 export function buildUnsafeMinimumAdviceRe(debtNames: string[] = []): RegExp {
   const names = debtNames
-    .map((name) => name.trim())
+    .map((name) => normalizeApostrophes(name.trim()))
     .filter((name) => name.length >= 2)
     .map((name) => escapeForRegex(name).replace(/\s+/g, String.raw`\s+`));
   const context = String.raw`(?<!\w)(?:${[PAYMENT_WORDS, ...names].join('|')})(?!\w)`;
@@ -310,14 +330,17 @@ function objectScopedClaim(
  */
 export function buildEliminationClaimRe(debtNames: string[] = []): RegExp {
   const names = debtNames
-    .map((name) => name.trim())
+    .map((name) => normalizeApostrophes(name.trim()))
     .filter((name) => name.length >= 2)
     .map((name) => escapeForRegex(name).replace(/\s+/g, String.raw`\s+`));
   // A hyphen counts as part of the word for the balance nouns, so a compound
   // adjective is not mistaken for the object: "manual gaps like September's
   // single-DEBT entry" was read as eliminating a debt. It also keeps
   // "DEBT-free", a whole-plan phrase this law ignores, from qualifying.
-  const balanceNoun = String.raw`(?<![\w-])(?:${BALANCE_OBJECT_NOUNS})(?![\w-])`;
+  // A balance noun followed by a record noun is a MODIFIER, not the object:
+  // "this clears stale BALANCE DATA" is about sync freshness, not a payoff.
+  // Same compound-noun shape the "miss" law already guards against.
+  const balanceNoun = String.raw`(?<![\w-])(?:${BALANCE_OBJECT_NOUNS})(?![\w-])(?!\s+(?:${RECORD_HEAD_NOUNS})\b)`;
   const namedDebt = names.length > 0 ? String.raw`|(?<!\w)(?:${names.join('|')})(?!\w)` : '';
   const target = String.raw`(?:\$[\d,]+|${balanceNoun}${namedDebt})`;
   // No bare dollar amount: before the verb, money is the payer, not the payee.
@@ -537,7 +560,9 @@ function claimHorizonMonths(afterClaim: string, sentence: string): number {
  * the law exists to stop.
  */
 function lawScannedText(brief: CoachBrief): string {
-  return `${brief.verdict.headline} ${brief.verdict.summary} ${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`;
+  return normalizeApostrophes(
+    `${brief.verdict.headline} ${brief.verdict.summary} ${brief.nextAction.title} ${brief.nextAction.body} ${brief.nextAction.action}`,
+  );
 }
 
 /**
@@ -614,8 +639,10 @@ function makesUnverifiedEliminationClaim(
   // whole brief ("Target CreditOne aggressively this month") must not merge
   // into the body's claim and impose a same-month runway on it.
   const blocks = [
-    [brief.verdict.headline, brief.verdict.summary].join('. '),
-    [brief.nextAction.title, brief.nextAction.body, brief.nextAction.action].join('. '),
+    normalizeApostrophes([brief.verdict.headline, brief.verdict.summary].join('. ')),
+    normalizeApostrophes(
+      [brief.nextAction.title, brief.nextAction.body, brief.nextAction.action].join('. '),
+    ),
   ];
   const extraAvailable = maxExtraOnOneDebt(brief.nextAction, effectiveAcceleration);
   return blocks.some((block) => blockMakesUnverifiedClaim(block, extraAvailable, debts));
@@ -641,13 +668,13 @@ function attributeDebts(
   text: string,
   debts: EliminationCheckDebt[],
 ): EliminationCheckDebt[] {
-  let remaining = text.toLowerCase();
+  let remaining = normalizeApostrophes(text.toLowerCase());
   const named: EliminationCheckDebt[] = [];
   const byNameLengthDesc = debts
     .filter((d) => d.name.trim().length > 0)
     .sort((a, b) => b.name.trim().length - a.name.trim().length);
   for (const debt of byNameLengthDesc) {
-    const needle = debt.name.trim().toLowerCase();
+    const needle = normalizeApostrophes(debt.name.trim().toLowerCase());
     if (remaining.includes(needle)) {
       named.push(debt);
       remaining = remaining.split(needle).join(' ');

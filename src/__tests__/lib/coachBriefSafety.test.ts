@@ -482,6 +482,10 @@ describe('elimination law — "clear" must point at something payoff-shaped', ()
     // Bare "clear" as an adjective, with a balance noun further along.
     'Missing logs hide payment status and block clear visibility into which debt may have slipped.',
     'Stale sync blocks a clear read on your card balances.',
+    // Verbatim: "balance data" is sync freshness; the balance noun is a
+    // modifier here, not the thing being cleared.
+    'This clears stale balance data and confirms whether September payments posted.',
+    'Reconnecting clears the card history gap from September.',
   ])('allows "clear" used about anything but a balance: %s', (phrase) => {
     const brief = nextAction({ kind: 'reconnect_bank', body: phrase, redirectAmount: 0 });
     expect(findBriefViolation(brief, 200, 760, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
@@ -1147,6 +1151,9 @@ describe('unsafe-minimum law — "miss" needs the payment as its object', () => 
     "Reconnecting removes logging gaps like September's missing 2 payments.",
     'Reconnect to recover the missing payments from September.',
     'Reconnect to recover your missing payments from September.',
+    // Verbatim: an instruction to write down the ones already absent.
+    'Check bank and card statements; log missing payments.',
+    'Review statements and record missing payments for September.',
     // Verbatim: what is delayed is the logging, not the payment.
     "Stale data may delay accurate payment logging for this month's $65 minimum.",
     'Reauth gaps can pause payment tracking until you reconnect.',
@@ -1167,6 +1174,39 @@ describe('unsafe-minimum law — "miss" needs the payment as its object', () => 
     ]) {
       expect(findBriefViolation(nextAction({ body: phrase }), 500, 500, [CREDIT_ONE])).toBeNull();
     }
+  });
+});
+
+describe('both laws — typographic apostrophes are folded before matching', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+
+  it('catches unsafe advice written with a curly apostrophe', () => {
+    // CodeRabbit flagged the false-positive direction on PR #91; the same gap
+    // ran the other way and mattered more. Every apostrophe in these patterns
+    // is ASCII, so U+2019 let "don't pay" bypass the law outright.
+    const curly = nextAction({ body: 'Reconnect, and don’t pay the CreditOne minimum this month.' });
+    expect(findBriefViolation(curly, 500, 500, [CREDIT_ONE])).toBe('unsafe_minimum_text');
+
+    const straight = nextAction({ body: "Reconnect, and don't pay the CreditOne minimum this month." });
+    expect(findBriefViolation(straight, 500, 500, [CREDIT_ONE])).toBe('unsafe_minimum_text');
+  });
+
+  it('keeps the attributive guard working with a curly apostrophe', () => {
+    const curly = nextAction({
+      kind: 'reconnect_bank',
+      body: 'Reconnecting removes logging gaps like September’s missing 2 payments.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(curly, 200, 760, [CREDIT_ONE])).toBeNull();
+  });
+
+  it('matches a debt name whose apostrophe style differs from the text', () => {
+    const momsLoan = { name: 'Mom’s Loan', balance: 4000, minimumPayment: 50 };
+    const brief = nextAction({
+      body: "Paying $565 clears Mom's Loan by month-end.",
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 500, [momsLoan])).toBe('unverified_elimination_claim');
   });
 });
 
