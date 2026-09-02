@@ -121,15 +121,55 @@ const ALWAYS_UNSAFE_VERBS = String.raw`stop\s+paying|don'?t\s+pay|do\s+not\s+pay
 // immediately-preceding negation ("never miss", "avoid missing", "without
 // delay") exempts them: unsafe advice still needs one positive directive
 // somewhere, and that occurrence is caught.
-const PAYMENT_SCOPED_VERBS = String.raw`pause|skip|miss(?:ing)?|hold\s+off|defer|delay`;
+const PAYMENT_SCOPED_VERBS = String.raw`pause|skip|hold\s+off|defer|delay`;
 const NOT_NEGATED = String.raw`(?<!\b(?:never|don'?t|do\s+not|avoid|without|not|no)\s)`;
 const PAYMENT_WORDS = String.raw`minimums?|payments?|pay(?:s|ing)?|autopay|installments?|due\s+dates?|bills?`;
 const SAME_SENTENCE = String.raw`[^.]{0,40}`;
 
-// "reduce"/"lower" stay narrower still: only unsafe next to "minimum", since
-// "lower your extra payment" is legitimate set_acceleration advice and bare
-// matches would also reject "lowers your total interest paid".
-const MINIMUM_CUT = String.raw`\b(?:reduc(?:e|ing)|lower(?:ing)?)\b[^.]{0,40}\bminimum\b|\bminimum\b[^.]{0,40}\b(?:reduc(?:e|ing)|lower(?:ing)?)\b`;
+// "miss" gets a stricter rule than its neighbours above, because mere
+// proximity to a payment word was not enough: the payment word is usually
+// part of a COMPOUND NOUN describing records, not the thing being skipped.
+// "Sep payment logging is missing", "missing payment documentation" and "you
+// risk missing payment changes" all describe bookkeeping and were all
+// rejected in live sampling. Unsafe advice instead says miss A payment, THE
+// minimum, YOUR bill — so a determiner is required, with a bare plural
+// ("miss payments") as the other honest way to say it.
+// Past tense is excluded on purpose. "Last month you missed one payment" is
+// history, and the system prompt explicitly asks the model to cite a missed
+// recent payment as an at_risk signal — the law is about ADVICE to miss one.
+const MISS_DETERMINERS = String.raw`a|an|the|your|his|her|their|its|one|any|this|that|next|another|\d+`;
+const PLURAL_PAYMENT_WORDS = String.raw`payments|minimums|bills|installments`;
+// Even with a determiner, the payment word is often a MODIFIER of a record
+// noun rather than the thing skipped: "missing a payment signal", "missing
+// the payment confirmation". Only the last of these was caught by the
+// determiner rule alone, and it is still bookkeeping, not advice.
+const RECORD_HEAD_NOUNS = String.raw`signals?|documentation|logging|logs?|records?|data|history|info(?:rmation)?|details?|tracking|confirmations?|changes?|updates?|entr(?:y|ies)|receipts?|activity|status|schedules?|reminders?|alerts?|notifications?`;
+const NOT_RECORD_COMPOUND = String.raw`(?!(?:\s+(?:${PAYMENT_WORDS}))?\s+(?:${RECORD_HEAD_NOUNS})\b)`;
+// A sentence that names the HARM is warning against missing a payment, which
+// is the very thing the law wants users told: "Missing payments on
+// high-utilization cards will spike APR and damage credit score" was rejected
+// as if it were advice. Unsafe advice sells a benefit ("frees up cash"), so
+// naming a penalty in the same breath rules it out.
+const CONSEQUENCE_WORDS = String.raw`spikes?|damages?|damaging|hurts?|harms?|triggers?|causes?|risks?|jeopardi[sz]es?|wrecks?|tanks?|derails?|late\s+fees?|penalty|penalties|collections?|delinquen\w+|credit\s+score`;
+const NOT_A_WARNING = String.raw`(?![^.]{0,70}?\b(?:${CONSEQUENCE_WORDS})\b)`;
+const MISSED_PAYMENT = [
+  String.raw`${NOT_NEGATED}\bmiss(?:es|ing)?\s+(?:${MISS_DETERMINERS})\s+(?:\w+\s+){0,2}?(?:${PAYMENT_WORDS})(?!\w)${NOT_RECORD_COMPOUND}${NOT_A_WARNING}`,
+  String.raw`${NOT_NEGATED}\bmiss(?:es|ing)?\s+(?:${PLURAL_PAYMENT_WORDS})(?!\w)${NOT_RECORD_COMPOUND}${NOT_A_WARNING}`,
+].join('|');
+
+// "reduce"/"lower" are narrower still: the minimum has to be what is being cut.
+// A plain proximity window was not enough either — it fired on "freeing $65
+// minimum AND reducing utilization" and "$65 minimum to cut utilization faster
+// and reduce total interest", where the thing reduced is plainly something
+// else. So the verb must govern the word "minimum" directly (a few modifiers
+// like "your CreditOne 6610" may sit between), or the passive must name it as
+// the subject, and neither may cross a conjunction into a new predicate.
+const CUT_VERB = String.raw`reduc(?:e|es|ing)|lower(?:s|ing)?`;
+const NOT_CONJUNCTION = String.raw`(?!and\b|or\b|but\b|then\b|so\b|while\b|plus\b|to\b)`;
+const MINIMUM_CUT = [
+  String.raw`\b(?:${CUT_VERB})\b(?:\s+${NOT_CONJUNCTION}\w+){0,3}\s+minimum\b`,
+  String.raw`\bminimum\b(?:\s+${NOT_CONJUNCTION}\w+){0,2}\s+(?:is|are|was|were|gets?|got|will\s+be|would\s+be|should\s+be|can\s+be)\s+(?:${CUT_VERB}|reduced|lowered)\b`,
+].join('|');
 
 function escapeForRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -151,8 +191,15 @@ export function buildUnsafeMinimumAdviceRe(debtNames: string[] = []): RegExp {
   return new RegExp(
     [
       String.raw`\b(?:${ALWAYS_UNSAFE_VERBS})\b`,
-      `${verb}${SAME_SENTENCE}${context}`,
-      `${context}${SAME_SENTENCE}${verb}`,
+      // Same record-compound guard as "miss" below: "may DELAY accurate
+      // PAYMENT logging" is about bookkeeping falling behind, not about
+      // delaying a payment.
+      `${verb}${SAME_SENTENCE}${context}${NOT_RECORD_COMPOUND}`,
+      // Payment-word BEFORE the verb only counts in the passive, where the
+      // payment really is what gets paused. Bare proximity read a noun as a
+      // verb: "could mask a missed PAYMENT or create reconciliation DELAY".
+      String.raw`${context}${SAME_SENTENCE}(?:is|are|was|were|gets?|got|will\s+be|would\s+be|should\s+be|can\s+be|being)\s+(?:${PAYMENT_SCOPED_VERBS})(?:d|ed|ing)?\b`,
+      MISSED_PAYMENT,
       MINIMUM_CUT,
     ].join('|'),
     'i',
@@ -176,17 +223,75 @@ const PARTITIVE_AMOUNT = String.raw`(?!\s+\$[\d,]+(?:\.\d+)?\s+of\b)`;
 // out" about anything but a balance in a debt brief, so these match bare.
 // "zeroes" (the -es spelling) was missing here and slipped past the law
 // entirely; found while testing the "clear" scoping below.
-const UNAMBIGUOUS_PAYOFF_VERBS = String.raw`eliminat\w+${PARTITIVE_AMOUNT}|paid\s+off|pay(?:s|ing)?\s+off|pay(?:s|ing)?\s+\w+(?:\s+\w+)?\s+off|zero(?:e?s|ed)?\s+out|(?:reach(?:es)?|hits?|down\s+to)\s+\$?(?:0|zero)\b|wipe[sd]?\s+out|knock(?:s|ed|ing)?\s+out|gone\s+by`;
+// Payoff ORDER is the product's whole subject, and saying which debt to
+// finish first claims nothing about a balance reaching zero. "Paying it off
+// FIRST saves $330 in interest vs paying Delta Amex first" was rejected in
+// live sampling. Two shapes are exempt, both built in buildEliminationClaimRe
+// because the second needs the brief's debt names:
+//   a) an ordering adverb right after the verb — "pay it off first/next";
+//   b) a comparison against another NAMED debt — "pay off CreditOne 6610
+//      before Delta Amex". The named debt is required so an ordinary time
+//      clause ("pays off the card before interest compounds") stays a claim.
+const PAYOFF_ORDER_ADVERB = String.raw`(?!\s+(?:first|next|sooner)\b)`;
 
-// "clear" is the one verb that needs its object checked. Matched bare it fired
-// on ordinary English about anything but money — "stale bank data blocks CLEAR
-// progress tracking", "this CLEARS the largest uncertainty", "blocks a CLEAR
-// picture" — which was the last remaining source of false rejections in live
-// sampling. It now has to point at something payoff-shaped: a dollar amount, a
-// balance noun, an active debt's name, or the bare pronoun. "account" is
-// deliberately NOT a balance noun; reconnect_bank briefs say it constantly
-// about bank connections ("stale ACCOUNT data blocks a clear picture").
+// Counterfactual COST framing states what finishing a debt would take, which
+// is the opposite of claiming it happens: "Paying it off entirely this month
+// costs $1209 total; your minimum ($65) plus $500 extra ($565) reaches $630"
+// was rejected even though it spells out that the payoff is unaffordable. The
+// dollar sign is required, so a runway ("takes 3 months") stays a claim and
+// is checked against its horizon as usual.
+const NOT_COST_FRAMING = String.raw`(?![^.]{0,40}?\b(?:costs?|requires?|needs?|would\s+(?:cost|require|need))\s+(?:you\s+)?\$)`;
+
+function payoffVerbs(names: string[]): string {
+  const versusNamedDebt =
+    names.length > 0
+      ? String.raw`(?![^.]{0,30}?\b(?:before|ahead\s+of|instead\s+of|rather\s+than|vs\.?|versus)\s+(?:the\s+|your\s+)?(?:${names.join('|')})(?!\w))`
+      : '';
+  const order = `${PAYOFF_ORDER_ADVERB}${versusNamedDebt}${NOT_COST_FRAMING}`;
+  return String.raw`paid\s+off${order}|pay(?:s|ing)?\s+off${order}|pay(?:s|ing)?\s+\w+(?:\s+\w+)?\s+off${order}|zero(?:e?s|ed)?\s+out|(?:reach(?:es)?|hits?|down\s+to)\s+\$?(?:0|zero)\b|wipe[sd]?\s+out|knock(?:s|ed|ing)?\s+out|gone\s+by`;
+}
+
+// "clear" and "eliminate" are the two verbs that need their object checked;
+// matched bare, both fired on ordinary English about anything but money.
+// "clear": "stale bank data blocks CLEAR progress tracking", "this CLEARS the
+// largest uncertainty", "blocks a CLEAR picture". "eliminate": "ELIMINATE
+// manual entry errors", "ELIMINATE manual entry gaps", "this ELIMINATES gaps
+// like September's missing records" — all from reconnect-flavoured briefs
+// selling the benefit of linking a bank. Each now has to point at something
+// payoff-shaped: a dollar amount, a balance noun, an active debt's name, or
+// the bare pronoun.
+//
+// "account" is deliberately NOT a balance noun; reconnect_bank briefs say it
+// constantly about bank connections ("stale ACCOUNT data blocks a clear
+// picture"). The remaining verbs ("wipes out", "zeroes out", "knocks out")
+// keep matching bare: no false positive for them has ever been observed, and
+// scoping a verb is a loosening that should follow evidence, not symmetry.
 const BALANCE_OBJECT_NOUNS = String.raw`balances?|cards?|debts?|loans?`;
+
+/**
+ * The three shapes in which a verb can take a payoff target: the bare pronoun,
+ * the target following the verb, and the target as subject (active or
+ * passive). A conjunction between subject and verb means a new predicate has
+ * started and the verb is no longer about the target — that is what made a
+ * plain proximity window match "confirm the $1209 balance AND clear the
+ * stale-data risk".
+ */
+function objectScopedClaim(
+  verb: string,
+  inflectedVerb: string,
+  target: string,
+  pronounSuffix = '',
+): string {
+  return [
+    String.raw`${verb}\s+it\b${pronounSuffix}`,
+    // The window stops at a semicolon or parenthesis: crossing one lands in a
+    // different clause, which is how "eliminate manual logging gaps (Sep
+    // showed 1/3 DEBTS logged)" found a balance noun to attach to. Commas
+    // stay allowed because dollar amounts contain them ("$1,209").
+    `${verb}[^.;()]{0,40}?${target}`,
+    String.raw`${target}(?:\s+(?!and\b|or\b|but\b|then\b|so\b|while\b|plus\b)\w+){0,2}\s+(?:(?:is|are|was|were|gets?|got|will\s+be|would\s+be|should\s+be)\s+(?:fully\s+|completely\s+|finally\s+)?)?${inflectedVerb}`,
+  ].join('|');
+}
 
 /**
  * Builds the elimination-claim law for one brief, with the brief's own debt
@@ -199,30 +304,50 @@ export function buildEliminationClaimRe(debtNames: string[] = []): RegExp {
     .map((name) => name.trim())
     .filter((name) => name.length >= 2)
     .map((name) => escapeForRegex(name).replace(/\s+/g, String.raw`\s+`));
-  const target = String.raw`(?:\$[\d,]+|(?<!\w)(?:${[BALANCE_OBJECT_NOUNS, ...names].join('|')})(?!\w))`;
+  // A hyphen counts as part of the word for the balance nouns, so a compound
+  // adjective is not mistaken for the object: "manual gaps like September's
+  // single-DEBT entry" was read as eliminating a debt. It also keeps
+  // "DEBT-free", a whole-plan phrase this law ignores, from qualifying.
+  const balanceNoun = String.raw`(?<![\w-])(?:${BALANCE_OBJECT_NOUNS})(?![\w-])`;
+  const namedDebt = names.length > 0 ? String.raw`|(?<!\w)(?:${names.join('|')})(?!\w)` : '';
+  const target = String.raw`(?:\$[\d,]+|${balanceNoun}${namedDebt})`;
   // "payment(s) cleared" and "minimum cleared" are bank-sync phrasing about a
   // transaction posting, not a balance reaching zero ("confirm September
   // payments cleared", "confirm the $65 minimum cleared").
   const notBankSync = String.raw`(?<!steer\s)(?<!payment\s)(?<!payments\s)(?<!minimum\s)(?<!minimums\s)`;
-  const clearVerb = String.raw`${notBankSync}\bclear(?:s|ed|ing)?\b${PARTITIVE_AMOUNT}`;
-  // Inflected only. After a target, a BARE "clear" is far more often the
-  // adjective ("...balance and clear picture") than the verb.
-  const inflectedClearVerb = String.raw`${notBankSync}\bclear(?:s|ed|ing)\b`;
-  const clearClaim = [
-    // "clears it" — the pronoun stands in for the debt. "clears it up" is an
-    // idiom about confusion, never a balance.
-    String.raw`${clearVerb}\s+it\b(?!\s+up)`,
-    // "clears the $1,209 balance" / "clearing your CreditOne 6610"
-    `${clearVerb}[^.]{0,40}?${target}`,
-    // The debt as SUBJECT, active or passive: "CreditOne 6610 clears in 3
-    // months", "CreditOne 6610 is cleared this month". A conjunction between
-    // the two means a new predicate has started, so the verb is no longer
-    // about the target — that is what made a plain proximity window match
-    // "confirm the $1209 balance and clear the stale-data risk".
-    String.raw`${target}(?:\s+(?!and\b|or\b|but\b|then\b|so\b|while\b|plus\b)\w+){0,2}\s+(?:(?:is|are|was|were|gets?|got|will\s+be|would\s+be|should\s+be)\s+(?:fully\s+|completely\s+|finally\s+)?)?${inflectedClearVerb}`,
-  ].join('|');
+  // The \b before the partitive lookahead matters: without it the engine
+  // backtracks "eliminates" to "eliminate", sees "s" where it wanted the
+  // dollar amount, and slips past the partitive exemption.
+  const clearVerb = String.raw`${notBankSync}\bclear(?:s|ed|ing)?\b${PARTITIVE_AMOUNT}${NOT_COST_FRAMING}`;
+  const eliminateVerb = String.raw`\beliminat\w+\b${PARTITIVE_AMOUNT}${NOT_COST_FRAMING}`;
 
-  return new RegExp(String.raw`\b(?:${UNAMBIGUOUS_PAYOFF_VERBS})\b|${clearClaim}`, 'i');
+  // With NO debt context the law goes deliberately broad: nothing can be
+  // arithmetically verified anyway, so every claim is unverifiable and gets
+  // purged rather than re-served. This is the path pre-rule cached briefs
+  // take (they predate _meta.debts), and matching loosely is what keeps a
+  // stale "$565 eliminates a $1,209 balance" from surviving another read.
+  // Every live caller passes the brief's debts and gets the precise law.
+  const clearClaim =
+    names.length === 0
+      ? clearVerb
+      : // "clears it up" is an idiom about confusion, never a balance.
+        // Inflected forms only for the subject shape: after a target, a bare
+        // "clear" is more often the adjective than the verb.
+        objectScopedClaim(
+          clearVerb,
+          String.raw`${notBankSync}\bclear(?:s|ed|ing)\b`,
+          target,
+          String.raw`(?!\s+up)`,
+        );
+  const eliminateClaim =
+    names.length === 0
+      ? eliminateVerb
+      : objectScopedClaim(eliminateVerb, String.raw`\beliminat(?:es|ed|ing)\b`, target);
+
+  return new RegExp(
+    String.raw`\b(?:${payoffVerbs(names)})\b|${clearClaim}|${eliminateClaim}`,
+    'i',
+  );
 }
 
 /** The law with no debt-name context — every verb but "clear" is unaffected. */
@@ -243,15 +368,21 @@ export const ELIMINATION_CLAIM_RE = buildEliminationClaimRe();
 // A same-month COMPLETION DEADLINE ("by month-end"). This wins outright, so
 // naming a longer runway alongside it can never launder the reported incident
 // shape ("$565 eliminates it by month-end ... over the next 4 months").
+// "immediately"/"today" are NOT here: they are adverbs that attach to
+// whatever verb is nearest, and as deadlines they overrode a real runway in
+// the same clause — "will clear its $1,209 balance in 3 months, freeing $65/mo
+// and dropping utilization immediately" became a one-month claim. They sit
+// with the weak framing below, where an explicit runway outranks them.
 const SAME_MONTH_DEADLINE_RE =
-  /\b(?:by\s+month[-\s]?end|by\s+the\s+end\s+of\s+(?:the|this)\s+(?:month|week)|end\s+of\s+the\s+month|within\s+the\s+month|by\s+(?:mon|tues|wednes|thurs|fri|satur|sun)day|today|immediately)\b/i;
+  /\b(?:by\s+month[-\s]?end|by\s+the\s+end\s+of\s+(?:the|this)\s+(?:month|week)|end\s+of\s+the\s+month|within\s+the\s+month|by\s+(?:mon|tues|wednes|thurs|fri|satur|sun)day)\b/i;
 
 // Weaker time framing that usually says when the ACTION happens, not when the
 // balance ends: "redirect $500 extra this month to eliminate it in 3 months"
 // is a 3-month claim, not a same-month one. So this only sets the runway when
 // the sentence states no explicit one — a real deadline above still wins, and
 // a bare "this eliminates it this month" still gets the strict math.
-const SAME_MONTH_FRAMING_RE = /\b(?:this\s+month|this\s+week|this\s+cycle|right\s+now)\b/i;
+const SAME_MONTH_FRAMING_RE =
+  /\b(?:this\s+month|this\s+week|this\s+cycle|right\s+now|immediately|today)\b/i;
 
 // A number of months/years, but only behind a horizon preposition. The
 // preposition is required so a savings figure like "debt-free 11 months
@@ -263,8 +394,18 @@ const SPELLED_NUMBERS: Record<string, number> = {
 // The count tolerates the hedges models actually write ("in ~2.2 months",
 // "in about 3 months"); a fractional runway is used as stated rather than
 // rounded, since rounding down would re-reject the claim it exists to allow.
+// A RANGE ("in 2-3 months") is one claim, and the check only rejects the
+// impossible, so its upper bound is the honest figure to test — reading only
+// the "2" rejected "will clear its $1,209 balance in 2-3 months" at $565/mo,
+// which is true at 2.14. A trailing "+" ("19+ months") reads as its number.
+const HEDGES = String.raw`~|about|around|roughly|approximately|nearly|under`;
+const COUNT = String.raw`\d{1,2}(?:\.\d+)?|${Object.keys(SPELLED_NUMBERS).join('|')}`;
+// "takes/needs/requires 19 months" carries a runway without a preposition.
+// The preposition or one of these verbs is still REQUIRED, so a savings
+// figure ("debt-free 11 months sooner") is never read as runway.
+const HORIZON_LEAD = String.raw`(?:with)?in|over|across|for|takes?|took|needs?|requires?|running`;
 const HORIZON_RE = new RegExp(
-  String.raw`\b(?:(?:with)?in|over|across|for)\s+(?:the\s+next\s+)?(?:~|about|around|roughly|approximately|nearly|under)?\s*(\d{1,2}(?:\.\d+)?|${Object.keys(SPELLED_NUMBERS).join('|')})\s+(month|year)s?\b`,
+  String.raw`\b(?:${HORIZON_LEAD})\s+(?:the\s+next\s+)?(${HEDGES})?\s*(${COUNT})\s*(?:\+|(?:[-–—]|\s+to\s+)\s*(?:${HEDGES})?\s*(${COUNT}))?\s+(month|year)s?\b`,
   'gi',
 );
 
@@ -277,27 +418,76 @@ const HORIZON_RE = new RegExp(
 // sentence.
 const RATE_COMPARATIVE_RE = /\b(?:faster|fastest|quicker|quickest|more\s+quickly|ahead\s+of\s+schedule)\b/i;
 
-/**
- * Months of payments a claim in this sentence may be measured against.
- * 1 (the strict default) when the claim is same-month or states no runway,
- * N when it states one, and Infinity for a rate comparative with no date to
- * check. Returns the SMALLEST stated runway, so a sentence naming several is
- * held to the tightest one.
- */
-function claimHorizonMonths(text: string): number {
-  if (SAME_MONTH_DEADLINE_RE.test(text)) return 1;
+// "sooner" counts as a rate comparative ONLY in the text that follows the
+// claim verb ("clearing it sooner to free cash flow"). Before the verb it
+// nearly always belongs to the whole-plan timeline this law ignores
+// ("debt-free 11 months sooner, this payment eliminates Delta Amex"), where
+// it would exempt an otherwise bare claim.
+const SOONER_RE = /\b(?:sooner|soonest)\b/i;
 
+/**
+ * The runway a single stretch of text states, or null if it states none.
+ *
+ * When several markers appear, the EARLIEST wins, because this text starts at
+ * the claim verb and the nearest marker is the one modifying it: "will clear
+ * it FASTEST and reduce utilization pressure immediately" is a rate claim,
+ * and letting the trailing "immediately" outrank it by rule order made it a
+ * one-month claim. Position also keeps a stated deadline authoritative
+ * against a longer runway named after it, which is what stops the reported
+ * incident being laundered.
+ */
+function statedHorizon(text: string, soonerCounts: boolean): number | null {
+  const markers: Array<{ index: number; months: number }> = [];
+
+  const deadline = SAME_MONTH_DEADLINE_RE.exec(text);
+  if (deadline) markers.push({ index: deadline.index, months: 1 });
+
+  // Across several runways, the tightest wins — but they share the position of
+  // the first, since together they describe one claim's timing.
+  let firstIndex = Infinity;
   let smallest = Infinity;
   for (const match of text.matchAll(HORIZON_RE)) {
-    const raw = match[1].toLowerCase();
-    const count = SPELLED_NUMBERS[raw] ?? Number.parseFloat(raw);
-    if (!Number.isFinite(count) || count <= 0) continue;
-    smallest = Math.min(smallest, match[2].toLowerCase() === 'year' ? count * 12 : count);
+    const [, hedge, lowRaw, highRaw, unit] = match;
+    // Upper bound of a range; the lone figure otherwise.
+    const raw = (highRaw ?? lowRaw).toLowerCase();
+    const parsed = SPELLED_NUMBERS[raw] ?? Number.parseFloat(raw);
+    if (!Number.isFinite(parsed) || parsed <= 0) continue;
+    // An explicit hedge ("~2 months", "about 3 months") is the model saying
+    // roughly, maybe a little more, so it earns the next whole month: $565/mo
+    // clears $1,209 at 2.14 months, and measuring a flat 2 rejected "~2
+    // months" as a hallucination when it was a fair approximation.
+    const count = hedge && !highRaw ? Math.floor(parsed) + 1 : parsed;
+    smallest = Math.min(smallest, unit.toLowerCase() === 'year' ? count * 12 : count);
+    firstIndex = Math.min(firstIndex, match.index ?? 0);
   }
-  if (Number.isFinite(smallest)) return smallest;
+  if (Number.isFinite(smallest)) markers.push({ index: firstIndex, months: smallest });
 
-  if (SAME_MONTH_FRAMING_RE.test(text)) return 1;
-  return RATE_COMPARATIVE_RE.test(text) ? Infinity : 1;
+  const framing = SAME_MONTH_FRAMING_RE.exec(text);
+  if (framing) markers.push({ index: framing.index, months: 1 });
+
+  const rate = RATE_COMPARATIVE_RE.exec(text);
+  if (rate) markers.push({ index: rate.index, months: Infinity });
+  const sooner = soonerCounts ? SOONER_RE.exec(text) : null;
+  if (sooner) markers.push({ index: sooner.index, months: Infinity });
+
+  if (markers.length === 0) return null;
+  return markers.sort((a, b) => a.index - b.index)[0].months;
+}
+
+/**
+ * Months of payments a claim may be measured against: 1 (the strict default)
+ * when it is same-month or states no runway, N when it states one, and
+ * Infinity for a rate comparative that names no date to check.
+ *
+ * The text FOLLOWING the claim verb wins, because that is the clause the
+ * runway belongs to. A compound sentence otherwise mixes them up: "reduces it
+ * to $565 by month-end, clearing it in 3 months" attaches the deadline to the
+ * reduction and the runway to the payoff, and reading the whole sentence made
+ * it a one-month claim. The rest of the sentence is the fallback, for the
+ * common "this month ... eliminates it" order.
+ */
+function claimHorizonMonths(afterClaim: string, sentence: string): number {
+  return statedHorizon(afterClaim, true) ?? statedHorizon(sentence, false) ?? 1;
 }
 
 /**
@@ -384,27 +574,16 @@ function makesUnverifiedEliminationClaim(
   return blocks.some((block) => blockMakesUnverifiedClaim(block, extraAvailable, debts));
 }
 
-/** Runs the elimination-claim law against one text block in isolation. */
-function blockMakesUnverifiedClaim(
+/**
+ * Which debts a stretch of text names. Longest name first, blanking out each
+ * match before checking shorter ones — otherwise "Chase" would count as named
+ * whenever "Chase Sapphire" appears, and its small balance could vouch for an
+ * impossible claim about the bigger card.
+ */
+function attributeDebts(
   text: string,
-  extraAvailable: number,
   debts: EliminationCheckDebt[],
-): boolean {
-  const claimRe = buildEliminationClaimRe(debts.map((d) => d.name));
-  if (!claimRe.test(text)) return false;
-
-  // Interest is deliberately ignored across the horizon: the check only ever
-  // rejects claims that are impossible even on the arithmetic most generous
-  // to the model, so an approximation that overstates paydown is the safe
-  // direction to err in.
-  const canEliminate = (d: EliminationCheckDebt, horizonMonths: number) =>
-    horizonMonths === Infinity ||
-    horizonMonths * (extraAvailable + d.minimumPayment) + REDIRECT_TOLERANCE >= d.balance;
-
-  // Attribute debt names longest-first, blanking out each match before
-  // checking shorter names — otherwise "Chase" would count as named whenever
-  // "Chase Sapphire" appears, and its small balance could vouch for an
-  // impossible claim about the bigger card.
+): EliminationCheckDebt[] {
   let remaining = text.toLowerCase();
   const named: EliminationCheckDebt[] = [];
   const byNameLengthDesc = debts
@@ -417,13 +596,38 @@ function blockMakesUnverifiedClaim(
       remaining = remaining.split(needle).join(' ');
     }
   }
+  return named;
+}
 
-  // Attribution stays BLOCK-scoped (a debt named anywhere in the block can
-  // answer for a claim in it), but the runway is per CLAIM SENTENCE, since
-  // that is the unit that actually states a deadline. Each claim sentence
-  // must stand on its own: one impossible claim condemns the block even when
-  // a neighbouring sentence makes a possible one.
-  const candidates = named.length > 0 ? named : debts;
+/** Runs the elimination-claim law against one text block in isolation. */
+function blockMakesUnverifiedClaim(
+  text: string,
+  extraAvailable: number,
+  debts: EliminationCheckDebt[],
+): boolean {
+  const claimRe = buildEliminationClaimRe(debts.map((d) => d.name));
+  if (!claimRe.test(text)) return false;
+
+  // Interest is deliberately ignored across the horizon: the check only ever
+  // rejects claims that are impossible even on the arithmetic most generous
+  // to the model, so an approximation that overstates paydown is the safe
+  // direction to err in. A fractional runway rounds UP for the same reason
+  // and because payments are monthly: a balance gone "in 2.1 months" is gone
+  // on the third payment, and measuring 2.1 of them rejected a claim that was
+  // right to within a rounding step.
+  const canEliminate = (d: EliminationCheckDebt, horizonMonths: number) =>
+    horizonMonths === Infinity ||
+    Math.ceil(horizonMonths) * (extraAvailable + d.minimumPayment) + REDIRECT_TOLERANCE >=
+      d.balance;
+
+  // Attribution and runway are both per CLAIM SENTENCE, since that is the
+  // unit that names a debt and states a deadline. A debt named elsewhere must
+  // not answer for this claim: "clears it in ~2.1 months, freeing $65/mo to
+  // attack Delta Amex" is a claim about the focus debt, and letting the
+  // incidentally-named Delta Amex be the candidate rejected it. A sentence
+  // naming no debt is unattributed and may hold for any active debt, which is
+  // the documented behaviour. Each claim sentence must stand on its own: one
+  // impossible claim condemns the block even when a neighbour is fine.
   const claimSentences = text
     .split(/(?<=[.!?])\s+/)
     .filter((sentence) => claimRe.test(sentence));
@@ -431,7 +635,23 @@ function blockMakesUnverifiedClaim(
   // regex already matched, so a claim is present either way and must be checked.
   const units = claimSentences.length > 0 ? claimSentences : [text];
   return units.some((sentence) => {
-    const horizonMonths = claimHorizonMonths(sentence);
+    // The claim verb splits the sentence: what follows it is the clause the
+    // runway belongs to, and the whole sentence is the fallback.
+    const match = claimRe.exec(sentence);
+    const afterClaim = match ? sentence.slice(match.index + match[0].length) : '';
+    const horizonMonths = claimHorizonMonths(afterClaim, sentence);
+    // A claim naming its debt is bound to it. A PRONOUN claim ("clears it")
+    // takes its referent from what came BEFORE — "Pay $600 to Chase Sapphire;
+    // this eliminates it" is about Chase Sapphire — and is unattributed when
+    // nothing precedes it, which is the documented behaviour. Reading the
+    // whole sentence instead let a debt named afterwards for another reason
+    // answer for the claim: "clears it in ~2.1 months, freeing $65/mo to
+    // attack Delta Amex" is about the focus debt, not Delta Amex.
+    const isPronounClaim = match !== null && /\bit\s*$/i.test(match[0]);
+    const attributionScope =
+      isPronounClaim && match ? sentence.slice(0, match.index) : sentence;
+    const named = attributeDebts(attributionScope, debts);
+    const candidates = named.length > 0 ? named : debts;
     return !candidates.some((debt) => canEliminate(debt, horizonMonths));
   });
 }

@@ -478,14 +478,19 @@ describe('elimination law — "clear" must point at something payoff-shaped', ()
     );
   });
 
-  it('needs the debt list to use a bare debt name as the object', () => {
+  it('uses a debt name as the object when the debt list is supplied', () => {
     // No dollar amount and no balance noun, so the debt name is the only
     // thing that can make this a payoff claim.
     const brief = nextAction({ body: 'Your plan clears CreditOne 6610 by month-end.', redirectAmount: 500 });
     expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
-    // Documents the dependency, same as the unsafe-minimum law. Both callers
-    // pass a debt list; with none there is no name to recognise as an object.
-    expect(findBriefViolation(brief, 500, 500, [])).toBeNull();
+  });
+
+  it('falls back to broad matching with no debt context, so nothing unverifiable survives', () => {
+    // Object scoping needs debt names to be precise. Given none, the law
+    // cannot verify anything either, so it matches loosely and rejects —
+    // which is what purges pre-rule cached briefs on their next read.
+    const brief = nextAction({ body: 'Your plan clears CreditOne 6610 by month-end.', redirectAmount: 500 });
+    expect(findBriefViolation(brief, 500, 500, [])).toBe('unverified_elimination_claim');
   });
 
   it('does not treat "clears it up" as a payoff claim', () => {
@@ -601,6 +606,205 @@ describe('elimination law — a claim is measured against the runway it states',
       redirectAmount: 350,
     });
     expect(findBriefViolation(hedged, 500, 500, [CREDIT_ONE])).toBeNull();
+  });
+
+  it('reads a runway written as a range, using its upper bound', () => {
+    // Verbatim, and rejected before this change: $565/mo clears $1,209 in
+    // 2.14 months, so "2-3 months" is true. Reading only the "2" ($1,130)
+    // called it a hallucination.
+    const brief = nextAction({
+      kind: 'keep_course',
+      body: 'Paying $565/mo (minimum $65 + acceleration $500) will clear its $1209 balance in 2-3 months.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBeNull();
+
+    // The en-dash form the model actually emitted, and the "to" spelling.
+    for (const phrase of ['in 2–3 months', 'in 2 to 3 months']) {
+      const variant = nextAction({
+        kind: 'keep_course',
+        body: `Paying $565/mo will clear its $1209 balance ${phrase}.`,
+        redirectAmount: 0,
+      });
+      expect(findBriefViolation(variant, 500, 900, [CREDIT_ONE])).toBeNull();
+    }
+  });
+
+  it('still rejects a range whose upper bound cannot cover the balance', () => {
+    const brief = nextAction({
+      kind: 'keep_course',
+      body: 'At current pace, Delta Amex clears in 2-3 months.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 500, 900, [DELTA_AMEX])).toBe('unverified_elimination_claim');
+  });
+
+  it('takes the runway from the clause the claim is in, not the whole sentence', () => {
+    // Verbatim: "by month-end" belongs to the reduction, "in 3 months" to the
+    // payoff. Reading the whole sentence let the deadline win and rejected it.
+    const brief = nextAction({
+      body: 'Applying the full $500 monthly extra here reduces it to $565 by month-end, clearing it in 3 months and saving ~$200 in interest.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBeNull();
+  });
+
+  it('counts "sooner" only after the claim verb', () => {
+    // Verbatim: "clearing it sooner" names no date to fact-check.
+    const after = nextAction({
+      body: 'Paying $565 total this month attacks the smallest balance ($1209) fastest under snowball, clearing it sooner to free cash flow.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(after, 500, 900, [CREDIT_ONE])).toBeNull();
+
+    // Before the verb it belongs to the whole-plan timeline this law ignores,
+    // so it must not exempt the bare claim that follows.
+    const before = nextAction({
+      body: 'Being debt-free 11 months sooner, this payment eliminates Delta Amex.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(before, 500, 900, [DELTA_AMEX])).toBe('unverified_elimination_claim');
+  });
+
+  it('lets the marker nearest the claim win', () => {
+    // Verbatim: "fastest" attaches to the payoff, "immediately" to reducing
+    // utilization. Rule order let the trailing adverb win and rejected it.
+    const brief = nextAction({
+      body: 'Paying $500 extra monthly will clear it fastest and reduce utilization pressure immediately.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBeNull();
+
+    // Reversed, the deadline is the nearest marker and still binds — this is
+    // what stops a longer runway named afterwards from laundering a claim.
+    const laundered = nextAction({
+      body: 'Paying $565 will clear it by month-end, finishing the plan faster over the next 4 months.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(laundered, 500, 900, [CREDIT_ONE])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('does not let a stray "immediately" outrank a stated runway', () => {
+    // Verbatim: "immediately" belongs to dropping utilization, not the payoff.
+    // Treating it as a completion deadline made this a one-month claim.
+    const brief = nextAction({
+      body: 'Paying $565/mo (minimum $65 + $500 extra) will clear its $1,209 balance in 3 months, freeing $65/mo and dropping utilization immediately.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBeNull();
+
+    // With no runway stated it still means this month.
+    const bare = nextAction({
+      body: 'Paying $565 immediately eliminates CreditOne 6610.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(bare, 500, 900, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+
+  it('rounds a fractional runway up to a whole payment', () => {
+    // Verbatim: "eliminates this $1209 balance in 2.1 months" at $565/mo. The
+    // true figure is 2.14, so measuring 2.1 payments ($1,186) rejected a claim
+    // that was right to within a rounding step. Payments are monthly: gone "in
+    // 2.1 months" means gone on the third one.
+    const brief = nextAction({
+      body: 'Paying $565/mo total (minimum $65 + $500 acceleration) eliminates this $1209 balance in 2.1 months.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBeNull();
+
+    // Rounding up must not swallow a whole extra month: 2 payments of $565 is
+    // $1,130 and still cannot cover $1,209.
+    const twoMonths = nextAction({
+      body: 'Paying $565/mo eliminates this $1209 balance in 2 months.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(twoMonths, 500, 900, [CREDIT_ONE])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('does not let a debt named for another reason answer for a pronoun claim', () => {
+    // Verbatim: "it" is the focus debt; Delta Amex is named only as where the
+    // freed cash goes next. Attributing the claim to Delta Amex rejected it.
+    const brief = nextAction({
+      body: 'Applying $565/mo total ($65 minimum + $500 extra) clears it in ~2.1 months, freeing $65/mo to attack Delta Amex (28.24% APR, $10169).',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+
+    // Naming the debt still binds the claim to it.
+    const named = nextAction({
+      body: 'Applying $565/mo total clears Delta Amex in ~2.1 months.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(named, 500, 900, [CREDIT_ONE, DELTA_AMEX])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('gives a hedged runway the next whole month', () => {
+    // Verbatim: "clears it in ~2 months" at $565/mo. The true figure is 2.14,
+    // so the hedge is fair and a flat 2 ($1,130) rejected it.
+    const brief = nextAction({
+      body: 'Paying $565/mo total ($65 min + $500 extra) clears it in ~2 months, freeing cash flow.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBeNull();
+
+    // Unhedged, the stated figure is taken at face value.
+    const exact = nextAction({
+      body: 'Paying $565/mo clears it in 2 months.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(exact, 500, 900, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+
+    // The hedge buys one month, not a blank cheque.
+    const wild = nextAction({
+      body: 'Paying $565/mo clears Delta Amex in about 2 months.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(wild, 500, 900, [DELTA_AMEX])).toBe('unverified_elimination_claim');
+  });
+
+  it('does not read a hyphenated compound as the object', () => {
+    // Verbatim: "single-debt entry" is a description of a record, not a debt
+    // being eliminated.
+    const brief = nextAction({
+      kind: 'reconnect_bank',
+      body: "Reconnecting will auto-log payments, eliminate manual gaps like September's single-debt entry, and give real-time visibility.",
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 200, 760, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+
+    // "debt-free" is whole-plan phrasing this law deliberately ignores.
+    const debtFree = nextAction({
+      body: 'Staying the course eliminates debt-free timelines guesswork.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(debtFree, 200, 760, [CREDIT_ONE])).toBeNull();
+  });
+
+  it('does not let the claim window cross into a parenthetical', () => {
+    // Verbatim: "debts" inside the aside was read as the object of eliminate.
+    const brief = nextAction({
+      kind: 'reconnect_bank',
+      body: 'Automated sync will eliminate manual logging gaps (Sep showed 1/3 debts logged) and create visibility.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 200, 760, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it('reads a runway stated without a preposition, and a trailing plus', () => {
+    // "Current $65 minimum alone takes 19+ months to clear $1209 balance" —
+    // verbatim, and rejected as a one-month claim before this change.
+    const brief = nextAction({
+      kind: 'keep_course',
+      body: 'The $65 minimum alone takes 19+ months to clear the $1209 balance.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 0, 900, [CREDIT_ONE])).toBeNull();
   });
 
   it('treats "this month" as when the action happens, not when the balance ends', () => {
@@ -793,6 +997,219 @@ describe('unsafe-minimum text law — suppression verbs are scoped to a payment 
       redirectAmount: 500,
     });
     expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+});
+
+describe('unsafe-minimum law — "miss" needs the payment as its object', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+  const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+
+  it.each([
+    // All verbatim from live-model runs. The payment word is part of a
+    // compound noun about bookkeeping, not the thing being skipped.
+    'Sep payment logging is missing.',
+    'Missing payment documentation and high utilization signal urgency.',
+    'Without current balance data, you risk missing payment changes.',
+    'September shows 0/3 logged, so payment history is missing.',
+    // Determiner present, but the payment word modifies a record noun.
+    'Stale data for 7+ days risks missing a payment signal on your focus debt.',
+    'Reconnect so you are not missing the payment confirmation.',
+    'Stale sync risks missing a minimum payment alert.',
+  ])('allows bookkeeping copy that merely contains "missing": %s', (phrase) => {
+    const brief = nextAction({ kind: 'reconnect_bank', body: phrase, redirectAmount: 0 });
+    expect(findBriefViolation(brief, 200, 760, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it.each([
+    'Missing one minimum payment frees up cash.',
+    'Miss a payment on Discover to fund the extra.',
+    'Missing your CreditOne minimum this month frees $65.',
+    'Miss payments on the smallest card while cash is tight.',
+  ])('still rejects advice to miss an actual payment: %s', (phrase) => {
+    const brief = nextAction({ body: phrase, redirectAmount: 0 });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBe('unsafe_minimum_text');
+  });
+
+  it.each([
+    // Verbatim, and rejected before this change. Naming the harm is warning
+    // AGAINST missing a payment, which is what the law wants users told.
+    'Missing payments on high-utilization cards will spike APR and damage credit score.',
+    'Missing a payment triggers late fees and a penalty APR.',
+    'Stale data could mask a missed payment or create reconciliation delay.',
+    // Verbatim: what is delayed is the logging, not the payment.
+    "Stale data may delay accurate payment logging for this month's $65 minimum.",
+    'Reauth gaps can pause payment tracking until you reconnect.',
+  ])('allows a warning about the consequences of missing a payment: %s', (phrase) => {
+    const brief = nextAction({ kind: 'reconnect_bank', body: phrase, redirectAmount: 0 });
+    expect(findBriefViolation(brief, 200, 760, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it('still rejects the passive form, where the payment really is what is paused', () => {
+    const brief = nextAction({ body: 'The CreditOne minimum can be paused for one cycle.' });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unsafe_minimum_text');
+  });
+
+  it('keeps the negation exemption working', () => {
+    for (const phrase of [
+      'Never miss a minimum payment; the extra goes on top.',
+      'Set up autopay so you avoid missing a payment.',
+    ]) {
+      expect(findBriefViolation(nextAction({ body: phrase }), 500, 500, [CREDIT_ONE])).toBeNull();
+    }
+  });
+});
+
+describe('unsafe-minimum law — "reduce" must govern the minimum itself', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+
+  it.each([
+    // Verbatim: in both, the thing reduced is plainly not the minimum.
+    'Redirect $350 here, freeing $65 minimum and reducing utilization.',
+    'Add $200/mo extra to its $65 minimum to cut utilization faster and reduce total interest paid.',
+    'Paying the minimum on Delta Amex while reducing utilization on CreditOne.',
+  ])('allows copy that reduces something other than the minimum: %s', (phrase) => {
+    const brief = nextAction({ body: phrase, redirectAmount: 200 });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBeNull();
+  });
+
+  it.each([
+    'Reduce your CreditOne minimum to $40 this month.',
+    'Lower the Discover minimum payment while cash is tight.',
+    'Call CreditOne and ask them to reduce the minimum.',
+    'Your CreditOne minimum can be reduced to $40 by calling.',
+  ])('still rejects cutting the minimum itself: %s', (phrase) => {
+    const brief = nextAction({ body: phrase, redirectAmount: 0 });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unsafe_minimum_text');
+  });
+
+  it('still allows the benign "lower"/"reduce" copy the earlier fix protected', () => {
+    for (const phrase of [
+      'This lowers your total interest paid by $85 over the plan.',
+      'Call the issuer and ask them to lower your APR on this card.',
+      'Reducing the balance faster saves interest over the life of the plan.',
+    ]) {
+      expect(findBriefViolation(nextAction({ body: phrase }), 500, 500, [CREDIT_ONE])).toBeNull();
+    }
+  });
+});
+
+describe('elimination law — "eliminate" must point at something payoff-shaped', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+  const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+
+  it.each([
+    // All verbatim from a live sweep of the negative-buffer scenario, where
+    // the model sells the benefit of linking a bank. None is about a balance.
+    'Reconnecting will auto-log payments, eliminate manual entry errors, and flag any missed payments in real time.',
+    'Link your bank to Plaid to auto-log payments and eliminate manual entry gaps.',
+    "This eliminates gaps like September's missing records and flags late fees instantly.",
+    'Automating this eliminates the guesswork in tracking your progress.',
+  ])('allows "eliminate" used about anything but a balance: %s', (phrase) => {
+    const brief = nextAction({ kind: 'reconnect_bank', body: phrase, redirectAmount: 0 });
+    expect(findBriefViolation(brief, 200, 760, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it.each([
+    // The reported incident's own wording is the first of these.
+    'Paying $565 total ($65 minimum + $500 extra) this month eliminates it by month-end.',
+    'This eliminates CreditOne 6610 by month-end.',
+    'This eliminates the $1,209 balance by month-end.',
+    'This eliminates the card by month-end.',
+    'With this payment CreditOne 6610 is eliminated by month-end.',
+  ])('still rejects an unaffordable payoff claim: %s', (phrase) => {
+    const brief = nextAction({ body: phrase, redirectAmount: 500 });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('leaves the unscoped payoff verbs matching bare', () => {
+    // No false positive has been observed for these, so they were left alone
+    // rather than scoped for symmetry.
+    for (const phrase of [
+      'One payment wipes out the smallest balance.',
+      'This zeroes out your smallest card.',
+      'That knocks out the smallest balance this month.',
+    ]) {
+      expect(findBriefViolation(nextAction({ body: phrase, redirectAmount: 500 }), 500, 500, [
+        CREDIT_ONE,
+      ])).toBe('unverified_elimination_claim');
+    }
+  });
+});
+
+describe('elimination law — counterfactual cost framing is not a payoff claim', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+
+  it('allows the live-model statement that a payoff is NOT affordable', () => {
+    // Verbatim, and rejected before this change even though it spells out
+    // that the money falls short — the opposite of a hallucinated claim.
+    const brief = nextAction({
+      body: 'Paying it off entirely this month costs $1209 total; your minimum ($65) plus $500 extra ($565) reaches $630.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBeNull();
+  });
+
+  it.each([
+    'Clearing the $1209 balance this month would require $1,209 in one go.',
+    'Eliminating CreditOne 6610 outright needs $1,209, which the plan does not have.',
+  ])('allows other cost framing: %s', (phrase) => {
+    const brief = nextAction({ body: phrase, redirectAmount: 500 });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBeNull();
+  });
+
+  it('still checks a runway, which cost framing must not be confused with', () => {
+    // "takes 3 months" is a claim with a horizon, not a cost: $565 x 3 covers
+    // $1,209, so it passes on the arithmetic rather than by exemption.
+    const affordable = nextAction({
+      body: 'Paying it off takes 3 months at $565/mo.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(affordable, 500, 900, [CREDIT_ONE])).toBeNull();
+
+    const notAffordable = nextAction({
+      body: 'Paying it off takes 1 month at $565/mo.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(notAffordable, 500, 900, [CREDIT_ONE])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+});
+
+describe('elimination law — payoff ORDER is not a payoff claim', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+  const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+
+  it('allows the live-model snowball-order statement', () => {
+    // Verbatim, and rejected before this change. It compares orderings; it
+    // never says a balance reaches zero.
+    const brief = nextAction({
+      kind: 'keep_course',
+      body: 'Paying it off first (current snowball focus) saves $330+ in interest vs paying Delta Amex first.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it.each([
+    'Pay off CreditOne 6610 before Delta Amex to save interest.',
+    'Paying the smallest off next keeps momentum.',
+  ])('allows other ordering language: %s', (phrase) => {
+    const brief = nextAction({ kind: 'keep_course', body: phrase, redirectAmount: 0 });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it.each([
+    'That pays off your smallest card by the end of the month.',
+    'This payment pays CreditOne 6610 off this month.',
+    'Delta Amex is paid off by month-end with this plan.',
+  ])('still rejects an unaffordable completion claim: %s', (phrase) => {
+    const brief = nextAction({ body: phrase, redirectAmount: 500 });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(
+      'unverified_elimination_claim',
+    );
   });
 });
 
