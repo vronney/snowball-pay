@@ -213,6 +213,11 @@ export function buildUnsafeMinimumAdviceRe(debtNames: string[] = []): RegExp {
   const names = debtNames
     .map((name) => normalizeApostrophes(name.trim()))
     .filter((name) => name.length >= 2)
+    // Longest first: regex alternation is first-match-wins, so "Chase" ahead
+    // of "Chase Sapphire" would match only "clears Chase" and let the small
+    // Chase balance answer for a claim about the $8,000 card (Codex, PR #91).
+    // The attribution pass below already sorts this way for the same reason.
+    .sort((a, b) => b.length - a.length)
     .map((name) => escapeForRegex(name).replace(/\s+/g, String.raw`\s+`));
   const context = String.raw`(?<!\w)(?:${[PAYMENT_WORDS, ...names].join('|')})(?!\w)`;
   const verb = String.raw`${NOT_NEGATED}\b(?:${PAYMENT_SCOPED_VERBS})\b`;
@@ -281,7 +286,12 @@ const NOT_COST_FRAMING = String.raw`(?![^.]{0,40}?\b(?:costs?|requires?|needs?|w
 function payoffVerbs(names: string[]): string {
   const versusNamedDebt =
     names.length > 0
-      ? String.raw`(?![^.]{0,30}?\b(?:before|ahead\s+of|instead\s+of|rather\s+than|vs\.?|versus)\s+(?:the\s+|your\s+)?(?:${names.join('|')})(?!\w))`
+      ? // Both sides must be named debts, directly either side of the ordering
+        // word. A loose 30-character window let "before" introduce a plain
+        // time clause and cancel a real claim: "Pay it off by Friday before
+        // Delta Amex is due" was exempted, so its explicit deadline never
+        // reached the arithmetic (Codex, PR #91).
+        String.raw`(?!\s+(?:the\s+|your\s+)?(?:${names.join('|')})(?!\w)\s+(?:before|ahead\s+of|instead\s+of|rather\s+than|vs\.?|versus)\s+(?:the\s+|your\s+)?(?:${names.join('|')})(?!\w))`
       : '';
   const order = `${PAYOFF_ORDER_ADVERB}${versusNamedDebt}${NOT_COST_FRAMING}`;
   return String.raw`paid\s+off${order}|pay(?:s|ing)?\s+off${order}|pay(?:s|ing)?\s+\w+(?:\s+\w+)?\s+off${order}|zero(?:e?s|ed)?\s+out|(?:reach(?:es)?|hits?|down\s+to)\s+\$?(?:0|zero)\b|wipe[sd]?\s+out|knock(?:s|ed|ing)?\s+out|gone\s+by`;
@@ -344,6 +354,11 @@ export function buildEliminationClaimRe(debtNames: string[] = []): RegExp {
   const names = debtNames
     .map((name) => normalizeApostrophes(name.trim()))
     .filter((name) => name.length >= 2)
+    // Longest first: regex alternation is first-match-wins, so "Chase" ahead
+    // of "Chase Sapphire" would match only "clears Chase" and let the small
+    // Chase balance answer for a claim about the $8,000 card (Codex, PR #91).
+    // The attribution pass below already sorts this way for the same reason.
+    .sort((a, b) => b.length - a.length)
     .map((name) => escapeForRegex(name).replace(/\s+/g, String.raw`\s+`));
   // A hyphen counts as part of the word for the balance nouns, so a compound
   // adjective is not mistaken for the object: "manual gaps like September's
@@ -542,9 +557,16 @@ function statedHorizon(text: string, soonerCounts: boolean): number | null {
   const framing = SAME_MONTH_FRAMING_RE.exec(text);
   if (framing) markers.push({ index: framing.index, months: 1 });
 
-  const rate = RATE_COMPARATIVE_RE.exec(text);
+  // A comparative is only read up to the first coordinating conjunction,
+  // because past one it belongs to a different predicate: in "Pay off Delta
+  // Amex and build savings faster" the "faster" is about savings, and taking
+  // it returned Infinity, which skips the arithmetic entirely and accepted an
+  // impossible payoff (Codex, PR #91). Deadlines and stated runways still scan
+  // the whole clause — only the total-bypass marker is held this close.
+  const beforeConjunction = text.split(/\b(?:and|but|then|or|while|plus)\b/i)[0];
+  const rate = RATE_COMPARATIVE_RE.exec(beforeConjunction);
   if (rate) markers.push({ index: rate.index, months: Infinity });
-  const sooner = soonerCounts ? SOONER_RE.exec(text) : null;
+  const sooner = soonerCounts ? SOONER_RE.exec(beforeConjunction) : null;
   if (sooner) markers.push({ index: sooner.index, months: Infinity });
 
   if (markers.length === 0) return null;

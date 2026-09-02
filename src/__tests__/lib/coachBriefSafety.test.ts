@@ -1208,6 +1208,68 @@ describe('unsafe-minimum law — "miss" needs the payment as its object', () => 
   });
 });
 
+describe('elimination law — Codex round-three holes', () => {
+  const CHASE = { name: 'Chase', balance: 300, minimumPayment: 35 };
+  const CHASE_SAPPHIRE = { name: 'Chase Sapphire', balance: 8000, minimumPayment: 160 };
+  const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+
+  it('matches the longest debt name regardless of the list order', () => {
+    // Regex alternation is first-match-wins. With "Chase" ahead of "Chase
+    // Sapphire" the claim matched only "clears Chase", and the $300 balance
+    // then vouched for an impossible payoff of the $8,000 card. The debt list
+    // comes from the DB in arbitrary order, so both orders must behave alike.
+    const brief = nextAction({ body: 'This clears Chase Sapphire by month-end.', redirectAmount: 500 });
+    expect(findBriefViolation(brief, 500, 900, [CHASE, CHASE_SAPPHIRE])).toBe(
+      'unverified_elimination_claim',
+    );
+    expect(findBriefViolation(brief, 500, 900, [CHASE_SAPPHIRE, CHASE])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('still credits the shorter name when the claim is about it', () => {
+    const brief = nextAction({ body: 'Send $335 to Chase to eliminate it.', redirectAmount: 300 });
+    expect(findBriefViolation(brief, 300, 900, [CHASE, CHASE_SAPPHIRE])).toBeNull();
+  });
+
+  it('does not take a rate comparative that modifies a different predicate', () => {
+    // "faster" is about building savings. Taking it returns "no date to
+    // check", which skips the arithmetic entirely.
+    const brief = nextAction({ body: 'Pay off Delta Amex and build savings faster.', redirectAmount: 500 });
+    expect(findBriefViolation(brief, 500, 900, [DELTA_AMEX])).toBe('unverified_elimination_claim');
+  });
+
+  it('still takes a comparative that modifies the payoff itself', () => {
+    const brief = nextAction({
+      body: 'Redirect the acceleration to clear the $1209 balance fastest.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBeNull();
+  });
+
+  it('does not let "before" as a time clause cancel a payoff claim', () => {
+    // The ordering exemption is for snowball-order talk. Here "before Delta
+    // Amex is due" is timing, and swallowing the claim meant its explicit
+    // Friday deadline never reached the arithmetic.
+    const brief = nextAction({
+      body: 'Pay it off by Friday before Delta Amex is due.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [DELTA_AMEX, CREDIT_ONE])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('still exempts a genuine ordering comparison between two named debts', () => {
+    const brief = nextAction({
+      body: 'Pay off CreditOne 6610 before Delta Amex to save interest.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [DELTA_AMEX, CREDIT_ONE])).toBeNull();
+  });
+});
+
 describe('unsafe-minimum law — a pronoun directive after a named payment', () => {
   const STORE_CARD = { name: 'Store Card', balance: 410, minimumPayment: 35 };
   const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
