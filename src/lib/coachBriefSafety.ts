@@ -164,13 +164,6 @@ export const REDIRECT_TOLERANCE = 1; // dollars — absorbs rounding only
 // Elimination-claim verbs: phrases asserting a specific debt hits zero.
 // Deliberately does NOT include timeline phrases like "debt-free in 11
 // months" — those describe the whole plan, not a single debt's balance.
-// "clear(s/ed/ing)" is matched broadly on purpose — minus "steer clear" and
-// "payment(s) cleared", a bank-sync phrase reconnect_bank briefs actually use
-// ("confirm September payments cleared") that describes a transaction posting,
-// not a balance reaching zero. A false positive only downgrades to the
-// deterministic fallback, while a missed synonym re-opens the exact bug this
-// law exists to stop.
-//
 // "eliminate $200 of its $1,209 balance" is exempt: "<verb> $<amount> of" is
 // partitive by construction — it states how much comes OFF a balance, which
 // is the opposite of claiming the balance ends at zero. Observed in live
@@ -178,10 +171,56 @@ export const REDIRECT_TOLERANCE = 1; // dollars — absorbs rounding only
 // required so only this explicit amount-then-"of" shape is exempt; a bare
 // "eliminates it" or "eliminates the $1,209 balance" still matches.
 const PARTITIVE_AMOUNT = String.raw`(?!\s+\$[\d,]+(?:\.\d+)?\s+of\b)`;
-export const ELIMINATION_CLAIM_RE = new RegExp(
-  String.raw`\b(?:eliminat\w+${PARTITIVE_AMOUNT}|paid\s+off|pay(?:s|ing)?\s+off|pay(?:s|ing)?\s+\w+(?:\s+\w+)?\s+off|(?<!steer\s)(?<!payment\s)(?<!payments\s)clear(?:s|ed|ing)?\b|zero(?:s|ed)?\s+out|(?:reach(?:es)?|hits?|down\s+to)\s+\$?(?:0|zero)\b|wipe[sd]?\s+out|knock(?:s|ed|ing)?\s+out|gone\s+by)\b`,
-  'i',
-);
+
+// Verbs whose object is unambiguous — nobody writes "wipes out" or "zeroes
+// out" about anything but a balance in a debt brief, so these match bare.
+// "zeroes" (the -es spelling) was missing here and slipped past the law
+// entirely; found while testing the "clear" scoping below.
+const UNAMBIGUOUS_PAYOFF_VERBS = String.raw`eliminat\w+${PARTITIVE_AMOUNT}|paid\s+off|pay(?:s|ing)?\s+off|pay(?:s|ing)?\s+\w+(?:\s+\w+)?\s+off|zero(?:e?s|ed)?\s+out|(?:reach(?:es)?|hits?|down\s+to)\s+\$?(?:0|zero)\b|wipe[sd]?\s+out|knock(?:s|ed|ing)?\s+out|gone\s+by`;
+
+// "clear" is the one verb that needs its object checked. Matched bare it fired
+// on ordinary English about anything but money — "stale bank data blocks CLEAR
+// progress tracking", "this CLEARS the largest uncertainty", "blocks a CLEAR
+// picture" — which was the last remaining source of false rejections in live
+// sampling. It now has to point at something payoff-shaped: a dollar amount, a
+// balance noun, an active debt's name, or the bare pronoun. "account" is
+// deliberately NOT a balance noun; reconnect_bank briefs say it constantly
+// about bank connections ("stale ACCOUNT data blocks a clear picture").
+const BALANCE_OBJECT_NOUNS = String.raw`balances?|cards?|debts?|loans?`;
+
+/**
+ * Builds the elimination-claim law for one brief, with the brief's own debt
+ * names usable as the object of "clear" ("clears CreditOne 6610"). Every
+ * other payoff verb is name-independent, so the no-names default below stays
+ * a faithful law for callers without debt context.
+ */
+export function buildEliminationClaimRe(debtNames: string[] = []): RegExp {
+  const names = debtNames
+    .map((name) => name.trim())
+    .filter((name) => name.length >= 2)
+    .map((name) => escapeForRegex(name).replace(/\s+/g, String.raw`\s+`));
+  const target = String.raw`(?:\$[\d,]+|(?<!\w)(?:${[BALANCE_OBJECT_NOUNS, ...names].join('|')})(?!\w))`;
+  // "payment(s) cleared" is bank-sync phrasing ("confirm September payments
+  // cleared") about a transaction posting, not a balance reaching zero.
+  const clearVerb = String.raw`(?<!steer\s)(?<!payment\s)(?<!payments\s)\bclear(?:s|ed|ing)?\b${PARTITIVE_AMOUNT}`;
+  const clearClaim = [
+    // "clears it" — the pronoun stands in for the debt. "clears it up" is an
+    // idiom about confusion, never a balance.
+    String.raw`${clearVerb}\s+it\b(?!\s+up)`,
+    // "clears the $1,209 balance" / "clearing your CreditOne 6610"
+    `${clearVerb}[^.]{0,40}?${target}`,
+    // Passive: "CreditOne 6610 is cleared this month". Deliberately requires a
+    // copula rather than mere proximity — a plain "<target> ... clear" window
+    // matched ordinary prose that happens to follow a figure, e.g. "confirm
+    // the $1209 balance and clear the stale-data risk".
+    String.raw`${target}(?:\s+\w+){0,2}\s+(?:is|are|was|were|gets?|got|will\s+be|would\s+be|should\s+be)\s+(?:fully\s+|completely\s+|finally\s+)?clear(?:ed|ing)\b`,
+  ].join('|');
+
+  return new RegExp(String.raw`\b(?:${UNAMBIGUOUS_PAYOFF_VERBS})\b|${clearClaim}`, 'i');
+}
+
+/** The law with no debt-name context — every verb but "clear" is unaffected. */
+export const ELIMINATION_CLAIM_RE = buildEliminationClaimRe();
 
 // ── Claim horizon ────────────────────────────────────────────────────────
 // How long a payoff claim gives itself. The law used to assume every claim
@@ -326,7 +365,8 @@ function blockMakesUnverifiedClaim(
   extraAvailable: number,
   debts: EliminationCheckDebt[],
 ): boolean {
-  if (!ELIMINATION_CLAIM_RE.test(text)) return false;
+  const claimRe = buildEliminationClaimRe(debts.map((d) => d.name));
+  if (!claimRe.test(text)) return false;
 
   // Interest is deliberately ignored across the horizon: the check only ever
   // rejects claims that are impossible even on the arithmetic most generous
@@ -361,7 +401,7 @@ function blockMakesUnverifiedClaim(
   const candidates = named.length > 0 ? named : debts;
   const claimSentences = text
     .split(/(?<=[.!?])\s+/)
-    .filter((sentence) => ELIMINATION_CLAIM_RE.test(sentence));
+    .filter((sentence) => claimRe.test(sentence));
   // Fall back to the whole block if splitting finds nothing — the block-level
   // regex already matched, so a claim is present either way and must be checked.
   const units = claimSentences.length > 0 ? claimSentences : [text];

@@ -363,6 +363,80 @@ describe('elimination law — a set_acceleration claim is checked against target
   });
 });
 
+describe('elimination law — "clear" must point at something payoff-shaped', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+  const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+
+  it.each([
+    // All verbatim from live-model runs, all rejected before this change.
+    'Stale bank data blocks clear progress tracking.',
+    'This takes 5 minutes and clears the largest uncertainty.',
+    'Stale account data blocks clear picture.',
+    'Reconnect now to confirm the $1209 balance and clear the stale-data risk.',
+    'Reconnect to confirm September payment of $65 minimum cleared.',
+  ])('allows "clear" used about anything but a balance: %s', (phrase) => {
+    const brief = nextAction({ kind: 'reconnect_bank', body: phrase, redirectAmount: 0 });
+    expect(findBriefViolation(brief, 200, 760, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it.each([
+    'Paying $565 clears CreditOne 6610 by month-end.',
+    'Paying $565 clears the $1,209 balance by month-end.',
+    'Paying $565 clears the card by month-end.',
+    'One $565 payment and CreditOne 6610 is cleared by month-end.',
+    'Send $565 to CreditOne 6610 and that clears it by month-end.',
+  ])('still rejects an unaffordable payoff claim: %s', (phrase) => {
+    const brief = nextAction({ body: phrase, redirectAmount: 500 });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('needs the debt list to use a bare debt name as the object', () => {
+    const brief = nextAction({ body: 'Paying $565 clears CreditOne 6610 by month-end.', redirectAmount: 500 });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+    // Documents the dependency, same as the unsafe-minimum law. Both callers
+    // pass a debt list; with none there is no name to recognise as an object.
+    expect(findBriefViolation(brief, 500, 500, [])).toBeNull();
+  });
+
+  it('does not treat "clears it up" as a payoff claim', () => {
+    const brief = nextAction({
+      kind: 'reconnect_bank',
+      body: 'September logging looks off; reconnecting clears it up.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 200, 760, [CREDIT_ONE])).toBeNull();
+  });
+
+  it('keeps allowing "steer clear" and "payments cleared"', () => {
+    const steer = nextAction({
+      body: 'Steer clear of new charges on CreditOne 6610 while paying it down.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(steer, 500, 500, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+
+    const synced = nextAction({
+      kind: 'reconnect_bank',
+      body: 'Reauth Credit One Bank to confirm September payments cleared.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(synced, 200, 760, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
+  });
+
+  it('leaves the other payoff verbs matching without an object', () => {
+    for (const phrase of [
+      'One payment wipes out the smallest balance.',
+      'This zeroes out your smallest card.',
+      'That knocks out the smallest balance this month.',
+    ]) {
+      expect(findBriefViolation(nextAction({ body: phrase, redirectAmount: 500 }), 500, 500, [
+        CREDIT_ONE,
+      ])).toBe('unverified_elimination_claim');
+    }
+  });
+});
+
 describe('elimination law — a claim is measured against the runway it states', () => {
   const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
   const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
