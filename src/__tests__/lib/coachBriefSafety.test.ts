@@ -13,6 +13,7 @@ function nextAction(overrides: Partial<CoachBrief['nextAction']> = {}): CoachBri
       targetExtra: null,
       outcome: null,
       redirectAmount: 0,
+      payoffClaim: null,
       ...overrides,
     },
   };
@@ -1067,6 +1068,7 @@ describe('unsafe-minimum text law — suppression verbs are scoped to a payment 
         targetExtra: null,
         outcome: null,
         redirectAmount: 0,
+        payoffClaim: null,
       },
     };
     expect(findBriefViolation(brief, 200, 760.52, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
@@ -1954,5 +1956,378 @@ describe('parseLawfulStoredBrief', () => {
       _meta: { effectiveAcceleration: 500, availableCashFlow: NaN },
     } as unknown as StoredCoachBrief;
     expect(parseLawfulStoredBrief(stored)).toBeNull();
+  });
+});
+describe('declared payoffClaim (structured fields)', () => {
+  // The plan sends $500/mo of acceleration, and it all lands on CreditOne —
+  // so CreditOne can absorb $565/mo and every other debt only its own minimum.
+  const CREDIT_ONE = {
+    name: 'CreditOne 6610',
+    balance: 1209,
+    minimumPayment: 65,
+    isFocus: true,
+  };
+  const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+  const OLD_FEE = { name: 'Old Fee', balance: 40, minimumPayment: 40 };
+  const DEBTS = [CREDIT_ONE, DELTA_AMEX];
+
+  it('measures an untimed claim against the DECLARED horizon instead of guessing one month', () => {
+    // The prose states no runway at all, so the law defaulted to one month and
+    // rejected it: $565 against $1,209. The model knows it means three months
+    // and now says so, and $1,695 covers the balance. This is the whole point
+    // of the field — the horizon stops being inferred.
+    const brief = nextAction({
+      title: 'Keep the extra on CreditOne 6610',
+      body: 'Directing the full $500 extra at CreditOne 6610 clears that balance.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
+  });
+
+  it('still rejects that same copy when the model declares nothing', () => {
+    // Control for the test above: the loosening comes from the declaration,
+    // not from the prose law having been weakened. With payoffClaim null the
+    // strict one-month default is exactly what it always was.
+    const brief = nextAction({
+      title: 'Keep the extra on CreditOne 6610',
+      body: 'Directing the full $500 extra at CreditOne 6610 clears that balance.',
+      redirectAmount: 0,
+      payoffClaim: null,
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
+  });
+
+  it('pins an unattributed claim to the declared debt instead of the smallest one that fits', () => {
+    // "wipes out the balance by month-end" names no debt, so the law let ANY
+    // active debt vouch for it — and a $40 leftover fee covered by its own
+    // minimum did. The declaration says the brief is about CreditOne, so that
+    // is the debt the claim has to hold for, and $565 does not clear $1,209.
+    const brief = nextAction({
+      title: 'Keep the extra on CreditOne 6610',
+      body: 'Keep the extra where it is. This wipes out the balance by month-end.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 6 },
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX, OLD_FEE])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('lets the tiny debt vouch for that same claim when nothing is declared', () => {
+    // Control for the test above: without a declaration the unattributed claim
+    // keeps its old, looser attribution. This documents the hole the
+    // declaration closes rather than asserting the hole is desirable.
+    const brief = nextAction({
+      title: 'Keep the extra on CreditOne 6610',
+      body: 'Keep the extra where it is. This wipes out the balance by month-end.',
+      redirectAmount: 0,
+      payoffClaim: null,
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX, OLD_FEE])).toBeNull();
+  });
+
+  it('rejects an impossible declaration even when no sentence makes a payoff claim', () => {
+    // $750/mo for two months is $1,500 against a $10,169 balance. The text is
+    // clean, so every text law passes it; the model incriminated itself in the
+    // JSON, and that is now checked on its own.
+    const brief = nextAction({
+      title: 'Send the extra to Delta Amex',
+      body: 'Send the $500 extra to Delta Amex on top of its $250 minimum.',
+      redirectAmount: 500,
+      payoffClaim: { debtName: 'Delta Amex', horizonMonths: 2 },
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
+  });
+
+  it('resolves a declared name that carries the context rendering of its category', () => {
+    // The user context renders each debt as "Store Card (Credit Card): $410
+    // balance, ...", and in a live sweep the model copied that whole prefix
+    // into debtName on 25 of 30 briefs. Exact-only matching turned every one
+    // of those honest briefs into a rejection.
+    const brief = nextAction({
+      body: 'Directing the full $500 extra at CreditOne 6610 clears that balance.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: 'CreditOne 6610 (Credit Card)', horizonMonths: 3 },
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
+  });
+
+  it('ignores a declaration naming a debt that is not in the plan', () => {
+    // Rejecting an unresolvable name looked principled and measured terribly:
+    // a formatting mismatch is far likelier than an invented debt, and an
+    // unmatched name harms nobody on its own. It fails soft to the prose law,
+    // which here finds no claim in the text.
+    const brief = nextAction({
+      body: 'Keep the current payoff order this month.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: 'Best Buy Card', horizonMonths: 3 },
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
+  });
+
+  it('still judges the text on its own when the declared name resolves to nothing', () => {
+    // Control for failing soft: an unresolvable declaration buys the brief no
+    // leniency at all. The prose law runs exactly as it would with null, so
+    // the reported incident is still caught.
+    const brief = nextAction({
+      title: 'Attack CreditOne 6610 now',
+      body: 'CreditOne 6610 carries 27.49% APR on $1,209. Paying $565 total ($65 min + $500) this month eliminates it by month-end.',
+      redirectAmount: 500,
+      payoffClaim: { debtName: 'Best Buy Card', horizonMonths: 12 },
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
+  });
+
+  it('matches the declared debt name ignoring case, spacing and apostrophe style', () => {
+    const brief = nextAction({
+      body: 'Directing the full $500 extra at CreditOne 6610 clears that balance.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: '  creditone   6610 ', horizonMonths: 3 },
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
+  });
+
+  it('lets a stated deadline in the text override a longer declared horizon (the reported incident)', () => {
+    // The declaration on its own passes: three months of $565 clears $1,209.
+    // But the sentence the user READS promises month-end, and $565 does not
+    // cover $1,209 in one month. A declaration is a default for what the prose
+    // leaves unsaid, never a licence to contradict it.
+    const brief = nextAction({
+      title: 'Attack CreditOne 6610 now',
+      body: 'CreditOne 6610 carries 27.49% APR on $1,209. Paying $565 total ($65 min + $500) this month eliminates it by month-end.',
+      redirectAmount: 500,
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
+  });
+
+  it('does not let one declaration vouch for a claim about a different debt', () => {
+    // The declared CreditOne payoff is real and affordable. The Delta Amex
+    // claim beside it was never declared, so it keeps the strict defaults and
+    // is measured on its own: $750 in one month against $10,169.
+    const brief = nextAction({
+      title: 'Keep the extra on CreditOne 6610',
+      body: 'Six months of $565 clears CreditOne 6610. It also wipes out Delta Amex.',
+      redirectAmount: 500,
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 6 },
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
+  });
+
+  it('allows a declared claim the arithmetic supports, prose and JSON agreeing', () => {
+    const brief = nextAction({
+      title: 'Finish CreditOne 6610',
+      body: 'Keeping $565/mo on CreditOne 6610 clears its $1,209 balance in 3 months.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
+  });
+
+  it('re-checks a declared claim on a cached brief against the stored debts', () => {
+    const stored: StoredCoachBrief = {
+      ...nextAction({
+        body: 'Send the $500 extra to Delta Amex on top of its $250 minimum.',
+        redirectAmount: 500,
+        payoffClaim: { debtName: 'Delta Amex', horizonMonths: 2 },
+      }),
+      _meta: {
+        effectiveAcceleration: 500,
+        availableCashFlow: 500,
+        debts: [CREDIT_ONE, DELTA_AMEX],
+      },
+    };
+    expect(parseLawfulStoredBrief(stored)).toBeNull();
+  });
+
+  it('does not let the declared runway carry a SECOND, unattributed claim (Codex, PR #92)', () => {
+    // Regression, not just a residual hole: main rejected this text and the
+    // first cut of this change accepted it. The declaration describes ONE
+    // payoff, so handing its debt AND its six-month runway to whichever claim
+    // named no debt let an undeclared payoff ride on the declared one.
+    const brief = nextAction({
+      title: 'Keep the extra on CreditOne 6610',
+      body: 'Six months of $565 clears CreditOne 6610. It also wipes out the next balance.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 6 },
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
+  });
+
+  it('still covers two claims that both NAME the declared debt', () => {
+    // Control for the fix above, and the reason the two cases are not
+    // symmetric: a title and body restating one payoff are two claim matches
+    // in the same block, but both name the debt, so attribution is certain and
+    // only the horizon comes from the declaration. Spending the declaration on
+    // the first match would have rejected this ordinary shape.
+    const brief = nextAction({
+      title: 'Clear CreditOne 6610 with the extra',
+      body: 'The $565/mo total clears CreditOne 6610.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
+  });
+
+  it('counts claims across BOTH blocks before a declaration stands in for an unnamed one (Codex, PR #92)', () => {
+    // The multi-claim guard above was per block, so a claim in the verdict and
+    // an unattributed claim in the nextAction each looked like the sole claim
+    // and both borrowed the declared debt and its six-month runway. main
+    // rejected this; the first fix still accepted it.
+    const base = nextAction({
+      title: 'Keep the extra on CreditOne 6610',
+      body: 'It also wipes out the next balance.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 6 },
+    });
+    const brief = {
+      ...base,
+      verdict: { ...base.verdict, summary: 'Six months of $565 clears CreditOne 6610.' },
+    };
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
+  });
+
+  it('still covers a verdict and an action restating ONE payoff across blocks', () => {
+    // Control for the fix above: counting brief-wide must not break the
+    // ordinary shape where the verdict and the action describe the same
+    // payoff. Both name the declared debt, so attribution is certain and the
+    // count never enters into it.
+    const base = nextAction({
+      title: 'Keep the extra on CreditOne 6610',
+      body: 'The $565/mo total clears CreditOne 6610.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+    });
+    const brief = {
+      ...base,
+      verdict: { ...base.verdict, summary: 'CreditOne 6610 clears with the extra.' },
+    };
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
+  });
+
+  it('does not let a fractional horizon buy an extra month of payments (Codex, PR #92)', () => {
+    // $565/mo against $900: one month is short, two months covers. The
+    // horizon is rounded UP, which is right for a runway read out of prose
+    // ("in 2.2 months" is gone on the third payment) and wrong for a declared
+    // one — 1.1 bought the same pass as an honest 2. Whole months only, so a
+    // fractional value falls through .catch(null) to the strict prose law.
+    const MID = { name: 'CreditOne 6610', balance: 900, minimumPayment: 65, isFocus: true };
+    const body = 'Directing the full $500 extra at CreditOne 6610 clears that balance.';
+    const fractional = CoachBriefSchema.parse(
+      nextAction({ body, redirectAmount: 0, payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 1.1 } }),
+    );
+    expect(fractional.nextAction.payoffClaim).toBeNull();
+    expect(findBriefViolation(fractional, 500, 500, [MID])).toBe('unverified_elimination_claim');
+
+    // Control: an honestly declared 2 still earns its two months.
+    const honest = CoachBriefSchema.parse(
+      nextAction({ body, redirectAmount: 0, payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 2 } }),
+    );
+    expect(findBriefViolation(honest, 500, 500, [MID])).toBeNull();
+  });
+
+  // Characterization, not endorsement: CodeRabbit flagged (PR #92) that a claim
+  // naming several debts can be vouched for by whichever one is affordable, and
+  // that the declared horizon reaches all of them. Both are true. Neither is
+  // introduced here, and the proposed fix — per-candidate horizons — is a
+  // measured no-op, because path 1 already proved the declared debt clears at
+  // the declared horizon, so it always satisfies the `.some` below whatever the
+  // other candidates receive (240 combinations, 0 cases where a non-declared
+  // debt did the vouching). These tests pin the behaviour so a future change to
+  // it is deliberate rather than accidental. The real fix is a declaration PER
+  // DEBT rather than per brief — deliberately out of scope for this PR.
+  //
+  // The accepted cases below are a KNOWN GAP, not a desired outcome: a brief
+  // saying "Pay off CreditOne 6610 and Store Card" when Store Card cannot be
+  // paid off is telling the user something false. It is recorded rather than
+  // fixed because the only narrow fix — requiring EVERY named debt to be
+  // eliminable — inverts the quantifier on the `.some` below and breaks eight
+  // tests that predate this PR, among them the three "passes only when SOME
+  // debt is eliminable" cases that exist to hold exactly that line.
+  describe('a multi-debt claim is vouched for by one named debt (pre-existing)', () => {
+    const AFFORDABLE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65, isFocus: true };
+    const IMPOSSIBLE = { name: 'Store Card', balance: 3000, minimumPayment: 50 };
+    const PAIR = [AFFORDABLE, IMPOSSIBLE];
+    // $565/mo clears CreditOne in 3 months; Store Card gets $50/mo and no
+    // extra, so it cannot be paid off on any horizon here.
+
+    it('KNOWN GAP: accepts it when the runway is STATED where the parser can read it — on main too', () => {
+      // The `.some` over named debts is deliberate and documented: attributeDebts
+      // collects every name in the clause, and the claim verb governs only one
+      // of them, so requiring all of them would reject "keep paying the Delta
+      // Amex minimum while this clears Store Card".
+      const brief = nextAction({
+        body: 'Over the next 6 months pay off CreditOne 6610 and Store Card.',
+        redirectAmount: 0,
+        payoffClaim: null,
+      });
+      expect(findBriefViolation(brief, 500, 500, PAIR)).toBeNull();
+    });
+
+    it('rejects the same claim when the runway sits after the conjunction', () => {
+      // Not a safety property — the horizon parser stops at the first
+      // coordinating conjunction, so the runway is simply never read and the
+      // strict one-month default applies. This is the prose crudity the
+      // declared field exists to route around.
+      const brief = nextAction({
+        body: 'Pay off CreditOne 6610 and Store Card over the next 6 months.',
+        redirectAmount: 0,
+        payoffClaim: null,
+      });
+      expect(findBriefViolation(brief, 500, 500, PAIR)).toBe('unverified_elimination_claim');
+    });
+
+    it('KNOWN GAP: accepts it on a DECLARED horizon, matching the readable-runway case', () => {
+      // The declaration supplies the horizon prose parsing refused, so this
+      // lands on the same answer as the first test rather than the second. That
+      // is the intended design; what it inherits is the `.some` leniency above.
+      const brief = nextAction({
+        body: 'Pay off CreditOne 6610 and Store Card.',
+        redirectAmount: 0,
+        payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 6 },
+      });
+      expect(findBriefViolation(brief, 500, 500, PAIR)).toBeNull();
+    });
+  });
+
+  describe('schema', () => {
+    const valid = nextAction({
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+    });
+
+    it('keeps a well-formed declaration', () => {
+      const parsed = CoachBriefSchema.safeParse(valid);
+      expect(parsed.success).toBe(true);
+      expect(parsed.success && parsed.data.nextAction.payoffClaim).toEqual({
+        debtName: 'CreditOne 6610',
+        horizonMonths: 3,
+      });
+    });
+
+    it.each([
+      ['a missing field (briefs cached before it existed)', undefined],
+      ['a bare string instead of an object', 'CreditOne 6610'],
+      ['an object missing horizonMonths', { debtName: 'CreditOne 6610' }],
+      ['a zero horizon', { debtName: 'CreditOne 6610', horizonMonths: 0 }],
+      ['a negative horizon', { debtName: 'CreditOne 6610', horizonMonths: -3 }],
+      ['an absurd horizon', { debtName: 'CreditOne 6610', horizonMonths: 5000 }],
+      ['a fractional horizon', { debtName: 'CreditOne 6610', horizonMonths: 1.1 }],
+      ['an empty debt name', { debtName: '', horizonMonths: 3 }],
+    ])('falls back to null on %s rather than failing the whole brief', (_label, value) => {
+      // The opposite of redirectAmount's rule, on purpose: null here means the
+      // prose law runs at full strength, so failing soft costs the user
+      // nothing, while failing the brief would drop them to the deterministic
+      // fallback over a malformed optional field.
+      const raw = nextAction();
+      const candidate = {
+        ...raw,
+        nextAction: { ...raw.nextAction, payoffClaim: value },
+      };
+      if (value === undefined) delete (candidate.nextAction as { payoffClaim?: unknown }).payoffClaim;
+      const parsed = CoachBriefSchema.safeParse(candidate);
+      expect(parsed.success).toBe(true);
+      expect(parsed.success && parsed.data.nextAction.payoffClaim).toBeNull();
+    });
   });
 });

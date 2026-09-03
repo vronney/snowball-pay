@@ -2,6 +2,34 @@ import { z } from 'zod';
 
 const VerdictStatus = ['on_track', 'at_risk', 'off_track'] as const;
 
+// A payoff claim the model DECLARES it is making, instead of leaving the law
+// to infer one from prose. The elimination law has to answer two questions
+// about any "this clears Delta Amex" sentence — WHICH debt, and over HOW LONG
+// — and until now it answered both with regular expressions over English.
+// That does not converge: across four review rounds on PR #91 every narrowing
+// carved out an adjacent shape, and two of the last round's findings were
+// caused by earlier narrowings. The model already knows both answers, so
+// asking for them as JSON — exactly as `targetExtra` and `redirectAmount`
+// already do — turns a parsing problem into an arithmetic one.
+//
+// `horizonMonths` is whole months from now by which the balance reaches zero,
+// so 1 means "by month-end". The upper bound is a sanity check, not a policy:
+// a payoff horizon of fifty years is a malformed number, not a claim.
+//
+// `.int()` is load-bearing, not tidiness. canEliminateDebt rounds the horizon
+// UP, which is right for a runway PARSED from prose ("in 2.2 months" is gone
+// on the third payment) but wrong for a declared one: a declared 1.1 bought
+// two months of payments, so on a $900 balance at $565/mo it passed where an
+// honest 1 was rejected (Codex, PR #92). The prompt asks for whole months, so
+// a fractional value is malformed, and rejecting it here routes it through
+// `.catch(null)` to the strict prose law — the intended failure mode.
+const PayoffClaimSchema = z.object({
+  debtName: z.string().min(1),
+  horizonMonths: z.number().int().positive().max(600),
+});
+
+export type PayoffClaim = z.infer<typeof PayoffClaimSchema>;
+
 export const CoachBriefSchema = z.object({
   verdict: z.object({
     status: z.enum(VerdictStatus),
@@ -35,6 +63,18 @@ export const CoachBriefSchema = z.object({
     // a "no reallocation" value that would let the numeric check pass by
     // omission instead of by being genuinely honest.
     redirectAmount: z.number().min(0),
+    // The payoff claim this brief declares, or null when it makes none.
+    // `.catch(null)` is deliberate, and deliberately the OPPOSITE of the rule
+    // three fields up. There a missing value silently coerced to 0 would let
+    // the numeric ceiling pass by omission, so anything malformed must fail
+    // the whole brief. Here null means "the model declared nothing", and the
+    // prose law then runs at full strictness — the same law that shipped
+    // before this field existed. Failing softly into MORE scrutiny is safe,
+    // so a model that garbles this field costs the user nothing, whereas
+    // rejecting the brief would downgrade a good AI brief to the
+    // deterministic fallback. It also lets briefs cached before this field
+    // existed keep parsing, with no purge and no behaviour change.
+    payoffClaim: PayoffClaimSchema.nullable().catch(null),
   }).superRefine((nextAction, ctx) => {
     // HARD LAW (shape): targetExtra is a concrete money move and outcome is its
     // computed forecast — both only make sense for a set_acceleration action.
@@ -638,9 +678,14 @@ function statedHorizon(text: string, soonerCounts: boolean, now: Date = new Date
 }
 
 /**
- * Months of payments a claim may be measured against: 1 (the strict default)
- * when it is same-month or states no runway, N when it states one, and
- * Infinity for a rate comparative that names no date to check.
+ * The runway a claim STATES, or null when it states none at all: N when it
+ * names one, 1 when it reads as same-month, and Infinity for a rate
+ * comparative that names no date to check.
+ *
+ * Null used to collapse to 1 right here. It is now returned so the caller can
+ * prefer the model's own declared horizon over that guess — and a claim that
+ * states no timing is exactly the case where prose inference had nothing to
+ * work with, so guessing "this month" is what rejected honest copy.
  *
  * The text FOLLOWING the claim verb wins, because that is the clause the
  * runway belongs to. A compound sentence otherwise mixes them up: "reduces it
@@ -649,8 +694,8 @@ function statedHorizon(text: string, soonerCounts: boolean, now: Date = new Date
  * it a one-month claim. The rest of the sentence is the fallback, for the
  * common "this month ... eliminates it" order.
  */
-function claimHorizonMonths(afterClaim: string, sentence: string): number {
-  return statedHorizon(afterClaim, true) ?? statedHorizon(sentence, false) ?? 1;
+function claimStatedHorizonMonths(afterClaim: string, sentence: string): number | null {
+  return statedHorizon(afterClaim, true) ?? statedHorizon(sentence, false);
 }
 
 /**
@@ -721,24 +766,133 @@ function maxExtraOnOneDebt(
 }
 
 /**
+ * Whether a debt's balance can actually reach zero within a horizon. This is
+ * the whole arithmetic of the third law; everything around it exists only to
+ * decide WHICH debt and HOW MANY months to hand it.
+ *
+ * Interest is deliberately ignored across the horizon: the check only ever
+ * rejects claims that are impossible even on the arithmetic most generous to
+ * the model, so an approximation that overstates paydown is the safe direction
+ * to err in. A fractional runway rounds UP for the same reason and because
+ * payments are monthly: a balance gone "in 2.1 months" is gone on the third
+ * payment, and measuring 2.1 of them rejected a claim that was right to within
+ * a rounding step.
+ */
+function canEliminateDebt(
+  debt: EliminationCheckDebt,
+  horizonMonths: number,
+  extraFor: (debt: EliminationCheckDebt) => number,
+): boolean {
+  return (
+    horizonMonths === Infinity ||
+    Math.ceil(horizonMonths) * (extraFor(debt) + debt.minimumPayment) + REDIRECT_TOLERANCE >=
+      debt.balance
+  );
+}
+
+/** A declared claim once its debt name has been matched to a real debt. */
+interface ResolvedPayoffClaim {
+  debt: EliminationCheckDebt;
+  horizonMonths: number;
+}
+
+/**
+ * The active debt a declared claim names, or null when none matches.
+ *
+ * Matching is exact once case, surrounding whitespace, internal whitespace
+ * runs and typographic apostrophes are normalised — the same normalisation the
+ * text laws already apply.
+ *
+ * One further allowance, measured rather than guessed: the user context renders
+ * each debt as "Store Card (Credit Card): $410 balance, ...", and in a live
+ * sweep the model copied that whole rendered prefix into `debtName` on 25 of 30
+ * briefs. A trailing parenthetical is therefore stripped before matching. Both
+ * forms are compared, so a debt genuinely named "Card (Old)" still resolves.
+ *
+ * Deliberately NOT fuzzy beyond that: a near-match would bind a payoff claim to
+ * the wrong balance, which is the failure the longest-name-first sorting
+ * elsewhere in this file exists to prevent.
+ */
+function resolveDeclaredDebt(
+  debtName: string,
+  debts: EliminationCheckDebt[],
+): EliminationCheckDebt | null {
+  const canonical = (value: string) =>
+    normalizeApostrophes(value).trim().toLowerCase().replace(/\s+/g, ' ');
+  const asWritten = canonical(debtName);
+  const withoutCategory = canonical(debtName.replace(/\s*\([^()]*\)\s*$/, ''));
+  // Exact first, so a debt genuinely named "Card (Old)" always wins over a
+  // different debt that only matches once the parenthetical is stripped.
+  return (
+    debts.find((debt) => canonical(debt.name) === asWritten) ??
+    debts.find((debt) => canonical(debt.name) === withoutCategory) ??
+    null
+  );
+}
+
+/**
  * Third law: an "eliminates it this month"-style claim must be arithmetically
  * possible. The most a single debt can receive is its own minimum plus the
- * proposed extra, times the runway the claim gives itself (one month unless
- * it says otherwise — see claimHorizonMonths) — if that can't cover the
- * debt's balance, the claim is a hallucination (reported incident: "$565
- * total eliminates it by month-end" against a $1,209 balance).
+ * proposed extra, times the runway the claim gives itself — if that can't
+ * cover the debt's balance, the claim is a hallucination (reported incident:
+ * "$565 total eliminates it by month-end" against a $1,209 balance).
  *
- * Attribution: if the text names debts, the claim must hold for at least one
- * named debt; if it names none, it must hold for at least one active debt.
- * With no debt context at all (pre-rule cached briefs), any elimination claim
- * is rejected — conservative on purpose, so stale caches with unverifiable
- * claims get purged rather than re-served.
+ * Two paths, in this order:
+ *
+ * 1. DECLARED. `nextAction.payoffClaim` names the debt and the horizon
+ *    outright, so the arithmetic runs with no parsing at all, and a
+ *    declaration that fails it is rejected on the spot. A name that matches no
+ *    active debt is IGNORED rather than rejected — see below.
+ *
+ * 2. PROSE. The regex law still runs on every brief, declaration or not. It is
+ *    the only defence when a model omits the field while its text makes a
+ *    payoff claim anyway, which is exactly the reported incident's shape, so a
+ *    declaration must never be able to switch it off. What a VERIFIED
+ *    declaration does change is the two places the prose law had to guess:
+ *    a claim that states no runway of its own gets the declared horizon rather
+ *    than the strict one-month default, and a claim that names no debt is
+ *    pinned to the declared one rather than being satisfied by whichever
+ *    active debt happens to be small enough. The first loosens (that guess is
+ *    what rejected honest multi-month copy); the second tightens.
+ *
+ * Attribution in the prose path: if the text names debts, the claim must hold
+ * for at least one named debt; if it names none, for the declared debt, or —
+ * with nothing declared — for at least one active debt. With no debt context
+ * at all (pre-rule cached briefs), any elimination claim is rejected:
+ * conservative on purpose, so stale caches with unverifiable claims get purged
+ * rather than re-served.
  */
 function makesUnverifiedEliminationClaim(
   brief: CoachBrief,
   debts: EliminationCheckDebt[],
   effectiveAcceleration: number,
 ): boolean {
+  // Resolved per debt: the monthly extra reaches only the plan's target.
+  const focusKnown = debts.some((d) => d.isFocus === true);
+  const extraFor = (debt: EliminationCheckDebt) =>
+    maxExtraOnOneDebt(brief.nextAction, effectiveAcceleration, debt, focusKnown);
+
+  // Path 1 — the model's own declaration, checked before a word is parsed.
+  let declared: ResolvedPayoffClaim | null = null;
+  const claimed = brief.nextAction.payoffClaim;
+  if (claimed) {
+    // An unresolvable name does NOT reject. Rejecting it looked principled —
+    // claiming to retire a debt the user does not have is a hallucination in a
+    // different costume — but a live sweep put the real failure rate of name
+    // matching at 25 of 30 briefs, every one of them honest, because the model
+    // echoed the context's rendered "Store Card (Credit Card)" form. A
+    // formatting mismatch is far likelier than an invented debt, and an
+    // unmatched name harms nobody by itself: whatever the TEXT claims is still
+    // checked below at full strictness. Same rule as the schema's
+    // `.catch(null)` — fail soft into more scrutiny, never into a brief the
+    // user loses.
+    const debt = resolveDeclaredDebt(claimed.debtName, debts);
+    if (debt) {
+      if (!canEliminateDebt(debt, claimed.horizonMonths, extraFor)) return true;
+      declared = { debt, horizonMonths: claimed.horizonMonths };
+    }
+  }
+
   // Claim attribution is scoped PER BLOCK (verdict vs nextAction), not across
   // the full concatenation: a benign mention of a small, coverable debt in the
   // verdict must not vouch for an impossible payoff claim about a different
@@ -753,11 +907,19 @@ function makesUnverifiedEliminationClaim(
       [brief.nextAction.title, brief.nextAction.body, brief.nextAction.action].join('. '),
     ),
   ];
-  // Resolved per debt: the monthly extra reaches only the plan's target.
-  const focusKnown = debts.some((d) => d.isFocus === true);
-  const extraFor = (debt: EliminationCheckDebt) =>
-    maxExtraOnOneDebt(brief.nextAction, effectiveAcceleration, debt, focusKnown);
-  return blocks.some((block) => blockMakesUnverifiedClaim(block, extraFor, debts));
+  // Path 2 — the prose law, unchanged except for the defaults a verified
+  // declaration supplies where it used to guess. The claim count is taken over
+  // every block before any block is judged, because a declaration that stands
+  // in for an unnamed claim has to be the brief's ONLY claim, not merely the
+  // only one in whichever block is being scanned.
+  const claimRe = buildEliminationClaimRe(debts.map((d) => d.name));
+  const briefClaimCount = blocks.reduce(
+    (count, block) => count + countClaims(block, claimRe),
+    0,
+  );
+  return blocks.some((block) =>
+    blockMakesUnverifiedClaim(block, extraFor, debts, declared, briefClaimCount),
+  );
 }
 
 /**
@@ -795,26 +957,49 @@ function attributeDebts(
   return named;
 }
 
-/** Runs the elimination-claim law against one text block in isolation. */
+/**
+ * The stretches of text the claim loop walks: the sentences that contain a
+ * claim, or the whole block when splitting finds none (the block-level regex
+ * already matched, so a claim is present either way and must be checked).
+ *
+ * Shared with the claim COUNT below so the two can never disagree about what
+ * counts as a claim.
+ */
+function claimUnits(text: string, claimRe: RegExp): string[] {
+  const claimSentences = text
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => claimRe.test(sentence));
+  return claimSentences.length > 0 ? claimSentences : [text];
+}
+
+/** How many payoff claims a stretch of text makes. */
+function countClaims(text: string, claimRe: RegExp): number {
+  const globalClaimRe = new RegExp(claimRe.source, 'gi');
+  return claimUnits(text, claimRe).reduce(
+    (count, unit) => count + [...unit.matchAll(globalClaimRe)].length,
+    0,
+  );
+}
+
+/**
+ * Runs the elimination-claim law against one text block in isolation.
+ *
+ * `declared` is the brief's verified payoff claim, used ONLY where the prose
+ * law would otherwise guess — see makesUnverifiedEliminationClaim.
+ * `briefClaimCount` spans the WHOLE brief, not this block; see below.
+ */
 function blockMakesUnverifiedClaim(
   text: string,
   extraFor: (debt: EliminationCheckDebt) => number,
   debts: EliminationCheckDebt[],
+  declared: ResolvedPayoffClaim | null,
+  briefClaimCount: number,
 ): boolean {
   const claimRe = buildEliminationClaimRe(debts.map((d) => d.name));
   if (!claimRe.test(text)) return false;
 
-  // Interest is deliberately ignored across the horizon: the check only ever
-  // rejects claims that are impossible even on the arithmetic most generous
-  // to the model, so an approximation that overstates paydown is the safe
-  // direction to err in. A fractional runway rounds UP for the same reason
-  // and because payments are monthly: a balance gone "in 2.1 months" is gone
-  // on the third payment, and measuring 2.1 of them rejected a claim that was
-  // right to within a rounding step.
   const canEliminate = (d: EliminationCheckDebt, horizonMonths: number) =>
-    horizonMonths === Infinity ||
-    Math.ceil(horizonMonths) * (extraFor(d) + d.minimumPayment) + REDIRECT_TOLERANCE >=
-      d.balance;
+    canEliminateDebt(d, horizonMonths, extraFor);
 
   // EVERY claim is checked, not just the first in its sentence. One sentence
   // can make two: "This clears Store Card and wipes out Delta Amex by
@@ -827,21 +1012,37 @@ function blockMakesUnverifiedClaim(
   // named in the sentence be coverable would be simpler but wrong: naming a
   // debt is not claiming its payoff, and "keep paying the Delta Amex minimum
   // while this clears Store Card" would start failing.
-  const claimSentences = text
-    .split(/(?<=[.!?])\s+/)
-    .filter((sentence) => claimRe.test(sentence));
-  // Fall back to the whole block if splitting finds nothing — the block-level
-  // regex already matched, so a claim is present either way and must be checked.
-  const units = claimSentences.length > 0 ? claimSentences : [text];
+  const units = claimUnits(text, claimRe);
   const globalClaimRe = new RegExp(claimRe.source, 'gi');
+
+  // A declaration describes ONE payoff, so it can only stand in for a claim
+  // that names no debt when there is nothing else it might have meant. With a
+  // second claim anywhere in the brief, handing the declared debt AND its
+  // horizon to whichever claim named none let an undeclared payoff ride on the
+  // declared one's runway — a real regression against main, twice over:
+  //   - within one block: "Six months of $565 clears CreditOne 6610. It also
+  //     wipes out the next balance."
+  //   - across blocks, once the first was fixed: the same two claims split
+  //     between the verdict and the nextAction, where a PER-BLOCK count reset
+  //     and both halves looked like the sole claim (Codex, PR #92).
+  // Hence the count spans the whole brief. It is passed in rather than
+  // recomputed here because only the caller sees every block.
+  //
+  // Restatement is unaffected: a claim that NAMES the declared debt is covered
+  // regardless of the count (see below), so a verdict and an action describing
+  // one payoff both keep the declared runway.
+  const declarationMayAttribute = briefClaimCount <= 1;
 
   return units.some((sentence) => {
     const matches = [...sentence.matchAll(globalClaimRe)];
     if (matches.length === 0) {
       // The unit matched as a whole but yields no positioned match; treat it
       // as one unattributed claim rather than skipping it.
-      const horizonMonths = claimHorizonMonths('', sentence);
-      return !debts.some((debt) => canEliminate(debt, horizonMonths));
+      const covering = declarationMayAttribute ? declared : null;
+      const horizonMonths =
+        claimStatedHorizonMonths('', sentence) ?? covering?.horizonMonths ?? 1;
+      const candidates = covering ? [covering.debt] : debts;
+      return !candidates.some((debt) => canEliminate(debt, horizonMonths));
     }
 
     return matches.some((match, i) => {
@@ -857,7 +1058,7 @@ function blockMakesUnverifiedClaim(
       // for the Delta payoff and skipped its arithmetic entirely (Codex,
       // PR #91). For a single-claim sentence the clause IS the sentence, so
       // nothing changes there.
-      const horizonMonths = claimHorizonMonths(
+      const statedHorizonMonths = claimStatedHorizonMonths(
         sentence.slice(end, clauseEnd),
         sentence.slice(clauseStart, clauseEnd),
       );
@@ -879,7 +1080,32 @@ function blockMakesUnverifiedClaim(
         : sentence.slice(clauseStart, clauseEnd);
       const named =
         namedInMatch.length > 0 ? namedInMatch : attributeDebts(attributionScope, debts);
-      const candidates = named.length > 0 ? named : debts;
+
+      // A verified declaration only speaks for claims it could plausibly be
+      // about. Two cases, and they are not symmetric:
+      //  - the claim NAMES the declared debt: attribution is certain, so only
+      //    the horizon comes from the declaration. Always allowed, including in
+      //    a multi-claim block, so a title and body restating one payoff both
+      //    get the runway the model declared for it.
+      //  - the claim names NO debt: the declaration is a guess at what it is
+      //    about, and is trusted only when the block makes no other claim.
+      // A claim about a DIFFERENT debt is never covered — otherwise one honest
+      // declaration would vouch for every payoff sentence in the brief.
+      const covering =
+        declared !== null &&
+        (named.length > 0
+          ? named.some((debt) => debt === declared.debt)
+          : declarationMayAttribute)
+          ? declared
+          : null;
+
+      // A runway the text STATES always wins: it is what the user actually
+      // reads. So "eliminates it by month-end" stays a one-month claim even
+      // when the JSON declares three — which is precisely the reported
+      // incident, and the reason the declaration is a default and not an
+      // override.
+      const horizonMonths = statedHorizonMonths ?? covering?.horizonMonths ?? 1;
+      const candidates = named.length > 0 ? named : covering ? [covering.debt] : debts;
       return !candidates.some((debt) => canEliminate(debt, horizonMonths));
     });
   });
