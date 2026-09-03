@@ -2237,6 +2237,14 @@ describe('declared payoffClaim (structured fields)', () => {
   // debt did the vouching). These tests pin the behaviour so a future change to
   // it is deliberate rather than accidental. The real fix is a declaration PER
   // DEBT rather than per brief — deliberately out of scope for this PR.
+  //
+  // The accepted cases below are a KNOWN GAP, not a desired outcome: a brief
+  // saying "Pay off CreditOne 6610 and Store Card" when Store Card cannot be
+  // paid off is telling the user something false. It is recorded rather than
+  // fixed because the only narrow fix — requiring EVERY named debt to be
+  // eliminable — inverts the quantifier on the `.some` below and breaks eight
+  // tests that predate this PR, among them the three "passes only when SOME
+  // debt is eliminable" cases that exist to hold exactly that line.
   describe('a multi-debt claim is vouched for by one named debt (pre-existing)', () => {
     const AFFORDABLE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65, isFocus: true };
     const IMPOSSIBLE = { name: 'Store Card', balance: 3000, minimumPayment: 50 };
@@ -2244,7 +2252,7 @@ describe('declared payoffClaim (structured fields)', () => {
     // $565/mo clears CreditOne in 3 months; Store Card gets $50/mo and no
     // extra, so it cannot be paid off on any horizon here.
 
-    it('accepts it when the runway is STATED where the parser can read it — on main too', () => {
+    it('KNOWN GAP: accepts it when the runway is STATED where the parser can read it — on main too', () => {
       // The `.some` over named debts is deliberate and documented: attributeDebts
       // collects every name in the clause, and the claim verb governs only one
       // of them, so requiring all of them would reject "keep paying the Delta
@@ -2270,7 +2278,7 @@ describe('declared payoffClaim (structured fields)', () => {
       expect(findBriefViolation(brief, 500, 500, PAIR)).toBe('unverified_elimination_claim');
     });
 
-    it('accepts it on a DECLARED horizon, matching the readable-runway case', () => {
+    it('KNOWN GAP: accepts it on a DECLARED horizon, matching the readable-runway case', () => {
       // The declaration supplies the horizon prose parsing refused, so this
       // lands on the same answer as the first test rather than the second. That
       // is the intended design; what it inherits is the `.some` leniency above.
