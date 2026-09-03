@@ -2994,3 +2994,34 @@ describe('the plan keeps its own payoff queue (Codex, PR #93)', () => {
     expect(findBriefViolation(brief, 600, 900, legacy)).toBeNull();
   });
 });
+describe('prose payoff claims share one redirect too (Codex, PR #93)', () => {
+  const BIG_FOCUS = { name: 'Delta Amex', balance: 10169, minimumPayment: 250, isFocus: true, payoffOrder: 1 };
+  const FIRST = { name: 'Blue Card', balance: 620, minimumPayment: 20, payoffOrder: 2 };
+  const SECOND = { name: 'Green Card', balance: 620, minimumPayment: 20, payoffOrder: 3 };
+
+  it('does not clear two debts this month from one redirect stated in prose', () => {
+    // The declared path was put on a shared allocation, but the prose path kept
+    // calling the per-debt redirect shortcut, so each sentence independently
+    // satisfied (620 - 1) / 620 <= 1 on the same $600.
+    const brief = nextAction({
+      title: 'Clear both small cards',
+      body: 'This clears Blue Card by month-end and clears Green Card by month-end.',
+      redirectAmount: 600,
+      payoffClaims: [],
+    });
+    expect(findBriefViolation(brief, 600, 900, [BIG_FOCUS, FIRST, SECOND])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('still lets a single prose claim use the redirect', () => {
+    // Control: one claim, one redirect, no contention.
+    const brief = nextAction({
+      title: 'Clear Blue Card',
+      body: 'This clears Blue Card by month-end.',
+      redirectAmount: 600,
+      payoffClaims: [],
+    });
+    expect(findBriefViolation(brief, 600, 900, [BIG_FOCUS, FIRST, SECOND])).toBeNull();
+  });
+});

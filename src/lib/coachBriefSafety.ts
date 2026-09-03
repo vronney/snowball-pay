@@ -1238,9 +1238,21 @@ function makesUnverifiedEliminationClaim(
     (count, block) => count + countClaims(block, claimRe),
     0,
   );
-  return blocks.some((block) =>
-    blockMakesUnverifiedClaim(block, payments, debts, declaredHorizons, briefClaimCount),
+  // Debts that only clear because of the redirect, gathered across every block
+  // so the single sum cannot be spent on two of them.
+  const redirectFundedDebts = new Set<EliminationCheckDebt>();
+  const proseFails = blocks.some((block) =>
+    blockMakesUnverifiedClaim(
+      block,
+      payments,
+      debts,
+      declaredHorizons,
+      briefClaimCount,
+      redirectFundedDebts,
+    ),
   );
+  if (proseFails) return true;
+  return redirectFundedDebts.size > 1;
 }
 
 /**
@@ -1315,6 +1327,7 @@ function blockMakesUnverifiedClaim(
   debts: EliminationCheckDebt[],
   declaredHorizons: DeclaredHorizons,
   briefClaimCount: number,
+  redirectFundedDebts: Set<EliminationCheckDebt>,
 ): boolean {
   const claimRe = buildEliminationClaimRe(debts.map((d) => d.name));
   if (!claimRe.test(text)) return false;
@@ -1327,8 +1340,20 @@ function blockMakesUnverifiedClaim(
     const declared = declaredHorizons.get(debt);
     return declared === undefined ? undefined : declared + DECLARED_HORIZON_ROUNDING_MONTHS;
   };
-  const canEliminate = (d: EliminationCheckDebt, horizonMonths: number) =>
-    canEliminateDebt(d, horizonMonths, payments);
+  // The redirect is ONE sum of money, and the prose path checks claims one at a
+  // time, so the per-debt fallback credited it in full to every sentence: two
+  // claims of a $620 payoff by month-end both passed on a single $600 (Codex,
+  // PR #93). Rather than withdraw the shortcut from multi-claim briefs — which
+  // would also punish a title and body restating ONE payoff — each debt that
+  // needs the redirect is recorded, and the caller rejects the brief when more
+  // than one DISTINCT debt turns out to depend on it. Counting debts rather
+  // than sentences keeps restatement free and stays order-independent.
+  const canEliminate = (d: EliminationCheckDebt, horizonMonths: number) => {
+    if (planRetiresDebt(d, horizonMonths, payments)) return true;
+    if (!redirectRetiresDebt(d, horizonMonths, payments)) return false;
+    redirectFundedDebts.add(d);
+    return true;
+  };
 
   // EVERY claim is checked, not just the first in its sentence. One sentence
   // can make two: "This clears Store Card and wipes out Delta Amex by
