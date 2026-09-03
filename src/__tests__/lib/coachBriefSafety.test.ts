@@ -2849,3 +2849,82 @@ describe('equal declared horizons must not depend on list order (Codex, PR #93)'
     );
   });
 });
+describe('the redirect is the acceleration, allocated differently (PR #93, round 7)', () => {
+  const BIG_FOCUS = { name: 'Delta Amex', balance: 10169, minimumPayment: 250, isFocus: true };
+
+  it('does not fund a payoff with an extra the action is removing', () => {
+    // The safeguard PR #91 added, reopened through the redirect path. A
+    // set_acceleration REPLACES the monthly extra, so targetExtra 0 means the
+    // plan stops sending anything — yet redirectAmount survived as independent
+    // capacity and could still "fund" a payoff with the money the action is
+    // taking away (Codex, PR #93).
+    const TARGET = { name: 'Store Card', balance: 520, minimumPayment: 20 };
+    const brief = nextAction({
+      // Wording matters: "pause the extra" would trip unsafe_minimum_text and
+      // mask what this test is about.
+      title: 'Set the extra to zero',
+      body: 'Set the extra payment to $0 this month and keep every minimum paid in full.',
+      kind: 'set_acceleration',
+      targetExtra: 0,
+      redirectAmount: 500,
+      payoffClaims: [{ debtName: 'Store Card', horizonMonths: 1 }],
+    });
+    expect(findBriefViolation(brief, 500, 900, [BIG_FOCUS, TARGET])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('still funds a payoff from an extra the action is raising', () => {
+    // Control: the clamp is against the NEW acceleration, not a ban. Raising
+    // the extra to $600 and sending it at Store Card clears $520 this month.
+    const TARGET = { name: 'Store Card', balance: 520, minimumPayment: 20 };
+    const brief = nextAction({
+      title: 'Raise the extra and finish Store Card',
+      body: 'Raise the extra to $600 and send it to Store Card.',
+      kind: 'set_acceleration',
+      targetExtra: 600,
+      redirectAmount: 500,
+      payoffClaims: [{ debtName: 'Store Card', horizonMonths: 1 }],
+    });
+    expect(findBriefViolation(brief, 500, 900, [BIG_FOCUS, TARGET])).toBeNull();
+  });
+
+  it('lets a redirect fund TWO sequential payoffs away from the focus debt', () => {
+    // The blanket "exactly one claim" gate was too blunt. An action can move
+    // the acceleration off the current focus and retire two cards in turn:
+    // $620 clears the first this month, then the pot plus its freed $20 clears
+    // the second next month. The plan simulation keeps funding Delta Amex, so
+    // only a redirect-ordered allocation can express this (Codex, PR #93).
+    const FIRST = { name: 'Blue Card', balance: 620, minimumPayment: 20 };
+    const SECOND = { name: 'Green Card', balance: 620, minimumPayment: 20 };
+    const brief = nextAction({
+      title: 'Clear the two small cards in turn',
+      body: 'Send the $600 extra to Blue Card, then roll it to Green Card.',
+      redirectAmount: 600,
+      payoffClaims: [
+        { debtName: 'Blue Card', horizonMonths: 1 },
+        { debtName: 'Green Card', horizonMonths: 2 },
+      ],
+    });
+    expect(findBriefViolation(brief, 600, 900, [BIG_FOCUS, FIRST, SECOND])).toBeNull();
+  });
+
+  it('still rejects two payoffs the redirect cannot fund in sequence', () => {
+    // Control: the shared redirect allocation spends its money once, so two
+    // $620 cards cannot both be declared for THIS month out of one $600.
+    const FIRST = { name: 'Blue Card', balance: 620, minimumPayment: 20 };
+    const SECOND = { name: 'Green Card', balance: 620, minimumPayment: 20 };
+    const brief = nextAction({
+      title: 'Clear both small cards',
+      body: 'Send the $600 extra across Blue Card and Green Card.',
+      redirectAmount: 600,
+      payoffClaims: [
+        { debtName: 'Blue Card', horizonMonths: 1 },
+        { debtName: 'Green Card', horizonMonths: 1 },
+      ],
+    });
+    expect(findBriefViolation(brief, 600, 900, [BIG_FOCUS, FIRST, SECOND])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+});

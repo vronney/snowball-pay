@@ -795,8 +795,14 @@ function lawScannedText(brief: CoachBrief): string {
 interface PaymentCapacity {
   /** Extra dollars this action proposes moving, on top of any minimum. */
   redirectAmount: number;
-  /** When this debt's balance reaches zero, in fractional months, or Infinity. */
+  /** When this debt's balance reaches zero under the PLAN's order. */
   retirementTime: (debt: EliminationCheckDebt) => number;
+  /**
+   * When it reaches zero if the action's redirect drives the order instead —
+   * the same dollars, allocated the way the brief proposes rather than the way
+   * the plan currently does. Infinity when nothing is redirected.
+   */
+  redirectRetirementTime: (debt: EliminationCheckDebt) => number;
 }
 
 /** Simulation ceiling. Above the schema's 600-month cap nothing can be claimed. */
@@ -901,9 +907,17 @@ function buildPaymentCapacity(
       : Number.isFinite(effectiveAcceleration)
         ? Math.max(0, effectiveAcceleration)
         : 0;
-  const redirectAmount = Number.isFinite(nextAction.redirectAmount)
-    ? Math.max(0, nextAction.redirectAmount)
-    : 0;
+  // Never more than the extra the action actually leaves in play. A
+  // set_acceleration REPLACES the monthly extra, so `targetExtra: 0` means the
+  // plan stops sending anything — and redirectAmount surviving as independent
+  // capacity let a brief fund a payoff with the money it was proposing to take
+  // away, reopening the safeguard added in PR #91 (Codex, PR #93). For every
+  // other kind an earlier law already caps it at effectiveAcceleration, so the
+  // clamp changes nothing there.
+  const redirectAmount = Math.min(
+    Number.isFinite(nextAction.redirectAmount) ? Math.max(0, nextAction.redirectAmount) : 0,
+    monthlyExtra,
+  );
 
   const focusDebt = debts.find((d) => d.isFocus === true) ?? null;
 
@@ -915,6 +929,10 @@ function buildPaymentCapacity(
       redirectAmount,
       retirementTime: (debt) => {
         const perMonth = debt.minimumPayment + monthlyExtra;
+        return perMonth > 0 ? debt.balance / perMonth : Infinity;
+      },
+      redirectRetirementTime: (debt) => {
+        const perMonth = debt.minimumPayment + redirectAmount;
         return perMonth > 0 ? debt.balance / perMonth : Infinity;
       },
     };
@@ -931,9 +949,22 @@ function buildPaymentCapacity(
   ];
   const retired = simulateRetirementTimes(debts, monthlyExtra, order);
 
+  // The SAME money, allocated the way the action proposes: the redirect drives
+  // the order through the debts the brief actually claims. Without this, a
+  // brief that moves the acceleration off the current focus and retires two
+  // cards in turn was rejected, because the plan simulation kept funding the
+  // old focus (Codex, PR #93). Run as its own allocation, so it too spends its
+  // money once.
+  const redirectOrder = [...claimOrder, ...debts.filter((d) => !claimOrder.includes(d))];
+  const redirectRetired =
+    redirectAmount > 0 && claimOrder.length > 0
+      ? simulateRetirementTimes(debts, redirectAmount, redirectOrder)
+      : null;
+
   return {
     redirectAmount,
     retirementTime: (debt) => retired.get(debt) ?? Infinity,
+    redirectRetirementTime: (debt) => redirectRetired?.get(debt) ?? Infinity,
   };
 }
 
@@ -1132,27 +1163,31 @@ function makesUnverifiedEliminationClaim(
   // `.catch([])` — fail soft into more scrutiny, never into a brief the user
   // loses.
   // The redirect IS the acceleration — an earlier law caps redirectAmount
-  // against effectiveAcceleration — so it describes a DIFFERENT allocation of
-  // the same dollars the simulation already spends, not extra money. Letting
-  // both models fund different claims in one brief spends that money twice:
-  // a $600 acceleration cleared a $620 focus debt through the simulation while
-  // the same $600 cleared a second $620 debt through the redirect, and both
-  // passed (Codex, PR #93, after an earlier guard covered only two redirects).
+  // against effectiveAcceleration, and the clamp above holds it to whatever
+  // extra the action leaves in play. It is not additional money: it is a
+  // DIFFERENT allocation of the dollars the plan simulation already spends.
   //
-  // So the redirect is available only to a brief that declares exactly ONE
-  // payoff. With two or more, every claim must hold under the shared
-  // simulation, where the money is allocated once and rolls onward. The
-  // redirect still matters for the single-claim case the plan cannot express:
-  // an action sending money to a debt the acceleration does not currently
-  // reach.
-  const redirectAvailable = resolvedClaims.length === 1;
+  // So every declared claim has to hold under ONE allocation or the other,
+  // never a mix. Judging them one at a time let a $600 acceleration clear a
+  // $620 focus debt through the plan while the same $600 cleared a second $620
+  // debt through the redirect (Codex, PR #93). An earlier fix gated the
+  // redirect to single-claim briefs, which was too blunt: it also rejected an
+  // action that moves the acceleration off the focus debt and retires two
+  // cards in turn, which is perfectly fundable.
+  const effectiveMonthsFor = (claimedMonths: number) =>
+    claimedMonths + DECLARED_HORIZON_ROUNDING_MONTHS;
+  const planFundsEveryClaim = resolvedClaims.every((claim) =>
+    planRetiresDebt(claim.debt, effectiveMonthsFor(claim.horizonMonths), payments),
+  );
+  const redirectFundsEveryClaim = resolvedClaims.every(
+    (claim) =>
+      payments.redirectRetirementTime(claim.debt) <=
+      effectiveMonthsFor(claim.horizonMonths),
+  );
+  if (resolvedClaims.length > 0 && !planFundsEveryClaim && !redirectFundsEveryClaim) {
+    return true;
+  }
   for (const { debt, horizonMonths: claimedMonths } of resolvedClaims) {
-    const effectiveMonths = claimedMonths + DECLARED_HORIZON_ROUNDING_MONTHS;
-    if (!planRetiresDebt(debt, effectiveMonths, payments)) {
-      if (!redirectAvailable || !redirectRetiresDebt(debt, effectiveMonths, payments)) {
-        return true;
-      }
-    }
     // The same debt declared twice keeps the SHORTER runway. Two horizons for
     // one balance is malformed either way, and the shorter one is the stricter
     // reading — the direction every other ambiguity in this file resolves.
