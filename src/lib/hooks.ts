@@ -388,14 +388,14 @@ export interface CoachBriefNextAction {
     monthsSavedVsMin: number;
   } | null;
   redirectAmount: number;
-  // The payoff claim the brief declares, checked server-side by the safety
-  // law before the brief is ever returned. Nothing renders it; it is here so
-  // the client type matches the JSON that actually arrives. Optional because
-  // briefs cached before the field existed do not carry it.
-  payoffClaim?: {
+  // The payoff claims the brief declares, one per debt, checked server-side by
+  // the safety law before the brief is ever returned. Nothing renders them;
+  // they are here so the client type matches the JSON that actually arrives.
+  // Optional because briefs cached before the field existed do not carry it.
+  payoffClaims?: Array<{
     debtName: string;
     horizonMonths: number;
-  } | null;
+  }>;
 }
 
 export interface CoachBrief {

@@ -13,7 +13,7 @@ function nextAction(overrides: Partial<CoachBrief['nextAction']> = {}): CoachBri
       targetExtra: null,
       outcome: null,
       redirectAmount: 0,
-      payoffClaim: null,
+      payoffClaims: [],
       ...overrides,
     },
   };
@@ -1068,7 +1068,7 @@ describe('unsafe-minimum text law — suppression verbs are scoped to a payment 
         targetExtra: null,
         outcome: null,
         redirectAmount: 0,
-        payoffClaim: null,
+        payoffClaims: [],
       },
     };
     expect(findBriefViolation(brief, 200, 760.52, [CREDIT_ONE, DELTA_AMEX])).toBeNull();
@@ -1958,7 +1958,7 @@ describe('parseLawfulStoredBrief', () => {
     expect(parseLawfulStoredBrief(stored)).toBeNull();
   });
 });
-describe('declared payoffClaim (structured fields)', () => {
+describe('declared payoffClaims (structured fields)', () => {
   // The plan sends $500/mo of acceleration, and it all lands on CreditOne —
   // so CreditOne can absorb $565/mo and every other debt only its own minimum.
   const CREDIT_ONE = {
@@ -1980,20 +1980,20 @@ describe('declared payoffClaim (structured fields)', () => {
       title: 'Keep the extra on CreditOne 6610',
       body: 'Directing the full $500 extra at CreditOne 6610 clears that balance.',
       redirectAmount: 0,
-      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 3 }],
     });
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
   });
 
   it('still rejects that same copy when the model declares nothing', () => {
     // Control for the test above: the loosening comes from the declaration,
-    // not from the prose law having been weakened. With payoffClaim null the
+    // not from the prose law having been weakened. With no declaration the
     // strict one-month default is exactly what it always was.
     const brief = nextAction({
       title: 'Keep the extra on CreditOne 6610',
       body: 'Directing the full $500 extra at CreditOne 6610 clears that balance.',
       redirectAmount: 0,
-      payoffClaim: null,
+      payoffClaims: [],
     });
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
   });
@@ -2007,7 +2007,7 @@ describe('declared payoffClaim (structured fields)', () => {
       title: 'Keep the extra on CreditOne 6610',
       body: 'Keep the extra where it is. This wipes out the balance by month-end.',
       redirectAmount: 0,
-      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 6 },
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 6 }],
     });
     expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX, OLD_FEE])).toBe(
       'unverified_elimination_claim',
@@ -2022,7 +2022,7 @@ describe('declared payoffClaim (structured fields)', () => {
       title: 'Keep the extra on CreditOne 6610',
       body: 'Keep the extra where it is. This wipes out the balance by month-end.',
       redirectAmount: 0,
-      payoffClaim: null,
+      payoffClaims: [],
     });
     expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, DELTA_AMEX, OLD_FEE])).toBeNull();
   });
@@ -2035,7 +2035,7 @@ describe('declared payoffClaim (structured fields)', () => {
       title: 'Send the extra to Delta Amex',
       body: 'Send the $500 extra to Delta Amex on top of its $250 minimum.',
       redirectAmount: 500,
-      payoffClaim: { debtName: 'Delta Amex', horizonMonths: 2 },
+      payoffClaims: [{ debtName: 'Delta Amex', horizonMonths: 2 }],
     });
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
   });
@@ -2048,7 +2048,7 @@ describe('declared payoffClaim (structured fields)', () => {
     const brief = nextAction({
       body: 'Directing the full $500 extra at CreditOne 6610 clears that balance.',
       redirectAmount: 0,
-      payoffClaim: { debtName: 'CreditOne 6610 (Credit Card)', horizonMonths: 3 },
+      payoffClaims: [{ debtName: 'CreditOne 6610 (Credit Card)', horizonMonths: 3 }],
     });
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
   });
@@ -2061,7 +2061,7 @@ describe('declared payoffClaim (structured fields)', () => {
     const brief = nextAction({
       body: 'Keep the current payoff order this month.',
       redirectAmount: 0,
-      payoffClaim: { debtName: 'Best Buy Card', horizonMonths: 3 },
+      payoffClaims: [{ debtName: 'Best Buy Card', horizonMonths: 3 }],
     });
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
   });
@@ -2074,7 +2074,7 @@ describe('declared payoffClaim (structured fields)', () => {
       title: 'Attack CreditOne 6610 now',
       body: 'CreditOne 6610 carries 27.49% APR on $1,209. Paying $565 total ($65 min + $500) this month eliminates it by month-end.',
       redirectAmount: 500,
-      payoffClaim: { debtName: 'Best Buy Card', horizonMonths: 12 },
+      payoffClaims: [{ debtName: 'Best Buy Card', horizonMonths: 12 }],
     });
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
   });
@@ -2083,7 +2083,7 @@ describe('declared payoffClaim (structured fields)', () => {
     const brief = nextAction({
       body: 'Directing the full $500 extra at CreditOne 6610 clears that balance.',
       redirectAmount: 0,
-      payoffClaim: { debtName: '  creditone   6610 ', horizonMonths: 3 },
+      payoffClaims: [{ debtName: '  creditone   6610 ', horizonMonths: 3 }],
     });
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
   });
@@ -2097,7 +2097,7 @@ describe('declared payoffClaim (structured fields)', () => {
       title: 'Attack CreditOne 6610 now',
       body: 'CreditOne 6610 carries 27.49% APR on $1,209. Paying $565 total ($65 min + $500) this month eliminates it by month-end.',
       redirectAmount: 500,
-      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 3 }],
     });
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
   });
@@ -2110,7 +2110,7 @@ describe('declared payoffClaim (structured fields)', () => {
       title: 'Keep the extra on CreditOne 6610',
       body: 'Six months of $565 clears CreditOne 6610. It also wipes out Delta Amex.',
       redirectAmount: 500,
-      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 6 },
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 6 }],
     });
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
   });
@@ -2120,7 +2120,7 @@ describe('declared payoffClaim (structured fields)', () => {
       title: 'Finish CreditOne 6610',
       body: 'Keeping $565/mo on CreditOne 6610 clears its $1,209 balance in 3 months.',
       redirectAmount: 0,
-      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 3 }],
     });
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
   });
@@ -2130,7 +2130,7 @@ describe('declared payoffClaim (structured fields)', () => {
       ...nextAction({
         body: 'Send the $500 extra to Delta Amex on top of its $250 minimum.',
         redirectAmount: 500,
-        payoffClaim: { debtName: 'Delta Amex', horizonMonths: 2 },
+        payoffClaims: [{ debtName: 'Delta Amex', horizonMonths: 2 }],
       }),
       _meta: {
         effectiveAcceleration: 500,
@@ -2150,7 +2150,7 @@ describe('declared payoffClaim (structured fields)', () => {
       title: 'Keep the extra on CreditOne 6610',
       body: 'Six months of $565 clears CreditOne 6610. It also wipes out the next balance.',
       redirectAmount: 0,
-      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 6 },
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 6 }],
     });
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
   });
@@ -2165,7 +2165,7 @@ describe('declared payoffClaim (structured fields)', () => {
       title: 'Clear CreditOne 6610 with the extra',
       body: 'The $565/mo total clears CreditOne 6610.',
       redirectAmount: 0,
-      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 3 }],
     });
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
   });
@@ -2179,7 +2179,7 @@ describe('declared payoffClaim (structured fields)', () => {
       title: 'Keep the extra on CreditOne 6610',
       body: 'It also wipes out the next balance.',
       redirectAmount: 0,
-      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 6 },
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 6 }],
     });
     const brief = {
       ...base,
@@ -2197,7 +2197,7 @@ describe('declared payoffClaim (structured fields)', () => {
       title: 'Keep the extra on CreditOne 6610',
       body: 'The $565/mo total clears CreditOne 6610.',
       redirectAmount: 0,
-      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 3 }],
     });
     const brief = {
       ...base,
@@ -2215,14 +2215,14 @@ describe('declared payoffClaim (structured fields)', () => {
     const MID = { name: 'CreditOne 6610', balance: 900, minimumPayment: 65, isFocus: true };
     const body = 'Directing the full $500 extra at CreditOne 6610 clears that balance.';
     const fractional = CoachBriefSchema.parse(
-      nextAction({ body, redirectAmount: 0, payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 1.1 } }),
+      nextAction({ body, redirectAmount: 0, payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 1.1 }] }),
     );
-    expect(fractional.nextAction.payoffClaim).toBeNull();
+    expect(fractional.nextAction.payoffClaims).toEqual([]);
     expect(findBriefViolation(fractional, 500, 500, [MID])).toBe('unverified_elimination_claim');
 
     // Control: an honestly declared 2 still earns its two months.
     const honest = CoachBriefSchema.parse(
-      nextAction({ body, redirectAmount: 0, payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 2 } }),
+      nextAction({ body, redirectAmount: 0, payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 2 }] }),
     );
     expect(findBriefViolation(honest, 500, 500, [MID])).toBeNull();
   });
@@ -2260,7 +2260,7 @@ describe('declared payoffClaim (structured fields)', () => {
       const brief = nextAction({
         body: 'Over the next 6 months pay off CreditOne 6610 and Store Card.',
         redirectAmount: 0,
-        payoffClaim: null,
+        payoffClaims: [],
       });
       expect(findBriefViolation(brief, 500, 500, PAIR)).toBeNull();
     });
@@ -2273,7 +2273,7 @@ describe('declared payoffClaim (structured fields)', () => {
       const brief = nextAction({
         body: 'Pay off CreditOne 6610 and Store Card over the next 6 months.',
         redirectAmount: 0,
-        payoffClaim: null,
+        payoffClaims: [],
       });
       expect(findBriefViolation(brief, 500, 500, PAIR)).toBe('unverified_elimination_claim');
     });
@@ -2285,7 +2285,7 @@ describe('declared payoffClaim (structured fields)', () => {
       const brief = nextAction({
         body: 'Pay off CreditOne 6610 and Store Card.',
         redirectAmount: 0,
-        payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 6 },
+        payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 6 }],
       });
       expect(findBriefViolation(brief, 500, 500, PAIR)).toBeNull();
     });
@@ -2293,28 +2293,32 @@ describe('declared payoffClaim (structured fields)', () => {
 
   describe('schema', () => {
     const valid = nextAction({
-      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 3 }],
     });
 
     it('keeps a well-formed declaration', () => {
       const parsed = CoachBriefSchema.safeParse(valid);
       expect(parsed.success).toBe(true);
-      expect(parsed.success && parsed.data.nextAction.payoffClaim).toEqual({
-        debtName: 'CreditOne 6610',
-        horizonMonths: 3,
-      });
+      expect(parsed.success && parsed.data.nextAction.payoffClaims).toEqual([
+        { debtName: 'CreditOne 6610', horizonMonths: 3 },
+      ]);
     });
 
     it.each([
       ['a missing field (briefs cached before it existed)', undefined],
-      ['a bare string instead of an object', 'CreditOne 6610'],
-      ['an object missing horizonMonths', { debtName: 'CreditOne 6610' }],
-      ['a zero horizon', { debtName: 'CreditOne 6610', horizonMonths: 0 }],
-      ['a negative horizon', { debtName: 'CreditOne 6610', horizonMonths: -3 }],
-      ['an absurd horizon', { debtName: 'CreditOne 6610', horizonMonths: 5000 }],
-      ['a fractional horizon', { debtName: 'CreditOne 6610', horizonMonths: 1.1 }],
-      ['an empty debt name', { debtName: '', horizonMonths: 3 }],
-    ])('falls back to null on %s rather than failing the whole brief', (_label, value) => {
+      ['the previous singular field shape', { debtName: 'CreditOne 6610', horizonMonths: 3 }],
+      ['a bare string instead of a list', 'CreditOne 6610'],
+      ['an entry missing horizonMonths', [{ debtName: 'CreditOne 6610' }]],
+      ['a zero horizon', [{ debtName: 'CreditOne 6610', horizonMonths: 0 }]],
+      ['a negative horizon', [{ debtName: 'CreditOne 6610', horizonMonths: -3 }]],
+      ['an absurd horizon', [{ debtName: 'CreditOne 6610', horizonMonths: 5000 }]],
+      ['a fractional horizon', [{ debtName: 'CreditOne 6610', horizonMonths: 1.1 }]],
+      ['an empty debt name', [{ debtName: '', horizonMonths: 3 }]],
+      ['one bad entry among good ones', [
+        { debtName: 'CreditOne 6610', horizonMonths: 3 },
+        { debtName: 'Delta Amex', horizonMonths: 1.5 },
+      ]],
+    ])('falls back to an empty list on %s rather than failing the whole brief', (_label, value) => {
       // The opposite of redirectAmount's rule, on purpose: null here means the
       // prose law runs at full strength, so failing soft costs the user
       // nothing, while failing the brief would drop them to the deterministic
@@ -2322,12 +2326,203 @@ describe('declared payoffClaim (structured fields)', () => {
       const raw = nextAction();
       const candidate = {
         ...raw,
-        nextAction: { ...raw.nextAction, payoffClaim: value },
+        nextAction: { ...raw.nextAction, payoffClaims: value },
       };
-      if (value === undefined) delete (candidate.nextAction as { payoffClaim?: unknown }).payoffClaim;
+      if (value === undefined) delete (candidate.nextAction as { payoffClaims?: unknown }).payoffClaims;
       const parsed = CoachBriefSchema.safeParse(candidate);
       expect(parsed.success).toBe(true);
-      expect(parsed.success && parsed.data.nextAction.payoffClaim).toBeNull();
+      // One bad entry discards the WHOLE list rather than just that entry: a
+      // brief that miscounted its own claims should be re-judged by the prose
+      // law, not acted on through a partial declaration.
+      expect(parsed.success && parsed.data.nextAction.payoffClaims).toEqual([]);
     });
+  });
+});
+
+describe('one declaration per debt', () => {
+  // CreditOne is the focus debt, so the $500 acceleration reaches it: $565/mo.
+  // Every other debt receives only its own minimum unless the action moves
+  // money to it.
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65, isFocus: true };
+  const STORE_CARD_BIG = { name: 'Store Card', balance: 3000, minimumPayment: 50 };
+  const STORE_CARD_TINY = { name: 'Store Card', balance: 100, minimumPayment: 50 };
+
+  it('rejects a two-debt claim when the second debt cannot be paid off', () => {
+    // The gap CodeRabbit found on PR #92, closed. One declaration could not
+    // describe this sentence: CreditOne is affordable and vouched for the whole
+    // claim while Store Card — $3,000 at $50/mo — was never checked. Declaring
+    // each debt makes the impossible half fail its own arithmetic.
+    const brief = nextAction({
+      title: 'Clear both cards',
+      body: 'Pay off CreditOne 6610 and Store Card.',
+      redirectAmount: 0,
+      payoffClaims: [
+        { debtName: 'CreditOne 6610', horizonMonths: 6 },
+        { debtName: 'Store Card', horizonMonths: 6 },
+      ],
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, STORE_CARD_BIG])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('KNOWN GAP: still accepts it when the model declares only the affordable debt', () => {
+    // The residual, stated honestly: declaring per debt closes the gap for a
+    // model that declares what it claims, not for one that omits the awkward
+    // half. The prose law cannot close it either — `attributeDebts` collects
+    // every name in the clause while the verb governs one of them, so requiring
+    // all named debts would reject "keep paying the Delta Amex minimum while
+    // this clears Store Card". Tracked, not fixed.
+    const brief = nextAction({
+      title: 'Clear both cards',
+      body: 'Pay off CreditOne 6610 and Store Card.',
+      redirectAmount: 0,
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 6 }],
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, STORE_CARD_BIG])).toBeNull();
+  });
+
+  it('gives each debt its own horizon', () => {
+    // Two payoffs on different timelines, which a single declaration could not
+    // express at all: Store Card needs 2 months of its own $50 minimum, and
+    // CreditOne needs 3 months of $565. Each claim is measured against the
+    // horizon declared for ITS debt.
+    const brief = nextAction({
+      title: 'Two cards finish this quarter',
+      body: 'Store Card clears with its minimum. CreditOne 6610 clears with the extra.',
+      redirectAmount: 0,
+      payoffClaims: [
+        { debtName: 'Store Card', horizonMonths: 2 },
+        { debtName: 'CreditOne 6610', horizonMonths: 3 },
+      ],
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, STORE_CARD_TINY])).toBeNull();
+  });
+
+  it('checks each declaration against its own debt, not the easiest one', () => {
+    // The same two debts with the horizons swapped. CreditOne at one month is
+    // $565 against $1,209 and fails, even though Store Card's declaration is
+    // comfortably true — every entry has to hold.
+    const brief = nextAction({
+      title: 'Two cards finish this quarter',
+      body: 'Store Card clears with its minimum. CreditOne 6610 clears with the extra.',
+      redirectAmount: 0,
+      payoffClaims: [
+        { debtName: 'Store Card', horizonMonths: 3 },
+        { debtName: 'CreditOne 6610', horizonMonths: 1 },
+      ],
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, STORE_CARD_TINY])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('does not let one debt\'s declared runway reach another debt\'s claim', () => {
+    // The leak that recurred twice on PR #92, re-tested against the per-debt
+    // shape: Store Card is declared at 6 months, and the CreditOne claim beside
+    // it must still be measured at one month rather than borrowing that runway.
+    const brief = nextAction({
+      title: 'Two cards',
+      body: 'Store Card clears with its minimum. This also clears CreditOne 6610.',
+      redirectAmount: 0,
+      payoffClaims: [{ debtName: 'Store Card', horizonMonths: 6 }],
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, STORE_CARD_TINY])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('ignores unresolvable names while still checking the ones that resolve', () => {
+    // Established rule from PR #92: an unmatched name is dropped rather than
+    // rejected, because the model echoing "Store Card (Credit Card)" cost 25 of
+    // 30 briefs. A real declaration alongside it is still enforced.
+    const brief = nextAction({
+      title: 'Clear the card',
+      body: 'Pay off CreditOne 6610.',
+      redirectAmount: 0,
+      payoffClaims: [
+        { debtName: 'Best Buy Card', horizonMonths: 1 },
+        { debtName: 'CreditOne 6610', horizonMonths: 1 },
+      ],
+    });
+    expect(findBriefViolation(brief, 500, 500, [CREDIT_ONE, STORE_CARD_BIG])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+});
+describe('acceleration rolling over to the next debt', () => {
+  // Store Card is the focus and takes the $600 acceleration: $625/mo against a
+  // $200 balance, so it is gone after one month and the money moves on.
+  const STORE = { name: 'Store Card', balance: 200, minimumPayment: 25, isFocus: true };
+  const OLD_FEE = { name: 'Old Fee Card', balance: 150, minimumPayment: 20 };
+  const DELTA = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+
+  it('accepts a sequential payoff the plan genuinely funds', () => {
+    // Verbatim from a live sweep, and true: the law credited the acceleration
+    // only to the CURRENT focus debt, so Old Fee Card was measured as though
+    // stuck on its $20 minimum forever and a truthful brief was rejected.
+    // Declaring per debt is what surfaced it — the model now declares the
+    // second payoff instead of burying it in prose.
+    const brief = nextAction({
+      title: 'Finish both small cards',
+      body: 'Store Card ($200 balance, 26.99% APR) will clear in one month with $25 minimum plus $600 acceleration. Then redirect full $625 to Old Fee Card ($150, 24.99% APR) to finish within two months total.',
+      redirectAmount: 0,
+      payoffClaims: [
+        { debtName: 'Store Card', horizonMonths: 1 },
+        { debtName: 'Old Fee Card', horizonMonths: 2 },
+      ],
+    });
+    expect(findBriefViolation(brief, 600, 900, [STORE, OLD_FEE])).toBeNull();
+  });
+
+  it('still rejects a SAME-MONTH claim about a debt the extra has not reached', () => {
+    // The control that matters most: retiring the focus debt takes at least one
+    // month, so a one-month horizon still yields zero months of rolled-over
+    // extra. Old Fee Card gets its $20 minimum and nothing else. This is the
+    // shape of the reported incident, and the rollover model must not touch it.
+    const brief = nextAction({
+      title: 'Clear the fee card',
+      body: 'Old Fee Card is gone by month-end.',
+      redirectAmount: 0,
+      payoffClaims: [{ debtName: 'Old Fee Card', horizonMonths: 1 }],
+    });
+    expect(findBriefViolation(brief, 600, 900, [STORE, OLD_FEE])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('still rejects a rollover claim the freed money cannot reach', () => {
+    // Three months: one to retire Store Card, leaving two months of $600 plus
+    // three of the $250 minimum — $1,950 against $10,169. Modelling the
+    // rollover makes the law more generous, not blind.
+    const brief = nextAction({
+      title: 'Clear the big card',
+      body: 'Store Card clears this month, then the freed cash wipes out Delta Amex within 3 months.',
+      redirectAmount: 0,
+      payoffClaims: [
+        { debtName: 'Store Card', horizonMonths: 1 },
+        { debtName: 'Delta Amex', horizonMonths: 3 },
+      ],
+    });
+    expect(findBriefViolation(brief, 600, 900, [STORE, DELTA])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('keeps the whole-plan reading when no focus debt is marked', () => {
+    // Briefs cached before isFocus existed carry no focus, and the established
+    // rule is that they keep the old reading rather than being purged: every
+    // debt sees the extra for the whole horizon.
+    const unmarked = [
+      { name: 'Store Card', balance: 200, minimumPayment: 25 },
+      { name: 'Old Fee Card', balance: 150, minimumPayment: 20 },
+    ];
+    const brief = nextAction({
+      title: 'Clear the fee card',
+      body: 'Old Fee Card is gone by month-end.',
+      redirectAmount: 0,
+      payoffClaims: [{ debtName: 'Old Fee Card', horizonMonths: 1 }],
+    });
+    expect(findBriefViolation(brief, 600, 900, unmarked)).toBeNull();
   });
 });

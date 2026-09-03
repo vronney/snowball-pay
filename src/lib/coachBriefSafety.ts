@@ -30,6 +30,18 @@ const PayoffClaimSchema = z.object({
 
 export type PayoffClaim = z.infer<typeof PayoffClaimSchema>;
 
+// One entry per debt the brief claims to pay off, because a single declaration
+// could not describe a sentence that names two. "Pay off CreditOne 6610 and
+// Store Card" was accepted with only CreditOne declared, since the affordable
+// debt satisfied the claim on its own and the declared runway reached the
+// other one too (CodeRabbit, PR #92). Declaring each debt separately makes
+// both halves checkable arithmetically and gives every debt its OWN horizon,
+// which is what stopped the runway leaking between claims twice on PR #92.
+//
+// The cap is a sanity bound: a brief has one nextAction and a 40-word summary,
+// so twenty payoff claims is a malformed response, not an ambitious one.
+const PayoffClaimsSchema = z.array(PayoffClaimSchema).max(20);
+
 export const CoachBriefSchema = z.object({
   verdict: z.object({
     status: z.enum(VerdictStatus),
@@ -74,7 +86,20 @@ export const CoachBriefSchema = z.object({
     // rejecting the brief would downgrade a good AI brief to the
     // deterministic fallback. It also lets briefs cached before this field
     // existed keep parsing, with no purge and no behaviour change.
-    payoffClaim: PayoffClaimSchema.nullable().catch(null),
+    // The payoff claims this brief declares — one per debt, empty when it
+    // claims none. `.catch([])` keeps the rule that made `payoffClaim` safe:
+    // this is the OPPOSITE of redirectAmount's no-catch rule three fields up,
+    // because there a missing value coerced to 0 would let the numeric ceiling
+    // pass by omission, while an empty list here means the prose law runs at
+    // full strictness. Failing soft into MORE scrutiny costs the user nothing;
+    // failing the brief would drop them to the deterministic fallback.
+    //
+    // Briefs cached with the previous singular `payoffClaim` field parse to an
+    // empty list, so they simply lose their declaration and are re-judged by
+    // the prose law. That is the strict direction, and any brief it now
+    // rejects is purged and regenerated on the next request rather than being
+    // served stale — no migration needed.
+    payoffClaims: PayoffClaimsSchema.catch([]),
   }).superRefine((nextAction, ctx) => {
     // HARD LAW (shape): targetExtra is a concrete money move and outcome is its
     // computed forecast — both only make sense for a set_acceleration action.
@@ -743,12 +768,40 @@ function lawScannedText(brief: CoachBrief): string {
  * engine) or capped by an earlier law against real discretionary cash, so the
  * model cannot inflate one to launder a claim through this check.
  */
-function maxExtraOnOneDebt(
+interface PaymentCapacity {
+  /** The never-a-minimum dollars the plan sends somewhere each month. */
+  monthlyExtra: number;
+  /** Extra dollars this action proposes moving, on top of any minimum. */
+  redirectAmount: number;
+  /** How many of `months` the monthly extra can actually land on `debt`. */
+  extraMonthsFor: (debt: EliminationCheckDebt, months: number) => number;
+}
+
+/**
+ * How much money can reach a debt, and for how long. Split out of the old
+ * single per-month figure because the answer depends on the horizon: the
+ * acceleration goes to ONE debt at a time, and when that debt is retired it
+ * rolls onward. That rollover is the product's entire mechanic, and ignoring
+ * it rejected briefs that were simply true — "Store Card clears in one month
+ * with $25 + $600, then redirect the full $625 to Old Fee Card to finish
+ * within two months" was measured as though Old Fee Card were stuck on its
+ * $20 minimum forever.
+ *
+ * The bound stays deliberately generous, because the law only ever rejects
+ * what is impossible even on the arithmetic most favourable to the model. It
+ * assumes the freed acceleration goes to THIS debt next, which is the best
+ * case for any single claim.
+ *
+ * Crucially it changes nothing for a SAME-MONTH claim about a non-focus debt:
+ * retiring the focus debt takes at least one month, so a one-month horizon
+ * still yields zero months of extra. The reported incident and every
+ * same-month test are untouched.
+ */
+function buildPaymentCapacity(
   nextAction: CoachBrief['nextAction'],
   effectiveAcceleration: number,
-  debt: EliminationCheckDebt,
-  focusKnown: boolean,
-): number {
+  debts: EliminationCheckDebt[],
+): PaymentCapacity {
   // Number.isFinite, not typeof: a NaN must fall back to 0 rather than poison
   // every comparison into passing.
   const monthlyExtra =
@@ -757,12 +810,32 @@ function maxExtraOnOneDebt(
       : Number.isFinite(effectiveAcceleration)
         ? Math.max(0, effectiveAcceleration)
         : 0;
+  const redirectAmount = Number.isFinite(nextAction.redirectAmount)
+    ? Math.max(0, nextAction.redirectAmount)
+    : 0;
 
-  // That monthly extra reaches ONE debt — the plan's current target. Any other
-  // debt only gets what this action proposes moving to it. Without a focus
-  // marked (pre-field caches) the old whole-plan reading stands.
-  const receivesMonthlyExtra = !focusKnown || debt.isFocus === true;
-  return Math.max(nextAction.redirectAmount, receivesMonthlyExtra ? monthlyExtra : 0);
+  const focusDebt = debts.find((d) => d.isFocus === true) ?? null;
+
+  // Whole months before the focus debt is gone and its funding moves on. Its
+  // own minimum counts toward retiring it, exactly as it does in the plan.
+  const focusMonthly = focusDebt ? focusDebt.minimumPayment + monthlyExtra : 0;
+  const monthsToFreeExtra =
+    focusDebt === null
+      ? 0
+      : focusMonthly > 0
+        ? Math.ceil(focusDebt.balance / focusMonthly)
+        : Infinity;
+
+  return {
+    monthlyExtra,
+    redirectAmount,
+    extraMonthsFor: (debt, months) => {
+      // No focus marked (briefs cached before isFocus existed): the old
+      // whole-plan reading stands and every debt sees the extra throughout.
+      if (focusDebt === null || debt.isFocus === true) return months;
+      return Math.max(0, months - monthsToFreeExtra);
+    },
+  };
 }
 
 /**
@@ -781,20 +854,27 @@ function maxExtraOnOneDebt(
 function canEliminateDebt(
   debt: EliminationCheckDebt,
   horizonMonths: number,
-  extraFor: (debt: EliminationCheckDebt) => number,
+  payments: PaymentCapacity,
 ): boolean {
-  return (
-    horizonMonths === Infinity ||
-    Math.ceil(horizonMonths) * (extraFor(debt) + debt.minimumPayment) + REDIRECT_TOLERANCE >=
-      debt.balance
+  if (horizonMonths === Infinity) return true;
+  const months = Math.ceil(horizonMonths);
+  // max, never a sum: redirectAmount is defence in depth over the SAME dollars
+  // as the acceleration (an earlier law caps it against effectiveAcceleration),
+  // so adding them would credit the plan money it does not have.
+  const extra = Math.max(
+    months * payments.redirectAmount,
+    payments.extraMonthsFor(debt, months) * payments.monthlyExtra,
   );
+  return months * debt.minimumPayment + extra + REDIRECT_TOLERANCE >= debt.balance;
 }
 
-/** A declared claim once its debt name has been matched to a real debt. */
-interface ResolvedPayoffClaim {
-  debt: EliminationCheckDebt;
-  horizonMonths: number;
-}
+/**
+ * The declared horizon for each debt whose name matched a real one. A Map
+ * keyed by the debt OBJECT, so lookups are identity-based and cannot be
+ * confused by two debts sharing a name — which happens (three cards all named
+ * "American Express" once reached production).
+ */
+type DeclaredHorizons = Map<EliminationCheckDebt, number>;
 
 /**
  * The active debt a declared claim names, or null when none matches.
@@ -839,9 +919,9 @@ function resolveDeclaredDebt(
  *
  * Two paths, in this order:
  *
- * 1. DECLARED. `nextAction.payoffClaim` names the debt and the horizon
- *    outright, so the arithmetic runs with no parsing at all, and a
- *    declaration that fails it is rejected on the spot. A name that matches no
+ * 1. DECLARED. `nextAction.payoffClaims` names each debt and its horizon
+ *    outright, so the arithmetic runs with no parsing at all, and ANY
+ *    declaration that fails it rejects the brief. A name that matches no
  *    active debt is IGNORED rather than rejected — see below.
  *
  * 2. PROSE. The regex law still runs on every brief, declaration or not. It is
@@ -867,15 +947,20 @@ function makesUnverifiedEliminationClaim(
   debts: EliminationCheckDebt[],
   effectiveAcceleration: number,
 ): boolean {
-  // Resolved per debt: the monthly extra reaches only the plan's target.
-  const focusKnown = debts.some((d) => d.isFocus === true);
-  const extraFor = (debt: EliminationCheckDebt) =>
-    maxExtraOnOneDebt(brief.nextAction, effectiveAcceleration, debt, focusKnown);
+  // Resolved per debt AND per horizon: the monthly extra reaches the plan's
+  // target first, then rolls onward once that debt is retired.
+  const payments = buildPaymentCapacity(brief.nextAction, effectiveAcceleration, debts);
 
-  // Path 1 — the model's own declaration, checked before a word is parsed.
-  let declared: ResolvedPayoffClaim | null = null;
-  const claimed = brief.nextAction.payoffClaim;
-  if (claimed) {
+  // Path 1 — the model's own declarations, checked before a word is parsed.
+  // Every one must hold: a brief claiming two payoffs is wrong if either is
+  // impossible, which is exactly what one-claim-per-brief could not express.
+  const declaredHorizons: DeclaredHorizons = new Map();
+  // `?? []` guards a hand-built brief, not a parsed one: every production
+  // caller goes through CoachBriefSchema, which always yields an array. But
+  // findBriefViolation is exported, and iterating `undefined` THROWS rather
+  // than degrading — a 500 on the coach-brief route instead of a fallback
+  // brief. No other field in this law can crash it, and none should.
+  for (const claimed of brief.nextAction.payoffClaims ?? []) {
     // An unresolvable name does NOT reject. Rejecting it looked principled —
     // claiming to retire a debt the user does not have is a hallucination in a
     // different costume — but a live sweep put the real failure rate of name
@@ -887,10 +972,16 @@ function makesUnverifiedEliminationClaim(
     // `.catch(null)` — fail soft into more scrutiny, never into a brief the
     // user loses.
     const debt = resolveDeclaredDebt(claimed.debtName, debts);
-    if (debt) {
-      if (!canEliminateDebt(debt, claimed.horizonMonths, extraFor)) return true;
-      declared = { debt, horizonMonths: claimed.horizonMonths };
-    }
+    if (!debt) continue;
+    if (!canEliminateDebt(debt, claimed.horizonMonths, payments)) return true;
+    // The same debt declared twice keeps the SHORTER runway. Two horizons for
+    // one balance is malformed either way, and the shorter one is the stricter
+    // reading — the direction every other ambiguity in this file resolves.
+    const existing = declaredHorizons.get(debt);
+    declaredHorizons.set(
+      debt,
+      existing === undefined ? claimed.horizonMonths : Math.min(existing, claimed.horizonMonths),
+    );
   }
 
   // Claim attribution is scoped PER BLOCK (verdict vs nextAction), not across
@@ -918,7 +1009,7 @@ function makesUnverifiedEliminationClaim(
     0,
   );
   return blocks.some((block) =>
-    blockMakesUnverifiedClaim(block, extraFor, debts, declared, briefClaimCount),
+    blockMakesUnverifiedClaim(block, payments, debts, declaredHorizons, briefClaimCount),
   );
 }
 
@@ -984,22 +1075,22 @@ function countClaims(text: string, claimRe: RegExp): number {
 /**
  * Runs the elimination-claim law against one text block in isolation.
  *
- * `declared` is the brief's verified payoff claim, used ONLY where the prose
- * law would otherwise guess — see makesUnverifiedEliminationClaim.
+ * `declaredHorizons` holds the brief's verified declarations, used ONLY where
+ * the prose law would otherwise guess — see makesUnverifiedEliminationClaim.
  * `briefClaimCount` spans the WHOLE brief, not this block; see below.
  */
 function blockMakesUnverifiedClaim(
   text: string,
-  extraFor: (debt: EliminationCheckDebt) => number,
+  payments: PaymentCapacity,
   debts: EliminationCheckDebt[],
-  declared: ResolvedPayoffClaim | null,
+  declaredHorizons: DeclaredHorizons,
   briefClaimCount: number,
 ): boolean {
   const claimRe = buildEliminationClaimRe(debts.map((d) => d.name));
   if (!claimRe.test(text)) return false;
 
   const canEliminate = (d: EliminationCheckDebt, horizonMonths: number) =>
-    canEliminateDebt(d, horizonMonths, extraFor);
+    canEliminateDebt(d, horizonMonths, payments);
 
   // EVERY claim is checked, not just the first in its sentence. One sentence
   // can make two: "This clears Store Card and wipes out Delta Amex by
@@ -1031,18 +1122,34 @@ function blockMakesUnverifiedClaim(
   // Restatement is unaffected: a claim that NAMES the declared debt is covered
   // regardless of the count (see below), so a verdict and an action describing
   // one payoff both keep the declared runway.
-  const declarationMayAttribute = briefClaimCount <= 1;
+  // A declaration can stand in for a claim that names no debt only when there
+  // is nothing else it might have meant: the brief makes one claim, and
+  // exactly one debt was declared. With two declarations an unnamed claim
+  // could be about either, and guessing is what leaked a runway twice on
+  // PR #92.
+  const soleDeclaredDebt =
+    briefClaimCount <= 1 && declaredHorizons.size === 1
+      ? [...declaredHorizons.keys()][0]
+      : null;
 
   return units.some((sentence) => {
     const matches = [...sentence.matchAll(globalClaimRe)];
     if (matches.length === 0) {
       // The unit matched as a whole but yields no positioned match; treat it
       // as one unattributed claim rather than skipping it.
-      const covering = declarationMayAttribute ? declared : null;
-      const horizonMonths =
-        claimStatedHorizonMonths('', sentence) ?? covering?.horizonMonths ?? 1;
-      const candidates = covering ? [covering.debt] : debts;
-      return !candidates.some((debt) => canEliminate(debt, horizonMonths));
+      const statedMonths = claimStatedHorizonMonths('', sentence);
+      // No positioned match means nothing to attribute from, so a declared
+      // horizon applies only when the brief's single declaration is standing
+      // in for this claim. Falling back to every debt AND letting each look up
+      // its own declaration would hand this claim a runway declared for some
+      // other debt — the leak from PR #92 through a new door.
+      const candidates = soleDeclaredDebt ? [soleDeclaredDebt] : debts;
+      return !candidates.some((debt) =>
+        canEliminate(
+          debt,
+          statedMonths ?? (soleDeclaredDebt ? declaredHorizons.get(debt) : undefined) ?? 1,
+        ),
+      );
     }
 
     return matches.some((match, i) => {
@@ -1081,32 +1188,39 @@ function blockMakesUnverifiedClaim(
       const named =
         namedInMatch.length > 0 ? namedInMatch : attributeDebts(attributionScope, debts);
 
-      // A verified declaration only speaks for claims it could plausibly be
-      // about. Two cases, and they are not symmetric:
-      //  - the claim NAMES the declared debt: attribution is certain, so only
-      //    the horizon comes from the declaration. Always allowed, including in
-      //    a multi-claim block, so a title and body restating one payoff both
-      //    get the runway the model declared for it.
-      //  - the claim names NO debt: the declaration is a guess at what it is
-      //    about, and is trusted only when the block makes no other claim.
-      // A claim about a DIFFERENT debt is never covered — otherwise one honest
-      // declaration would vouch for every payoff sentence in the brief.
-      const covering =
-        declared !== null &&
-        (named.length > 0
-          ? named.some((debt) => debt === declared.debt)
-          : declarationMayAttribute)
-          ? declared
-          : null;
+      // Each candidate is measured on ITS OWN horizon. That is the whole point
+      // of declaring per debt: a runway declared for CreditOne can no longer
+      // reach a claim about Store Card, which is the leak that recurred twice
+      // on PR #92 — once inside a block, once across blocks — each time because
+      // one horizon was shared by every candidate.
+      //
+      // Precedence per debt: a runway the TEXT states wins, because it is what
+      // the user actually reads ("eliminates it by month-end" stays a one-month
+      // claim however the JSON declares it — the reported incident). Then the
+      // debt's own declaration. Then the strict one-month default.
+      //
+      // A claim naming no debt falls back to `soleDeclaredDebt`, which is null
+      // unless the brief makes exactly one claim and declares exactly one debt.
+      const candidates =
+        named.length > 0 ? named : soleDeclaredDebt ? [soleDeclaredDebt] : debts;
 
-      // A runway the text STATES always wins: it is what the user actually
-      // reads. So "eliminates it by month-end" stays a one-month claim even
-      // when the JSON declares three — which is precisely the reported
-      // incident, and the reason the declaration is a default and not an
-      // override.
-      const horizonMonths = statedHorizonMonths ?? covering?.horizonMonths ?? 1;
-      const candidates = named.length > 0 ? named : covering ? [covering.debt] : debts;
-      return !candidates.some((debt) => canEliminate(debt, horizonMonths));
+      // A declared horizon applies only where the claim actually points at
+      // that debt: either the claim NAMES it, or the brief's one declaration
+      // is standing in for a claim that names nothing. An UNATTRIBUTABLE claim
+      // — none named, and no single declaration to stand in — falls back to
+      // every active debt and must get the strict default for each, never a
+      // runway declared for a different debt. Skipping this check was the same
+      // leak that recurred twice on PR #92, reappearing through per-debt
+      // lookup, and it is caught by that PR's regression tests.
+      const declarationApplies = named.length > 0 || soleDeclaredDebt !== null;
+      return !candidates.some((debt) =>
+        canEliminate(
+          debt,
+          statedHorizonMonths ??
+            (declarationApplies ? declaredHorizons.get(debt) : undefined) ??
+            1,
+        ),
+      );
     });
   });
 }
