@@ -3025,3 +3025,36 @@ describe('prose payoff claims share one redirect too (Codex, PR #93)', () => {
     expect(findBriefViolation(brief, 600, 900, [BIG_FOCUS, FIRST, SECOND])).toBeNull();
   });
 });
+describe('prose cannot mix the plan and redirect allocations (Codex, PR #93)', () => {
+  // Blue Card is the focus, so the plan's $600 clears it in month 1. Green Card
+  // is only reachable via the redirect — and that redirect is the same $600.
+  // The earlier guard counted only redirect-funded debts, so one-from-each
+  // passed with a redirect set of size 1.
+  const FOCUS = { name: 'Blue Card', balance: 620, minimumPayment: 20, isFocus: true, payoffOrder: 1 };
+  const OTHER = { name: 'Green Card', balance: 620, minimumPayment: 20, payoffOrder: 2 };
+
+  it('does not clear one debt from the plan and another from the same redirect', () => {
+    const brief = nextAction({
+      title: 'Clear both small cards',
+      body: 'This clears Blue Card by month-end and clears Green Card by month-end.',
+      redirectAmount: 600,
+      payoffClaims: [],
+    });
+    expect(findBriefViolation(brief, 600, 900, [FOCUS, OTHER])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('still allows a claim the plan funds on its own alongside a minimums-only one', () => {
+    // Control: no contention. Blue Card takes the acceleration; Tiny Fee clears
+    // out of its own minimum, needing nothing from the redirect or the pot.
+    const TINY = { name: 'Tiny Fee', balance: 40, minimumPayment: 45, payoffOrder: 2 };
+    const brief = nextAction({
+      title: 'Clear both',
+      body: 'This clears Blue Card by month-end and clears Tiny Fee by month-end.',
+      redirectAmount: 600,
+      payoffClaims: [],
+    });
+    expect(findBriefViolation(brief, 600, 900, [FOCUS, TINY])).toBeNull();
+  });
+});

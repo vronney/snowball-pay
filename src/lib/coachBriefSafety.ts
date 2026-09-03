@@ -1238,9 +1238,15 @@ function makesUnverifiedEliminationClaim(
     (count, block) => count + countClaims(block, claimRe),
     0,
   );
-  // Debts that only clear because of the redirect, gathered across every block
-  // so the single sum cannot be spent on two of them.
+  // Which allocation each prose claim leaned on, gathered across every block.
+  // The redirect and the plan's acceleration are the SAME dollars spent two
+  // different ways, so a brief may lean on one or the other, never both — the
+  // rule the declared path already follows. Counting only redirect-funded
+  // debts was not enough: one debt cleared by the plan's acceleration and
+  // another by the redirect left a redirect set of size 1 and passed, though
+  // no single allocation clears both (Codex, PR #93).
   const redirectFundedDebts = new Set<EliminationCheckDebt>();
+  const accelerationFundedDebts = new Set<EliminationCheckDebt>();
   const proseFails = blocks.some((block) =>
     blockMakesUnverifiedClaim(
       block,
@@ -1249,10 +1255,14 @@ function makesUnverifiedEliminationClaim(
       declaredHorizons,
       briefClaimCount,
       redirectFundedDebts,
+      accelerationFundedDebts,
     ),
   );
   if (proseFails) return true;
-  return redirectFundedDebts.size > 1;
+  // One sum of redirected money cannot retire two debts, and it cannot be
+  // spent at the same time as the acceleration it is drawn from.
+  if (redirectFundedDebts.size > 1) return true;
+  return redirectFundedDebts.size > 0 && accelerationFundedDebts.size > 0;
 }
 
 /**
@@ -1328,6 +1338,7 @@ function blockMakesUnverifiedClaim(
   declaredHorizons: DeclaredHorizons,
   briefClaimCount: number,
   redirectFundedDebts: Set<EliminationCheckDebt>,
+  accelerationFundedDebts: Set<EliminationCheckDebt>,
 ): boolean {
   const claimRe = buildEliminationClaimRe(debts.map((d) => d.name));
   if (!claimRe.test(text)) return false;
@@ -1349,7 +1360,14 @@ function blockMakesUnverifiedClaim(
   // than one DISTINCT debt turns out to depend on it. Counting debts rather
   // than sentences keeps restatement free and stays order-independent.
   const canEliminate = (d: EliminationCheckDebt, horizonMonths: number) => {
-    if (planRetiresDebt(d, horizonMonths, payments)) return true;
+    if (planRetiresDebt(d, horizonMonths, payments)) {
+      // Clearing on this debt's own minimums needs nothing from the shared
+      // pot, so it never competes. Anything else consumed the acceleration.
+      const onMinimumsAlone =
+        Math.ceil(horizonMonths) * d.minimumPayment + REDIRECT_TOLERANCE >= d.balance;
+      if (!onMinimumsAlone) accelerationFundedDebts.add(d);
+      return true;
+    }
     if (!redirectRetiresDebt(d, horizonMonths, payments)) return false;
     redirectFundedDebts.add(d);
     return true;
