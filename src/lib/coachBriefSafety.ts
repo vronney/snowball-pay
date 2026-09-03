@@ -1007,7 +1007,8 @@ function canEliminateDebt(
 type DeclaredHorizons = Map<EliminationCheckDebt, number>;
 
 /**
- * The active debt a declared claim names, or null when none matches.
+ * Every active debt a declared claim could name — usually one, empty when the
+ * name matches nothing.
  *
  * Matching is exact once case, surrounding whitespace, internal whitespace
  * runs and typographic apostrophes are normalised — the same normalisation the
@@ -1023,21 +1024,26 @@ type DeclaredHorizons = Map<EliminationCheckDebt, number>;
  * the wrong balance, which is the failure the longest-name-first sorting
  * elsewhere in this file exists to prevent.
  */
-function resolveDeclaredDebt(
+function resolveDeclaredDebts(
   debtName: string,
   debts: EliminationCheckDebt[],
-): EliminationCheckDebt | null {
+): EliminationCheckDebt[] {
   const canonical = (value: string) =>
     normalizeApostrophes(value).trim().toLowerCase().replace(/\s+/g, ' ');
   const asWritten = canonical(debtName);
   const withoutCategory = canonical(debtName.replace(/\s*\([^()]*\)\s*$/, ''));
   // Exact first, so a debt genuinely named "Card (Old)" always wins over a
   // different debt that only matches once the parenthetical is stripped.
-  return (
-    debts.find((debt) => canonical(debt.name) === asWritten) ??
-    debts.find((debt) => canonical(debt.name) === withoutCategory) ??
-    null
-  );
+  //
+  // ALL matches, not the first. Duplicate names are not hypothetical — three
+  // cards all named "American Express" reached production and had to be merged
+  // by hand — and `find` resolved every declaration for that name to the same
+  // debt, letting an affordable $300 balance stand in for an unaffordable
+  // $5,000 one (Codex, PR #93). The claim has to hold for each of them, since
+  // nothing in the declaration says which was meant.
+  const exact = debts.filter((debt) => canonical(debt.name) === asWritten);
+  if (exact.length > 0) return exact;
+  return debts.filter((debt) => canonical(debt.name) === withoutCategory);
 }
 
 /**
@@ -1082,8 +1088,11 @@ function makesUnverifiedEliminationClaim(
   // before it can work out when the shared pot reaches each of them.
   const resolvedClaims: Array<{ debt: EliminationCheckDebt; horizonMonths: number }> = [];
   for (const claimed of brief.nextAction.payoffClaims ?? []) {
-    const debt = resolveDeclaredDebt(claimed.debtName, debts);
-    if (debt) resolvedClaims.push({ debt, horizonMonths: claimed.horizonMonths });
+    // An ambiguous name yields several debts and the claim must hold for all of
+    // them; an unmatched one yields none and is ignored (see below).
+    for (const debt of resolveDeclaredDebts(claimed.debtName, debts)) {
+      resolvedClaims.push({ debt, horizonMonths: claimed.horizonMonths });
+    }
   }
   const claimOrder = [...resolvedClaims]
     .sort((a, b) => a.horizonMonths - b.horizonMonths)
@@ -1113,20 +1122,27 @@ function makesUnverifiedEliminationClaim(
   // claims is still checked below at full strictness. Same rule as the schema's
   // `.catch([])` — fail soft into more scrutiny, never into a brief the user
   // loses.
-  // The redirect is a single sum of money this action proposes moving, so at
-  // most ONE declared payoff may lean on it. Evaluating each declaration
-  // independently handed the full redirect to every one of them, and two $620
-  // debts both declared paid this month out of one $600 redirect both passed
-  // (Codex, PR #93). The plan-funded path needs no such guard: it already runs
-  // off the shared simulation.
-  let redirectUnspent = true;
+  // The redirect IS the acceleration — an earlier law caps redirectAmount
+  // against effectiveAcceleration — so it describes a DIFFERENT allocation of
+  // the same dollars the simulation already spends, not extra money. Letting
+  // both models fund different claims in one brief spends that money twice:
+  // a $600 acceleration cleared a $620 focus debt through the simulation while
+  // the same $600 cleared a second $620 debt through the redirect, and both
+  // passed (Codex, PR #93, after an earlier guard covered only two redirects).
+  //
+  // So the redirect is available only to a brief that declares exactly ONE
+  // payoff. With two or more, every claim must hold under the shared
+  // simulation, where the money is allocated once and rolls onward. The
+  // redirect still matters for the single-claim case the plan cannot express:
+  // an action sending money to a debt the acceleration does not currently
+  // reach.
+  const redirectAvailable = resolvedClaims.length === 1;
   for (const { debt, horizonMonths: claimedMonths } of resolvedClaims) {
     const effectiveMonths = claimedMonths + DECLARED_HORIZON_ROUNDING_MONTHS;
     if (!planRetiresDebt(debt, effectiveMonths, payments)) {
-      if (!redirectUnspent || !redirectRetiresDebt(debt, effectiveMonths, payments)) {
+      if (!redirectAvailable || !redirectRetiresDebt(debt, effectiveMonths, payments)) {
         return true;
       }
-      redirectUnspent = false;
     }
     // The same debt declared twice keeps the SHORTER runway. Two horizons for
     // one balance is malformed either way, and the shorter one is the stricter

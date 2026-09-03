@@ -2743,3 +2743,57 @@ describe('allocation leaks found on PR #93 (round 4)', () => {
     expect(findBriefViolation(brief, 600, 900, [BIG_FOCUS, FIRST])).toBeNull();
   });
 });
+describe('one pool of money, one name per debt (PR #93, round 5)', () => {
+  it('holds an ambiguous debt name to every debt that answers to it', () => {
+    // Duplicate names are not hypothetical: three cards all named "American
+    // Express" reached production and had to be merged by hand. `find` resolved
+    // both declarations to the first match, so an affordable $300 balance stood
+    // in for an unaffordable $5,000 one and the second card was never checked.
+    const SMALL = { name: 'American Express', balance: 300, minimumPayment: 25, isFocus: true };
+    const LARGE = { name: 'American Express', balance: 5000, minimumPayment: 25 };
+    const brief = nextAction({
+      title: 'Clear American Express',
+      body: 'Send the extra to American Express.',
+      redirectAmount: 0,
+      payoffClaims: [{ debtName: 'American Express', horizonMonths: 1 }],
+    });
+    expect(findBriefViolation(brief, 500, 500, [SMALL, LARGE])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('still verifies an unambiguous name normally', () => {
+    // Control: the strictness above belongs to ambiguity alone.
+    const ONLY = { name: 'American Express', balance: 300, minimumPayment: 25, isFocus: true };
+    const OTHER = { name: 'Delta Amex', balance: 5000, minimumPayment: 25 };
+    const brief = nextAction({
+      title: 'Clear American Express',
+      body: 'Send the extra to American Express.',
+      redirectAmount: 0,
+      payoffClaims: [{ debtName: 'American Express', horizonMonths: 1 }],
+    });
+    expect(findBriefViolation(brief, 500, 500, [ONLY, OTHER])).toBeNull();
+  });
+
+  it('does not fund one payoff from the plan and another from the same redirect', () => {
+    // The redirect IS the acceleration — an earlier law caps it against
+    // effectiveAcceleration — so the simulation spending it on the focus debt
+    // and the redirect fallback spending it again on another debt is the same
+    // $600 twice. The previous guard only marked the redirect spent when the
+    // plan path had already failed, so this pair slipped through.
+    const FOCUS = { name: 'Blue Card', balance: 620, minimumPayment: 20, isFocus: true };
+    const OTHER = { name: 'Green Card', balance: 620, minimumPayment: 20 };
+    const brief = nextAction({
+      title: 'Clear both small cards',
+      body: 'Put the $600 extra to work across Blue Card and Green Card.',
+      redirectAmount: 600,
+      payoffClaims: [
+        { debtName: 'Blue Card', horizonMonths: 1 },
+        { debtName: 'Green Card', horizonMonths: 1 },
+      ],
+    });
+    expect(findBriefViolation(brief, 600, 900, [FOCUS, OTHER])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+});
