@@ -954,8 +954,19 @@ function buildPaymentCapacity(
   // does the law fall back to inferring one — focus first, then the debts the
   // brief claims, then the rest smallest first.
   const hasPayoffOrder = debts.every((d) => Number.isFinite(d.payoffOrder));
+  // The focus debt sorts first even if the stored queue disagrees. In
+  // production they cannot: route.ts takes isFocus from selectMonthlyFocusDebt
+  // and payoffOrder from the same payoffSchedule, so the focus IS the first
+  // unpaid entry. But isFocus is the more direct statement of where this
+  // month's extra actually lands, so if a stale cache ever carried the two out
+  // of step, sending the pot to a debt the plan is not funding would reject
+  // truthful claims about the one it is.
   const order = hasPayoffOrder
-    ? [...debts].sort((a, b) => (a.payoffOrder as number) - (b.payoffOrder as number))
+    ? [...debts].sort(
+        (a, b) =>
+          Number(b.isFocus === true) - Number(a.isFocus === true) ||
+          (a.payoffOrder as number) - (b.payoffOrder as number),
+      )
     : [
         focusDebt,
         ...claimOrder.filter((d) => d !== focusDebt),

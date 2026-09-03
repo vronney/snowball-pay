@@ -3058,3 +3058,23 @@ describe('prose cannot mix the plan and redirect allocations (Codex, PR #93)', (
     expect(findBriefViolation(brief, 600, 900, [FOCUS, TINY])).toBeNull();
   });
 });
+describe('a stale queue cannot steal the focus money', () => {
+  it('sends the pot to the focus debt even when payoffOrder disagrees', () => {
+    // In production these cannot disagree: route.ts takes isFocus from
+    // selectMonthlyFocusDebt and payoffOrder from the same payoffSchedule, so
+    // the focus IS the first unpaid entry. This guards a stale or hand-built
+    // cache carrying the two out of step — isFocus is the more direct
+    // statement of where this month's extra actually lands, and sending the
+    // pot elsewhere would reject truthful claims about the debt the plan is
+    // really funding.
+    const FOCUS = { name: 'Store Card', balance: 200, minimumPayment: 25, isFocus: true, payoffOrder: 2 };
+    const OTHER = { name: 'Old Fee Card', balance: 150, minimumPayment: 20, payoffOrder: 1 };
+    const brief = nextAction({
+      title: 'Finish Store Card',
+      body: 'Store Card is gone by month-end.',
+      redirectAmount: 0,
+      payoffClaims: [{ debtName: 'Store Card', horizonMonths: 1 }],
+    });
+    expect(findBriefViolation(brief, 600, 900, [FOCUS, OTHER])).toBeNull();
+  });
+});
