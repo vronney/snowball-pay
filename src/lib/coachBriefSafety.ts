@@ -1094,8 +1094,17 @@ function makesUnverifiedEliminationClaim(
       resolvedClaims.push({ debt, horizonMonths: claimed.horizonMonths });
     }
   }
+  // Soonest deadline first, and among equal deadlines the LARGEST balance
+  // first. The tie-break is not cosmetic: with equal horizons the comparator
+  // returned zero and JS sort stability made the JSON array order the payoff
+  // sequence, so the same brief got different verdicts depending on how the
+  // model happened to list its entries — and payoffClaims carries no ordering
+  // meaning in the prompt (Codex, PR #93). Largest-first is also the order that
+  // meets a shared deadline when one does: the debt needing the pot for the
+  // most months has to start earliest, and the smaller one can still be
+  // finished afterwards by a pot that has since grown.
   const claimOrder = [...resolvedClaims]
-    .sort((a, b) => a.horizonMonths - b.horizonMonths)
+    .sort((a, b) => a.horizonMonths - b.horizonMonths || b.debt.balance - a.debt.balance)
     .map((c) => c.debt);
 
   // One shared allocation for the whole brief: the acceleration funds one debt

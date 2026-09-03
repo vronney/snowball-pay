@@ -2797,3 +2797,55 @@ describe('one pool of money, one name per debt (PR #93, round 5)', () => {
     );
   });
 });
+describe('equal declared horizons must not depend on list order (Codex, PR #93)', () => {
+  // Codex's scenario. Focus is $50 at a $10 minimum with $100 of acceleration,
+  // so it retires in month 1 and its minimum joins the pot. Two more debts,
+  // $50 and $220 (both $10 minimums), are declared for the same month 3.
+  //
+  // The pot reaches one of them at a time, so the ORDER decides whether both
+  // finish in time — and with equal horizons the comparator returned zero and
+  // the JSON array order silently became the payoff sequence. The larger debt
+  // needs the pot earliest; taking the small one first leaves the large one at
+  // about month 3.54 and rejects a brief that is feasible as written.
+  const FOCUS = { name: 'Focus Card', balance: 50, minimumPayment: 10, isFocus: true };
+  const SMALL = { name: 'Small Card', balance: 50, minimumPayment: 10 };
+  const LARGE = { name: 'Large Card', balance: 220, minimumPayment: 10 };
+  const DEBTS = [FOCUS, SMALL, LARGE];
+
+  const briefWithClaims = (claims: Array<{ debtName: string; horizonMonths: number }>) =>
+    nextAction({
+      title: 'Finish the small cards',
+      body: 'Keep the acceleration rolling through the cards.',
+      redirectAmount: 0,
+      payoffClaims: claims,
+    });
+
+  it('accepts the feasible set when the small debt is listed first', () => {
+    const brief = briefWithClaims([
+      { debtName: 'Small Card', horizonMonths: 3 },
+      { debtName: 'Large Card', horizonMonths: 3 },
+    ]);
+    expect(findBriefViolation(brief, 100, 400, DEBTS)).toBeNull();
+  });
+
+  it('gives the same verdict when the same two entries are listed the other way', () => {
+    const brief = briefWithClaims([
+      { debtName: 'Large Card', horizonMonths: 3 },
+      { debtName: 'Small Card', horizonMonths: 3 },
+    ]);
+    expect(findBriefViolation(brief, 100, 400, DEBTS)).toBeNull();
+  });
+
+  it('still rejects an equal-horizon pair no order can fund', () => {
+    // Control: order-independence must not become permissiveness. A $2,000
+    // balance cannot reach zero by month 3 under any sequence here.
+    const HUGE = { name: 'Large Card', balance: 2000, minimumPayment: 10 };
+    const brief = briefWithClaims([
+      { debtName: 'Small Card', horizonMonths: 3 },
+      { debtName: 'Large Card', horizonMonths: 3 },
+    ]);
+    expect(findBriefViolation(brief, 100, 400, [FOCUS, SMALL, HUGE])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+});
