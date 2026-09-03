@@ -1208,6 +1208,144 @@ describe('unsafe-minimum law — "miss" needs the payment as its object', () => 
   });
 });
 
+describe('elimination law — a deadline written as a month name', () => {
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+
+  const monthName = (offset: number) => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() + offset);
+    return d.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+  };
+
+  it('reads a far month as the runway it is', () => {
+    // Verbatim shape from a live sweep: "eliminates this card by January 2027"
+    // at $565/mo against $1,209. Unparsed, it fell back to one month and was
+    // rejected. Computed from the current date so the test does not rot.
+    const brief = nextAction({
+      body: `Applying the entire $500 monthly extra here eliminates this card by ${monthName(5)}.`,
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBeNull();
+  });
+
+  it('still rejects a near month the money cannot reach', () => {
+    // Next month is two payments of $565 against a $10,169 balance.
+    const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+    const brief = nextAction({
+      body: `This eliminates Delta Amex by ${monthName(1)}.`,
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [DELTA_AMEX])).toBe('unverified_elimination_claim');
+  });
+
+  it('treats the current month as a same-month claim', () => {
+    const brief = nextAction({
+      body: `This eliminates CreditOne 6610 by ${monthName(0)}.`,
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBe('unverified_elimination_claim');
+  });
+});
+
+describe('both laws — Codex round-four holes', () => {
+  const STORE_CARD = { name: 'Store Card', balance: 900, minimumPayment: 100, isFocus: false };
+  const FOCUS_DEBT = { name: 'Delta Amex', balance: 5000, minimumPayment: 250, isFocus: true };
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65 };
+
+  it("credits the plan's acceleration only to the debt it flows to", () => {
+    // The engine sends the extra to one target. Crediting $1,000 to every debt
+    // accepted a payoff claim about a card that receives only its $100
+    // minimum.
+    const brief = nextAction({ body: 'Pay off Store Card this month.', redirectAmount: 0 });
+    expect(findBriefViolation(brief, 1000, 1200, [STORE_CARD, FOCUS_DEBT])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('still credits it to the focus debt', () => {
+    const brief = nextAction({ body: 'Pay off Delta Amex this month.', redirectAmount: 0 });
+    expect(findBriefViolation(brief, 5000, 5200, [STORE_CARD, FOCUS_DEBT])).toBeNull();
+  });
+
+  it('still credits money the action proposes moving to another debt', () => {
+    const brief = nextAction({ body: 'Redirect $800 to Store Card, clearing it this month.', redirectAmount: 800 });
+    expect(findBriefViolation(brief, 1000, 1200, [STORE_CARD, FOCUS_DEBT])).toBeNull();
+  });
+
+  it('keeps the whole-plan reading for briefs cached before isFocus existed', () => {
+    // No debt marked: purging every old cache would be worse than the gap it
+    // closes, so those keep the previous behaviour.
+    const legacy = [
+      { name: 'Store Card', balance: 900, minimumPayment: 100 },
+      { name: 'Delta Amex', balance: 5000, minimumPayment: 250 },
+    ];
+    const brief = nextAction({ body: 'Pay off Store Card this month.', redirectAmount: 0 });
+    expect(findBriefViolation(brief, 1000, 1200, legacy)).toBeNull();
+  });
+
+  it('does not take a stated runway from another predicate', () => {
+    const brief = nextAction({
+      body: 'Pay off Store Card and rebuild savings over 12 months.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 0, 1200, [STORE_CARD, FOCUS_DEBT])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('still takes a runway that belongs to the payoff', () => {
+    const brief = nextAction({
+      body: 'Paying $565/mo clears CreditOne 6610 over 3 months.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBeNull();
+  });
+
+  it('catches a pronoun directive whose payment context is earlier in the SAME sentence', () => {
+    const brief = nextAction({
+      body: 'For the Store Card payment, delay it until next month.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 0, 1200, [STORE_CARD])).toBe('unsafe_minimum_text');
+  });
+
+  it('does not excuse an imperative because the sentence mentions a penalty', () => {
+    // The warning exemption belongs to the gerund only: "Missing payments will
+    // spike APR" describes a consequence, this one advises causing it.
+    const brief = nextAction({
+      body: 'Miss a payment if paying it risks an overdraft penalty.',
+      redirectAmount: 0,
+    });
+    expect(findBriefViolation(brief, 0, 1200, [STORE_CARD])).toBe('unsafe_minimum_text');
+  });
+
+  it('still exempts a genuine gerund warning', () => {
+    for (const phrase of [
+      'Missing payments will spike APR and damage credit score.',
+      'Missing a payment triggers late fees and a penalty APR.',
+    ]) {
+      expect(findBriefViolation(nextAction({ body: phrase }), 0, 1200, [STORE_CARD])).toBeNull();
+    }
+  });
+
+  it('does not let cost framing across a semicolon cancel a directive', () => {
+    const brief = nextAction({
+      body: 'Pay off Delta Amex by Friday; this requires $5,000.',
+      redirectAmount: 100,
+    });
+    expect(findBriefViolation(brief, 100, 1200, [FOCUS_DEBT])).toBe('unverified_elimination_claim');
+  });
+
+  it('still exempts cost framing inside one clause', () => {
+    const brief = nextAction({
+      body: 'Paying it off entirely this month costs $1209 total; your $565 falls short.',
+      redirectAmount: 500,
+    });
+    expect(findBriefViolation(brief, 500, 900, [CREDIT_ONE])).toBeNull();
+  });
+});
+
 describe('elimination law — Codex round-three holes', () => {
   const CHASE = { name: 'Chase', balance: 300, minimumPayment: 35 };
   const CHASE_SAPPHIRE = { name: 'Chase Sapphire', balance: 8000, minimumPayment: 160 };

@@ -657,11 +657,15 @@ Current plan:
 
     // Law context for the elimination-claim check: the most a debt can get
     // this month is its own minimum + the proposed extra, so a "pays it off
-    // this month" claim is checked against these balances.
+    // this month" claim is checked against these balances. `isFocus` marks the
+    // one debt the plan's acceleration actually flows to — without it the law
+    // credited the whole acceleration to every debt and accepted a payoff
+    // claim about a card receiving only its minimum.
     const lawDebts = activeDebts.map((d) => ({
       name: d.name,
       balance: d.balance,
       minimumPayment: d.minimumPayment,
+      isFocus: focusDebt ? d.id === focusDebt.id : false,
     }));
 
     let brief: CoachBrief;

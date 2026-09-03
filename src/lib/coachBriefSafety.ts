@@ -81,6 +81,15 @@ export interface EliminationCheckDebt {
   name: string;
   balance: number;
   minimumPayment: number;
+  /**
+   * True for the debt this month's extra actually flows to. The payoff engine
+   * sends the acceleration to one target, so crediting it to every debt let a
+   * claim about a card receiving only its minimum pass (Codex, PR #91).
+   * Optional because briefs cached before this field existed carry none; with
+   * no debt marked, the old whole-plan behaviour stands rather than purging
+   * those caches.
+   */
+  isFocus?: boolean;
 }
 
 // Persisted shape carries the law context that was true at generation time
@@ -164,9 +173,15 @@ const RECORD_VERBS = String.raw`log(?:s|ged|ging)?|record(?:s|ed|ing)?|recover(?
 // directives to skip without this.
 const RISK_VERBS = String.raw`risk(?:s|ed|ing)?|prevent(?:s|ed|ing)?|detect(?:s|ed|ing)?|notice[sd]?|noticing|stop(?:s|ped|ping)?\s+you\s+from`;
 const NOT_ATTRIBUTIVE = String.raw`(?<!\b(?:${ATTRIBUTIVE_LEADS}|${RECORD_VERBS}|${RISK_VERBS})\s)`;
+// The warning exemption belongs ONLY to the gerund. "Missing payments will
+// spike APR" describes what happens if you do; "Miss a payment if paying it
+// risks an overdraft penalty" is a directive, and a consequence word later in
+// the sentence was excusing it (Codex, PR #91). An imperative or finite verb
+// is always advice, whatever else the sentence mentions.
+const missObject = String.raw`(?:(?:${MISS_DETERMINERS})\s+(?:\w+\s+){0,2}?(?:${PAYMENT_WORDS})|(?:${PLURAL_PAYMENT_WORDS}))(?!\w)${NOT_RECORD_COMPOUND}`;
 const MISSED_PAYMENT = [
-  String.raw`${NOT_NEGATED}${NOT_ATTRIBUTIVE}\bmiss(?:es|ing)?\s+(?:${MISS_DETERMINERS})\s+(?:\w+\s+){0,2}?(?:${PAYMENT_WORDS})(?!\w)${NOT_RECORD_COMPOUND}${NOT_A_WARNING}`,
-  String.raw`${NOT_NEGATED}${NOT_ATTRIBUTIVE}\bmiss(?:es|ing)?\s+(?:${PLURAL_PAYMENT_WORDS})(?!\w)${NOT_RECORD_COMPOUND}${NOT_A_WARNING}`,
+  String.raw`${NOT_NEGATED}${NOT_ATTRIBUTIVE}\bmiss(?:es)?\s+${missObject}`,
+  String.raw`${NOT_NEGATED}${NOT_ATTRIBUTIVE}\bmissing\s+${missObject}${NOT_A_WARNING}`,
 ].join('|');
 
 // "reduce"/"lower" are narrower still: the minimum has to be what is being cut.
@@ -240,6 +255,13 @@ export function buildUnsafeMinimumAdviceRe(debtNames: string[] = []): RegExp {
       // the record-compound guard still applies, so "Payment logging is
       // stale. Skip it if you already logged." stays allowed.
       String.raw`${context}${NOT_RECORD_COMPOUND}[^.!?]{0,60}[.!?]\s+[^.!?]{0,40}?${verb}\s+(?:on\s+|it\s+)?(?:it|them|that)\b`,
+      // The same shape WITHIN one sentence: "For the Store Card payment, delay
+      // it until next month." The passive branch above needs a copula, and the
+      // forward branch needs context after the verb, so neither saw this and
+      // the advice went out (Codex, PR #91). Requiring a pronoun object is
+      // what keeps it off "mask a missed PAYMENT or create reconciliation
+      // DELAY", where the verb is a noun and no pronoun follows.
+      String.raw`${context}${NOT_RECORD_COMPOUND}[^.!?]{0,60}?${verb}\s+(?:on\s+)?(?:it|them|that)\b`,
       MISSED_PAYMENT,
       MINIMUM_CUT,
     ].join('|'),
@@ -281,7 +303,10 @@ const PAYOFF_ORDER_ADVERB = String.raw`(?!\s+(?:first|next|sooner)\b)`;
 // was rejected even though it spells out that the payoff is unaffordable. The
 // dollar sign is required, so a runway ("takes 3 months") stays a claim and
 // is checked against its horizon as usual.
-const NOT_COST_FRAMING = String.raw`(?![^.]{0,40}?\b(?:costs?|requires?|needs?|would\s+(?:cost|require|need))\s+(?:you\s+)?\$)`;
+// The window stops at clause punctuation. Crossing a semicolon reached into a
+// separate statement, so a real directive with a deadline was suppressed:
+// "Pay off Delta by Friday; this requires $5,000" (Codex, PR #91).
+const NOT_COST_FRAMING = String.raw`(?![^.;()]{0,40}?\b(?:costs?|requires?|needs?|would\s+(?:cost|require|need))\s+(?:you\s+)?\$)`;
 
 function payoffVerbs(names: string[]): string {
   const versusNamedDebt =
@@ -495,6 +520,32 @@ const HORIZON_RE = new RegExp(
   'gi',
 );
 
+// A deadline written as a month name ("by January 2027").
+const MONTH_NAMES = [
+  'january', 'february', 'march', 'april', 'may', 'june',
+  'july', 'august', 'september', 'october', 'november', 'december',
+];
+const MONTH_DEADLINE_RE = new RegExp(
+  String.raw`\bby\s+(${MONTH_NAMES.map((m) => `${m.slice(0, 3)}(?:${m.slice(3)})?`).join('|')})\b\.?\s*(\d{4})?`,
+  'i',
+);
+
+/**
+ * Whole months from now to the START of a named month, so "by January" in
+ * September is 4. A month already past, or the current one, reads as 1 — the
+ * strict value — since a deadline inside this month is a same-month claim.
+ * With no year given, a month that has passed means next year's occurrence.
+ */
+function monthsUntilNamedMonth(name: string, year: string | undefined, now: Date): number {
+  const prefix = name.slice(0, 3).toLowerCase();
+  const target = MONTH_NAMES.findIndex((m) => m.startsWith(prefix));
+  if (target < 0) return 1;
+  const targetYear = year ? Number.parseInt(year, 10) : now.getFullYear();
+  const months = (targetYear - now.getFullYear()) * 12 + (target - now.getMonth());
+  const rolled = !year && months < 0 ? months + 12 : months;
+  return rolled > 0 ? rolled : 1;
+}
+
 // Rate comparatives claim a debt goes faster, never that it reaches zero on a
 // given date ("redirect the acceleration here to clear the balance fastest").
 // There is no date to fact-check, so the arithmetic check does not apply.
@@ -527,16 +578,24 @@ const SOONER_RE = /\b(?:sooner|soonest)\b/i;
  * (Codex, PR #91). A stated deadline is unambiguous and a bypass is the
  * costliest possible error, so it outranks position.
  */
-function statedHorizon(text: string, soonerCounts: boolean): number | null {
+function statedHorizon(text: string, soonerCounts: boolean, now: Date = new Date()): number | null {
   const markers: Array<{ index: number; months: number }> = [];
 
   if (SAME_MONTH_DEADLINE_RE.test(text)) return 1;
+
+  // Everything past the first coordinating conjunction belongs to another
+  // predicate, so both the stated runway and the rate comparative stop there:
+  // "Pay off Store Card and rebuild savings over 12 months" was handing the
+  // payoff claim the savings runway, and "…and build savings faster" was
+  // handing it a total bypass (Codex, PR #91). Deadlines and weak framing
+  // still scan the whole clause; both resolve to one month, the strict way.
+  const beforeConjunction = text.split(/\b(?:and|but|then|or|while|plus)\b/i)[0];
 
   // Across several runways, the tightest wins — but they share the position of
   // the first, since together they describe one claim's timing.
   let firstIndex = Infinity;
   let smallest = Infinity;
-  for (const match of text.matchAll(HORIZON_RE)) {
+  for (const match of beforeConjunction.matchAll(HORIZON_RE)) {
     const [, hedge, lowRaw, highRaw, unit] = match;
     // Upper bound of a range; the lone figure otherwise.
     const raw = (highRaw ?? lowRaw).toLowerCase();
@@ -554,16 +613,21 @@ function statedHorizon(text: string, soonerCounts: boolean): number | null {
   }
   if (Number.isFinite(smallest)) markers.push({ index: firstIndex, months: smallest });
 
+  // "by January 2027" is a real runway, just written as a date. Reading it
+  // needs a clock, which is why it went unparsed at first — but live output
+  // uses it, and falling back to one month rejected a claim with five months
+  // to run. It scans the whole clause like the other deadline forms.
+  const namedMonth = MONTH_DEADLINE_RE.exec(text);
+  if (namedMonth) {
+    markers.push({
+      index: namedMonth.index,
+      months: monthsUntilNamedMonth(namedMonth[1], namedMonth[2], now),
+    });
+  }
+
   const framing = SAME_MONTH_FRAMING_RE.exec(text);
   if (framing) markers.push({ index: framing.index, months: 1 });
 
-  // A comparative is only read up to the first coordinating conjunction,
-  // because past one it belongs to a different predicate: in "Pay off Delta
-  // Amex and build savings faster" the "faster" is about savings, and taking
-  // it returned Infinity, which skips the arithmetic entirely and accepted an
-  // impossible payoff (Codex, PR #91). Deadlines and stated runways still scan
-  // the whole clause — only the total-bypass marker is held this close.
-  const beforeConjunction = text.split(/\b(?:and|but|then|or|while|plus)\b/i)[0];
   const rate = RATE_COMPARATIVE_RE.exec(beforeConjunction);
   if (rate) markers.push({ index: rate.index, months: Infinity });
   const sooner = soonerCounts ? SOONER_RE.exec(beforeConjunction) : null;
@@ -637,16 +701,23 @@ function lawScannedText(brief: CoachBrief): string {
 function maxExtraOnOneDebt(
   nextAction: CoachBrief['nextAction'],
   effectiveAcceleration: number,
+  debt: EliminationCheckDebt,
+  focusKnown: boolean,
 ): number {
   // Number.isFinite, not typeof: a NaN must fall back to 0 rather than poison
   // every comparison into passing.
-  if (nextAction.kind === 'set_acceleration' && Number.isFinite(nextAction.targetExtra)) {
-    return Math.max(0, nextAction.targetExtra as number);
-  }
-  const accelerationFloor = Number.isFinite(effectiveAcceleration)
-    ? Math.max(0, effectiveAcceleration)
-    : 0;
-  return Math.max(nextAction.redirectAmount, accelerationFloor);
+  const monthlyExtra =
+    nextAction.kind === 'set_acceleration' && Number.isFinite(nextAction.targetExtra)
+      ? Math.max(0, nextAction.targetExtra as number)
+      : Number.isFinite(effectiveAcceleration)
+        ? Math.max(0, effectiveAcceleration)
+        : 0;
+
+  // That monthly extra reaches ONE debt — the plan's current target. Any other
+  // debt only gets what this action proposes moving to it. Without a focus
+  // marked (pre-field caches) the old whole-plan reading stands.
+  const receivesMonthlyExtra = !focusKnown || debt.isFocus === true;
+  return Math.max(nextAction.redirectAmount, receivesMonthlyExtra ? monthlyExtra : 0);
 }
 
 /**
@@ -682,8 +753,11 @@ function makesUnverifiedEliminationClaim(
       [brief.nextAction.title, brief.nextAction.body, brief.nextAction.action].join('. '),
     ),
   ];
-  const extraAvailable = maxExtraOnOneDebt(brief.nextAction, effectiveAcceleration);
-  return blocks.some((block) => blockMakesUnverifiedClaim(block, extraAvailable, debts));
+  // Resolved per debt: the monthly extra reaches only the plan's target.
+  const focusKnown = debts.some((d) => d.isFocus === true);
+  const extraFor = (debt: EliminationCheckDebt) =>
+    maxExtraOnOneDebt(brief.nextAction, effectiveAcceleration, debt, focusKnown);
+  return blocks.some((block) => blockMakesUnverifiedClaim(block, extraFor, debts));
 }
 
 /**
@@ -724,7 +798,7 @@ function attributeDebts(
 /** Runs the elimination-claim law against one text block in isolation. */
 function blockMakesUnverifiedClaim(
   text: string,
-  extraAvailable: number,
+  extraFor: (debt: EliminationCheckDebt) => number,
   debts: EliminationCheckDebt[],
 ): boolean {
   const claimRe = buildEliminationClaimRe(debts.map((d) => d.name));
@@ -739,7 +813,7 @@ function blockMakesUnverifiedClaim(
   // right to within a rounding step.
   const canEliminate = (d: EliminationCheckDebt, horizonMonths: number) =>
     horizonMonths === Infinity ||
-    Math.ceil(horizonMonths) * (extraAvailable + d.minimumPayment) + REDIRECT_TOLERANCE >=
+    Math.ceil(horizonMonths) * (extraFor(d) + d.minimumPayment) + REDIRECT_TOLERANCE >=
       d.balance;
 
   // EVERY claim is checked, not just the first in its sentence. One sentence
@@ -917,7 +991,16 @@ export function parseLawfulStoredBrief(raw: unknown): CoachBrief | null {
         return typeof candidate?.name === 'string' &&
           Number.isFinite(candidate?.balance) &&
           Number.isFinite(candidate?.minimumPayment)
-          ? [{ name: candidate.name, balance: candidate.balance!, minimumPayment: candidate.minimumPayment! }]
+          ? [
+              {
+                name: candidate.name,
+                balance: candidate.balance!,
+                minimumPayment: candidate.minimumPayment!,
+                // Absent on briefs cached before the field existed; those keep
+                // the old whole-plan reading rather than being purged.
+                isFocus: candidate.isFocus === true,
+              },
+            ]
           : [];
       })
     : [];
