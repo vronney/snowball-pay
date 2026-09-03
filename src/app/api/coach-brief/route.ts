@@ -31,9 +31,13 @@ HARD LAW — enforced by code, not just this prompt. A response that breaks it i
 - "outcome" must ALWAYS be null, for every kind including "set_acceleration" — the server computes the real outcome from "targetExtra" with plan-engine math. Never invent an outcome object.
 - For every other kind, return "targetExtra": null and "outcome": null.
 - Never claim a debt will be paid off, eliminated, cleared, wiped out, or reach zero within any timeframe unless the total payment you propose for it (its minimum + the extra) covers its FULL current balance from the data. This is checked arithmetically — an impossible claim is rejected outright. When a balance will remain, state the remaining balance instead.
-- "payoffClaim" is where you DECLARE such a claim instead of leaving it to be read out of your sentences. If any sentence you write says a specific debt will be paid off, eliminated, cleared, wiped out, gone, or reaching zero, set it to {"debtName": "<the debt's name>", "horizonMonths": <whole months from now until that balance reaches zero>}. Use 1 for "by month-end" or "this month". If you make no such claim about any debt, set it to null.
+- "payoffClaims" is where you DECLARE such claims instead of leaving them to be read out of your sentences. It is a LIST with ONE ENTRY PER DEBT you say will be paid off, eliminated, cleared, wiped out, gone, or reaching zero. Each entry is {"debtName": "<the debt's name>", "horizonMonths": <whole months from now until that balance reaches zero>}. Use 1 for "by month-end" or "this month". If you make no such claim about any debt, use an empty list [].
+- If one sentence names two debts as being paid off, that is TWO entries. Never describe two debts with one entry, and never leave a debt out because another entry already covers the sentence.
 - "debtName" is the debt's name ONLY, copied from the "Active debts" list below and stopping before the category in parentheses: for a line reading "Store Card (Credit Card): $410 balance", the name is "Store Card".
-- The declared claim is checked against that debt's real balance: horizonMonths x (its minimum + the extra you propose for it) must cover the balance, and an impossible declaration is rejected outright. Declaring null does NOT hide a claim your text makes — your sentences are checked too, and where they state a timeframe, that timeframe is what counts.
+- "horizonMonths" must be a whole number, and it belongs to that entry's debt alone. Two debts paid off on different timelines get different numbers.
+- Every entry is checked against its own debt's real balance: horizonMonths x (that debt's minimum + the extra you propose for it) must cover that balance. If ANY entry is impossible the whole response is rejected.
+- When you cannot fund a payoff, do NOT simply drop that debt from the list and leave the sentence standing. Rewrite the sentence so it no longer says that debt gets paid off, and give the balance that will remain instead. The list and your text must describe the same thing: dropping an entry while the prose still promises the payoff is the one shape that would mislead a reader.
+- An empty list does NOT hide a claim your text makes — your sentences are checked too, and where they state a timeframe, that timeframe is what counts.
 - Keep tone calm and practical. No shame, hype, or vague encouragement.
 - Never use the words: "elevate", "seamless", "game-changer", "unleash", "journey", "delve"
 
@@ -53,7 +57,7 @@ Return ONLY valid JSON - no markdown fences, no explanation:
     "targetExtra": null,
     "outcome": null,
     "redirectAmount": 0,
-    "payoffClaim": null
+    "payoffClaims": []
   }
 }
 
@@ -275,7 +279,7 @@ function buildFallbackBrief(params: {
         targetExtra: null,
         outcome: null,
         redirectAmount: 0,
-        payoffClaim: null,
+        payoffClaims: [],
       },
     };
   }
@@ -296,7 +300,7 @@ function buildFallbackBrief(params: {
         targetExtra: availableCashFlow,
         outcome: null,
         redirectAmount: 0,
-        payoffClaim: null,
+        payoffClaims: [],
       },
     };
   }
@@ -319,7 +323,7 @@ function buildFallbackBrief(params: {
         targetExtra: null,
         outcome: null,
         redirectAmount: 0,
-        payoffClaim: null,
+        payoffClaims: [],
       },
     };
   }
@@ -341,7 +345,7 @@ function buildFallbackBrief(params: {
       targetExtra: null,
       outcome: null,
       redirectAmount: 0,
-      payoffClaim: null,
+      payoffClaims: [],
     },
   };
 }
@@ -669,11 +673,21 @@ Current plan:
     // one debt the plan's acceleration actually flows to — without it the law
     // credited the whole acceleration to every debt and accepted a payoff
     // claim about a card receiving only its minimum.
+    // `payoffOrder` is the plan's real queue position, straight from the
+    // engine's strategy sort. Without it the law had to infer an order and
+    // moved declared debts to the front, crediting a brief with a payoff the
+    // plan would not reach that month.
+    const payoffOrderByDebtId = new Map(
+      result.payoffSchedule.map((entry) => [entry.debtId, entry.orderInPayoff]),
+    );
     const lawDebts = activeDebts.map((d) => ({
       name: d.name,
       balance: d.balance,
       minimumPayment: d.minimumPayment,
       isFocus: focusDebt ? d.id === focusDebt.id : false,
+      ...(payoffOrderByDebtId.has(d.id)
+        ? { payoffOrder: payoffOrderByDebtId.get(d.id) as number }
+        : {}),
     }));
 
     let brief: CoachBrief;
