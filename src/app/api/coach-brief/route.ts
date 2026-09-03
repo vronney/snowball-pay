@@ -31,6 +31,9 @@ HARD LAW — enforced by code, not just this prompt. A response that breaks it i
 - "outcome" must ALWAYS be null, for every kind including "set_acceleration" — the server computes the real outcome from "targetExtra" with plan-engine math. Never invent an outcome object.
 - For every other kind, return "targetExtra": null and "outcome": null.
 - Never claim a debt will be paid off, eliminated, cleared, wiped out, or reach zero within any timeframe unless the total payment you propose for it (its minimum + the extra) covers its FULL current balance from the data. This is checked arithmetically — an impossible claim is rejected outright. When a balance will remain, state the remaining balance instead.
+- "payoffClaim" is where you DECLARE such a claim instead of leaving it to be read out of your sentences. If any sentence you write says a specific debt will be paid off, eliminated, cleared, wiped out, gone, or reaching zero, set it to {"debtName": "<the debt's name>", "horizonMonths": <whole months from now until that balance reaches zero>}. Use 1 for "by month-end" or "this month". If you make no such claim about any debt, set it to null.
+- "debtName" is the debt's name ONLY, copied from the "Active debts" list below and stopping before the category in parentheses: for a line reading "Store Card (Credit Card): $410 balance", the name is "Store Card".
+- The declared claim is checked against that debt's real balance: horizonMonths x (its minimum + the extra you propose for it) must cover the balance, and an impossible declaration is rejected outright. Declaring null does NOT hide a claim your text makes — your sentences are checked too, and where they state a timeframe, that timeframe is what counts.
 - Keep tone calm and practical. No shame, hype, or vague encouragement.
 - Never use the words: "elevate", "seamless", "game-changer", "unleash", "journey", "delve"
 
@@ -49,7 +52,8 @@ Return ONLY valid JSON - no markdown fences, no explanation:
     "kind": "set_acceleration | reconnect_bank | log_payments | review_refinance | keep_course",
     "targetExtra": null,
     "outcome": null,
-    "redirectAmount": 0
+    "redirectAmount": 0,
+    "payoffClaim": null
   }
 }
 
@@ -271,6 +275,7 @@ function buildFallbackBrief(params: {
         targetExtra: null,
         outcome: null,
         redirectAmount: 0,
+        payoffClaim: null,
       },
     };
   }
@@ -291,6 +296,7 @@ function buildFallbackBrief(params: {
         targetExtra: availableCashFlow,
         outcome: null,
         redirectAmount: 0,
+        payoffClaim: null,
       },
     };
   }
@@ -313,6 +319,7 @@ function buildFallbackBrief(params: {
         targetExtra: null,
         outcome: null,
         redirectAmount: 0,
+        payoffClaim: null,
       },
     };
   }
@@ -334,6 +341,7 @@ function buildFallbackBrief(params: {
       targetExtra: null,
       outcome: null,
       redirectAmount: 0,
+      payoffClaim: null,
     },
   };
 }
