@@ -908,9 +908,17 @@ function makesUnverifiedEliminationClaim(
     ),
   ];
   // Path 2 — the prose law, unchanged except for the defaults a verified
-  // declaration supplies where it used to guess.
+  // declaration supplies where it used to guess. The claim count is taken over
+  // every block before any block is judged, because a declaration that stands
+  // in for an unnamed claim has to be the brief's ONLY claim, not merely the
+  // only one in whichever block is being scanned.
+  const claimRe = buildEliminationClaimRe(debts.map((d) => d.name));
+  const briefClaimCount = blocks.reduce(
+    (count, block) => count + countClaims(block, claimRe),
+    0,
+  );
   return blocks.some((block) =>
-    blockMakesUnverifiedClaim(block, extraFor, debts, declared),
+    blockMakesUnverifiedClaim(block, extraFor, debts, declared, briefClaimCount),
   );
 }
 
@@ -950,16 +958,42 @@ function attributeDebts(
 }
 
 /**
+ * The stretches of text the claim loop walks: the sentences that contain a
+ * claim, or the whole block when splitting finds none (the block-level regex
+ * already matched, so a claim is present either way and must be checked).
+ *
+ * Shared with the claim COUNT below so the two can never disagree about what
+ * counts as a claim.
+ */
+function claimUnits(text: string, claimRe: RegExp): string[] {
+  const claimSentences = text
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => claimRe.test(sentence));
+  return claimSentences.length > 0 ? claimSentences : [text];
+}
+
+/** How many payoff claims a stretch of text makes. */
+function countClaims(text: string, claimRe: RegExp): number {
+  const globalClaimRe = new RegExp(claimRe.source, 'gi');
+  return claimUnits(text, claimRe).reduce(
+    (count, unit) => count + [...unit.matchAll(globalClaimRe)].length,
+    0,
+  );
+}
+
+/**
  * Runs the elimination-claim law against one text block in isolation.
  *
  * `declared` is the brief's verified payoff claim, used ONLY where the prose
  * law would otherwise guess — see makesUnverifiedEliminationClaim.
+ * `briefClaimCount` spans the WHOLE brief, not this block; see below.
  */
 function blockMakesUnverifiedClaim(
   text: string,
   extraFor: (debt: EliminationCheckDebt) => number,
   debts: EliminationCheckDebt[],
   declared: ResolvedPayoffClaim | null,
+  briefClaimCount: number,
 ): boolean {
   const claimRe = buildEliminationClaimRe(debts.map((d) => d.name));
   if (!claimRe.test(text)) return false;
@@ -978,28 +1012,26 @@ function blockMakesUnverifiedClaim(
   // named in the sentence be coverable would be simpler but wrong: naming a
   // debt is not claiming its payoff, and "keep paying the Delta Amex minimum
   // while this clears Store Card" would start failing.
-  const claimSentences = text
-    .split(/(?<=[.!?])\s+/)
-    .filter((sentence) => claimRe.test(sentence));
-  // Fall back to the whole block if splitting finds nothing — the block-level
-  // regex already matched, so a claim is present either way and must be checked.
-  const units = claimSentences.length > 0 ? claimSentences : [text];
+  const units = claimUnits(text, claimRe);
   const globalClaimRe = new RegExp(claimRe.source, 'gi');
 
-  // How many claims this block makes at all. A declaration describes ONE
-  // payoff, so it can only stand in for an unattributed claim when there is
-  // nothing else it might have meant: with a second claim present, handing the
-  // declared debt AND its horizon to whichever claim named no debt let an
-  // undeclared payoff ride on the declared one's runway. "Six months of $565
-  // clears CreditOne 6610. It also wipes out the next balance." passed here
-  // while main rejected it — a real regression, not just a residual hole
-  // (Codex, PR #92). Multi-claim blocks therefore keep main's strict defaults
-  // for their unattributed claims: one month, any active debt.
-  const claimCount = units.reduce(
-    (count, unit) => count + [...unit.matchAll(globalClaimRe)].length,
-    0,
-  );
-  const declarationMayAttribute = claimCount <= 1;
+  // A declaration describes ONE payoff, so it can only stand in for a claim
+  // that names no debt when there is nothing else it might have meant. With a
+  // second claim anywhere in the brief, handing the declared debt AND its
+  // horizon to whichever claim named none let an undeclared payoff ride on the
+  // declared one's runway — a real regression against main, twice over:
+  //   - within one block: "Six months of $565 clears CreditOne 6610. It also
+  //     wipes out the next balance."
+  //   - across blocks, once the first was fixed: the same two claims split
+  //     between the verdict and the nextAction, where a PER-BLOCK count reset
+  //     and both halves looked like the sole claim (Codex, PR #92).
+  // Hence the count spans the whole brief. It is passed in rather than
+  // recomputed here because only the caller sees every block.
+  //
+  // Restatement is unaffected: a claim that NAMES the declared debt is covered
+  // regardless of the count (see below), so a verdict and an action describing
+  // one payoff both keep the declared runway.
+  const declarationMayAttribute = briefClaimCount <= 1;
 
   return units.some((sentence) => {
     const matches = [...sentence.matchAll(globalClaimRe)];

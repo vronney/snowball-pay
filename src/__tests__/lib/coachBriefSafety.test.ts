@@ -2170,6 +2170,42 @@ describe('declared payoffClaim (structured fields)', () => {
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
   });
 
+  it('counts claims across BOTH blocks before a declaration stands in for an unnamed one (Codex, PR #92)', () => {
+    // The multi-claim guard above was per block, so a claim in the verdict and
+    // an unattributed claim in the nextAction each looked like the sole claim
+    // and both borrowed the declared debt and its six-month runway. main
+    // rejected this; the first fix still accepted it.
+    const base = nextAction({
+      title: 'Keep the extra on CreditOne 6610',
+      body: 'It also wipes out the next balance.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 6 },
+    });
+    const brief = {
+      ...base,
+      verdict: { ...base.verdict, summary: 'Six months of $565 clears CreditOne 6610.' },
+    };
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
+  });
+
+  it('still covers a verdict and an action restating ONE payoff across blocks', () => {
+    // Control for the fix above: counting brief-wide must not break the
+    // ordinary shape where the verdict and the action describe the same
+    // payoff. Both name the declared debt, so attribution is certain and the
+    // count never enters into it.
+    const base = nextAction({
+      title: 'Keep the extra on CreditOne 6610',
+      body: 'The $565/mo total clears CreditOne 6610.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+    });
+    const brief = {
+      ...base,
+      verdict: { ...base.verdict, summary: 'CreditOne 6610 clears with the extra.' },
+    };
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
+  });
+
   it('does not let a fractional horizon buy an extra month of payments (Codex, PR #92)', () => {
     // $565/mo against $900: one month is short, two months covers. The
     // horizon is rounded UP, which is right for a runway read out of prose
