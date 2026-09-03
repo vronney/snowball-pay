@@ -2227,6 +2227,62 @@ describe('declared payoffClaim (structured fields)', () => {
     expect(findBriefViolation(honest, 500, 500, [MID])).toBeNull();
   });
 
+  // Characterization, not endorsement: CodeRabbit flagged (PR #92) that a claim
+  // naming several debts can be vouched for by whichever one is affordable, and
+  // that the declared horizon reaches all of them. Both are true. Neither is
+  // introduced here, and the proposed fix — per-candidate horizons — is a
+  // measured no-op, because path 1 already proved the declared debt clears at
+  // the declared horizon, so it always satisfies the `.some` below whatever the
+  // other candidates receive (240 combinations, 0 cases where a non-declared
+  // debt did the vouching). These tests pin the behaviour so a future change to
+  // it is deliberate rather than accidental. The real fix is a declaration PER
+  // DEBT rather than per brief — deliberately out of scope for this PR.
+  describe('a multi-debt claim is vouched for by one named debt (pre-existing)', () => {
+    const AFFORDABLE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65, isFocus: true };
+    const IMPOSSIBLE = { name: 'Store Card', balance: 3000, minimumPayment: 50 };
+    const PAIR = [AFFORDABLE, IMPOSSIBLE];
+    // $565/mo clears CreditOne in 3 months; Store Card gets $50/mo and no
+    // extra, so it cannot be paid off on any horizon here.
+
+    it('accepts it when the runway is STATED where the parser can read it — on main too', () => {
+      // The `.some` over named debts is deliberate and documented: attributeDebts
+      // collects every name in the clause, and the claim verb governs only one
+      // of them, so requiring all of them would reject "keep paying the Delta
+      // Amex minimum while this clears Store Card".
+      const brief = nextAction({
+        body: 'Over the next 6 months pay off CreditOne 6610 and Store Card.',
+        redirectAmount: 0,
+        payoffClaim: null,
+      });
+      expect(findBriefViolation(brief, 500, 500, PAIR)).toBeNull();
+    });
+
+    it('rejects the same claim when the runway sits after the conjunction', () => {
+      // Not a safety property — the horizon parser stops at the first
+      // coordinating conjunction, so the runway is simply never read and the
+      // strict one-month default applies. This is the prose crudity the
+      // declared field exists to route around.
+      const brief = nextAction({
+        body: 'Pay off CreditOne 6610 and Store Card over the next 6 months.',
+        redirectAmount: 0,
+        payoffClaim: null,
+      });
+      expect(findBriefViolation(brief, 500, 500, PAIR)).toBe('unverified_elimination_claim');
+    });
+
+    it('accepts it on a DECLARED horizon, matching the readable-runway case', () => {
+      // The declaration supplies the horizon prose parsing refused, so this
+      // lands on the same answer as the first test rather than the second. That
+      // is the intended design; what it inherits is the `.some` leniency above.
+      const brief = nextAction({
+        body: 'Pay off CreditOne 6610 and Store Card.',
+        redirectAmount: 0,
+        payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 6 },
+      });
+      expect(findBriefViolation(brief, 500, 500, PAIR)).toBeNull();
+    });
+  });
+
   describe('schema', () => {
     const valid = nextAction({
       payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
