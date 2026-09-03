@@ -849,10 +849,20 @@ function simulateRetirementTimes(
   for (let month = 1; month <= MAX_SIMULATED_MONTHS; month += 1) {
     if (retired.size === debts.length) break;
     const target = order.find((d) => !retired.has(d) && (remaining.get(d) ?? 0) > 0);
+    // The pot is read ONCE at the start of the month, and minimums freed this
+    // month are held back until the next one — `extraThisMonth = snowballExtra`
+    // in src/lib/snowball.ts, with `snowballExtra += debt.minimumPayment` only
+    // taking effect on the following pass. `debts` arrives in the caller's
+    // order (unsorted) while `target` comes from the strategy order, so a
+    // non-target debt sitting earlier in the array used to retire and hand its
+    // minimum to the target within the same month, retiring it early enough to
+    // accept an impossible declared horizon (Codex and CodeRabbit, PR #93).
+    const potThisMonth = pot;
+    let freedThisMonth = 0;
     let progressed = false;
     for (const debt of debts) {
       if (retired.has(debt)) continue;
-      const payment = debt.minimumPayment + (debt === target ? pot : 0);
+      const payment = debt.minimumPayment + (debt === target ? potThisMonth : 0);
       if (payment <= 0) continue;
       progressed = true;
       const before = remaining.get(debt) ?? 0;
@@ -861,10 +871,12 @@ function simulateRetirementTimes(
       if (left <= 0) {
         // Where inside this month the balance actually hit zero.
         retired.set(debt, month - 1 + Math.min(1, before / payment));
-        // The engine rolls the retired debt's minimum into the pot too.
-        pot += debt.minimumPayment;
+        // The engine rolls the retired debt's minimum into the pot too, from
+        // the next month onward.
+        freedThisMonth += debt.minimumPayment;
       }
     }
+    pot += freedThisMonth;
     // Nobody can pay anything (all minimums zero and no extra): stop rather
     // than spin for 600 months.
     if (!progressed) break;
@@ -938,26 +950,51 @@ function buildPaymentCapacity(
  * payment, and measuring 2.1 of them rejected a claim that was right to within
  * a rounding step.
  */
-function canEliminateDebt(
+/**
+ * Whether the plan's own sequential allocation retires this debt in time.
+ *
+ * `horizonMonths` is already the EFFECTIVE horizon — callers whole-month a
+ * runway the prose states and add the rounding allowance to a declared one —
+ * so it is compared as given, fractions included.
+ */
+function planRetiresDebt(
+  debt: EliminationCheckDebt,
+  horizonMonths: number,
+  payments: PaymentCapacity,
+): boolean {
+  return horizonMonths === Infinity || payments.retirementTime(debt) <= horizonMonths;
+}
+
+/**
+ * Whether the money THIS action proposes moving would retire the debt on its
+ * own — defence in depth over the SAME dollars as the acceleration rather than
+ * a sum, since an earlier law caps redirectAmount against
+ * effectiveAcceleration.
+ *
+ * Compared as a fractional payoff TIME, not by rounding the horizon up to whole
+ * payments: Math.ceil turned the 0.5-month rounding allowance back into a full
+ * extra month, so a debt needing 1.6 months passed a declared 1 (Codex,
+ * PR #93).
+ */
+function redirectRetiresDebt(
   debt: EliminationCheckDebt,
   horizonMonths: number,
   payments: PaymentCapacity,
 ): boolean {
   if (horizonMonths === Infinity) return true;
-  // Two independent ways a balance can reach zero, and the claim only needs
-  // one. First: the plan's own sequential allocation, simulated once for the
-  // whole brief. `horizonMonths` is already the EFFECTIVE horizon — callers
-  // whole-month a runway the prose states, and add the rounding allowance to a
-  // declared one — so it is compared as given, fractions included.
-  if (payments.retirementTime(debt) <= horizonMonths) return true;
-  // Second, defence in depth over the SAME dollars rather than a sum: whatever
-  // this action proposes moving directly. An earlier law caps redirectAmount
-  // against effectiveAcceleration, so adding the two would credit the plan
-  // money it does not have.
-  const months = Math.ceil(horizonMonths);
+  const monthly = debt.minimumPayment + payments.redirectAmount;
+  if (monthly <= 0) return false;
+  return (debt.balance - REDIRECT_TOLERANCE) / monthly <= horizonMonths;
+}
+
+function canEliminateDebt(
+  debt: EliminationCheckDebt,
+  horizonMonths: number,
+  payments: PaymentCapacity,
+): boolean {
   return (
-    months * (debt.minimumPayment + payments.redirectAmount) + REDIRECT_TOLERANCE >=
-    debt.balance
+    planRetiresDebt(debt, horizonMonths, payments) ||
+    redirectRetiresDebt(debt, horizonMonths, payments)
   );
 }
 
@@ -1076,11 +1113,20 @@ function makesUnverifiedEliminationClaim(
   // claims is still checked below at full strictness. Same rule as the schema's
   // `.catch([])` — fail soft into more scrutiny, never into a brief the user
   // loses.
+  // The redirect is a single sum of money this action proposes moving, so at
+  // most ONE declared payoff may lean on it. Evaluating each declaration
+  // independently handed the full redirect to every one of them, and two $620
+  // debts both declared paid this month out of one $600 redirect both passed
+  // (Codex, PR #93). The plan-funded path needs no such guard: it already runs
+  // off the shared simulation.
+  let redirectUnspent = true;
   for (const { debt, horizonMonths: claimedMonths } of resolvedClaims) {
-    if (
-      !canEliminateDebt(debt, claimedMonths + DECLARED_HORIZON_ROUNDING_MONTHS, payments)
-    ) {
-      return true;
+    const effectiveMonths = claimedMonths + DECLARED_HORIZON_ROUNDING_MONTHS;
+    if (!planRetiresDebt(debt, effectiveMonths, payments)) {
+      if (!redirectUnspent || !redirectRetiresDebt(debt, effectiveMonths, payments)) {
+        return true;
+      }
+      redirectUnspent = false;
     }
     // The same debt declared twice keeps the SHORTER runway. Two horizons for
     // one balance is malformed either way, and the shorter one is the stricter

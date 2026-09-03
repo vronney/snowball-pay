@@ -2663,3 +2663,83 @@ describe('a declared horizon is the model rounding a real number', () => {
     expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
   });
 });
+describe('allocation leaks found on PR #93 (round 4)', () => {
+  it('does not hand the target a minimum freed in the SAME month', () => {
+    // Both bots, independently. The simulation walks `debts` in the order the
+    // caller supplies (unsorted Prisma order) while `target` comes from the
+    // strategy order, so a non-target debt sitting earlier in the array could
+    // retire and push its freed minimum into the pot BEFORE the target was
+    // paid that month. The payoff engine reads snowballExtra once at the start
+    // of the month and only releases a retired minimum for the NEXT one.
+    //
+    // Small Fee ($50 at a $50 minimum) retires in month 1. Focus Card needs
+    // $650: $25 + the $600 pot is $625 and leaves it short, but $625 + Small
+    // Fee's freed $50 would clear it a month early.
+    const SMALL_FEE = { name: 'Small Fee', balance: 50, minimumPayment: 50 };
+    const FOCUS = { name: 'Focus Card', balance: 650, minimumPayment: 25, isFocus: true };
+    const brief = nextAction({
+      title: 'Finish Focus Card',
+      body: 'Focus Card is gone by month-end.',
+      redirectAmount: 0,
+      payoffClaims: [],
+    });
+    expect(findBriefViolation(brief, 600, 900, [SMALL_FEE, FOCUS])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('holds the redirect path to the same half-month allowance', () => {
+    // The caller adds the 0.5-month rounding allowance, then the redirect
+    // fallback ran Math.ceil over it and turned 1.5 into two whole payments.
+    // Target Card needs 1.6 months at $620/mo, so a declared 1 must fail: 1.6
+    // rounds to 2, not 1.
+    const BIG_FOCUS = { name: 'Delta Amex', balance: 5000, minimumPayment: 100, isFocus: true };
+    const TARGET = { name: 'Target Card', balance: 992, minimumPayment: 20 };
+    const brief = nextAction({
+      title: 'Send the extra to Target Card',
+      body: 'Send the full $600 extra to Target Card on top of its $20 minimum.',
+      redirectAmount: 600,
+      payoffClaims: [{ debtName: 'Target Card', horizonMonths: 1 }],
+    });
+    expect(findBriefViolation(brief, 600, 900, [BIG_FOCUS, TARGET])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('does not spend the same redirected dollars on two declared payoffs', () => {
+    // The plan-funded path shares one pot, but the redirect fallback was
+    // evaluated per debt and handed the FULL redirect to each. Two $620 debts
+    // both declared paid this month out of a single $600 redirect is
+    // arithmetically impossible, and both passed.
+    const BIG_FOCUS = { name: 'Delta Amex', balance: 5000, minimumPayment: 100, isFocus: true };
+    const FIRST = { name: 'Blue Card', balance: 620, minimumPayment: 20 };
+    const SECOND = { name: 'Green Card', balance: 620, minimumPayment: 20 };
+    const brief = nextAction({
+      title: 'Clear both small cards',
+      body: 'Put the $600 extra to work on Blue Card and Green Card.',
+      redirectAmount: 600,
+      payoffClaims: [
+        { debtName: 'Blue Card', horizonMonths: 1 },
+        { debtName: 'Green Card', horizonMonths: 1 },
+      ],
+    });
+    expect(findBriefViolation(brief, 600, 900, [BIG_FOCUS, FIRST, SECOND])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('still lets a single declared payoff use the redirect it is given', () => {
+    // Control for the two tests above: the redirect path exists because the
+    // action can send money to a debt the plan's acceleration does not reach,
+    // and one honest claim on it must still pass.
+    const BIG_FOCUS = { name: 'Delta Amex', balance: 5000, minimumPayment: 100, isFocus: true };
+    const FIRST = { name: 'Blue Card', balance: 620, minimumPayment: 20 };
+    const brief = nextAction({
+      title: 'Clear Blue Card',
+      body: 'Put the $600 extra to work on Blue Card.',
+      redirectAmount: 600,
+      payoffClaims: [{ debtName: 'Blue Card', horizonMonths: 1 }],
+    });
+    expect(findBriefViolation(brief, 600, 900, [BIG_FOCUS, FIRST])).toBeNull();
+  });
+});
