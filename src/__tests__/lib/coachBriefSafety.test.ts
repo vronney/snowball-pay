@@ -2928,3 +2928,69 @@ describe('the redirect is the acceleration, allocated differently (PR #93, round
     );
   });
 });
+describe('the plan keeps its own payoff queue (Codex, PR #93)', () => {
+  // The real engine works a strategy-sorted queue: focus first, then the next
+  // debt in payoff order, regardless of what the brief happens to claim. The
+  // simulation was moving every DECLARED debt ahead of every undeclared one,
+  // so a brief could be credited with a payoff the plan would not actually
+  // reach — and a keep_course action with redirectAmount 0 proposes no
+  // reallocation at all, so there is nothing to justify the reordering.
+  const FOCUS = { name: 'Focus Card', balance: 200, minimumPayment: 25, isFocus: true, payoffOrder: 1 };
+  const NEXT = { name: 'Next Card', balance: 500, minimumPayment: 10, payoffOrder: 2 };
+  const LATER = { name: 'Later Card', balance: 645, minimumPayment: 20, payoffOrder: 3 };
+  const DEBTS = [FOCUS, NEXT, LATER];
+
+  it('does not let a declared debt jump the queue when nothing is redirected', () => {
+    // Month 2's extra belongs to Next Card. Later Card is only reached in
+    // month 3 and clears at about 2.92, so a declared 2 is false — but hoisting
+    // it to the front of the simulation cleared it at 1.97 and accepted.
+    const brief = nextAction({
+      title: 'Stay the course',
+      body: 'Keep the current payoff order and log each payment.',
+      redirectAmount: 0,
+      payoffClaims: [{ debtName: 'Later Card', horizonMonths: 2 }],
+    });
+    expect(findBriefViolation(brief, 600, 900, DEBTS)).toBe('unverified_elimination_claim');
+  });
+
+  it('accepts the same claim at the month the queue actually reaches it', () => {
+    // Control: 2.92 rounds to 3, and a declared 3 is honest.
+    const brief = nextAction({
+      title: 'Stay the course',
+      body: 'Keep the current payoff order and log each payment.',
+      redirectAmount: 0,
+      payoffClaims: [{ debtName: 'Later Card', horizonMonths: 3 }],
+    });
+    expect(findBriefViolation(brief, 600, 900, DEBTS)).toBeNull();
+  });
+
+  it('still lets an action that REDIRECTS money reach a debt out of queue order', () => {
+    // Control for the control: the queue governs the plan's own allocation, not
+    // an action explicitly proposing to move money. Redirecting $600 at Later
+    // Card clears its $645 with its own $20 minimum inside two months.
+    const brief = nextAction({
+      title: 'Send the extra to Later Card',
+      body: 'Move the $600 extra to Later Card on top of its $20 minimum.',
+      redirectAmount: 600,
+      payoffClaims: [{ debtName: 'Later Card', horizonMonths: 2 }],
+    });
+    expect(findBriefViolation(brief, 600, 900, DEBTS)).toBeNull();
+  });
+
+  it('keeps working for briefs cached before the payoff order was stored', () => {
+    // Same rule as isFocus when it was introduced: absent context must not
+    // purge old caches, so without payoffOrder the previous ordering stands.
+    const legacy = [
+      { name: 'Focus Card', balance: 200, minimumPayment: 25, isFocus: true },
+      { name: 'Next Card', balance: 500, minimumPayment: 10 },
+      { name: 'Later Card', balance: 645, minimumPayment: 20 },
+    ];
+    const brief = nextAction({
+      title: 'Stay the course',
+      body: 'Keep the current payoff order and log each payment.',
+      redirectAmount: 0,
+      payoffClaims: [{ debtName: 'Later Card', horizonMonths: 2 }],
+    });
+    expect(findBriefViolation(brief, 600, 900, legacy)).toBeNull();
+  });
+});

@@ -155,6 +155,16 @@ export interface EliminationCheckDebt {
    * those caches.
    */
   isFocus?: boolean;
+  /**
+   * This debt's 1-based position in the plan's payoff queue, straight from the
+   * engine's strategy sort. The law used to infer an order — focus first, then
+   * whatever the brief declared, then the rest by balance — which moved
+   * DECLARED debts ahead of undeclared ones and credited a keep_course brief
+   * with a payoff the plan would not actually reach that month (Codex,
+   * PR #93). Optional because briefs cached before this field existed carry
+   * none; those keep the inferred order rather than being purged.
+   */
+  payoffOrder?: number;
 }
 
 // Persisted shape carries the law context that was true at generation time
@@ -938,15 +948,21 @@ function buildPaymentCapacity(
     };
   }
 
-  // Focus first — the plan is already funding it — then the debts the brief
-  // claims, soonest first, then the rest smallest first.
-  const order = [
-    focusDebt,
-    ...claimOrder.filter((d) => d !== focusDebt),
-    ...debts
-      .filter((d) => d !== focusDebt && !claimOrder.includes(d))
-      .sort((a, b) => a.balance - b.balance),
-  ];
+  // The plan's OWN queue when the caller supplied it: the engine works a
+  // strategy-sorted list and does not reshuffle because a brief mentions a
+  // debt. Only when that order is missing (briefs cached before it was stored)
+  // does the law fall back to inferring one — focus first, then the debts the
+  // brief claims, then the rest smallest first.
+  const hasPayoffOrder = debts.every((d) => Number.isFinite(d.payoffOrder));
+  const order = hasPayoffOrder
+    ? [...debts].sort((a, b) => (a.payoffOrder as number) - (b.payoffOrder as number))
+    : [
+        focusDebt,
+        ...claimOrder.filter((d) => d !== focusDebt),
+        ...debts
+          .filter((d) => d !== focusDebt && !claimOrder.includes(d))
+          .sort((a, b) => a.balance - b.balance),
+      ];
   const retired = simulateRetirementTimes(debts, monthlyExtra, order);
 
   // The SAME money, allocated the way the action proposes: the redirect drives
@@ -1561,6 +1577,9 @@ export function parseLawfulStoredBrief(raw: unknown): CoachBrief | null {
                 // Absent on briefs cached before the field existed; those keep
                 // the old whole-plan reading rather than being purged.
                 isFocus: candidate.isFocus === true,
+                ...(Number.isFinite(candidate.payoffOrder)
+                  ? { payoffOrder: candidate.payoffOrder as number }
+                  : {}),
               },
             ]
           : [];

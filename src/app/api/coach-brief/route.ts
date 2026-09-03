@@ -673,11 +673,21 @@ Current plan:
     // one debt the plan's acceleration actually flows to — without it the law
     // credited the whole acceleration to every debt and accepted a payoff
     // claim about a card receiving only its minimum.
+    // `payoffOrder` is the plan's real queue position, straight from the
+    // engine's strategy sort. Without it the law had to infer an order and
+    // moved declared debts to the front, crediting a brief with a payoff the
+    // plan would not reach that month.
+    const payoffOrderByDebtId = new Map(
+      result.payoffSchedule.map((entry) => [entry.debtId, entry.orderInPayoff]),
+    );
     const lawDebts = activeDebts.map((d) => ({
       name: d.name,
       balance: d.balance,
       minimumPayment: d.minimumPayment,
       isFocus: focusDebt ? d.id === focusDebt.id : false,
+      ...(payoffOrderByDebtId.has(d.id)
+        ? { payoffOrder: payoffOrderByDebtId.get(d.id) as number }
+        : {}),
     }));
 
     let brief: CoachBrief;
