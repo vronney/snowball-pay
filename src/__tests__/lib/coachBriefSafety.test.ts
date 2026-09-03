@@ -2141,6 +2141,56 @@ describe('declared payoffClaim (structured fields)', () => {
     expect(parseLawfulStoredBrief(stored)).toBeNull();
   });
 
+  it('does not let the declared runway carry a SECOND, unattributed claim (Codex, PR #92)', () => {
+    // Regression, not just a residual hole: main rejected this text and the
+    // first cut of this change accepted it. The declaration describes ONE
+    // payoff, so handing its debt AND its six-month runway to whichever claim
+    // named no debt let an undeclared payoff ride on the declared one.
+    const brief = nextAction({
+      title: 'Keep the extra on CreditOne 6610',
+      body: 'Six months of $565 clears CreditOne 6610. It also wipes out the next balance.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 6 },
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
+  });
+
+  it('still covers two claims that both NAME the declared debt', () => {
+    // Control for the fix above, and the reason the two cases are not
+    // symmetric: a title and body restating one payoff are two claim matches
+    // in the same block, but both name the debt, so attribution is certain and
+    // only the horizon comes from the declaration. Spending the declaration on
+    // the first match would have rejected this ordinary shape.
+    const brief = nextAction({
+      title: 'Clear CreditOne 6610 with the extra',
+      body: 'The $565/mo total clears CreditOne 6610.',
+      redirectAmount: 0,
+      payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
+  });
+
+  it('does not let a fractional horizon buy an extra month of payments (Codex, PR #92)', () => {
+    // $565/mo against $900: one month is short, two months covers. The
+    // horizon is rounded UP, which is right for a runway read out of prose
+    // ("in 2.2 months" is gone on the third payment) and wrong for a declared
+    // one — 1.1 bought the same pass as an honest 2. Whole months only, so a
+    // fractional value falls through .catch(null) to the strict prose law.
+    const MID = { name: 'CreditOne 6610', balance: 900, minimumPayment: 65, isFocus: true };
+    const body = 'Directing the full $500 extra at CreditOne 6610 clears that balance.';
+    const fractional = CoachBriefSchema.parse(
+      nextAction({ body, redirectAmount: 0, payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 1.1 } }),
+    );
+    expect(fractional.nextAction.payoffClaim).toBeNull();
+    expect(findBriefViolation(fractional, 500, 500, [MID])).toBe('unverified_elimination_claim');
+
+    // Control: an honestly declared 2 still earns its two months.
+    const honest = CoachBriefSchema.parse(
+      nextAction({ body, redirectAmount: 0, payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 2 } }),
+    );
+    expect(findBriefViolation(honest, 500, 500, [MID])).toBeNull();
+  });
+
   describe('schema', () => {
     const valid = nextAction({
       payoffClaim: { debtName: 'CreditOne 6610', horizonMonths: 3 },
@@ -2162,6 +2212,7 @@ describe('declared payoffClaim (structured fields)', () => {
       ['a zero horizon', { debtName: 'CreditOne 6610', horizonMonths: 0 }],
       ['a negative horizon', { debtName: 'CreditOne 6610', horizonMonths: -3 }],
       ['an absurd horizon', { debtName: 'CreditOne 6610', horizonMonths: 5000 }],
+      ['a fractional horizon', { debtName: 'CreditOne 6610', horizonMonths: 1.1 }],
       ['an empty debt name', { debtName: '', horizonMonths: 3 }],
     ])('falls back to null on %s rather than failing the whole brief', (_label, value) => {
       // The opposite of redirectAmount's rule, on purpose: null here means the

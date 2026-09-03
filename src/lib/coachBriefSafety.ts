@@ -12,12 +12,20 @@ const VerdictStatus = ['on_track', 'at_risk', 'off_track'] as const;
 // asking for them as JSON — exactly as `targetExtra` and `redirectAmount`
 // already do — turns a parsing problem into an arithmetic one.
 //
-// `horizonMonths` is months from now by which the balance reaches zero, so 1
-// means "by month-end". The upper bound is a sanity check, not a policy: a
-// payoff horizon of fifty years is a malformed number, not a claim.
+// `horizonMonths` is whole months from now by which the balance reaches zero,
+// so 1 means "by month-end". The upper bound is a sanity check, not a policy:
+// a payoff horizon of fifty years is a malformed number, not a claim.
+//
+// `.int()` is load-bearing, not tidiness. canEliminateDebt rounds the horizon
+// UP, which is right for a runway PARSED from prose ("in 2.2 months" is gone
+// on the third payment) but wrong for a declared one: a declared 1.1 bought
+// two months of payments, so on a $900 balance at $565/mo it passed where an
+// honest 1 was rejected (Codex, PR #92). The prompt asks for whole months, so
+// a fractional value is malformed, and rejecting it here routes it through
+// `.catch(null)` to the strict prose law — the intended failure mode.
 const PayoffClaimSchema = z.object({
   debtName: z.string().min(1),
-  horizonMonths: z.number().positive().max(600),
+  horizonMonths: z.number().int().positive().max(600),
 });
 
 export type PayoffClaim = z.infer<typeof PayoffClaimSchema>;
@@ -941,7 +949,12 @@ function attributeDebts(
   return named;
 }
 
-/** Runs the elimination-claim law against one text block in isolation. */
+/**
+ * Runs the elimination-claim law against one text block in isolation.
+ *
+ * `declared` is the brief's verified payoff claim, used ONLY where the prose
+ * law would otherwise guess — see makesUnverifiedEliminationClaim.
+ */
 function blockMakesUnverifiedClaim(
   text: string,
   extraFor: (debt: EliminationCheckDebt) => number,
@@ -973,14 +986,30 @@ function blockMakesUnverifiedClaim(
   const units = claimSentences.length > 0 ? claimSentences : [text];
   const globalClaimRe = new RegExp(claimRe.source, 'gi');
 
+  // How many claims this block makes at all. A declaration describes ONE
+  // payoff, so it can only stand in for an unattributed claim when there is
+  // nothing else it might have meant: with a second claim present, handing the
+  // declared debt AND its horizon to whichever claim named no debt let an
+  // undeclared payoff ride on the declared one's runway. "Six months of $565
+  // clears CreditOne 6610. It also wipes out the next balance." passed here
+  // while main rejected it — a real regression, not just a residual hole
+  // (Codex, PR #92). Multi-claim blocks therefore keep main's strict defaults
+  // for their unattributed claims: one month, any active debt.
+  const claimCount = units.reduce(
+    (count, unit) => count + [...unit.matchAll(globalClaimRe)].length,
+    0,
+  );
+  const declarationMayAttribute = claimCount <= 1;
+
   return units.some((sentence) => {
     const matches = [...sentence.matchAll(globalClaimRe)];
     if (matches.length === 0) {
       // The unit matched as a whole but yields no positioned match; treat it
       // as one unattributed claim rather than skipping it.
+      const covering = declarationMayAttribute ? declared : null;
       const horizonMonths =
-        claimStatedHorizonMonths('', sentence) ?? declared?.horizonMonths ?? 1;
-      const candidates = declared ? [declared.debt] : debts;
+        claimStatedHorizonMonths('', sentence) ?? covering?.horizonMonths ?? 1;
+      const candidates = covering ? [covering.debt] : debts;
       return !candidates.some((debt) => canEliminate(debt, horizonMonths));
     }
 
@@ -1021,13 +1050,20 @@ function blockMakesUnverifiedClaim(
         namedInMatch.length > 0 ? namedInMatch : attributeDebts(attributionScope, debts);
 
       // A verified declaration only speaks for claims it could plausibly be
-      // about: one naming no debt, or naming the declared one. A claim about a
-      // DIFFERENT debt is a second claim the model never declared, so it keeps
-      // the strict defaults — otherwise one honest declaration would vouch
-      // for every payoff sentence in the brief.
+      // about. Two cases, and they are not symmetric:
+      //  - the claim NAMES the declared debt: attribution is certain, so only
+      //    the horizon comes from the declaration. Always allowed, including in
+      //    a multi-claim block, so a title and body restating one payoff both
+      //    get the runway the model declared for it.
+      //  - the claim names NO debt: the declaration is a guess at what it is
+      //    about, and is trusted only when the block makes no other claim.
+      // A claim about a DIFFERENT debt is never covered — otherwise one honest
+      // declaration would vouch for every payoff sentence in the brief.
       const covering =
         declared !== null &&
-        (named.length === 0 || named.some((debt) => debt === declared.debt))
+        (named.length > 0
+          ? named.some((debt) => debt === declared.debt)
+          : declarationMayAttribute)
           ? declared
           : null;
 
