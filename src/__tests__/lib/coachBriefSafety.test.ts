@@ -2526,3 +2526,87 @@ describe('acceleration rolling over to the next debt', () => {
     expect(findBriefViolation(brief, 600, 900, unmarked)).toBeNull();
   });
 });
+describe('the rolled-over pot is shared, not copied (Codex, PR #93)', () => {
+  // Store Card is the focus: $25 minimum + $600 acceleration = $625/mo against
+  // a $200 balance, so it is retired in month 1 and its $25 minimum joins the
+  // pot, exactly as src/lib/snowball.ts does. From month 2 the pot is $625,
+  // and it goes to ONE debt.
+  const FOCUS = { name: 'Store Card', balance: 200, minimumPayment: 25, isFocus: true };
+
+  it('rejects two non-focus payoffs that would need the same dollars twice', () => {
+    // Both $620 debts are declared paid by month 2. Month 2 has one pot of
+    // $625: whichever debt receives it clears, and the other is left on its $20
+    // minimum. The per-debt approximation granted the rolled-over acceleration
+    // to each of them independently and passed both.
+    const first = { name: 'Blue Card', balance: 620, minimumPayment: 20 };
+    const second = { name: 'Green Card', balance: 620, minimumPayment: 20 };
+    const brief = nextAction({
+      title: 'Clear both after the focus card',
+      body: 'Store Card clears this month, then Blue Card and Green Card both finish next month.',
+      redirectAmount: 0,
+      payoffClaims: [
+        { debtName: 'Store Card', horizonMonths: 1 },
+        { debtName: 'Blue Card', horizonMonths: 2 },
+        { debtName: 'Green Card', horizonMonths: 2 },
+      ],
+    });
+    expect(findBriefViolation(brief, 600, 900, [FOCUS, first, second])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('accepts the same brief when only one of them claims that month', () => {
+    // Control: the pot really does clear ONE of them, so dropping the second
+    // claim makes the brief true. The rejection above is about the money being
+    // spent twice, not about two claims being disallowed.
+    const first = { name: 'Blue Card', balance: 620, minimumPayment: 20 };
+    const second = { name: 'Green Card', balance: 620, minimumPayment: 20 };
+    const brief = nextAction({
+      title: 'Clear Blue Card after the focus card',
+      body: 'Store Card clears this month, then Blue Card finishes next month.',
+      redirectAmount: 0,
+      payoffClaims: [
+        { debtName: 'Store Card', horizonMonths: 1 },
+        { debtName: 'Blue Card', horizonMonths: 2 },
+      ],
+    });
+    expect(findBriefViolation(brief, 600, 900, [FOCUS, first, second])).toBeNull();
+  });
+
+  it('counts the retired debt\'s freed minimum as part of the pot', () => {
+    // $645 needs the whole rolled-over payment: $20 of its own minimum plus the
+    // $625 pot, which is only $625 because the retired focus card's $25 minimum
+    // joined the $600 acceleration. Modelling the acceleration alone gave $640
+    // and rejected a brief the plan genuinely funds.
+    const next = { name: 'Blue Card', balance: 645, minimumPayment: 20 };
+    const brief = nextAction({
+      title: 'Clear Blue Card next month',
+      body: 'Store Card clears this month, then the full $625 finishes Blue Card next month.',
+      redirectAmount: 0,
+      payoffClaims: [
+        { debtName: 'Store Card', horizonMonths: 1 },
+        { debtName: 'Blue Card', horizonMonths: 2 },
+      ],
+    });
+    expect(findBriefViolation(brief, 600, 900, [FOCUS, next])).toBeNull();
+  });
+
+  it('still rejects a balance one dollar beyond what the pot can reach', () => {
+    // Control for the test above. The debt also pays its own $20 in month 1, so
+    // over two months it receives $20 + ($20 + $625) = $665; $700 is beyond
+    // reach. Including the freed minimum makes the law more faithful, not blind.
+    const next = { name: 'Blue Card', balance: 700, minimumPayment: 20 };
+    const brief = nextAction({
+      title: 'Clear Blue Card next month',
+      body: 'Store Card clears this month, then the full $625 finishes Blue Card next month.',
+      redirectAmount: 0,
+      payoffClaims: [
+        { debtName: 'Store Card', horizonMonths: 1 },
+        { debtName: 'Blue Card', horizonMonths: 2 },
+      ],
+    });
+    expect(findBriefViolation(brief, 600, 900, [FOCUS, next])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+});
