@@ -2592,10 +2592,11 @@ describe('the rolled-over pot is shared, not copied (Codex, PR #93)', () => {
   });
 
   it('still rejects a balance one dollar beyond what the pot can reach', () => {
-    // Control for the test above. The debt also pays its own $20 in month 1, so
-    // over two months it receives $20 + ($20 + $625) = $665; $700 is beyond
-    // reach. Including the freed minimum makes the law more faithful, not blind.
-    const next = { name: 'Blue Card', balance: 700, minimumPayment: 20 };
+    // Control for the test above, set past the rounding boundary. $700 would
+    // clear at 2.05 months, which rounds to the declared 2 and is now allowed
+    // on purpose; $1,100 clears at 2.67, which does not. Including the freed
+    // minimum makes the law more faithful, not blind.
+    const next = { name: 'Blue Card', balance: 1100, minimumPayment: 20 };
     const brief = nextAction({
       title: 'Clear Blue Card next month',
       body: 'Store Card clears this month, then the full $625 finishes Blue Card next month.',
@@ -2608,5 +2609,57 @@ describe('the rolled-over pot is shared, not copied (Codex, PR #93)', () => {
     expect(findBriefViolation(brief, 600, 900, [FOCUS, next])).toBe(
       'unverified_elimination_claim',
     );
+  });
+});
+describe('a declared horizon is the model rounding a real number', () => {
+  // CreditOne is the focus: $65 minimum + $500 acceleration = $565/mo against
+  // $1,209, so the balance actually reaches zero at 2.14 months.
+  const CREDIT_ONE = { name: 'CreditOne 6610', balance: 1209, minimumPayment: 65, isFocus: true };
+  const DELTA_AMEX = { name: 'Delta Amex', balance: 10169, minimumPayment: 250 };
+  const DEBTS = [CREDIT_ONE, DELTA_AMEX];
+
+  it('accepts a declared 2 when the true payoff time is 2.14 months', () => {
+    // Verbatim shape from a live sweep, and the largest false-positive class
+    // the declaration path introduced: the model writes "clears it in ~2
+    // months" and declares 2. PR #91 already ruled that "~2 months" is a fair
+    // approximation and gave hedged PROSE the next whole month; a declared
+    // integer is the same claim with the hedge stripped out by the JSON.
+    const brief = nextAction({
+      title: 'Attack CreditOne 6610',
+      body: 'CreditOne at $1209 and 92% utilization. $565/mo total clears it in ~2 months, freeing cash for Delta Amex.',
+      redirectAmount: 0,
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 2 }],
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBeNull();
+  });
+
+  it('still rejects a declared 2 when the true payoff time is 2.65 months', () => {
+    // The control that keeps the allowance honest: half a month is the
+    // rounding boundary, not a free extra month. $1,500 at $565/mo reaches
+    // zero at 2.65, which rounds to 3, so declaring 2 is wrong rather than
+    // approximate.
+    const bigger = { name: 'CreditOne 6610', balance: 1500, minimumPayment: 65, isFocus: true };
+    const brief = nextAction({
+      title: 'Attack CreditOne 6610',
+      body: 'CreditOne at $1500. $565/mo total clears it in ~2 months.',
+      redirectAmount: 0,
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 2 }],
+    });
+    expect(findBriefViolation(brief, 500, 500, [bigger, DELTA_AMEX])).toBe(
+      'unverified_elimination_claim',
+    );
+  });
+
+  it('does not extend a deadline the TEXT states', () => {
+    // The allowance belongs to the declared figure alone. "by month-end" is
+    // the user-visible promise, so it is measured as one month however
+    // generously the JSON is rounded — this is the reported incident's shape.
+    const brief = nextAction({
+      title: 'Attack CreditOne 6610',
+      body: 'Paying $565 total this month eliminates CreditOne 6610 by month-end.',
+      redirectAmount: 500,
+      payoffClaims: [{ debtName: 'CreditOne 6610', horizonMonths: 2 }],
+    });
+    expect(findBriefViolation(brief, 500, 500, DEBTS)).toBe('unverified_elimination_claim');
   });
 });

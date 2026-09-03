@@ -336,6 +336,30 @@ export function buildUnsafeMinimumAdviceRe(debtNames: string[] = []): RegExp {
 
 export const REDIRECT_TOLERANCE = 1; // dollars — absorbs rounding only
 
+/**
+ * Months of slack a DECLARED horizon gets, and only a declared one.
+ *
+ * The model writes "clears it in ~2 months" and declares `horizonMonths: 2`
+ * for a balance that actually clears at 2.14. PR #91 already settled that case
+ * for prose: an approximate hedge ("~2 months") earns the next whole month,
+ * precisely because measuring a flat 2 rejected a fair approximation. A
+ * declared integer is the same claim with the hedge stripped out by the JSON,
+ * so it earns the same allowance — without it the declaration path re-opened
+ * the exact false positive PR #91 closed, measured at 7 of 10 disagreements in
+ * a live sweep.
+ *
+ * HALF a month, not a whole one. The allowance exists for ROUNDING, so the
+ * question it answers is "does the true payoff time round to the number the
+ * model declared" — true at 2.14 vs 2, false at 2.87 vs 2. A whole month
+ * excused a claim that was genuinely a month short and broke the shared-pot
+ * checks from PR #93; half a month is exactly the rounding boundary.
+ *
+ * It does NOT loosen a stated deadline either. Prose that says "by month-end"
+ * sets the horizon itself and wins over the declaration, so the same-month
+ * claims this law exists to stop stay strict.
+ */
+const DECLARED_HORIZON_ROUNDING_MONTHS = 0.5;
+
 // Elimination-claim verbs: phrases asserting a specific debt hits zero.
 // Deliberately does NOT include timeline phrases like "debt-free in 11
 // months" — those describe the whole plan, not a single debt's balance.
@@ -771,8 +795,8 @@ function lawScannedText(brief: CoachBrief): string {
 interface PaymentCapacity {
   /** Extra dollars this action proposes moving, on top of any minimum. */
   redirectAmount: number;
-  /** The month this debt's balance reaches zero under the plan, or Infinity. */
-  retirementMonth: (debt: EliminationCheckDebt) => number;
+  /** When this debt's balance reaches zero, in fractional months, or Infinity. */
+  retirementTime: (debt: EliminationCheckDebt) => number;
 }
 
 /** Simulation ceiling. Above the schema's 600-month cap nothing can be claimed. */
@@ -781,6 +805,12 @@ const MAX_SIMULATED_MONTHS = 600;
 /**
  * When each debt is retired, simulated ONCE for the whole brief against a
  * shared pot of money — mirroring src/lib/snowball.ts, minus interest.
+ *
+ * The result is FRACTIONAL: a debt cleared by two thirds of month three is
+ * 2.67, not 3. Whole months are enough to check a horizon the prose states
+ * (payments arrive monthly), but the declared-horizon allowance above needs to
+ * know whether the true time rounds to the declared figure, and 3 cannot tell
+ * 2.14 from 2.87.
  *
  * A per-debt approximation was tried first and was wrong in both directions
  * (Codex, PR #93). The engine sends `extraThisMonth` to ONE target per month,
@@ -805,7 +835,7 @@ const MAX_SIMULATED_MONTHS = 600;
  * debt takes at least one month to retire, so no other debt can see the pot in
  * month one. The reported incident and every same-month test are untouched.
  */
-function simulateRetirementMonths(
+function simulateRetirementTimes(
   debts: EliminationCheckDebt[],
   monthlyExtra: number,
   order: EliminationCheckDebt[],
@@ -825,10 +855,12 @@ function simulateRetirementMonths(
       const payment = debt.minimumPayment + (debt === target ? pot : 0);
       if (payment <= 0) continue;
       progressed = true;
-      const left = (remaining.get(debt) ?? 0) - payment;
+      const before = remaining.get(debt) ?? 0;
+      const left = before - payment;
       remaining.set(debt, left);
       if (left <= 0) {
-        retired.set(debt, month);
+        // Where inside this month the balance actually hit zero.
+        retired.set(debt, month - 1 + Math.min(1, before / payment));
         // The engine rolls the retired debt's minimum into the pot too.
         pot += debt.minimumPayment;
       }
@@ -869,9 +901,9 @@ function buildPaymentCapacity(
   if (focusDebt === null) {
     return {
       redirectAmount,
-      retirementMonth: (debt) => {
+      retirementTime: (debt) => {
         const perMonth = debt.minimumPayment + monthlyExtra;
-        return perMonth > 0 ? Math.ceil(debt.balance / perMonth) : Infinity;
+        return perMonth > 0 ? debt.balance / perMonth : Infinity;
       },
     };
   }
@@ -885,11 +917,11 @@ function buildPaymentCapacity(
       .filter((d) => d !== focusDebt && !claimOrder.includes(d))
       .sort((a, b) => a.balance - b.balance),
   ];
-  const retired = simulateRetirementMonths(debts, monthlyExtra, order);
+  const retired = simulateRetirementTimes(debts, monthlyExtra, order);
 
   return {
     redirectAmount,
-    retirementMonth: (debt) => retired.get(debt) ?? Infinity,
+    retirementTime: (debt) => retired.get(debt) ?? Infinity,
   };
 }
 
@@ -912,14 +944,17 @@ function canEliminateDebt(
   payments: PaymentCapacity,
 ): boolean {
   if (horizonMonths === Infinity) return true;
-  const months = Math.ceil(horizonMonths);
   // Two independent ways a balance can reach zero, and the claim only needs
   // one. First: the plan's own sequential allocation, simulated once for the
-  // whole brief. Second, defence in depth over the SAME dollars rather than a
-  // sum: whatever this action proposes moving directly. An earlier law caps
-  // redirectAmount against effectiveAcceleration, so adding the two would
-  // credit the plan money it does not have.
-  if (payments.retirementMonth(debt) <= months) return true;
+  // whole brief. `horizonMonths` is already the EFFECTIVE horizon — callers
+  // whole-month a runway the prose states, and add the rounding allowance to a
+  // declared one — so it is compared as given, fractions included.
+  if (payments.retirementTime(debt) <= horizonMonths) return true;
+  // Second, defence in depth over the SAME dollars rather than a sum: whatever
+  // this action proposes moving directly. An earlier law caps redirectAmount
+  // against effectiveAcceleration, so adding the two would credit the plan
+  // money it does not have.
+  const months = Math.ceil(horizonMonths);
   return (
     months * (debt.minimumPayment + payments.redirectAmount) + REDIRECT_TOLERANCE >=
     debt.balance
@@ -1042,7 +1077,11 @@ function makesUnverifiedEliminationClaim(
   // `.catch([])` — fail soft into more scrutiny, never into a brief the user
   // loses.
   for (const { debt, horizonMonths: claimedMonths } of resolvedClaims) {
-    if (!canEliminateDebt(debt, claimedMonths, payments)) return true;
+    if (
+      !canEliminateDebt(debt, claimedMonths + DECLARED_HORIZON_ROUNDING_MONTHS, payments)
+    ) {
+      return true;
+    }
     // The same debt declared twice keeps the SHORTER runway. Two horizons for
     // one balance is malformed either way, and the shorter one is the stricter
     // reading — the direction every other ambiguity in this file resolves.
@@ -1158,6 +1197,14 @@ function blockMakesUnverifiedClaim(
   const claimRe = buildEliminationClaimRe(debts.map((d) => d.name));
   if (!claimRe.test(text)) return false;
 
+  // A runway the TEXT states buys whole months of payments, as it always has.
+  const statedEffective = (months: number) => Math.ceil(months);
+  // A declared horizon carries its rounding allowance wherever it is read, so
+  // the two call sites below cannot drift apart.
+  const declaredEffective = (debt: EliminationCheckDebt): number | undefined => {
+    const declared = declaredHorizons.get(debt);
+    return declared === undefined ? undefined : declared + DECLARED_HORIZON_ROUNDING_MONTHS;
+  };
   const canEliminate = (d: EliminationCheckDebt, horizonMonths: number) =>
     canEliminateDebt(d, horizonMonths, payments);
 
@@ -1216,7 +1263,7 @@ function blockMakesUnverifiedClaim(
       return !candidates.some((debt) =>
         canEliminate(
           debt,
-          statedMonths ?? (soleDeclaredDebt ? declaredHorizons.get(debt) : undefined) ?? 1,
+          statedMonths !== null ? statedEffective(statedMonths) : declaredEffective(debt) ?? 1,
         ),
       );
     }
@@ -1285,9 +1332,9 @@ function blockMakesUnverifiedClaim(
       return !candidates.some((debt) =>
         canEliminate(
           debt,
-          statedHorizonMonths ??
-            (declarationApplies ? declaredHorizons.get(debt) : undefined) ??
-            1,
+          statedHorizonMonths !== null
+            ? statedEffective(statedHorizonMonths)
+            : (declarationApplies ? declaredEffective(debt) : undefined) ?? 1,
         ),
       );
     });
