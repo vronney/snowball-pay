@@ -18,6 +18,11 @@ interface SavePlanModalProps {
   calculatorState?: CalculatorSessionState;
 }
 
+/**
+ * Email capture shown from the calculator result: persists the full
+ * calculator session locally, then hands off to Auth0 signup with the email
+ * pre-filled so the exact plan is waiting on the new dashboard.
+ */
 export default function SavePlanModal({
   onClose,
   debtFreeDate,
@@ -94,7 +99,10 @@ export default function SavePlanModal({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 100,
+        // Same layer as the in-app modals (UpgradeModal, ManageBillingModal):
+        // a modal scrim covers every fixed banner, the analytics consent
+        // sheet included, so nothing can sit over its form on a phone.
+        zIndex: 9999,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
