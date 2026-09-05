@@ -8,16 +8,16 @@ This document keeps aggregate numbers and conclusions only. Per-account evidence
 
 | Question | Answer |
 |---|---|
-| Is Pro signup / Stripe broken? | **No.** Checkout sessions are created (11 in 90 days), webhooks write renewals (two renewal writes in late August), zero 5xx on billing routes in 7 days. |
+| Is Pro signup / Stripe broken? | **No.** Checkout sessions are created (Stripe's live account lists 8 since June 1; the 11 counted on 2026-09-04 were PostHog `checkout_session_created` events from 3 people, which fire per attempt and so run higher than Stripe's list), webhooks write renewals (two renewal writes in late August), zero 5xx on billing routes in 7 days. |
 | Why only 2 Pro users? | **Retention, not checkout.** 31 of 38 external accounts never returned after day one. Pro is sold as "the months after"; almost nobody reaches month two. |
-| What first? | Trial-ending emails (none existed at audit time), a personal note to the one paying customer (idle four weeks), and the calculator validation trap (393 `calculator_form_blocked` events from 8 people). |
+| What first? | Trial-ending emails (none existed at audit time), a personal note to the one paying customer (idle four weeks), and the calculator friction found on 2026-09-05 (the "Reset sample numbers" hero button and the consent banner, not the `calculator_form_blocked` count, which was a bot burst; see below). |
 
 ## The 41 users (aggregate)
 
-- 41 accounts (38 external, 3 internal). 2 Pro: one external paying customer (P1, paying since late May at a grandfathered $9/mo, not the list price of $12) and the founder.
+- 41 accounts (38 external, 3 internal). 2 Pro: one external paying customer (P1) and the founder.
 - 30 added a debt, 29 saved income, 11 ever logged a payment, 7 external users returned after day one.
-- Stripe customers: 5. Subscriptions: 3 (2 active, 1 canceled: C1 took the old 7-day card trial in April, canceled before the first charge, then kept using Free for three months as one of the most active accounts).
-- Abandoned checkouts: one real user in July (left the Stripe page within a minute of signup) and the founder's own test sessions in August.
+- Stripe customers: 5. Subscriptions: 3 (2 active, 1 canceled on a failed payment rather than by choice; see the Stripe check below).
+- Abandoned checkouts: one real user; the rest were internal test sessions.
 - Trial cohort since 08-14: 11 signups, 4 trials expired, 0 converted, 0 returned. 7 still in trial.
 - Buyer shape: the only two people who ever entered a card (P1, C1) each carried 10+ debts and logged 19–29 payments. Three current trial users share the *shape* (7 to 10 debts, and in one case every payment logged on day one) but not yet the payment history, which needs weeks to accumulate; they are the accounts to interview, not proof of conversion.
 - Calculator leads: 15 captured, 10 became accounts.
@@ -28,7 +28,13 @@ This document keeps aggregate numbers and conclusions only. Per-account evidence
 2. **No trial-ending email existed.** Lifecycle covered day 0/2/5/7, weekly, monthly, and a 30-day win-back. Nothing at day 11 or 14; the banner and post-trial modal only rendered in-app. *Resolved the same day, see the action plan.*
 3. **`subscription_started` has never reached PostHog** (consent-gated). A paid conversion is invisible in funnels. Capture a consent-free, PII-free count event too. *Still open.*
 
-Not verified this session: the Stripe dashboard (connector not authorized), Vercel logs older than 24h, live-site screenshots (domain blocked by the session's network policy).
+Not verified on 2026-09-04: the Stripe dashboard (connector not authorized), Vercel logs older than 24h, live-site screenshots (domain blocked by the session's network policy).
+
+**Stripe check, 2026-09-05 (live account, since June 1, aggregates only):**
+- 8 Checkout sessions, all expired unpaid; all but one were internal test sessions. The one real abandonment predates recovery emails, so none was sent. Internal sessions created without `trial_end` did have recovery enabled, which confirms the `after_expiration` path works in that case.
+- All payment intents in the window succeeded, and all were renewals for the active subscriptions. No declines.
+- **Correction to C1:** the cancellation was a failed payment, not a voluntary cancel. That is a recoverable customer, not a churned one. Lever: a personal reactivation note. Details live in the private audit record.
+- The billing finding above (mid-trial checkout disables recovery) still stands.
 
 ## Funnel, 90 days (unique persons, PostHog)
 
@@ -41,7 +47,7 @@ Landing: 46–138 visitors/week. Calculator: 8–35/week. Signups: 0–2/week. L
 1. **Nobody reaches month two.** 31/38 external last-seen = signup date. Five users logged payments on day one and never came back. Lever: due-date email with one-tap "Log payment".
 2. **The trial ends in silence.** 0/4 expired trials converted or returned. Lever: day-11 and day-14 emails, loss-framed with the user's real avoidable-interest number.
 3. **Free users are asked to pay for a coach they've never heard from.** 30/41 accounts predate the trial; the coach card is a locked button. Lever: show the Signal line free, lock Evidence/Action.
-4. **Top of funnel too small.** ~100 visitors/week → 1–2 signups. 8 users hit `calculator_form_blocked` ~49 times each. Lever: watch those replays; calculator above the fold.
+4. **Top of funnel too small.** ~100 visitors/week → 1–2 signups. The 393 `calculator_form_blocked` events turned out to be two automated sessions (see the 2026-09-05 section); the real mobile friction is the hero "Reset sample numbers" button and the consent banner. Lever: fix those two; calculator above the fold.
 5. **$12 anchored against $0.** Two-column pricing, Free first, no annual, modal anchor hidden when 0. Lever: interest-to-lenders anchor above the price; $96/yr option.
 6. **The one paying customer is idle.** No activity for four weeks, renews late September. Lever: personal email this week.
 
@@ -57,13 +63,30 @@ Landing: 46–138 visitors/week. Calculator: 8–35/week. Signups: 0–2/week. L
 - **Retire ProGate** (blur gate contradicts the reciprocity rule; likely unreachable). `ProGate.tsx`
 - Keep: fonts, tabular numbers, blue discipline, wallet-card debts, Intelligence teaser pattern, debt-cap honest decline, celebration easing, calculator defaults.
 
+## Calculator friction follow-up — 2026-09-05
+
+Session replay could not be used: recording is consent-gated in `src/lib/analytics.ts`, and the project's replay trigger never matched on production, so there are no production recordings. The findings below come from PostHog autocapture, dead-click, rage-click, and web-vitals events over 90 days, read against the component tree in `src/components/calculator/`.
+
+1. **The 393 `calculator_form_blocked` events were not people.** 384 of them came from two automated sessions on a single day. The rest came from six real visitors, 1 to 3 events each, all on an empty balance. The validation copy is not a trap; drop this item.
+2. **"Reset sample numbers" is the most-tapped button on the mobile calculator, and it does nothing on first load.** It drew more taps than any other calculator control on mobile, concentrated in a few sessions, with rage clicks. It is the only button in the hero, styled as a pill under the headline, and on a fresh page the data already is the sample, so tapping it changes nothing. Visitors read it as "start". Fix: remove it from the hero; show a small "Reset to sample" text link inside the debts card only after the user has edited something (`isSampleData === false`), and let the hero button focus the first balance field instead. `PublicCalculator.tsx`
+3. **"Essential only" on the consent banner used to re-enable SDK capture (fixed in this change).** On mobile, more than half of the visitors who answer the banner choose "Essential only". Before the fix, `disableAnalytics()` called `opt_out_capturing()` and then `reset()`; posthog-js `reset()` clears the consent state, so autocapture, dead clicks, swipes, and page-leave kept flowing under a fresh anonymous id while the app's own events (`calculator_started`, `calculator_result_viewed`, `calculator_save_clicked`, `signup_completed`) stopped because `track()` bails on `denied`. `disableAnalytics()` now calls `reset()` first and `opt_out_capturing()` last, so "Essential only" stops all capture, as the privacy page promises. Consequence to keep in mind: mobile funnel counts are undercounted by roughly half for these visitors, now by design; read ratios, not totals. Keeping cookieless anonymous measurement for them would need a privacy-policy change and is a separate decision. `src/lib/analytics.ts`
+4. **"Add another debt" works; the dead-click flags on it are a detector artifact.** Dead clicks were flagged on it on both mobile and desktop, but every flagged tap was followed by typing in the new row within seconds, and INP on the calculator is healthy (mobile p75 86 ms, p90 156 ms, desktop p75 144 ms). Do not spend time here.
+5. **People clear the sample debts one row at a time.** The remove (X) button on the first sample card is tapped repeatedly across mobile sessions before any typing. A "Start with my numbers" action that clears the three sample rows would remove that step and replace the confusing hero button from item 2.
+6. **Paid traffic is still running against the charter's no-paid-acquisition rule.** Person-level rollup (session entry source, 90 days; cookieless ids inflate person counts and item 3 removes half of mobile after the banner, so read the ratios, not the totals): paid 654 persons → 118 calculator views → 42 started → 27 saw a result → 14 clicked save → 7 signups → 1 checkout; direct/other 562 → 70 → 18 → 19 → 2 → 6 → 2; organic search 117 → 4 → 1 → 2 → 0 → 0. Paid brings about 60% of calculator views, converts calculator views to signups at 6% versus 9% for direct, and the most recent full week still had about 40 paid visitors. Pause or defend the campaign explicitly; the charter says maintenance and measurement only.
+7. **Session replay needs two things before it can ever be watched:** consent ("Allow analytics", chosen by a minority of mobile visitors who answer) and a replay trigger in the PostHog project that matches production URLs. Today the second is missing, so even the visitors who allowed analytics were never recorded.
+
 ## Action plan
 
 This week
 - [ ] Email the paying customer personally (drafted 2026-09-04).
 - [x] Ship trial-ending emails keyed off TrialGrant. Built 2026-09-04: `/api/cron/trial-emails`, daily 10:30 UTC, live once this branch deploys.
-- [ ] Watch the 8 `calculator_form_blocked` session replays.
-- [ ] Authorize the Stripe connector; confirm the 11 sessions expired unpaid, check declines and recovery emails.
+- [x] Investigate the `calculator_form_blocked` events (2026-09-05: bot burst; real friction listed above).
+- [x] Fix the consent banner opt-out/reset order (2026-09-05: `disableAnalytics()` now resets before opting out, so "Essential only" stops SDK capture as the privacy page promises; the funnel gap is by design and stays until the policy changes).
+- [x] Stripe dashboard check (2026-09-05, live account): every Checkout session since June expired unpaid; all but one belonged to the founder's own test accounts, the one real session (mid-July) predates recovery emails. Six renewal payments succeeded, zero declines since June. The canceled subscription ended with Stripe's `payment_failed` reason after its card trial, not a voluntary cancel, so that user tried to pay. Dunning/failed-payment email is a gap worth closing.
+- [ ] Replace the hero "Reset sample numbers" button with a "Start with my numbers" action.
+- [ ] Fix the PostHog replay trigger so consented production sessions record.
+- [ ] Pause the Google Ads campaign or record a Decision that overrides the charter.
+- [x] Authorize the Stripe connector; confirm the sessions expired unpaid, check declines and recovery emails (done 2026-09-05, see above).
 - [ ] Mid-trial checkout → `trial_period_days`, keep recovery on.
 - [ ] Message the three buyer-shape trial users (drafted 2026-09-04).
 
