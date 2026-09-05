@@ -14,7 +14,11 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
   const session = await auth0.getSession();
   const user = session?.user ?? null;
 
@@ -46,7 +50,11 @@ export default async function DashboardPage() {
       console.error('[dashboard] onboarding check failed:', error);
     }
   }
-  if (startOnboarding) redirect('/onboarding');
+  // Keep the Pro deep link alive across the detour: the wizard hands it
+  // back to the dashboard on completion (or skip) so checkout still starts.
+  if (startOnboarding) {
+    redirect(searchParams?.checkout === 'pro' ? '/onboarding?checkout=pro' : '/onboarding');
+  }
 
   // Allowlist override only — the full gate also includes Pro status, which
   // isn't known server-side here (it's fetched client-side via useSubscription
