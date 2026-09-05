@@ -563,9 +563,11 @@ export default function PublicCalculator({
   };
 
   // Mirrors the HowTo steps in the page's JSON-LD. Seeded debts count as
-  // step 1 (endowed progress — never show a full form as "0 of 4").
+  // step 1 (endowed progress — never show a full form as "0 of 4"), and so
+  // does choosing "Start with my numbers": the visitor has begun, even
+  // while the fresh row is still blank.
   const steps = [
-    { label: "Enter your debts", done: validDebts.length > 0 },
+    { label: "Enter your debts", done: validDebts.length > 0 || !isSampleData },
     { label: "Set your budget", done: budgetTouched },
     { label: "Choose a strategy", done: strategyTouched },
     { label: "See your result", done: hasInteracted && planResult !== null },
