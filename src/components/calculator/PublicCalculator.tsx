@@ -498,9 +498,12 @@ export default function PublicCalculator({
     setMethod(value);
   };
 
-  // Clears the sample debts to one blank row. Replaces the old hero "Reset
-  // sample numbers" pill, which was a no-op on first load (the data already
-  // was the sample) and drew more taps than any other control on mobile.
+  /**
+   * Clears the sample debts to one blank row and focuses its balance field.
+   * Replaces the old hero "Reset sample numbers" pill, which was a no-op on
+   * first load (the data already was the sample) and drew more taps than any
+   * other control on mobile.
+   */
   const startBlank = () => {
     markCalculatorStarted("start_blank");
     // The plan stays flagged as sample until a real balance is typed: the
@@ -512,9 +515,11 @@ export default function PublicCalculator({
     setDebtRows([row]);
   };
 
-  // Debts-card reset: restores only the sample debts. Budget and strategy
-  // inputs are the visitor's and stay put; the plan counts as sample again
-  // only if those were never touched.
+  /**
+   * Debts-card reset: restores only the sample debts. Budget and strategy
+   * inputs are the visitor's and stay put; the plan counts as sample again
+   * only if those were never touched.
+   */
   const resetDebtsToSample = () => {
     markCalculatorStarted("reset_debts");
     setDebtRows(cloneSeedRows(config.seedDebts));

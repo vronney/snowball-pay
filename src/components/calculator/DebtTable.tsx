@@ -21,6 +21,11 @@ interface DebtTableProps {
   onResetToSample?: () => void;
 }
 
+/**
+ * The "Your Debts" card: stacked cards below `md`, the original table at `md`
+ * and up, an add-row button, and a "Reset to sample numbers" link that renders
+ * only when the caller passes `onResetToSample`.
+ */
 export default function DebtTable({
   rows,
   errors,
