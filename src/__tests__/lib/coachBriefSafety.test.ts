@@ -1659,6 +1659,47 @@ describe('findBriefViolation — reason codes for diagnosable logging', () => {
     expect(findBriefViolation(brief, 500, 500)).toBe('redirect_exceeds_ceiling');
   });
 
+  it('measures a set_acceleration redirect against its own target, not the old acceleration (2026-09-05 production rejection)', () => {
+    // The plan sent $0 extra; the model proposed raising it to the full
+    // available cash flow and sending that extra to the focus debt. The old
+    // ceiling compared the redirect with the $0 the plan used to send and
+    // threw the honest brief away for the deterministic fallback.
+    const brief = nextAction({
+      title: 'Put your surplus to work',
+      body: 'Set a $2,355 monthly extra and send it to the focus debt.',
+      action: 'Set extra payment to $2,355',
+      kind: 'set_acceleration',
+      targetExtra: 2355,
+      redirectAmount: 2355,
+    });
+    expect(findBriefViolation(brief, 0, 2355)).toBeNull();
+  });
+
+  it('still rejects a set_acceleration redirect above its own target', () => {
+    const brief = nextAction({
+      kind: 'set_acceleration',
+      targetExtra: 300,
+      redirectAmount: 2355,
+    });
+    expect(findBriefViolation(brief, 0, 2355)).toBe('redirect_exceeds_ceiling');
+  });
+
+  it('still rejects a set_acceleration whose target and redirect both exceed the cash available', () => {
+    // The target check bounds the ceiling itself: the model cannot lift the
+    // ceiling by inflating targetExtra beyond real discretionary cash.
+    const brief = nextAction({
+      kind: 'set_acceleration',
+      targetExtra: 5000,
+      redirectAmount: 5000,
+    });
+    expect(findBriefViolation(brief, 0, 2355)).toBe('set_acceleration_target_invalid');
+  });
+
+  it('still measures every other kind against the plan acceleration', () => {
+    const brief = nextAction({ kind: 'keep_course', redirectAmount: 2355 });
+    expect(findBriefViolation(brief, 0, 2355)).toBe('redirect_exceeds_ceiling');
+  });
+
   it('names the set_acceleration-null law — the path the old single log message never surfaced', () => {
     // Zod permits set_acceleration with targetExtra null (the incident shape:
     // redirectAmount 0, targetExtra null); only this check rejects it.
@@ -2867,6 +2908,27 @@ describe('the redirect is the acceleration, allocated differently (PR #93, round
       kind: 'set_acceleration',
       targetExtra: 0,
       redirectAmount: 500,
+      payoffClaims: [{ debtName: 'Store Card', horizonMonths: 1 }],
+    });
+    // The ceiling law now measures a set_acceleration redirect against its
+    // own target, so this shape fails there first: $500 cannot be redirected
+    // by an action that leaves $0 in play.
+    expect(findBriefViolation(brief, 500, 900, [BIG_FOCUS, TARGET])).toBe(
+      'redirect_exceeds_ceiling',
+    );
+  });
+
+  it('does not fund a payoff from the acceleration a set_acceleration is removing', () => {
+    // Same safeguard with the redirect out of the picture: the claim must be
+    // measured against the $0 the action leaves, never the $500 the plan used
+    // to send. Only the elimination law stands between this brief and the user.
+    const TARGET = { name: 'Store Card', balance: 520, minimumPayment: 20 };
+    const brief = nextAction({
+      title: 'Set the extra to zero',
+      body: 'Set the extra payment to $0 this month and keep every minimum paid in full.',
+      kind: 'set_acceleration',
+      targetExtra: 0,
+      redirectAmount: 0,
       payoffClaims: [{ debtName: 'Store Card', horizonMonths: 1 }],
     });
     expect(findBriefViolation(brief, 500, 900, [BIG_FOCUS, TARGET])).toBe(
