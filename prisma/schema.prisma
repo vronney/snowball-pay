@@ -56,6 +56,10 @@ model TrialGrant {
   id        String   @id @default(cuid())
   emailHash String   @unique // keyed digest of the normalized email
   grantedAt DateTime @default(now())
+  // Trial-boundary email delivery, recorded here (not on UserPreferences)
+  // so a delete-and-recreate inside the window cannot re-trigger a send.
+  endingEmailSentAt DateTime?
+  endedEmailSentAt  DateTime?
 
   @@map("trial_grants")
 }

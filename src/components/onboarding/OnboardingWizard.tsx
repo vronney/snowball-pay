@@ -553,6 +553,10 @@ export function OnboardingWizard({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  // A Pro deep link (?checkout=pro from the trial emails) that detoured
+  // through onboarding is handed back to the dashboard so checkout starts.
+  const dashboardHref =
+    searchParams.get("checkout") === "pro" ? "/dashboard?checkout=pro" : "/dashboard";
   const completeOnboarding = useCompleteOnboarding();
   // Drives the debt-cap notice: during the free signup week (and for paying
   // Pro) every calculator debt is committed, so the "first 5 only" warning
@@ -857,7 +861,7 @@ export function OnboardingWizard({
       // Google gets a signal for every created account, not only wizard
       // completions.
       submitIdempotencyKeyRef.current = null;
-      router.push("/dashboard");
+      router.push(dashboardHref);
     } catch (err) {
       const status =
         err && typeof err === "object" && "response" in err
@@ -1235,7 +1239,7 @@ export function OnboardingWizard({
         {/* Skip to dashboard link */}
         <p className="text-center text-xs mt-4" style={{ color: "#94a3b8" }}>
           <a
-            href="/dashboard"
+            href={dashboardHref}
             style={{ color: "#94a3b8", textDecoration: "underline" }}
             onClick={() => {
               track(Events.ONBOARDING_SKIPPED, {

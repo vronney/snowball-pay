@@ -34,6 +34,8 @@ import { shouldStartOnboarding } from "@/lib/onboardingGate";
 import TrialCountdownBanner from "@/components/dashboard/TrialCountdownBanner";
 import { useSubscription } from "@/lib/hooks";
 import { isInPostTrialPromptWindow } from "@/lib/billing";
+import { shouldShowLateTrialNotice } from "@/lib/upgradeMessaging";
+import { daysUntilTrialEnd } from "@/lib/lifecycleTrial";
 import { track, Events } from "@/lib/analytics";
 import { useIdleTimeout } from "@/lib/hooks/useIdleTimeout";
 import { runLogoutClientCleanup } from "@/lib/logout-client";
@@ -199,13 +201,25 @@ export default function DashboardClient({
 
   // Deep-linked Pro intent (?checkout=pro from the pricing page, emails, or
   // legacy links): start Stripe checkout once the subscription resolves —
-  // unless the free signup trial already covers Pro (brand-new signups) or the
-  // user is already paying.
+  // unless the user is already paying, or the free signup trial still has
+  // more than the late-trial notice window left (a brand-new signup from the
+  // pricing page should land in the trial, not on Stripe). Inside that window
+  // the link is the "Keep Pro" button from the trial-ending email, and
+  // checkout aligns billing to the trial's end, so honoring it costs nothing.
   useEffect(() => {
     if (!pendingProCheckout || !subData) return;
     setPendingProCheckout(false);
-    if (subData.paidTier === "pro" || subData.signupTrialActive) return;
-    track(Events.CHECKOUT_STARTED, { source: "pricing_page" });
+    if (subData.paidTier === "pro") return;
+    const inTrial = subData.signupTrialActive && !!subData.signupTrialEndsAt;
+    if (
+      inTrial &&
+      !shouldShowLateTrialNotice(
+        daysUntilTrialEnd(new Date(subData.signupTrialEndsAt as string)),
+      )
+    ) {
+      return;
+    }
+    track(Events.CHECKOUT_STARTED, { source: inTrial ? "trial_keep_link" : "pricing_page" });
     startCheckout.mutate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingProCheckout, subData]);
