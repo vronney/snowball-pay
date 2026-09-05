@@ -83,7 +83,7 @@ This week
 - [x] Investigate the `calculator_form_blocked` events (2026-09-05: bot burst; real friction listed above).
 - [x] Fix the consent banner opt-out/reset order (2026-09-05: `disableAnalytics()` now resets before opting out, so "Essential only" stops SDK capture as the privacy page promises; the funnel gap is by design and stays until the policy changes).
 - [x] Stripe dashboard check (2026-09-05, live account): every Checkout session since June expired unpaid; all but one belonged to the founder's own test accounts, the one real session (mid-July) predates recovery emails. Six renewal payments succeeded, zero declines since June. The canceled subscription ended with Stripe's `payment_failed` reason after its card trial, not a voluntary cancel, so that user tried to pay. Dunning/failed-payment email is a gap worth closing.
-- [ ] Replace the hero "Reset sample numbers" button with a "Start with my numbers" action.
+- [x] Replace the hero "Reset sample numbers" button with a "Start with my numbers" action (built 2026-09-05: clears to one blank row and focuses its balance; "Reset to sample numbers" moved into the debts card and shows only after an edit).
 - [ ] Fix the PostHog replay trigger so consented production sessions record.
 - [ ] Pause the Google Ads campaign or record a Decision that overrides the charter.
 - [x] Authorize the Stripe connector; confirm the sessions expired unpaid, check declines and recovery emails (done 2026-09-05, see above).

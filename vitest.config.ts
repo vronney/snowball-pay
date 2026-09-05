@@ -2,6 +2,9 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   resolve: { tsconfigPaths: true },
+  // tsconfig keeps jsx: 'preserve' for Next; tests that import a component
+  // need the JSX transform applied here (Vite 8 transforms with oxc).
+  oxc: { jsx: { runtime: 'automatic' } },
   test: {
     environment: 'node',
     globals: true,
