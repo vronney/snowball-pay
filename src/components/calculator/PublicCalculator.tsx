@@ -237,6 +237,10 @@ export default function PublicCalculator({
   // toggle count as interaction (analytics) but the plan is still built
   // from sample data — the badge and mobile bar key off this instead.
   const [isSampleData, setIsSampleData] = useState(true);
+  // Narrower than isSampleData: only the debt rows. Budget edits flip
+  // isSampleData but leave the sample debts in place, and the debts-card
+  // reset must touch nothing but the debts.
+  const [debtsAreSample, setDebtsAreSample] = useState(true);
   const calculatorStartedRef = useRef(false);
   // Fields that already reported a blocked event — one signal per field per
   // session is enough to locate a leak; per-blur firing flooded the event
@@ -405,6 +409,7 @@ export default function PublicCalculator({
   const updateRow = (id: string, field: keyof DebtRow, val: string) => {
     markCalculatorStarted(`debt_${field}`);
     setIsSampleData(false);
+    setDebtsAreSample(false);
     setDebtRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, [field]: val } : r)),
     );
@@ -455,12 +460,14 @@ export default function PublicCalculator({
   const removeRow = (id: string) => {
     markCalculatorStarted("remove_debt");
     setIsSampleData(false);
+    setDebtsAreSample(false);
     setDebtRows((prev) => prev.filter((r) => r.id !== id));
   };
 
   const addRow = () => {
     markCalculatorStarted("add_debt");
     setIsSampleData(false);
+    setDebtsAreSample(false);
     setDebtRows((prev) => [...prev, newRow()]);
   };
 
@@ -496,15 +503,29 @@ export default function PublicCalculator({
   // was the sample) and drew more taps than any other control on mobile.
   const startBlank = () => {
     markCalculatorStarted("start_blank");
-    setIsSampleData(false);
+    // The plan stays flagged as sample until a real balance is typed: the
+    // budget panel still holds its defaults, so nothing should read as the
+    // visitor's own result yet. Typing into the row flips it, as any edit does.
+    setDebtsAreSample(false);
     const row = newRow();
     pendingFocusRowId.current = row.id;
     setDebtRows([row]);
   };
 
+  // Debts-card reset: restores only the sample debts. Budget and strategy
+  // inputs are the visitor's and stay put; the plan counts as sample again
+  // only if those were never touched.
+  const resetDebtsToSample = () => {
+    markCalculatorStarted("reset_debts");
+    setDebtRows(cloneSeedRows(config.seedDebts));
+    setDebtsAreSample(true);
+    setIsSampleData(!budgetTouched && !strategyTouched);
+  };
+
   const loadExample = () => {
     markCalculatorStarted("load_sample");
     setIsSampleData(true);
+    setDebtsAreSample(true);
     setDebtRows(cloneSeedRows(config.seedDebts));
     setTakeHome(config.defaultTakeHome);
     setEssential(config.defaultEssential);
@@ -567,7 +588,7 @@ export default function PublicCalculator({
   // does choosing "Start with my numbers": the visitor has begun, even
   // while the fresh row is still blank.
   const steps = [
-    { label: "Enter your debts", done: validDebts.length > 0 || !isSampleData },
+    { label: "Enter your debts", done: validDebts.length > 0 || !debtsAreSample },
     { label: "Set your budget", done: budgetTouched },
     { label: "Choose a strategy", done: strategyTouched },
     { label: "See your result", done: hasInteracted && planResult !== null },
@@ -659,21 +680,25 @@ export default function PublicCalculator({
           >
             {config.heroDescription}
           </p>
-          <button
-            type="button"
-            onClick={startBlank}
-            className="mt-5 text-sm px-4 py-2 rounded-full"
-            style={{
-              background: "rgba(255,255,255,0.78)",
-              color: "#0b1220",
-              border: "1px solid rgba(15,23,42,0.10)",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.86)",
-              cursor: "pointer",
-              transition: "border-color 0.15s",
-            }}
-          >
-            Start with my numbers ↓
-          </button>
+          {/* Only while the sample debts are showing: once the visitor has
+              their own rows in, a second tap would silently wipe them. */}
+          {debtsAreSample && (
+            <button
+              type="button"
+              onClick={startBlank}
+              className="mt-5 text-sm px-4 py-2 rounded-full"
+              style={{
+                background: "rgba(255,255,255,0.78)",
+                color: "#0b1220",
+                border: "1px solid rgba(15,23,42,0.10)",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.86)",
+                cursor: "pointer",
+                transition: "border-color 0.15s",
+              }}
+            >
+              Start with my numbers ↓
+            </button>
+          )}
           {/* Deferred-signup reassurance: tell repeat-intent users upfront
               that a save option comes at the end, so nobody hunts for one. */}
           <p className="mt-4 text-xs" style={{ color: "#8b96a9" }}>
@@ -694,7 +719,7 @@ export default function PublicCalculator({
               onRowBlur={blurRow}
               onRowRemove={removeRow}
               onRowAdd={addRow}
-              onResetToSample={isSampleData ? undefined : loadExample}
+              onResetToSample={debtsAreSample ? undefined : resetDebtsToSample}
             />
             {usesEstimates && (
               <p className="text-xs -mt-2 px-1" style={{ color: "#8b96a9" }}>
