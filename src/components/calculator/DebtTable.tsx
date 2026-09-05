@@ -17,6 +17,8 @@ interface DebtTableProps {
   onRowBlur: (id: string, field: DebtFieldKey) => void;
   onRowRemove: (id: string) => void;
   onRowAdd: () => void;
+  /** Restores the sample debts. Pass only once the rows no longer are the sample. */
+  onResetToSample?: () => void;
 }
 
 export default function DebtTable({
@@ -26,10 +28,23 @@ export default function DebtTable({
   onRowBlur,
   onRowRemove,
   onRowAdd,
+  onResetToSample,
 }: DebtTableProps) {
   return (
     <div className="rounded-2xl p-5" style={{ background: '#ffffff', border: '1px solid rgba(15,23,42,0.08)', boxShadow: '0 1px 4px rgba(15,23,42,0.06)' }}>
-      <h2 className="font-semibold text-base mb-4">Your Debts</h2>
+      <div className="flex items-baseline justify-between gap-3 mb-4">
+        <h2 className="font-semibold text-base">Your Debts</h2>
+        {onResetToSample && (
+          <button
+            type="button"
+            onClick={onResetToSample}
+            className="text-xs cursor-pointer bg-transparent border-0 p-0 underline-offset-2 hover:underline"
+            style={{ color: '#64748b' }}
+          >
+            Reset to sample numbers
+          </button>
+        )}
+      </div>
 
       {/* Mobile (< md): stacked cards — every field visible, no horizontal scroll */}
       <div className="md:hidden space-y-3">
@@ -82,6 +97,7 @@ export default function DebtTable({
                       return (
                         <div key={field}>
                           <input
+                            id={`${row.id}-${field}-desktop`}
                             type="text"
                             inputMode="decimal"
                             placeholder={placeholder}

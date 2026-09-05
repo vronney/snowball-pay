@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   parseNumericInput,
   debtFieldError,
@@ -243,6 +243,23 @@ export default function PublicCalculator({
   // stream (hundreds of events from a single stuck visitor).
   const blockedFieldsRef = useRef<Set<string>>(new Set());
   const resultsRef = useRef<HTMLDivElement>(null);
+  // Set by "Start with my numbers": once the blank row has rendered, move the
+  // cursor into its balance field so the first tap lands where typing starts.
+  const pendingFocusRowId = useRef<string | null>(null);
+
+  useEffect(() => {
+    const rowId = pendingFocusRowId.current;
+    if (!rowId || typeof document === "undefined") return;
+    pendingFocusRowId.current = null;
+    // The card (< md) and the table (≥ md) both render the row; only the
+    // visible one can take focus.
+    const target = [`${rowId}-balance`, `${rowId}-balance-desktop`]
+      .map((id) => document.getElementById(id))
+      .find((el): el is HTMLElement => el !== null && el.offsetParent !== null);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "center" });
+    target.focus({ preventScroll: true });
+  }, [debtRows]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
 
@@ -474,6 +491,17 @@ export default function PublicCalculator({
     setMethod(value);
   };
 
+  // Clears the sample debts to one blank row. Replaces the old hero "Reset
+  // sample numbers" pill, which was a no-op on first load (the data already
+  // was the sample) and drew more taps than any other control on mobile.
+  const startBlank = () => {
+    markCalculatorStarted("start_blank");
+    setIsSampleData(false);
+    const row = newRow();
+    pendingFocusRowId.current = row.id;
+    setDebtRows([row]);
+  };
+
   const loadExample = () => {
     markCalculatorStarted("load_sample");
     setIsSampleData(true);
@@ -630,7 +658,8 @@ export default function PublicCalculator({
             {config.heroDescription}
           </p>
           <button
-            onClick={loadExample}
+            type="button"
+            onClick={startBlank}
             className="mt-5 text-sm px-4 py-2 rounded-full"
             style={{
               background: "rgba(255,255,255,0.78)",
@@ -641,7 +670,7 @@ export default function PublicCalculator({
               transition: "border-color 0.15s",
             }}
           >
-            Reset sample numbers
+            Start with my numbers ↓
           </button>
           {/* Deferred-signup reassurance: tell repeat-intent users upfront
               that a save option comes at the end, so nobody hunts for one. */}
@@ -663,6 +692,7 @@ export default function PublicCalculator({
               onRowBlur={blurRow}
               onRowRemove={removeRow}
               onRowAdd={addRow}
+              onResetToSample={isSampleData ? undefined : loadExample}
             />
             {usesEstimates && (
               <p className="text-xs -mt-2 px-1" style={{ color: "#8b96a9" }}>
