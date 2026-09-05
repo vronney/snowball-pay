@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { formatCurrency } from '@/lib/utils';
+import { CONSENT_BANNER_OFFSET_VAR } from '@/components/analytics/AnalyticsConsentBanner';
 
 interface MobileResultBarProps {
   timeStr: string;
@@ -47,8 +48,12 @@ export default function MobileResultBar({
 
   return (
     <div
-      className="lg:hidden fixed bottom-0 inset-x-0 z-40 flex items-center justify-between gap-3 px-4 py-3"
+      className="lg:hidden fixed inset-x-0 z-40 flex items-center justify-between gap-3 px-4 py-3"
       style={{
+        // Rides above the analytics consent banner while that is on screen
+        // (it publishes its height into this variable) and sits on the
+        // viewport edge once the visitor has answered it.
+        bottom: `var(${CONSENT_BANNER_OFFSET_VAR}, 0px)`,
         background: '#ffffff',
         borderTop: '1px solid rgba(15,23,42,0.10)',
         boxShadow: '0 -8px 24px rgba(15,23,42,0.10)',
