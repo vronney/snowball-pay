@@ -127,13 +127,20 @@ export function identify(userId: string, traits?: Record<string, unknown>): void
   }
 }
 
-/** Stop optional analytics immediately after a visitor changes to essential-only. */
+/**
+ * Stop all analytics immediately after a visitor chooses essential-only.
+ * Order matters: posthog-js `reset()` clears its stored consent state, so an
+ * opt-out issued before it was silently undone and autocapture, dead clicks,
+ * and page-leave events kept flowing under a fresh anonymous id (found in
+ * production on 2026-09-05). Reset the identity first, then opt out last so
+ * the opt-out is the state that survives.
+ */
 export function disableAnalytics(): void {
   try {
     if (!isBrowser() || mode === null) return;
+    posthog.reset();
     posthog.opt_out_capturing();
     optedOut = true;
-    posthog.reset();
   } catch {
     // silent
   }

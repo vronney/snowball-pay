@@ -28,7 +28,13 @@ This document keeps aggregate numbers and conclusions only. Per-account evidence
 2. **No trial-ending email existed.** Lifecycle covered day 0/2/5/7, weekly, monthly, and a 30-day win-back. Nothing at day 11 or 14; the banner and post-trial modal only rendered in-app. *Resolved the same day, see the action plan.*
 3. **`subscription_started` has never reached PostHog** (consent-gated). A paid conversion is invisible in funnels. Capture a consent-free, PII-free count event too. *Still open.*
 
-Not verified this session: the Stripe dashboard (connector not authorized), Vercel logs older than 24h, live-site screenshots (domain blocked by the session's network policy).
+Not verified on 2026-09-04: the Stripe dashboard (connector not authorized), Vercel logs older than 24h, live-site screenshots (domain blocked by the session's network policy).
+
+**Stripe check, 2026-09-05 (live account, since June 1):**
+- 8 Checkout sessions, all expired unpaid: 7 were the founder's own test sessions in August, 1 was the real July abandonment noted above. That July session predates recovery emails, so nothing was sent; the founder's mid-August sessions had recovery enabled, which confirms the `after_expiration` path works when `trial_end` is absent.
+- 6 payment intents, all succeeded, all $9 renewals for the two active subscriptions. No declines since June.
+- **Correction to C1:** the canceled subscription ended with Stripe's cancellation reason `payment_failed` on 2026-05-29, one month after the card trial ended, not a voluntary cancel before the first charge. C1 tried to pay and the card failed; Stripe's retries exhausted and closed it. That is a recoverable customer, not a churned one. Lever: a personal note offering to reactivate at the grandfathered price.
+- The billing finding above (mid-trial checkout disables recovery) still stands.
 
 ## Funnel, 90 days (unique persons, PostHog)
 
@@ -75,11 +81,12 @@ This week
 - [ ] Email the paying customer personally (drafted 2026-09-04).
 - [x] Ship trial-ending emails keyed off TrialGrant. Built 2026-09-04: `/api/cron/trial-emails`, daily 10:30 UTC, live once this branch deploys.
 - [x] Investigate the `calculator_form_blocked` events (2026-09-05: bot burst; real friction listed above).
-- [ ] Fix the consent banner opt-out/reset order so "Essential only" behaves as promised and the funnel stops losing half of mobile.
+- [x] Fix the consent banner opt-out/reset order (2026-09-05: `disableAnalytics()` now resets before opting out, so "Essential only" stops SDK capture as the privacy page promises; the funnel gap is by design and stays until the policy changes).
+- [x] Stripe dashboard check (2026-09-05, live account): every Checkout session since June expired unpaid; all but one belonged to the founder's own test accounts, the one real session (mid-July) predates recovery emails. Six renewal payments succeeded, zero declines since June. The canceled subscription ended with Stripe's `payment_failed` reason after its card trial, not a voluntary cancel, so that user tried to pay. Dunning/failed-payment email is a gap worth closing.
 - [ ] Replace the hero "Reset sample numbers" button with a "Start with my numbers" action.
 - [ ] Fix the PostHog replay trigger so consented production sessions record.
 - [ ] Pause the Google Ads campaign or record a Decision that overrides the charter.
-- [ ] Authorize the Stripe connector; confirm the 11 sessions expired unpaid, check declines and recovery emails.
+- [x] Authorize the Stripe connector; confirm the sessions expired unpaid, check declines and recovery emails (done 2026-09-05, see above).
 - [ ] Mid-trial checkout → `trial_period_days`, keep recovery on.
 - [ ] Message the three buyer-shape trial users (drafted 2026-09-04).
 

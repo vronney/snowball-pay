@@ -185,4 +185,39 @@ describe('analytics client', () => {
       undefined,
     );
   });
+
+  it('resets identity before opting out, so the opt-out survives the reset', async () => {
+    // posthog-js reset() clears its stored consent state; an opt-out issued
+    // before it was undone and SDK auto-events kept flowing after "Essential only".
+    let consent: string | null = null;
+    vi.stubGlobal('window', {
+      location: { hostname: 'getsnowballpay.com' },
+      localStorage: { getItem: vi.fn(() => consent) },
+    });
+    const { disableAnalytics, track } = await import('@/lib/analytics');
+
+    track('calculator_started');
+    consent = 'denied';
+    disableAnalytics();
+
+    expect(posthog.reset).toHaveBeenCalledOnce();
+    expect(posthog.opt_out_capturing).toHaveBeenCalledOnce();
+    expect(posthog.reset.mock.invocationCallOrder[0]).toBeLessThan(
+      posthog.opt_out_capturing.mock.invocationCallOrder[0],
+    );
+    expect(posthog.opt_in_capturing).not.toHaveBeenCalled();
+  });
+
+  it('does nothing on denial when the client was never initialised', async () => {
+    vi.stubGlobal('window', {
+      location: { hostname: 'getsnowballpay.com' },
+      localStorage: { getItem: vi.fn(() => 'denied') },
+    });
+    const { disableAnalytics } = await import('@/lib/analytics');
+
+    disableAnalytics();
+
+    expect(posthog.reset).not.toHaveBeenCalled();
+    expect(posthog.opt_out_capturing).not.toHaveBeenCalled();
+  });
 });
