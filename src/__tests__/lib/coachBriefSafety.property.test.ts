@@ -56,6 +56,11 @@ const NEUTRAL_TEXT = {
   action: 'Stay on the current plan',
 };
 
+/**
+ * One seeded random brief plus the law context it is judged against. Every
+ * figure is kept inside the text, ceiling, and target laws so the verdict
+ * exercised by the properties is the elimination law's alone.
+ */
 function makeScenario(random: () => number): Scenario {
   const pick = (n: number) => Math.floor(random() * n);
   const debtCount = 1 + pick(4);
