@@ -197,8 +197,10 @@ describe('analytics client', () => {
     const { disableAnalytics, track } = await import('@/lib/analytics');
 
     track('calculator_started');
+    const capturesBeforeDenial = posthog.capture.mock.calls.length;
     consent = 'denied';
     disableAnalytics();
+    track('calculator_result_viewed');
 
     expect(posthog.reset).toHaveBeenCalledOnce();
     expect(posthog.opt_out_capturing).toHaveBeenCalledOnce();
@@ -206,6 +208,7 @@ describe('analytics client', () => {
       posthog.opt_out_capturing.mock.invocationCallOrder[0],
     );
     expect(posthog.opt_in_capturing).not.toHaveBeenCalled();
+    expect(posthog.capture).toHaveBeenCalledTimes(capturesBeforeDenial);
   });
 
   it('does nothing on denial when the client was never initialised', async () => {
