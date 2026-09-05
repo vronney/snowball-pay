@@ -7,6 +7,7 @@ import { captureServerEvent } from '@/lib/analytics-server';
 import { Events } from '@/lib/analyticsEvents';
 import { ANALYTICS_CONSENT_KEY } from '@/lib/analyticsConsent';
 import { trialGrantKey } from '@/lib/trialGrantKey';
+import { bearerToken, resolveMobileIdentity } from '@/lib/mobileAuth';
 
 /**
  * Marks a brand-new user row for the account_created capture. The upsert
@@ -148,15 +149,20 @@ export async function ensureUserProvisioned(sessionUser: {
 
 export async function verifyAuth(request: NextRequest): Promise<AuthResult> {
   try {
-    const session = await auth0.getSession(request);
+    // Native mobile app: Auth0 access token as a bearer, verified against the
+    // tenant JWKS (see mobileAuth.ts). Same user row, same provisioning path.
+    const token = bearerToken(request);
+    const identity = token
+      ? await resolveMobileIdentity(token)
+      : (await auth0.getSession(request))?.user;
 
-    if (!session || !session.user?.sub) {
+    if (!identity?.sub) {
       return { valid: false, user: null };
     }
 
     // Find or create the user row so FK constraints on Debt/Income/etc are
     // satisfied. Returns the cuid User.id, not the Auth0 sub.
-    const user = await ensureUserProvisioned(session.user);
+    const user = await ensureUserProvisioned(identity);
 
     if (!user) return { valid: false, user: null };
 

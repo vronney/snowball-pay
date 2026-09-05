@@ -12,6 +12,7 @@
 - `src/components`: UI components and client-side feature modules
 - `src/lib`: shared runtime utilities (auth, hooks, calculations, db client)
 - `prisma`: schema and database model definitions
+- `apps/mobile`: Expo (iOS/Android) app on the same API — standalone package, see `apps/mobile/README.md`
 
 ## Project Docs
 - `docs/product/PRD.md`
