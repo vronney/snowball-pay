@@ -18,6 +18,11 @@ interface SavePlanModalProps {
   calculatorState?: CalculatorSessionState;
 }
 
+/**
+ * Email capture shown from the calculator result: persists the full
+ * calculator session locally, then hands off to Auth0 signup with the email
+ * pre-filled so the exact plan is waiting on the new dashboard.
+ */
 export default function SavePlanModal({
   onClose,
   debtFreeDate,

@@ -17,6 +17,7 @@ import { applyGoogleAdsConsent } from "@/lib/googleAds";
  */
 export const CONSENT_BANNER_OFFSET_VAR = "--consent-banner-offset";
 
+/** Persist the visitor's choice and apply it to Google Ads consent mode. */
 function updateConsent(choice: AnalyticsConsent) {
   setAnalyticsConsent(choice);
   applyGoogleAdsConsent(choice);
@@ -140,6 +141,7 @@ function usePublishBannerOffset(panelRef: React.RefObject<HTMLElement>) {
     const node = panelRef.current;
     if (!node) return;
     const root = document.documentElement;
+    /** Measure the panel's top edge and write the offset to the root element. */
     const publish = () => {
       const top = node.getBoundingClientRect().top;
       root.style.setProperty(
@@ -160,6 +162,12 @@ function usePublishBannerOffset(panelRef: React.RefObject<HTMLElement>) {
   }, [panelRef]);
 }
 
+/**
+ * Shows the consent prompt until the visitor has made a choice. Renders
+ * nothing on the server and before hydration, so a saved choice never
+ * flashes the prompt, and stays in sync with choices made elsewhere in the
+ * tab (the privacy page settings) through the consent change event.
+ */
 export default function AnalyticsConsentBanner() {
   const [hydrated, setHydrated] = useState(false);
   const [choice, setChoice] = useState<AnalyticsConsent | null>(null);
@@ -201,6 +209,7 @@ function MountedBanner({
   return <ConsentBannerPanel ref={panelRef} onChoose={onChoose} />;
 }
 
+/** The privacy page's control for viewing and changing the saved choice. */
 export function AnalyticsConsentSettings() {
   const [choice, setChoice] = useState<AnalyticsConsent | null>(null);
 

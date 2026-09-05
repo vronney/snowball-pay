@@ -6,6 +6,7 @@ import { ConsentBannerPanel } from '@/components/analytics/AnalyticsConsentBanne
 
 vi.mock('@/lib/analytics', () => ({ track: vi.fn(), Events: {} }));
 
+/** Pull the numeric z-index a rendered element declares, via the given pattern. */
 function zIndexOf(html: string, selector: RegExp): number {
   const match = html.match(selector);
   if (!match) throw new Error(`no z-index found for ${selector}`);

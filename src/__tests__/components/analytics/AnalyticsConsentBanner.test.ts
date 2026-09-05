@@ -7,6 +7,7 @@ import AnalyticsConsentBanner, {
 } from '@/components/analytics/AnalyticsConsentBanner';
 import MobileResultBar from '@/components/calculator/MobileResultBar';
 
+/** Static markup of the prompt itself, independent of storage and hydration. */
 function renderPanel() {
   return renderToStaticMarkup(createElement(ConsentBannerPanel, { onChoose: vi.fn() }));
 }
