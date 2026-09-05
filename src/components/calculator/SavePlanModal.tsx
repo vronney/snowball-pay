@@ -94,7 +94,10 @@ export default function SavePlanModal({
       style={{
         position: "fixed",
         inset: 0,
-        zIndex: 100,
+        // Same layer as the in-app modals (UpgradeModal, ManageBillingModal):
+        // a modal scrim covers every fixed banner, the analytics consent
+        // sheet included, so nothing can sit over its form on a phone.
+        zIndex: 9999,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
