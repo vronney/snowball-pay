@@ -56,6 +56,11 @@ const NEUTRAL_TEXT = {
   action: 'Stay on the current plan',
 };
 
+/**
+ * One seeded random brief plus the law context it is judged against. Every
+ * figure is kept inside the text, ceiling, and target laws so the verdict
+ * exercised by the properties is the elimination law's alone.
+ */
 function makeScenario(random: () => number): Scenario {
   const pick = (n: number) => Math.floor(random() * n);
   const debtCount = 1 + pick(4);
@@ -74,7 +79,10 @@ function makeScenario(random: () => number): Scenario {
   // Kept inside the other laws' bounds on purpose: this file is about the
   // elimination check, and a ceiling or target violation would mask it.
   const targetExtra = isSetAcceleration ? pick(Math.floor(availableCashFlow / 50) + 1) * 50 : null;
-  const redirectAmount = pick(Math.floor(effectiveAcceleration / 50) + 1) * 50;
+  // The redirect ceiling is the extra the action leaves in play: the target
+  // for a set_acceleration, the plan's acceleration for every other kind.
+  const redirectCeiling = isSetAcceleration ? (targetExtra as number) : effectiveAcceleration;
+  const redirectAmount = pick(Math.floor(redirectCeiling / 50) + 1) * 50;
 
   const claimCount = pick(4);
   const payoffClaims = Array.from({ length: claimCount }, () => ({

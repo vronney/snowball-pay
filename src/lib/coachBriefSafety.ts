@@ -781,9 +781,9 @@ function lawScannedText(brief: CoachBrief): string {
  * under it. The prompt explicitly allows lowering the target, zero included,
  * and keeping the old figure let "drop your extra to $0" carry a payoff claim
  * funded by acceleration the action is proposing to remove (Codex review,
- * PR #91). `redirectAmount` is excluded here for the same reason: an earlier
- * law caps it against the OLD acceleration, which is exactly the stale number
- * this must not reach for.
+ * PR #91). `redirectAmount` is excluded here for the same reason: for this
+ * kind the ceiling law caps it against the target itself, so it can never
+ * exceed the target by more than the rounding tolerance.
  *
  * Every other kind leaves the plan's acceleration running, so there the
  * figure is the larger of:
@@ -1190,8 +1190,9 @@ function makesUnverifiedEliminationClaim(
   // `.catch([])` — fail soft into more scrutiny, never into a brief the user
   // loses.
   // The redirect IS the acceleration — an earlier law caps redirectAmount
-  // against effectiveAcceleration, and the clamp above holds it to whatever
-  // extra the action leaves in play. It is not additional money: it is a
+  // against the extra the action leaves in play (the plan's acceleration, or
+  // the target for a set_acceleration), and the clamp above holds it to the
+  // same figure. It is not additional money: it is a
   // DIFFERENT allocation of the dollars the plan simulation already spends.
   //
   // So every declared claim has to hold under ONE allocation or the other,
@@ -1522,7 +1523,7 @@ function blockMakesUnverifiedClaim(
 // dollar amounts, only the category of failure.
 export type LawViolation =
   | 'unsafe_minimum_text' // action text reads as pausing/skipping/reducing a payment
-  | 'redirect_exceeds_ceiling' // redirectAmount above the discretionary extra
+  | 'redirect_exceeds_ceiling' // redirectAmount above the extra the action leaves in play
   | 'set_acceleration_target_invalid' // set_acceleration with a null/out-of-range target
   | 'unverified_elimination_claim'; // "pays it off this month" the math can't support
 
@@ -1544,7 +1545,22 @@ export function findBriefViolation(
   if (buildUnsafeMinimumAdviceRe(debts.map((d) => d.name)).test(text)) {
     return 'unsafe_minimum_text';
   }
-  if (brief.nextAction.redirectAmount > effectiveAcceleration + REDIRECT_TOLERANCE) {
+  // A set_acceleration REPLACES the monthly extra, so its redirect is measured
+  // against the extra it proposes, not the one the plan sends today. Measuring
+  // it against the old figure rejected the honest shape "raise the extra from
+  // $0 to the full amount available, and send it to the focus debt"
+  // (production, 2026-09-05): the prompt defines redirectAmount as the extra
+  // the action moves, and for this kind that IS targetExtra. The target is
+  // itself bounded by availableCashFlow just below, so the ceiling still
+  // rests on server-computed cash, never on a figure the model can inflate.
+  // A null or non-finite target falls back to the plan's acceleration and
+  // then fails the target check below regardless.
+  const redirectCeiling =
+    brief.nextAction.kind === 'set_acceleration' &&
+    Number.isFinite(brief.nextAction.targetExtra)
+      ? Math.max(0, brief.nextAction.targetExtra as number)
+      : effectiveAcceleration;
+  if (brief.nextAction.redirectAmount > redirectCeiling + REDIRECT_TOLERANCE) {
     return 'redirect_exceeds_ceiling';
   }
   if (brief.nextAction.kind === 'set_acceleration') {
