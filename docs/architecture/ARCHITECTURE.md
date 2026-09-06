@@ -429,7 +429,7 @@ npm run deploy    # Custom deploy script (if set up)
 
 **High Priority**:
 - Document OCR extraction
-- Mobile app (React Native)
+- Mobile app — Expo scaffold lives in `apps/mobile` (P0: calculator → plan → save → dashboard → extra payment); store launch (IAP, push) is P1
 - Push notifications
 - Email reminders
 

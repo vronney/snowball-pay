@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth0 } from './lib/auth0';
 import { getAllowedOrigin } from '@/lib/corsOrigin';
+import { bearerToken, verifyMobileToken } from '@/lib/mobileAuth';
 
 // Paths probed by automated scanners for CMS/admin or sensitive config files.
 // Return 404 immediately so these never hit application routes.
@@ -48,6 +49,8 @@ const PUBLIC_API_PATHS = [
   // with no session; without this entry they got a JSON 401.
   '/api/email/unsubscribe',
   '/api/leads',
+  // Pure payoff math for the mobile calculator (no login, nothing stored).
+  '/api/plan/calculate',
 ];
 
 function normalizePathname(pathname: string): string {
@@ -140,6 +143,20 @@ export async function middleware(request: NextRequest) {
   if (requiresApiAuth && request.method === 'OPTIONS') {
     const preflight = new NextResponse(null, { status: 204 });
     return addCorsHeaders(preflight, request);
+  }
+
+  // Native mobile app: a bearer access token instead of the session cookie.
+  // Verified here (signature/issuer/audience/expiry) so an unsigned token is
+  // rejected before any route runs; verifyAuth re-verifies and provisions.
+  if (requiresApiAuth) {
+    const token = bearerToken(request);
+    if (token) {
+      const identity = await verifyMobileToken(token);
+      const response = identity
+        ? NextResponse.next()
+        : NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return addCorsHeaders(response, request);
+    }
   }
 
   // Auth0 mounts /auth/* handlers, but /auth itself is not a handler.
