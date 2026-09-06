@@ -52,7 +52,7 @@ export function PlanHero({
       </View>
       {stuck ? (
         <Muted>
-          At {money(result.monthlyPayment)}/mo this plan doesn't pay off within 30 years. Raise the extra amount or a minimum to get a date.
+          At {money(result.monthlyPayment)}/mo this plan doesn’t pay off within 30 years. Raise the extra amount or a minimum to get a date.
         </Muted>
       ) : (
         <>
