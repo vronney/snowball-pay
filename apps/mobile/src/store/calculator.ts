@@ -43,7 +43,12 @@ interface CalculatorState {
   updateRow: (id: string, patch: Partial<Omit<DebtRow, 'id'>>) => void;
   addRow: () => void;
   removeRow: (id: string) => void;
-  moveRow: (id: string, direction: -1 | 1) => void;
+  /**
+   * Moves a debt one step within `displayedIds` (the order the user is
+   * looking at — strategy-sorted, not entry order), commits that order to the
+   * store and switches to custom so what they see is what gets saved.
+   */
+  moveRow: (displayedIds: string[], id: string, direction: -1 | 1) => void;
   setBudget: (field: 'takeHome' | 'essential' | 'extra', value: string) => void;
   setMethod: (method: PayoffMethod) => void;
   setPlanName: (name: string) => void;
@@ -73,12 +78,16 @@ export const useCalculatorStore = create<CalculatorState>((set) => ({
       ],
     })),
   removeRow: (id) => set((s) => ({ isSample: false, rows: s.rows.filter((r) => r.id !== id) })),
-  moveRow: (id, direction) =>
+  moveRow: (displayedIds, id, direction) =>
     set((s) => {
-      const index = s.rows.findIndex((r) => r.id === id);
+      const byId = new Map(s.rows.map((r) => [r.id, r]));
+      const ordered = displayedIds.map((rid) => byId.get(rid)).filter((r): r is DebtRow => r !== undefined);
+      // Rows not on screen (blank balance) keep their place after the ordered ones.
+      const rest = s.rows.filter((r) => !displayedIds.includes(r.id));
+      const rows = [...ordered, ...rest];
+      const index = rows.findIndex((r) => r.id === id);
       const target = index + direction;
-      if (index < 0 || target < 0 || target >= s.rows.length) return s;
-      const rows = [...s.rows];
+      if (index < 0 || target < 0 || target >= ordered.length) return s;
       [rows[index], rows[target]] = [rows[target], rows[index]];
       return { rows, method: 'custom' };
     }),
@@ -174,6 +183,8 @@ export function toSavePayload(
         balance,
         interestRate: positiveOrUndefined(r.rate) ?? ESTIMATED_APR_BY_CATEGORY[r.category],
         minimumPayment: positiveOrUndefined(r.minimum) ?? estimateMinimumPayment(balance),
+        // The personalized order is the whole point of custom — persist it.
+        priorityOrder: s.method === 'custom' ? i + 1 : undefined,
       };
     }),
   };

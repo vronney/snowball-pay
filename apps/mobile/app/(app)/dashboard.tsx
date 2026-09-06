@@ -6,8 +6,9 @@ import { Body, Button, Card, Eyebrow, Heading, LinkText, Muted, Num, StateView, 
 import { PlanHero } from '@/components/PlanHero';
 import { useAuth } from '@/lib/auth';
 import { ApiError } from '@/lib/api';
-import { planInputFromServer, useCalculate, useDebts, useIncome, useSubscription } from '@/lib/queries';
+import { planInputFromServer, useCalculate, useDebts, useExpenses, useIncome, useSubscription } from '@/lib/queries';
 import { money, monthYear } from '@/lib/format';
+import { isPlanUnfinished, monthFromNow } from '@/lib/plan';
 import type { Debt } from '@/lib/types';
 
 /**
@@ -21,22 +22,24 @@ export default function DashboardScreen() {
 
   const debts = useDebts();
   const income = useIncome();
+  const expenses = useExpenses();
   const subscription = useSubscription();
 
   const planInput = useMemo(
-    () => planInputFromServer(debts.data ?? [], income.data ?? null),
-    [debts.data, income.data],
+    () => planInputFromServer(debts.data ?? [], income.data ?? null, expenses.data ?? []),
+    [debts.data, income.data, expenses.data],
   );
   const plan = useCalculate(planInput);
 
-  const refreshing = debts.isRefetching || income.isRefetching;
+  const refreshing = debts.isRefetching || income.isRefetching || expenses.isRefetching;
   const refresh = () => {
     debts.refetch();
     income.refetch();
+    expenses.refetch();
     subscription.refetch();
   };
 
-  const error = debts.error ?? income.error;
+  const error = debts.error ?? income.error ?? expenses.error;
   if (error instanceof ApiError && error.isUnauthorized) {
     return (
       <Container>
@@ -50,7 +53,7 @@ export default function DashboardScreen() {
     );
   }
 
-  if (debts.isPending || income.isPending) {
+  if (debts.isPending || income.isPending || expenses.isPending) {
     return (
       <Container>
         <StateView kind="loading" />
@@ -76,8 +79,10 @@ export default function DashboardScreen() {
   const remaining = list.reduce((s, d) => s + d.balance, 0);
   const paidShare = original > 0 ? Math.min(1, (original - remaining) / original) : 0;
 
-  const schedule = new Map(plan.data?.result.payoffSchedule.map((s) => [s.debtId, s]) ?? []);
-  const planStart = plan.data?.result.monthlyBalances[0]?.date;
+  const unfinished = plan.data ? isPlanUnfinished(plan.data.result) : false;
+  const schedule = new Map(
+    (!unfinished && plan.data?.result.payoffSchedule.map((s) => [s.debtId, s])) || [],
+  );
 
   return (
     <Container
@@ -143,9 +148,7 @@ export default function DashboardScreen() {
               key={debt.id}
               debt={debt}
               paidOffLabel={
-                schedule.get(debt.id) && planStart
-                  ? paidOffMonth(planStart, schedule.get(debt.id)!.monthPaidOff)
-                  : undefined
+                schedule.has(debt.id) ? monthYear(monthFromNow(schedule.get(debt.id)!.monthPaidOff)) : undefined
               }
               onExtra={() => router.push({ pathname: '/(app)/debt/[id]/extra', params: { id: debt.id } })}
             />
@@ -173,12 +176,6 @@ function Container({
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-function paidOffMonth(planStart: string, monthsFromStart: number): string {
-  const date = new Date(planStart);
-  date.setMonth(date.getMonth() + monthsFromStart);
-  return monthYear(date);
 }
 
 function DebtRow({ debt, paidOffLabel, onExtra }: { debt: Debt; paidOffLabel?: string; onExtra: () => void }) {

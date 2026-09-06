@@ -11,6 +11,7 @@ import { useCalculate } from '@/lib/queries';
 import { useDebounced } from '@/lib/hooks';
 import { money, monthYear, parseNumericInput } from '@/lib/format';
 import { ESTIMATE_DISCLOSURE } from '@/lib/estimates';
+import { isPlanUnfinished, monthFromNow } from '@/lib/plan';
 import { authConfigured } from '@/lib/config';
 import { toCalculateInput, useCalculatorStore } from '@/store/calculator';
 
@@ -123,13 +124,12 @@ export default function CalculatorScreen() {
       </Card>
       {plan.data?.usesEstimates ? <Muted className="mb-4">{ESTIMATE_DISCLOSURE}</Muted> : null}
 
-      {plan.data && plan.data.result.payoffSchedule.length > 0 ? (
+      {plan.data && plan.data.result.payoffSchedule.length > 0 && !isPlanUnfinished(plan.data.result) ? (
         <>
           <Heading className="mb-2 mt-4">Payoff order</Heading>
           <Card className="mb-6">
             {plan.data.result.payoffSchedule.map((step, i) => {
-              const paidOff = new Date(plan.data!.result.monthlyBalances[0]?.date ?? Date.now());
-              paidOff.setMonth(paidOff.getMonth() + step.monthPaidOff);
+              const paidOff = monthFromNow(step.monthPaidOff);
               return (
                 <View
                   key={step.debtId}

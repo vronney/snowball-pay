@@ -13,6 +13,9 @@ const DEBT_SCHEMA = z.object({
   minimumPayment: z.number().min(0),
   creditLimit: z.number().min(0).optional(),
   dueDate: z.number().min(1).max(31).optional(),
+  // Position in a custom attack order (1 = first). Sent by clients that let
+  // the user reorder debts before signup; inert unless payoffMethod is custom.
+  priorityOrder: z.number().int().min(1).optional(),
 });
 
 const COMPLETE_SCHEMA = z
@@ -170,6 +173,7 @@ export async function POST(request: NextRequest) {
             minimumPayment: debtInput.minimumPayment,
             creditLimit: debtInput.creditLimit ?? 0,
             dueDate: debtInput.dueDate,
+            priorityOrder: debtInput.priorityOrder,
           },
         });
         debtIds.push(debt.id);

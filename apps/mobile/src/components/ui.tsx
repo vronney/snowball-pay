@@ -156,7 +156,17 @@ interface FieldProps extends TextInputProps {
   suffix?: string;
 }
 
-export function Field({ label, hint, error, prefix, suffix, className = '', ...rest }: FieldProps) {
+export function Field({
+  label,
+  hint,
+  error,
+  prefix,
+  suffix,
+  className = '',
+  accessibilityLabel,
+  accessibilityHint,
+  ...rest
+}: FieldProps) {
   return (
     <View className="mb-3">
       <Text className="mb-1 font-semibold text-[13px] text-ink">{label}</Text>
@@ -170,6 +180,8 @@ export function Field({ label, hint, error, prefix, suffix, className = '', ...r
           className={`flex-1 font-medium text-[16px] text-ink ${className}`}
           placeholderTextColor="#94a3b8"
           style={{ fontVariant: ['tabular-nums'] }}
+          accessibilityLabel={accessibilityLabel ?? label}
+          accessibilityHint={accessibilityHint ?? error ?? hint}
           {...rest}
         />
         {suffix ? <Text className="ml-1 font-medium text-[15px] text-muted">{suffix}</Text> : null}

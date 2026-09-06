@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SignJWT, exportJWK, generateKeyPair, type KeyLike } from 'jose';
+import { SignJWT, exportJWK, generateKeyPair } from 'jose';
 
 const DOMAIN = 'tenant.example.auth0.com';
 const AUDIENCE = 'https://api.getsnowballpay.com';
 
-let privateKey: KeyLike;
+let privateKey: CryptoKey;
 let publicJwk: Record<string, unknown>;
 
 async function mint(

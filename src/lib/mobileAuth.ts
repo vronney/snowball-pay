@@ -27,7 +27,22 @@ const EMAIL_VERIFIED_CLAIM = 'https://getsnowballpay.com/email_verified';
 const NAME_CLAIM = 'https://getsnowballpay.com/name';
 
 const USERINFO_TTL_MS = 10 * 60 * 1000;
+const USERINFO_TIMEOUT_MS = 5_000;
+/** Per-subject cap: the map is per-isolate memory, so keep it small. */
+const USERINFO_CACHE_MAX = 500;
 const userinfoCache = new Map<string, { expiresAt: number; identity: MobileIdentity }>();
+
+/** Drop expired entries, then the oldest ones, so the cache stays bounded. */
+function pruneUserinfoCache(now: number): void {
+  for (const [sub, entry] of userinfoCache) {
+    if (entry.expiresAt <= now) userinfoCache.delete(sub);
+  }
+  while (userinfoCache.size >= USERINFO_CACHE_MAX) {
+    const oldest = userinfoCache.keys().next().value;
+    if (oldest === undefined) break;
+    userinfoCache.delete(oldest);
+  }
+}
 
 let jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
 let jwksDomain: string | null = null;
@@ -100,6 +115,7 @@ export async function resolveMobileIdentity(token: string): Promise<MobileIdenti
   try {
     const res = await fetch(`https://${process.env.AUTH0_DOMAIN}/userinfo`, {
       headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(USERINFO_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     const info = (await res.json()) as Record<string, unknown>;
@@ -112,10 +128,9 @@ export async function resolveMobileIdentity(token: string): Promise<MobileIdenti
       email_verified: info.email_verified === true,
       name: claimString(info.name),
     };
-    userinfoCache.set(identity.sub, {
-      expiresAt: Date.now() + USERINFO_TTL_MS,
-      identity: resolved,
-    });
+    const now = Date.now();
+    pruneUserinfoCache(now);
+    userinfoCache.set(identity.sub, { expiresAt: now + USERINFO_TTL_MS, identity: resolved });
     return resolved;
   } catch {
     return null;

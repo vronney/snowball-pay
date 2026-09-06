@@ -3,9 +3,10 @@ import { Animated, Easing, Pressable, Text, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { keepPreviousData } from '@tanstack/react-query';
 import { Body, Button, Card, Eyebrow, Field, LinkText, Muted, Num, Screen, StateView, Title, colors } from '@/components/ui';
-import { planInputFromServer, useCalculate, useDebts, useIncome, useLogExtraPayment } from '@/lib/queries';
+import { planInputFromServer, useCalculate, useDebts, useExpenses, useIncome, useLogExtraPayment } from '@/lib/queries';
 import { useDebounced } from '@/lib/hooks';
 import { daysBetween, money, monthYear, parseNumericInput } from '@/lib/format';
+import { monthFromNow } from '@/lib/plan';
 
 const QUICK_AMOUNTS = [25, 50, 100, 250];
 
@@ -21,39 +22,48 @@ export default function ExtraPaymentScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const debts = useDebts();
   const income = useIncome();
+  const expenses = useExpenses();
   const log = useLogExtraPayment();
 
   const [amount, setAmount] = useState('100');
+  // The typed amount drives the button and the logged payment; the debounced
+  // copy only paces the preview recalculation.
+  const liveAmount = parseNumericInput(amount);
   const debouncedAmount = useDebounced(amount);
   const amountNum = parseNumericInput(debouncedAmount);
 
   const debt = debts.data?.find((d) => d.id === id);
 
   const baseInput = useMemo(
-    () => planInputFromServer(debts.data ?? [], income.data ?? null),
-    [debts.data, income.data],
+    () => planInputFromServer(debts.data ?? [], income.data ?? null, expenses.data ?? []),
+    [debts.data, income.data, expenses.data],
   );
-  const previewInput = useMemo(() => {
+  const previewDebts = useMemo(() => {
     if (!baseInput || !debt || amountNum === null || amountNum <= 0) return null;
-    const applied = Math.min(amountNum, debt.balance);
-    const remaining = debt.balance - applied;
-    return {
-      ...baseInput,
-      debts: baseInput.debts
-        .map((d) => (d.id === debt.id ? { ...d, balance: remaining } : d))
-        .filter((d) => d.balance > 0.01),
-    };
+    const remaining = debt.balance - Math.min(amountNum, debt.balance);
+    return baseInput.debts
+      .map((d) => (d.id === debt.id ? { ...d, balance: remaining } : d))
+      .filter((d) => d.balance > 0.01);
   }, [baseInput, debt, amountNum]);
+  // Paying off the last debt leaves nothing to simulate: the answer is "today".
+  const clearsEverything = previewDebts !== null && previewDebts.length === 0;
+  const previewInput = useMemo(
+    () => (baseInput && previewDebts && previewDebts.length > 0 ? { ...baseInput, debts: previewDebts } : null),
+    [baseInput, previewDebts],
+  );
 
   const base = useCalculate(baseInput);
   const preview = useCalculate(previewInput, { placeholderData: keepPreviousData });
 
+  const previewOutcome = clearsEverything
+    ? { debtFreeDate: new Date().toISOString(), totalInterestPaid: 0, months: 0 }
+    : preview.data?.result;
   const clears = debt !== undefined && amountNum !== null && amountNum >= debt.balance;
   const daysSooner =
-    base.data && preview.data ? daysBetween(preview.data.result.debtFreeDate, base.data.result.debtFreeDate) : null;
+    base.data && previewOutcome ? Math.max(0, daysBetween(previewOutcome.debtFreeDate, base.data.result.debtFreeDate)) : null;
   const interestSaved =
-    base.data && preview.data
-      ? Math.max(0, base.data.result.totalInterestPaid - preview.data.result.totalInterestPaid)
+    base.data && previewOutcome
+      ? Math.max(0, base.data.result.totalInterestPaid - previewOutcome.totalInterestPaid)
       : null;
 
   // The delta card springs in each time the number changes — the earned moment.
@@ -65,8 +75,8 @@ export default function ExtraPaymentScreen() {
   }, [daysSooner, interestSaved, pop]);
 
   const handleLog = async () => {
-    if (!debt || amountNum === null || amountNum <= 0) return;
-    await log.mutateAsync({ debtId: debt.id, amount: Math.min(amountNum, debt.balance) });
+    if (!debt || liveAmount === null || liveAmount <= 0) return;
+    await log.mutateAsync({ debtId: debt.id, amount: Math.min(liveAmount, debt.balance) });
     router.back();
   };
 
@@ -86,7 +96,7 @@ export default function ExtraPaymentScreen() {
   }
 
   const inputError =
-    amount.trim() !== '' && (amountNum === null || amountNum < 0) ? 'Enter a dollar amount' : undefined;
+    amount.trim() !== '' && (liveAmount === null || liveAmount < 0) ? 'Enter a dollar amount' : undefined;
 
   return (
     <Screen>
@@ -134,8 +144,8 @@ export default function ExtraPaymentScreen() {
         <Animated.View
           style={{ opacity: pop, transform: [{ translateY: pop.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }}
         >
-          <Card className={preview.isFetching ? 'opacity-70' : ''}>
-            {preview.isError ? (
+          <Card className={preview.isFetching && !clearsEverything ? 'opacity-70' : ''}>
+            {preview.isError && !clearsEverything ? (
               <StateView kind="error" title="Couldn't recalculate" message="Check your connection and try again." />
             ) : daysSooner === null ? (
               <StateView kind="loading" />
@@ -148,13 +158,17 @@ export default function ExtraPaymentScreen() {
                   </Num>
                 </View>
                 <Muted className="mt-2">
-                  New date: <Num className="text-[13px] text-muted">{monthYear(preview.data!.result.debtFreeDate)}</Num>
+                  New date: <Num className="text-[13px] text-muted">{clearsEverything ? 'today' : monthYear(monthFromNow(previewOutcome!.months))}</Num>
                   {interestSaved !== null && interestSaved > 0 ? ` · saves ${money(interestSaved)} in interest` : ''}
                 </Muted>
                 {daysSooner === 0 ? (
                   <Muted className="mt-1">Still worth it — every dollar of principal cuts interest, even inside the same month.</Muted>
                 ) : null}
-                {clears ? <Body className="mt-2 font-semibold text-emerald-700">This clears {debt.name} entirely. 🎉</Body> : null}
+                {clearsEverything ? (
+                  <Body className="mt-2 font-semibold text-emerald-700">This clears your last debt. You'd be debt-free today. 🎉</Body>
+                ) : clears ? (
+                  <Body className="mt-2 font-semibold text-emerald-700">This clears {debt.name} entirely. 🎉</Body>
+                ) : null}
               </>
             )}
           </Card>
@@ -170,10 +184,10 @@ export default function ExtraPaymentScreen() {
 
       <Button
         className="mt-5"
-        title={amountNum && amountNum > 0 ? `Log ${money(Math.min(amountNum, debt.balance))} payment` : 'Log payment'}
+        title={liveAmount && liveAmount > 0 ? `Log ${money(Math.min(liveAmount, debt.balance))} payment` : 'Log payment'}
         onPress={handleLog}
         loading={log.isPending}
-        disabled={!amountNum || amountNum <= 0 || Boolean(inputError)}
+        disabled={!liveAmount || liveAmount <= 0 || Boolean(inputError)}
       />
       <Text className="mt-3 text-center font-medium text-[12px] text-muted">
         Logged as a payment on your plan — same as marking it on the web.

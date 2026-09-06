@@ -100,6 +100,35 @@ describe('POST /api/onboarding/complete', () => {
     expect(res.status).toBe(401);
   });
 
+  it('persists a custom attack order sent as priorityOrder', async () => {
+    vi.mocked(getUserTier).mockResolvedValue('pro');
+    const res = await POST(
+      makeRequest({
+        income: { ...INCOME, payoffMethod: 'custom' },
+        debts: [
+          { ...debt('Card', 14200), priorityOrder: 2 },
+          { ...debt('Car', 4800), priorityOrder: 1 },
+        ],
+      }),
+    );
+    expect(res.status).toBe(200);
+    const created = mockPrisma.debt.create.mock.calls.map((c) => c[0].data);
+    expect(created.map((d: { name: string; priorityOrder?: number }) => [d.name, d.priorityOrder])).toEqual([
+      ['Card', 2],
+      ['Car', 1],
+    ]);
+    expect(mockPrisma.income.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: expect.objectContaining({ payoffMethod: 'custom' }) }),
+    );
+  });
+
+  it('rejects a non-positive priorityOrder', async () => {
+    const res = await POST(
+      makeRequest({ income: INCOME, debts: [{ ...debt('Card', 100), priorityOrder: 0 }] }),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it('rejects a payload with neither firstDebt nor debts', async () => {
     const res = await POST(makeRequest({ income: INCOME }));
 

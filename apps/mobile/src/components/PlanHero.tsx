@@ -2,6 +2,7 @@ import React from 'react';
 import { View } from 'react-native';
 import { Card, Eyebrow, Muted, Num, StateView, Tag, colors } from './ui';
 import { money, monthYear, monthsLabel } from '@/lib/format';
+import { isPlanUnfinished, monthFromNow } from '@/lib/plan';
 import type { CalculateResponse } from '@/lib/types';
 
 /**
@@ -41,7 +42,7 @@ export function PlanHero({
   }
 
   const { result, interestSaved, monthsSaved } = plan;
-  const stuck = result.months >= 360 && result.monthlyPayment === 0;
+  const stuck = isPlanUnfinished(result);
 
   return (
     <Card className={isLoading ? 'opacity-70' : ''}>
@@ -50,10 +51,12 @@ export function PlanHero({
         {sample ? <Tag>Sample numbers</Tag> : null}
       </View>
       {stuck ? (
-        <Muted>Your payments don't cover the interest yet — raise the extra payment to get a date.</Muted>
+        <Muted>
+          At {money(result.monthlyPayment)}/mo this never pays off — interest outruns the payments. Raise the extra amount or a minimum to get a date.
+        </Muted>
       ) : (
         <>
-          <Num className={compact ? 'text-[28px]' : 'text-[40px] leading-[46px]'}>{monthYear(result.debtFreeDate)}</Num>
+          <Num className={compact ? 'text-[28px]' : 'text-[40px] leading-[46px]'}>{monthYear(monthFromNow(result.months))}</Num>
           <Muted className="mt-1">
             {monthsLabel(result.months)} · {money(result.monthlyPayment)}/mo · {money(result.totalInterestPaid)} total interest
           </Muted>

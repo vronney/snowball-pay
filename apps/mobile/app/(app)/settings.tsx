@@ -17,6 +17,17 @@ export default function SettingsScreen() {
   const subscription = useSubscription();
   const deleteAccount = useDeleteAccount();
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
+
+  const handleSignOut = async () => {
+    setSignOutError(null);
+    try {
+      await signOut();
+      router.replace('/calculator');
+    } catch {
+      setSignOutError("Couldn't clear your saved sign-in from this device. Try again.");
+    }
+  };
 
   const confirmDelete = () => {
     Alert.alert(
@@ -77,7 +88,8 @@ export default function SettingsScreen() {
 
       <Eyebrow>Account</Eyebrow>
       <Card className="mb-4 mt-1">
-        <Button title="Sign out" variant="quiet" onPress={async () => { await signOut(); router.replace('/calculator'); }} />
+        <Button title="Sign out" variant="quiet" onPress={handleSignOut} />
+        {signOutError ? <Muted className="mt-2 text-error">{signOutError}</Muted> : null}
         <View className="my-3 h-px bg-line" />
         <Button title="Delete account" variant="danger" onPress={confirmDelete} loading={deleteAccount.isPending} />
         {deleteError ? <Muted className="mt-2 text-error">{deleteError}</Muted> : null}

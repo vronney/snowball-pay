@@ -6,6 +6,7 @@ import type {
   CalculateResponse,
   Debt,
   DebtCategory,
+  Expense,
   Income,
   PayoffMethod,
   Subscription,
@@ -16,6 +17,7 @@ import type {
 export const keys = {
   debts: ['debts'] as const,
   income: ['income'] as const,
+  expenses: ['expenses'] as const,
   subscription: ['subscription'] as const,
   calculate: (input: CalculateInput) => ['calculate', input] as const,
 };
@@ -31,6 +33,13 @@ export function useIncome() {
   return useQuery({
     queryKey: keys.income,
     queryFn: () => api<{ income: Income | null }>('/api/income').then((r) => r.income),
+  });
+}
+
+export function useExpenses() {
+  return useQuery({
+    queryKey: keys.expenses,
+    queryFn: () => api<{ expenses: Expense[] }>('/api/expenses').then((r) => r.expenses),
   });
 }
 
@@ -62,13 +71,21 @@ export function useCalculate(
 /**
  * The saved plan as the dashboard computes it — same inputs the web
  * dashboard feeds calculatePlanMetrics: active debts, the income row's
- * method, and the acceleration slider (null = full surplus).
+ * method, recurring expenses (summed as-is, like the web), and the
+ * acceleration slider (null = full surplus).
  */
-export function planInputFromServer(debts: Debt[], income: Income | null): CalculateInput | null {
+export function planInputFromServer(
+  debts: Debt[],
+  income: Income | null,
+  expenses: Expense[] = [],
+): CalculateInput | null {
   const active = debts.filter((d) => d.balance > 0.01);
   if (!income || active.length === 0) return null;
   const totalMin = active.reduce((sum, d) => sum + d.minimumPayment, 0);
-  const surplus = Math.max(0, income.monthlyTakeHome - income.essentialExpenses - totalMin);
+  const recurring = expenses.reduce((sum, e) => sum + e.amount, 0);
+  // The engine treats essentials + recurring as one figure, so fold them.
+  const essentials = income.essentialExpenses + recurring;
+  const surplus = Math.max(0, income.monthlyTakeHome - essentials - totalMin);
   const extra =
     income.accelerationAmount == null ? surplus : Math.min(income.accelerationAmount, surplus);
   const method: PayoffMethod =
@@ -79,7 +96,7 @@ export function planInputFromServer(debts: Debt[], income: Income | null): Calcu
     method,
     extraPayment: extra,
     monthlyIncome: income.monthlyTakeHome,
-    essentialExpenses: income.essentialExpenses,
+    essentialExpenses: essentials,
     debts: active.map((d) => ({
       id: d.id,
       name: d.name,
@@ -105,6 +122,8 @@ export interface SavePlanPayload {
     balance: number;
     interestRate: number;
     minimumPayment: number;
+    /** 1-based attack position; only sent for the custom method. */
+    priorityOrder?: number;
   }[];
 }
 

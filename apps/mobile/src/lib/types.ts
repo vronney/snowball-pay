@@ -41,6 +41,14 @@ export interface Income {
   accelerationAmount?: number | null;
 }
 
+export interface Expense {
+  id: string;
+  name: string;
+  amount: number;
+  frequency: string;
+  category: string;
+}
+
 export interface Subscription {
   paidTier: 'free' | 'pro';
   subscriptionStatus: string;

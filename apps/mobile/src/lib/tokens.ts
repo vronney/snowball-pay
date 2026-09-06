@@ -49,13 +49,10 @@ export async function saveSession(session: StoredSession): Promise<void> {
   });
 }
 
+/** Rejects if the keychain refuses the delete — never report signed-out while a token persists. */
 export async function clearSession(): Promise<void> {
+  await SecureStore.deleteItemAsync(KEY);
   memo = null;
-  try {
-    await SecureStore.deleteItemAsync(KEY);
-  } catch {
-    // Already gone.
-  }
 }
 
 async function refreshSession(session: StoredSession): Promise<StoredSession | null> {

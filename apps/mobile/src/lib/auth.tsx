@@ -33,7 +33,35 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 const redirectUri = makeRedirectUri({ scheme: config.scheme, path: 'auth/callback' });
 
+/**
+ * Builds without Auth0 env (a bare calculator preview) must not kick off
+ * OIDC discovery against "https://" — the hooks only mount when configured.
+ */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  return authConfigured ? (
+    <ConfiguredAuthProvider>{children}</ConfiguredAuthProvider>
+  ) : (
+    <UnconfiguredAuthProvider>{children}</UnconfiguredAuthProvider>
+  );
+}
+
+function UnconfiguredAuthProvider({ children }: { children: React.ReactNode }) {
+  const [status, setStatus] = useState<Status>('loading');
+  useEffect(() => {
+    loadSession().then((session) => setStatus(session ? 'signedIn' : 'signedOut'));
+  }, []);
+  const signOut = useCallback(async () => {
+    await clearSession();
+    setStatus('signedOut');
+  }, []);
+  const value = useMemo<AuthContextValue>(
+    () => ({ status, signIn: async () => false, signOut, invalidate: signOut }),
+    [status, signOut],
+  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+function ConfiguredAuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<Status>('loading');
   const queryClient = useQueryClient();
   const discovery = useAutoDiscovery(`https://${config.auth0Domain}`);
@@ -61,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [queryClient]);
 
   const signIn = useCallback(async () => {
-    if (!authConfigured || !request || !discovery) return false;
+    if (!request || !discovery) return false;
     // Ephemeral session: no shared browser cookies, so sign-out is just
     // dropping our tokens and the next sign-in always shows the login form.
     const result = await promptAsync({ preferEphemeralSession: true });

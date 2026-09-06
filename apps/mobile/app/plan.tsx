@@ -38,7 +38,16 @@ export default function PlanScreen() {
   const avalanche = useCalculate(avalancheInput);
   const chosen = useCalculate(current);
 
-  const rows = countedRows(s.rows);
+  // Display in the order the chosen strategy will actually attack (the
+  // server's schedule accounts for estimated APRs); entry order until it loads.
+  const rows = useMemo(() => {
+    const counted = countedRows(s.rows);
+    const schedule = chosen.data?.result.payoffSchedule;
+    if (!schedule) return counted;
+    const rank = new Map(schedule.map((step) => [step.debtId, step.orderInPayoff]));
+    return [...counted].sort((a, b) => (rank.get(a.id) ?? Infinity) - (rank.get(b.id) ?? Infinity));
+  }, [s.rows, chosen.data]);
+  const displayedIds = rows.map((r) => r.id);
 
   if (!current) {
     return (
@@ -95,7 +104,7 @@ export default function PlanScreen() {
             <Pressable
               accessibilityLabel="Move up"
               disabled={i === 0}
-              onPress={() => moveRow(row.id, -1)}
+              onPress={() => moveRow(displayedIds, row.id, -1)}
               hitSlop={6}
               className={`mr-2 h-9 w-9 items-center justify-center rounded-button bg-slate-100 ${i === 0 ? 'opacity-30' : ''}`}
             >
@@ -104,7 +113,7 @@ export default function PlanScreen() {
             <Pressable
               accessibilityLabel="Move down"
               disabled={i === rows.length - 1}
-              onPress={() => moveRow(row.id, 1)}
+              onPress={() => moveRow(displayedIds, row.id, 1)}
               hitSlop={6}
               className={`h-9 w-9 items-center justify-center rounded-button bg-slate-100 ${i === rows.length - 1 ? 'opacity-30' : ''}`}
             >
