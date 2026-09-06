@@ -122,6 +122,26 @@ describe('POST /api/onboarding/complete', () => {
     );
   });
 
+  it('does not treat a debt with a different priorityOrder as a replay', async () => {
+    vi.mocked(getUserTier).mockResolvedValue('pro');
+    mockPrisma.debt.findFirst.mockResolvedValue(null);
+    await POST(
+      makeRequest(
+        { income: { ...INCOME, payoffMethod: 'custom' }, debts: [{ ...debt('Card', 100), priorityOrder: 2 }] },
+        'key-1',
+      ),
+    );
+    expect(mockPrisma.debt.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ priorityOrder: 2 }) }),
+    );
+
+    // No order sent → only rows saved without an order can be replays.
+    await POST(makeRequest({ income: INCOME, debts: [debt('Card', 100)] }, 'key-2'));
+    expect(mockPrisma.debt.findFirst).toHaveBeenLastCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ priorityOrder: null }) }),
+    );
+  });
+
   it('rejects a non-positive priorityOrder', async () => {
     const res = await POST(
       makeRequest({ income: INCOME, debts: [{ ...debt('Card', 100), priorityOrder: 0 }] }),

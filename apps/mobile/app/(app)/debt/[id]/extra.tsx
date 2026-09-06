@@ -34,8 +34,13 @@ export default function ExtraPaymentScreen() {
 
   const debt = debts.data?.find((d) => d.id === id);
 
+  // Never preview with expenses missing: an empty list would overstate the
+  // surplus. Until they load, baseInput stays null and the card shows loading.
   const baseInput = useMemo(
-    () => planInputFromServer(debts.data ?? [], income.data ?? null, expenses.data ?? []),
+    () =>
+      expenses.data && income.data
+        ? planInputFromServer(debts.data ?? [], income.data, expenses.data)
+        : null,
     [debts.data, income.data, expenses.data],
   );
   const previewDebts = useMemo(() => {
@@ -76,14 +81,39 @@ export default function ExtraPaymentScreen() {
 
   const handleLog = async () => {
     if (!debt || liveAmount === null || liveAmount <= 0) return;
-    await log.mutateAsync({ debtId: debt.id, amount: Math.min(liveAmount, debt.balance) });
-    router.back();
+    try {
+      await log.mutateAsync({ debtId: debt.id, amount: Math.min(liveAmount, debt.balance) });
+      router.back();
+    } catch {
+      // Stay on the sheet; log.isError renders the API message below the card.
+    }
   };
 
-  if (debts.isPending) {
+  if (debts.isPending || income.isPending || expenses.isPending) {
     return (
       <Screen scroll={false}>
         <StateView kind="loading" />
+      </Screen>
+    );
+  }
+  if (expenses.isError || income.isError) {
+    return (
+      <Screen>
+        <StateView
+          kind="error"
+          title="Couldn't load your budget"
+          message="The preview needs your expenses to be accurate."
+          action={
+            <Button
+              title="Try again"
+              variant="quiet"
+              onPress={() => {
+                income.refetch();
+                expenses.refetch();
+              }}
+            />
+          }
+        />
       </Screen>
     );
   }
@@ -165,7 +195,7 @@ export default function ExtraPaymentScreen() {
                   <Muted className="mt-1">Still worth it — every dollar of principal cuts interest, even inside the same month.</Muted>
                 ) : null}
                 {clearsEverything ? (
-                  <Body className="mt-2 font-semibold text-emerald-700">This clears your last debt. You'd be debt-free today. 🎉</Body>
+                  <Body className="mt-2 font-semibold text-emerald-700">This clears your last debt. You’d be debt-free today. 🎉</Body>
                 ) : clears ? (
                   <Body className="mt-2 font-semibold text-emerald-700">This clears {debt.name} entirely. 🎉</Body>
                 ) : null}

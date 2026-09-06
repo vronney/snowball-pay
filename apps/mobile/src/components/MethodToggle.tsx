@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { Muted, Num } from './ui';
 import { money, monthYear } from '@/lib/format';
-import { monthFromNow } from '@/lib/plan';
+import { isPlanUnfinished, monthFromNow } from '@/lib/plan';
 import type { CalculateResponse, PayoffMethod } from '@/lib/types';
 
 interface Option {
@@ -40,7 +40,11 @@ export function MethodToggle({
             <View className="flex-row items-center justify-between">
               <Text className={`font-bold text-[16px] ${active ? 'text-primary' : 'text-ink'}`}>{opt.title}</Text>
               {opt.plan ? (
-                <Num className="text-[15px]">{monthYear(monthFromNow(opt.plan.result.months))}</Num>
+                isPlanUnfinished(opt.plan.result) ? (
+                  <Muted>No payoff in 30 yrs</Muted>
+                ) : (
+                  <Num className="text-[15px]">{monthYear(monthFromNow(opt.plan.result.months))}</Num>
+                )
               ) : null}
             </View>
             <Muted className="mt-1">{opt.blurb}</Muted>

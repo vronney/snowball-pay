@@ -148,6 +148,9 @@ export async function POST(request: NextRequest) {
                 balance: debtInput.balance,
                 interestRate: debtInput.interestRate,
                 minimumPayment: debtInput.minimumPayment,
+                // A re-submit with a different custom order is a new plan,
+                // not a replay — null matches rows saved without an order.
+                priorityOrder: debtInput.priorityOrder ?? null,
                 // Copy: the live array keeps growing as the loop proceeds.
                 id: { notIn: [...debtIds] },
                 createdAt: { gte: new Date(Date.now() - IDEMPOTENCY_TTL_MS) },
