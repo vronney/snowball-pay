@@ -7,7 +7,6 @@
     "scheme": "snowballpay",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "ios": {
       "bundleIdentifier": "com.getsnowballpay.app",
       "supportsTablet": false,
