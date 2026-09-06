@@ -130,7 +130,7 @@ export default function PlanScreen() {
       />
 
       <View className="mb-4 mt-2">
-        <PlanHero plan={chosen.data} isLoading={chosen.isFetching} isError={chosen.isError} compact />
+        <PlanHero plan={chosen.data} isLoading={chosen.isFetching} isError={chosen.isError} error={chosen.error} compact />
       </View>
 
       {chosen.data ? (

@@ -121,7 +121,7 @@ export default function DashboardScreen() {
         />
       ) : (
         <>
-          <PlanHero plan={plan.data} isLoading={plan.isFetching} isError={plan.isError} />
+          <PlanHero plan={plan.data} isLoading={plan.isFetching} isError={plan.isError} error={plan.error} />
 
           <Card className="mt-3">
             <View className="mb-2 flex-row items-center justify-between">

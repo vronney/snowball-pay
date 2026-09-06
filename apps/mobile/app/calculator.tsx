@@ -70,6 +70,7 @@ export default function CalculatorScreen() {
         plan={plan.data}
         isLoading={plan.isFetching}
         isError={plan.isError}
+        error={plan.error}
         sample={s.isSample}
       />
 

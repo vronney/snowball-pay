@@ -12,22 +12,24 @@ export function PlanHero({
   plan,
   isLoading,
   isError,
-  onRetry,
+  error,
   sample,
   compact,
 }: {
   plan: CalculateResponse | undefined;
   isLoading?: boolean;
   isError?: boolean;
-  onRetry?: () => void;
+  /** The query error — its message is shown so a failed request is diagnosable on-device. */
+  error?: unknown;
   sample?: boolean;
   compact?: boolean;
 }) {
   if (!plan) {
     if (isError) {
+      const detail = error instanceof Error ? error.message : 'Check your connection and try again.';
       return (
         <Card>
-          <StateView kind="error" title="Couldn't calculate" message="Check your connection and try again." />
+          <StateView kind="error" title="Couldn't calculate" message={detail} />
         </Card>
       );
     }

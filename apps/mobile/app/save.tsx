@@ -95,7 +95,7 @@ export default function SaveScreen() {
         {payload.debts.length} {payload.debts.length === 1 ? 'debt' : 'debts'} · {s.method} · {money(payload.income.extraPayment)} extra/mo
       </Muted>
 
-      <PlanHero plan={plan.data} isLoading={plan.isFetching} isError={plan.isError} compact />
+      <PlanHero plan={plan.data} isLoading={plan.isFetching} isError={plan.isError} error={plan.error} compact />
 
       <Card className="mb-4 mt-4">
         <Body className="font-semibold">Saving keeps this plan on every device</Body>
