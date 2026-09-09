@@ -100,6 +100,74 @@ describe('POST /api/onboarding/complete', () => {
     expect(res.status).toBe(401);
   });
 
+  it('persists a custom attack order sent as priorityOrder', async () => {
+    vi.mocked(getUserTier).mockResolvedValue('pro');
+    const res = await POST(
+      makeRequest({
+        income: { ...INCOME, payoffMethod: 'custom' },
+        debts: [
+          { ...debt('Card', 14200), priorityOrder: 2 },
+          { ...debt('Car', 4800), priorityOrder: 1 },
+        ],
+      }),
+    );
+    expect(res.status).toBe(200);
+    const created = mockPrisma.debt.create.mock.calls.map((c) => c[0].data);
+    expect(created.map((d: { name: string; priorityOrder?: number }) => [d.name, d.priorityOrder])).toEqual([
+      ['Card', 2],
+      ['Car', 1],
+    ]);
+    expect(mockPrisma.income.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ update: expect.objectContaining({ payoffMethod: 'custom' }) }),
+    );
+  });
+
+  it('does not treat a debt with a different priorityOrder as a replay', async () => {
+    vi.mocked(getUserTier).mockResolvedValue('pro');
+    // Stand in for the DB: one recent row for this debt saved at priority 1.
+    const existing = { id: 'debt-old', ...debt('Card', 100), priorityOrder: 1 };
+    mockPrisma.debt.findFirst.mockImplementation(async ({ where }: { where: { priorityOrder: number | null } }) =>
+      where.priorityOrder === 1 ? existing : null,
+    );
+
+    const reorder = await POST(
+      makeRequest(
+        { income: { ...INCOME, payoffMethod: 'custom' }, debts: [{ ...debt('Card', 100), priorityOrder: 2 }] },
+        'key-1',
+      ),
+    );
+    expect(reorder.status).toBe(200);
+    expect(mockPrisma.debt.create).toHaveBeenCalledTimes(1);
+    expect(mockPrisma.debt.create.mock.calls[0][0].data.priorityOrder).toBe(2);
+
+    const replay = await POST(
+      makeRequest(
+        { income: { ...INCOME, payoffMethod: 'custom' }, debts: [{ ...debt('Card', 100), priorityOrder: 1 }] },
+        'key-2',
+      ),
+    );
+    expect(await replay.json()).toMatchObject({ debtIds: ['debt-old'], dedupedDebt: true });
+    expect(mockPrisma.debt.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('matches only unordered rows when no priorityOrder is sent', async () => {
+    const unordered = { id: 'debt-plain', ...debt('Card', 100), priorityOrder: null };
+    mockPrisma.debt.findFirst.mockImplementation(async ({ where }: { where: { priorityOrder: number | null } }) =>
+      where.priorityOrder === null ? unordered : null,
+    );
+
+    const replay = await POST(makeRequest({ income: INCOME, debts: [debt('Card', 100)] }, 'key-3'));
+    expect(await replay.json()).toMatchObject({ debtIds: ['debt-plain'], dedupedDebt: true });
+    expect(mockPrisma.debt.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a non-positive priorityOrder', async () => {
+    const res = await POST(
+      makeRequest({ income: INCOME, debts: [{ ...debt('Card', 100), priorityOrder: 0 }] }),
+    );
+    expect(res.status).toBe(400);
+  });
+
   it('rejects a payload with neither firstDebt nor debts', async () => {
     const res = await POST(makeRequest({ income: INCOME }));
 
