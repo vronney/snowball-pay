@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Landmark } from 'lucide-react';
 import { PlaidLinkOptions, usePlaidLink as usePlaidLinkLibrary } from 'react-plaid-link';
@@ -79,21 +79,31 @@ export function PlaidLink({ source = 'header' }: PlaidLinkProps = {}) {
     }
   }, [isOpen, plaidReady, linkToken, plaidOpen]);
 
+  /**
+   * Every way out of the consent dialog routes through here. Three separate
+   * close paths (button, Escape, backdrop) each had to remember to track, and
+   * two of them didn't — silently undercounting consent drop-off, which is the
+   * one number this funnel exists to measure. One function, one event.
+   */
+  const dismissConsent = useCallback(
+    (method: 'button' | 'escape' | 'backdrop') => {
+      track(Events.BANK_LINK_CONSENT_CANCELLED, { source, method });
+      setShowConsent(false);
+    },
+    [source]
+  );
+
   // Close the consent dialog on Escape
   useEffect(() => {
     if (!showConsent) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        // Escape is a cancellation like any other. Tracking only the Cancel
-        // button undercounts consent drop-off by however many people dismiss
-        // with the keyboard.
-        track(Events.BANK_LINK_CONSENT_CANCELLED, { source, method: 'escape' });
-        setShowConsent(false);
+        dismissConsent('escape');
       }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [showConsent, source]);
+  }, [showConsent, dismissConsent]);
 
   return (
     <>
@@ -142,7 +152,7 @@ export function PlaidLink({ source = 'header' }: PlaidLinkProps = {}) {
       {showConsent && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setShowConsent(false)}
+          onClick={() => dismissConsent('backdrop')}
         >
           <div
             role="dialog"
@@ -196,10 +206,7 @@ export function PlaidLink({ source = 'header' }: PlaidLinkProps = {}) {
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
-                onClick={() => {
-                  track(Events.BANK_LINK_CONSENT_CANCELLED, { source, method: 'button' });
-                  setShowConsent(false);
-                }}
+                onClick={() => dismissConsent('button')}
                 className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-transparent px-5 py-2.5 text-sm font-medium text-slate-600 transition-colors duration-200 hover:bg-slate-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
               >
                 Cancel
