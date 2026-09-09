@@ -50,6 +50,17 @@ export const Events = {
   ROLL_FORWARD_ADVICE_REVIEW_CLICKED: 'roll_forward_advice_review_clicked',
   ROLL_FORWARD_ADVICE_PLANNED: 'roll_forward_advice_planned',
   ROLL_FORWARD_ADVICE_DISMISSED: 'roll_forward_advice_dismissed',
+  // Bank-link (Plaid) funnel. Added 2026-09-09: the flow shipped with no
+  // instrumentation at all, so "nobody links a bank" was indistinguishable
+  // from "nobody ever saw the button". Each step below is a drop-off point.
+  BANK_LINK_PROMPT_VIEWED: 'bank_link_prompt_viewed',
+  BANK_LINK_PROMPT_DISMISSED: 'bank_link_prompt_dismissed',
+  BANK_LINK_CTA_CLICKED: 'bank_link_cta_clicked',
+  BANK_LINK_CONSENT_CONTINUED: 'bank_link_consent_continued',
+  BANK_LINK_CONSENT_CANCELLED: 'bank_link_consent_cancelled',
+  BANK_LINK_COMPLETED: 'bank_link_completed',
+  BANK_LINK_FAILED: 'bank_link_failed',
+  BANK_LINK_EXITED: 'bank_link_exited',
 } as const;
 
 export type AnalyticsEvent = (typeof Events)[keyof typeof Events];

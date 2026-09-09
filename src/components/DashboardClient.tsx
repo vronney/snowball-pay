@@ -32,6 +32,8 @@ import { SKIPPED_DEBTS_FLAG } from "@/lib/calculatorDraft";
 import { calculateMinimumsOnlyResult, calculatePlanMetrics } from "@/lib/payoffPlan";
 import { shouldStartOnboarding } from "@/lib/onboardingGate";
 import TrialCountdownBanner from "@/components/dashboard/TrialCountdownBanner";
+import LinkBankPrompt from "@/components/dashboard/LinkBankPrompt";
+import { isDebtBankLinked } from "@/lib/debtHelpers";
 import { useSubscription } from "@/lib/hooks";
 import { isInPostTrialPromptWindow } from "@/lib/billing";
 import { shouldShowLateTrialNotice } from "@/lib/upgradeMessaging";
@@ -257,6 +259,15 @@ export default function DashboardClient({
   const debts = useMemo(() => debtsData?.debts ?? [], [debtsData?.debts]);
   const income = incomeData?.income;
   const expenses = useMemo(() => expensesData?.expenses ?? [], [expensesData?.expenses]);
+  // isDebtBankLinked, not the raw isLinked flag: disconnecting clears
+  // plaidItemId while isLinked can lag, and that helper is the single source
+  // of truth every other consumer uses. Both facts are derived once here and
+  // shared by TrialCountdownBanner and LinkBankPrompt.
+  const hasLinkedBankDebt = useMemo(() => debts.some(isDebtBankLinked), [debts]);
+  const unlinkedDebtCount = useMemo(
+    () => debts.filter((d) => !isDebtBankLinked(d)).length,
+    [debts]
+  );
 
   const onboardingCheckedRef = useRef(false);
   useEffect(() => {
@@ -415,11 +426,17 @@ export default function DashboardClient({
           plaidEnabled={plaidEnabled}
         />
 
-        <TrialCountdownBanner
-          sub={subData}
-          hasLinkedBankDebt={debts.some((d) => d.isLinked)}
-        />
+        <TrialCountdownBanner sub={subData} hasLinkedBankDebt={hasLinkedBankDebt} />
         <main style={{ flex: 1, padding: "32px", width: "100%" }} className="db-content">
+          {/* Only for users who can actually link, already have debts worth
+              syncing, and haven't linked one. Sits on the two tabs where
+              balances are the subject, not on Settings or Income. */}
+          {plaidEnabled &&
+            (activeTab === "this-month" || activeTab === "debts") &&
+            unlinkedDebtCount > 0 &&
+            !hasLinkedBankDebt && (
+              <LinkBankPrompt manualDebtCount={unlinkedDebtCount} />
+            )}
           {activeTab === "progress" && debts.length > 0 && (
             <div className="mb-4">
               <MilestoneWidget debts={debts} />
@@ -560,6 +577,20 @@ export default function DashboardClient({
           .db-page-title { display: none !important; }
           .db-username { display: none !important; }
           .db-content { padding: 16px 16px 80px !important; }
+          /* Tablet keeps the words. This button used to go icon-only for the
+             whole <=768px range, and an unlabeled bank glyph wedged between
+             the notification bell and the avatar read as decoration -- 30 days
+             of production traffic produced zero link attempts. The page title
+             is hidden at this width, so the label fits here. */
+          .plaid-link-btn { padding: 8px 12px; gap: 6px; }
+          .plaid-link-label { display: inline; }
+        }
+        /* Phones: the 130px logo + hamburger + bell + avatar already fill the
+           bar, so a labeled button overflows a 375px viewport. Go back to the
+           icon here -- LinkBankPrompt carries a full-width labeled CTA in the
+           content column at this width, which is the entry point that
+           actually gets seen. */
+        @media (max-width: 479px) {
           .plaid-link-btn { padding: 10px; border-radius: 999px; gap: 0; }
           .plaid-link-label { display: none !important; }
         }
