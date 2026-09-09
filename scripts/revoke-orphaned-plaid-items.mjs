@@ -30,6 +30,9 @@
  *   # Target a single item
  *   node scripts/revoke-orphaned-plaid-items.mjs --item <plaidItemId> --yes
  *
+ *   # Widen or narrow the in-flight-link guard (default 60 minutes)
+ *   node scripts/revoke-orphaned-plaid-items.mjs --min-age-minutes 15
+ *
  *   # Revoke pre-encryption rows whose token is stored in plaintext
  *   node scripts/revoke-orphaned-plaid-items.mjs --allow-legacy-plaintext --yes
  *
@@ -51,9 +54,16 @@
  *     on those would destroy our only copy of a token that is still live and
  *     still billing. --force-delete covers the case where a human checked the
  *     dashboard and is asserting the item is genuinely gone.
- *   - The zero-debt check is re-asserted inside the delete, so an Item that
- *     acquired a debt after the scan (a link racing this script) is skipped
- *     rather than orphaning that debt's linkage.
+ *   - Items newer than --min-age-minutes (default 60) are ignored entirely.
+ *     exchange-token creates the Item BEFORE attaching its debts, so a link in
+ *     flight looks exactly like an orphan; revoking one would kill a user's
+ *     brand-new token. The zero-debt re-check at delete time cannot prevent
+ *     that — the token is already gone by then — so the age floor, not the
+ *     re-check, is what actually closes this race.
+ *   - The zero-debt check is STILL re-asserted inside the delete, as a second
+ *     line of defence for the row itself.
+ *   - --force-delete requires --item. Without a selector it would skip
+ *     revocation for every orphan at once, discarding unverified tokens.
  */
 
 import dotenv from 'dotenv';
@@ -76,6 +86,27 @@ const confirmed = flag('yes');
 const onlyItem = arg('item');
 const forceDelete = flag('force-delete');
 const allowLegacyPlaintext = flag('allow-legacy-plaintext');
+
+/**
+ * Minimum age before a debt-less Item counts as an orphan.
+ *
+ * exchange-token creates the PlaidItem (route.ts:207) and attaches its debts
+ * (route.ts:396) in separate steps, with liabilitiesGet and account matching
+ * in between. For those seconds a live, in-flight link is indistinguishable
+ * from an orphan. Revoking one there kills a user's brand-new token, and the
+ * zero-debt re-check at delete time cannot save it: the token is already dead
+ * by then, and the debts that just attached can never sync again.
+ *
+ * An age floor closes that window without coordinating with the linking
+ * transaction. Real orphans are minutes-to-months old; an in-flight link is
+ * seconds old.
+ */
+const DEFAULT_MIN_AGE_MINUTES = 60;
+const parsedMinAge = Number.parseInt(arg('min-age-minutes') ?? '', 10);
+const minAge =
+  Number.isFinite(parsedMinAge) && parsedMinAge >= 0
+    ? parsedMinAge
+    : DEFAULT_MIN_AGE_MINUTES;
 
 // --- Token decryption -------------------------------------------------------
 // Mirrors src/lib/plaidCrypto.ts. Duplicated rather than imported because that
@@ -178,15 +209,34 @@ async function main() {
     process.exit(1);
   }
 
+  if (forceDelete && !onlyItem) {
+    console.error('--force-delete requires --item <plaidItemId>.');
+    console.error(
+      'It skips revocation entirely, so it is only valid for a single row whose'
+    );
+    console.error(
+      'death you have confirmed in the Plaid dashboard. Without a selector it'
+    );
+    console.error(
+      'would discard the tokens of every orphan at once, verified or not.'
+    );
+    process.exit(1);
+  }
+
   const dbHost = (process.env.DATABASE_URL || '').split('@')[1]?.split('/')[0] ?? 'unknown';
   console.log(`Plaid env : ${plaidEnv}`);
   console.log(`Database  : ${dbHost}`);
   console.log(`Mode      : ${confirmed ? 'EXECUTE' : 'DRY RUN (nothing will change)'}\n`);
 
+  console.log(`Min age   : ${minAge} minute(s) — younger rows may be links still in flight`);
+  console.log();
+
+  const cutoff = new Date(Date.now() - minAge * 60 * 1000);
   const items = await prisma.plaidItem.findMany({
     where: {
       ...(onlyItem ? { id: onlyItem } : {}),
       debts: { none: {} },
+      createdAt: { lt: cutoff },
     },
     select: {
       id: true,
@@ -207,8 +257,16 @@ async function main() {
 
   console.log(`Found ${items.length} orphaned PlaidItem(s) — no debts attached:\n`);
   for (const item of items) {
+    // The Plaid item_id is what the Plaid dashboard keys on, and the only way
+    // to map a dashboard-confirmed dead Item back to a local row — exactly what
+    // --force-delete asks the operator to have done. Two orphans at one
+    // institution are indistinguishable without it.
+    console.log(`  row ${item.id}`);
+    console.log(`    plaid item_id : ${item.itemId}`);
+    console.log(`    institution   : ${item.institutionName ?? '(unknown)'}`);
+    console.log(`    user          : ${item.userId}`);
     console.log(
-      `  ${item.id}  ${(item.institutionName ?? '(unknown institution)').padEnd(20)} created ${item.createdAt.toISOString().slice(0, 10)}`
+      `    created       : ${item.createdAt.toISOString()}  (last synced ${item.lastSyncedAt ? item.lastSyncedAt.toISOString() : 'never'})`
     );
   }
   console.log();
