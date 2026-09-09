@@ -96,7 +96,9 @@ function idRequest(method: 'DELETE' | 'PATCH', body?: Record<string, unknown>) {
   });
 }
 
-const PARAMS = { params: { id: 'rec-1' } };
+// Next 15: route handlers receive params as a Promise. Built fresh per call
+// so an already-awaited promise is never reused across cases.
+const PARAMS = () => ({ params: Promise.resolve({ id: 'rec-1' }) });
 
 const PAYMENT_BODY = {
   debtId: 'debt-1',
@@ -175,7 +177,7 @@ describe('DELETE /api/payments/[id] — same rule as logging', () => {
     mockPrisma.paymentRecord.findUnique.mockResolvedValue(RECORD);
     mockPrisma.debt.findUnique.mockResolvedValue(LINKED_DEBT);
 
-    const res = await DELETE(idRequest('DELETE'), PARAMS);
+    const res = await DELETE(idRequest('DELETE'), PARAMS());
 
     expect(res.status).toBe(200);
     expect(mockPrisma.paymentRecord.delete).toHaveBeenCalledOnce();
@@ -187,7 +189,7 @@ describe('DELETE /api/payments/[id] — same rule as logging', () => {
     mockPrisma.paymentRecord.findUnique.mockResolvedValue(RECORD);
     mockPrisma.debt.findUnique.mockResolvedValue(LINKED_DEBT);
 
-    const res = await DELETE(idRequest('DELETE'), PARAMS);
+    const res = await DELETE(idRequest('DELETE'), PARAMS());
 
     expect(res.status).toBe(200);
     expect(mockPrisma.paymentRecord.delete).toHaveBeenCalledOnce();
@@ -207,7 +209,7 @@ describe('PATCH /api/payments/[id] — same rule as logging', () => {
     mockPrisma.paymentRecord.findUnique.mockResolvedValue(RECORD);
     mockPrisma.debt.findUnique.mockResolvedValue(LINKED_DEBT);
 
-    const res = await PATCH(idRequest('PATCH', { amount: 150 }), PARAMS);
+    const res = await PATCH(idRequest('PATCH', { amount: 150 }), PARAMS());
 
     expect(res.status).toBe(200);
     expect(mockPrisma.paymentRecord.update).toHaveBeenCalledOnce();
@@ -219,7 +221,7 @@ describe('PATCH /api/payments/[id] — same rule as logging', () => {
     mockPrisma.paymentRecord.findUnique.mockResolvedValue(RECORD);
     mockPrisma.debt.findUnique.mockResolvedValue(LINKED_DEBT);
 
-    const res = await PATCH(idRequest('PATCH', { amount: 150 }), PARAMS);
+    const res = await PATCH(idRequest('PATCH', { amount: 150 }), PARAMS());
 
     expect(res.status).toBe(200);
     // 150 new − 100 old = 50 more paid → balance decrements by the delta.
