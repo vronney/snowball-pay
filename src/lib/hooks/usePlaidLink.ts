@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import type { PlaidLinkError } from 'react-plaid-link';
 import { handleUpgradeError } from '@/lib/hooks';
+import { track, Events } from '@/lib/analytics';
 
 /**
  * localStorage key holding the active Plaid Link token.
@@ -39,7 +40,12 @@ interface CreateLinkTokenResponse {
   expiration: string;
 }
 
-export function usePlaidLink() {
+/**
+ * @param source Which entry point opened this flow ('header' | 'prompt').
+ *   Carried onto the completion/failure events so the two CTAs can be
+ *   compared. Defaults to 'header' for callers that don't pass one.
+ */
+export function usePlaidLink(source: string = 'header') {
   const queryClient = useQueryClient();
 
   const [state, setState] = useState<PlaidLinkState>({
@@ -132,6 +138,15 @@ export function usePlaidLink() {
       setShowTutorial(!hasSeen);
       setTutorialStep(1);
 
+      // Only now is the link real: Plaid's widget finishing is not the same
+      // as the token exchange succeeding, and the exchange is what creates
+      // debts. Tracking at onSuccess would count every failed exchange below
+      // as a completed link.
+      track(Events.BANK_LINK_COMPLETED, {
+        source,
+        debts_created: response.debtsCreated ?? 0,
+      });
+
       setState((prev) => ({
         ...prev,
         success: true,
@@ -141,9 +156,11 @@ export function usePlaidLink() {
       }));
     } catch (err) {
       if (handleUpgradeError(err)) {
+        track(Events.BANK_LINK_FAILED, { source, reason: 'upgrade_required' });
         setState((prev) => ({ ...prev, isLoading: false, success: false }));
         return;
       }
+      track(Events.BANK_LINK_FAILED, { source, reason: 'exchange_failed' });
       const errorMessage =
         axios.isAxiosError<{ error?: string }>(err)
           ? err.response?.data?.error || 'Failed to link account'

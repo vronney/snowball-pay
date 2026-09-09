@@ -11,7 +11,15 @@ const CAMPAIGN_QUERY_KEYS = [
 const SAFE_QUERY_VALUE_RE = /^[a-z0-9_-]{1,64}$/i;
 const CAMPAIGN_PROPERTY_KEY_RE =
   /(?:^|_)utm_(?:source|medium|campaign|content|term)$/;
-const SAFE_NUMERIC_KEYS = new Set(['debt_count', 'debts', 'months']);
+// Counts, never amounts. 'manual_debt_count' is how many debts a user still
+// updates by hand — it separates "the link prompt is never seen" from "it's
+// seen and dismissed", which is the whole point of the BANK_LINK_* funnel.
+const SAFE_NUMERIC_KEYS = new Set([
+  'debt_count',
+  'debts',
+  'months',
+  'manual_debt_count',
+]);
 const URL_PROPERTY_KEY_RE = /(?:^|[$_])(?:current_url|entry_url|referrer)$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {

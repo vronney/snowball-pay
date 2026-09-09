@@ -1,16 +1,31 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Landmark } from 'lucide-react';
 import { PlaidLinkOptions, usePlaidLink as usePlaidLinkLibrary } from 'react-plaid-link';
 import { Button } from '@/components/ui/button';
 import { usePlaidLink } from '@/lib/hooks/usePlaidLink';
+import { track, Events } from '@/lib/analytics';
 import PlaidLinkModal from './PlaidLinkModal';
 import PlaidSuccess from './PlaidSuccess';
 import PlaidError from './PlaidError';
 
-export function PlaidLink() {
+/** Where this instance is rendered — carried into analytics so the two entry
+ *  points can be compared, and it selects the button treatment. */
+export type PlaidLinkSource = 'header' | 'prompt';
+
+interface PlaidLinkProps {
+  /**
+   * 'header' (default) is the quiet outlined affordance in the dashboard
+   * header. 'prompt' is the primary CTA inside LinkBankPrompt — blue, because
+   * DESIGN.md reserves the primary for real actions and that card exists to
+   * drive exactly one.
+   */
+  source?: PlaidLinkSource;
+}
+
+export function PlaidLink({ source = 'header' }: PlaidLinkProps = {}) {
   const {
     isOpen,
     isLoading,
@@ -27,15 +42,29 @@ export function PlaidLink() {
     completeTutorial,
     dismissSuccess,
     nextTutorialStep,
-  } = usePlaidLink();
+  } = usePlaidLink(source);
 
   // Plaid Link library integration
   const plaidConfig: PlaidLinkOptions = {
     token: linkToken || '',
+    // BANK_LINK_COMPLETED is NOT tracked here: Plaid's widget closing only
+    // means the user authenticated, not that the token exchange succeeded.
+    // usePlaidLink fires it once the exchange resolves.
     onSuccess: (publicToken) => {
       handleOnSuccess(publicToken);
     },
-    onExit: handleOnExit,
+    onExit: (err, metadata) => {
+      // Fires when the user backs out of Plaid's own modal — the step that
+      // was previously invisible, since no request reaches our API.
+      track(Events.BANK_LINK_EXITED, {
+        source,
+        exit_status: metadata?.status ?? null,
+        error_code: err?.error_code ?? null,
+      });
+      // Pass err through: handleOnExit turns it into the user-facing
+      // "connection was interrupted" message. Dropping it would silence that.
+      handleOnExit(err);
+    },
   };
 
   const { open: plaidOpen, ready: plaidReady } = usePlaidLinkLibrary(plaidConfig);
@@ -50,37 +79,67 @@ export function PlaidLink() {
     }
   }, [isOpen, plaidReady, linkToken, plaidOpen]);
 
+  /**
+   * Every way out of the consent dialog routes through here. Three separate
+   * close paths (button, Escape, backdrop) each had to remember to track, and
+   * two of them didn't — silently undercounting consent drop-off, which is the
+   * one number this funnel exists to measure. One function, one event.
+   */
+  const dismissConsent = useCallback(
+    (method: 'button' | 'escape' | 'backdrop') => {
+      track(Events.BANK_LINK_CONSENT_CANCELLED, { source, method });
+      setShowConsent(false);
+    },
+    [source]
+  );
+
   // Close the consent dialog on Escape
   useEffect(() => {
     if (!showConsent) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setShowConsent(false);
+        dismissConsent('escape');
       }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [showConsent]);
+  }, [showConsent, dismissConsent]);
 
   return (
     <>
-      {/* Quiet header affordance — outlined with a bank icon; label on
-          desktop, icon-only circle on mobile (see .plaid-link-btn styles in
-          DashboardClient). Solid primary blue is reserved for real CTAs like
-          the consent dialog's Continue. */}
+      {/* Two treatments, one flow. 'header' is the quiet outlined affordance
+          (see .plaid-link-btn in DashboardClient) and keeps its label at every
+          width. 'prompt' is the blue CTA inside LinkBankPrompt — DESIGN.md
+          reserves the primary for real actions, and driving a bank link is
+          the entire reason that card renders. */}
       <button
-        onClick={() => setShowConsent(true)}
+        onClick={() => {
+          track(Events.BANK_LINK_CTA_CLICKED, { source });
+          setShowConsent(true);
+        }}
         disabled={isLoading}
         aria-label="Link bank account"
         title="Link bank account"
-        className="plaid-link-btn group inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
+        className={
+          source === 'prompt'
+            ? 'group inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-[#2563eb] px-4 py-2.5 text-sm font-bold text-white transition-all duration-200 hover:bg-[#1d4ed8] active:shadow-[0_4px_12px_rgba(37,99,235,0.3)] disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#93c5fd]'
+            : 'plaid-link-btn group inline-flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-600 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900 disabled:pointer-events-none disabled:opacity-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400'
+        }
       >
         {isLoading ? (
-          <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
+          <span
+            className={`inline-block h-4 w-4 animate-spin rounded-full border-2 border-t-transparent ${
+              source === 'prompt' ? 'border-white/70' : 'border-slate-400'
+            }`}
+          />
         ) : (
           <>
             <Landmark size={16} strokeWidth={2} aria-hidden="true" />
-            <span className="plaid-link-label">Link bank</span>
+            {source === 'prompt' ? (
+              <span>Link my bank</span>
+            ) : (
+              <span className="plaid-link-label">Link bank</span>
+            )}
           </>
         )}
       </button>
@@ -93,7 +152,7 @@ export function PlaidLink() {
       {showConsent && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          onClick={() => setShowConsent(false)}
+          onClick={() => dismissConsent('backdrop')}
         >
           <div
             role="dialog"
@@ -147,13 +206,14 @@ export function PlaidLink() {
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
-                onClick={() => setShowConsent(false)}
+                onClick={() => dismissConsent('button')}
                 className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-transparent px-5 py-2.5 text-sm font-medium text-slate-600 transition-colors duration-200 hover:bg-slate-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
               >
                 Cancel
               </button>
               <button
                 onClick={() => {
+                  track(Events.BANK_LINK_CONSENT_CONTINUED, { source });
                   setShowConsent(false);
                   openModal();
                 }}
