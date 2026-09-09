@@ -322,6 +322,11 @@ async function main() {
   // is already gone; retrying achieves nothing) and they are the worst outcome
   // this script can produce, so they must never be invisible in the summary.
   let stranded = 0;
+  // Distinct from `stranded`: the token is gone here too, but nothing proves
+  // debts attached — the delete simply errored (connection, permissions).
+  // Telling this operator to re-link debts would be wrong advice; the row just
+  // needs deleting again. Same severity, different remedy, so separate counts.
+  let deleteFailed = 0;
 
   for (const item of items) {
     const label = `${item.id} (${item.institutionName ?? 'unknown'})`;
@@ -419,9 +424,9 @@ async function main() {
         where: { id: item.id, debts: { none: {} } },
       });
     } catch (error) {
-      stranded += 1;
+      deleteFailed += 1;
       console.error(
-        `  STRANDED ${label} — token revoked but the row could not be deleted: ${error?.message ?? error}`
+        `  DELFAIL  ${label} — token revoked but the delete errored: ${error?.message ?? error}`
       );
       continue;
     }
@@ -434,7 +439,7 @@ async function main() {
   }
 
   console.log(
-    `\nDone. revoked=${revoked} force-deleted=${forced} kept-for-retry=${kept} stranded=${stranded}`
+    `\nDone. revoked=${revoked} force-deleted=${forced} kept-for-retry=${kept} stranded=${stranded} delete-failed=${deleteFailed}`
   );
   if (kept > 0) {
     console.log('Rows kept still hold live tokens. Investigate, then re-run.');
@@ -442,6 +447,11 @@ async function main() {
   if (stranded > 0) {
     console.log(
       `${stranded} row(s) had their token revoked after debts attached. Those debts need a re-link.`
+    );
+  }
+  if (deleteFailed > 0) {
+    console.log(
+      `${deleteFailed} row(s) were revoked but could not be deleted. The token is already dead, so re-running is safe: it will fail the revoke and keep the row. Diagnose the database error and delete the row directly.`
     );
   }
 }
