@@ -113,7 +113,17 @@ const allowLegacyPlaintext = flag('allow-legacy-plaintext');
  * seconds old.
  */
 const DEFAULT_MIN_AGE_MINUTES = 60;
+// arg() reads the NEXT argv entry, which is undefined when the flag is last
+// and is the following flag when the value was forgotten. Both cases would
+// otherwise fall through to the 60-minute default, handing the operator a
+// narrower guard than they asked for without saying so. Presence is tracked
+// separately from value so a valueless flag is an error, not a default.
+const minAgeFlagPresent = process.argv.includes('--min-age-minutes');
 const rawMinAge = arg('min-age-minutes');
+if (minAgeFlagPresent && (rawMinAge === undefined || rawMinAge.startsWith('--'))) {
+  console.error('--min-age-minutes requires a value, e.g. --min-age-minutes 120.');
+  process.exit(1);
+}
 // parseInt takes a numeric PREFIX: parseInt('1e2', 10) is 1, not 100. A typo
 // meant to widen the guard to 100 minutes would instead narrow it to one,
 // re-opening the in-flight-link window this flag exists to close. Silently
@@ -399,9 +409,22 @@ async function main() {
 
     // Re-assert zero debts at delete time: a link could have attached one
     // between the scan and now, and deleting the Item would sever it.
-    const deleted = await prisma.plaidItem.deleteMany({
-      where: { id: item.id, debts: { none: {} } },
-    });
+    // The token is already gone by this point, so a throw here would exit
+    // main() before the summary runs: the operator would never learn that
+    // this row holds a dead token, and the remaining rows would be skipped.
+    // Caught per item so the run continues and the count stays honest.
+    let deleted;
+    try {
+      deleted = await prisma.plaidItem.deleteMany({
+        where: { id: item.id, debts: { none: {} } },
+      });
+    } catch (error) {
+      stranded += 1;
+      console.error(
+        `  STRANDED ${label} — token revoked but the row could not be deleted: ${error?.message ?? error}`
+      );
+      continue;
+    }
     if (deleted.count === 0) {
       stranded += 1;
       console.warn(
