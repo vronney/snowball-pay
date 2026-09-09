@@ -67,6 +67,16 @@ describe('plaidFallbackMatchKey', () => {
     }
   );
 
+  it('produces an IDENTICAL key for two cards that share bank, mask and category', () => {
+    // This is the ambiguous case CodeRabbit flagged: the key cannot tell these
+    // apart, so exchange-token must refuse to match on it rather than pick one.
+    // The helper's job is only to be honest that they collide.
+    const cardA = plaidFallbackMatchKey('ins_7', '4021', 'Credit Card');
+    const cardB = plaidFallbackMatchKey('ins_7', '4021', 'Credit Card');
+    expect(cardA).toBe(cardB);
+    expect(cardA).not.toBeNull();
+  });
+
   it('never collapses two incomplete keys into a false match', () => {
     // Both null: a Set/Map keyed on these must not treat them as equal, which
     // is why callers filter nulls out rather than storing them.

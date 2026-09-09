@@ -84,12 +84,16 @@ export function PlaidLink({ source = 'header' }: PlaidLinkProps = {}) {
     if (!showConsent) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        // Escape is a cancellation like any other. Tracking only the Cancel
+        // button undercounts consent drop-off by however many people dismiss
+        // with the keyboard.
+        track(Events.BANK_LINK_CONSENT_CANCELLED, { source, method: 'escape' });
         setShowConsent(false);
       }
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [showConsent]);
+  }, [showConsent, source]);
 
   return (
     <>
@@ -193,7 +197,7 @@ export function PlaidLink({ source = 'header' }: PlaidLinkProps = {}) {
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 onClick={() => {
-                  track(Events.BANK_LINK_CONSENT_CANCELLED, { source });
+                  track(Events.BANK_LINK_CONSENT_CANCELLED, { source, method: 'button' });
                   setShowConsent(false);
                 }}
                 className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-transparent px-5 py-2.5 text-sm font-medium text-slate-600 transition-colors duration-200 hover:bg-slate-50 outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"

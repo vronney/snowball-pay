@@ -14,6 +14,7 @@ import {
   findLiabilityForAccount,
   extractInterestRate,
   plaidFallbackMatchKey,
+  indexByUniqueFallbackKey,
   extractCurrentBalance,
   extractCreditLimit,
   extractMinimumPayment,
@@ -117,12 +118,16 @@ export async function POST(request: NextRequest) {
     // Third tier — see plaidFallbackMatchKey. Without it this guard never
     // fired for accounts Plaid gives no persistent id for, because the only
     // other identifier (account_id) is regenerated on every re-link.
+    //
+    // The key is NOT unique: two cards at one institution can share a mask and
+    // a category. A key that resolves to more than one debt is therefore not
+    // evidence of anything, and rejecting on it would 409 a legitimate new
+    // account. Ambiguous keys are dropped, so this tier only ever speaks when
+    // it can speak unambiguously.
     const linkedFallbackKeys = new Set(
-      linkedDebts
-        .map((d) =>
-          plaidFallbackMatchKey(d.plaidItem?.institutionId, d.plaidAccountMask, d.category)
-        )
-        .filter((v): v is string => !!v)
+      indexByUniqueFallbackKey(linkedDebts, (d) =>
+        plaidFallbackMatchKey(d.plaidItem?.institutionId, d.plaidAccountMask, d.category)
+      ).keys()
     );
     const isAlreadyLinked = (acc: {
       account_id: string;
@@ -246,19 +251,12 @@ export async function POST(request: NextRequest) {
     type ExistingDebt = (typeof existingDebts)[number];
     const byPersistent = new Map<string, ExistingDebt>();
     const byAccount = new Map<string, ExistingDebt>();
-    const byFallback = new Map<string, ExistingDebt>();
+    const byFallback = indexByUniqueFallbackKey(existingDebts, (d) =>
+      plaidFallbackMatchKey(d.plaidItem?.institutionId, d.plaidAccountMask, d.category)
+    );
     for (const d of existingDebts) {
       if (d.plaidPersistentAccountId) byPersistent.set(d.plaidPersistentAccountId, d);
       if (d.plaidAccountId) byAccount.set(d.plaidAccountId, d);
-      const key = plaidFallbackMatchKey(
-        d.plaidItem?.institutionId,
-        d.plaidAccountMask,
-        d.category
-      );
-      // First writer wins: if two debts collide on institution+mask+category
-      // the key isn't discriminating, so don't let a later row silently
-      // displace an earlier one.
-      if (key && !byFallback.has(key)) byFallback.set(key, d);
     }
     const matchExisting = (
       persistentId: string | null | undefined,
@@ -302,6 +300,21 @@ export async function POST(request: NextRequest) {
       persistentId: string | null;
       accountMask: string | null;
     }[] = [];
+
+    // Ambiguity on the INCOMING side too: if two accounts in this response
+    // produce the same fallback key, neither can claim an existing debt by it
+    // (both would resolve to the same row and the second would clobber the
+    // first). Counted up front so the key can be discarded for both.
+    const incomingFallbackKeys = new Set(
+      indexByUniqueFallbackKey(accounts, (a) =>
+        plaidFallbackMatchKey(
+          institutionId,
+          a.mask ?? null,
+          mapCategoryFromPlaid(a.subtype || '')
+        )
+      ).keys()
+    );
+
     for (const account of accounts) {
       // Balance and limit live on the ACCOUNT (accounts[].balances); the
       // liability row only adds APR / minimum-payment detail. It's optional:
@@ -315,11 +328,10 @@ export async function POST(request: NextRequest) {
       const persistentId = account.persistent_account_id ?? null;
       const accountMask = account.mask ?? null;
       const category = mapCategoryFromPlaid(account.subtype || '');
-      const existing = matchExisting(
-        persistentId,
-        account.account_id,
-        plaidFallbackMatchKey(institutionId, accountMask, category)
-      );
+      const rawFallbackKey = plaidFallbackMatchKey(institutionId, accountMask, category);
+      const fallbackKey =
+        rawFallbackKey && incomingFallbackKeys.has(rawFallbackKey) ? rawFallbackKey : null;
+      const existing = matchExisting(persistentId, account.account_id, fallbackKey);
 
       if (existing) {
         // Already linked & active under some Item — leave it; re-linking would
