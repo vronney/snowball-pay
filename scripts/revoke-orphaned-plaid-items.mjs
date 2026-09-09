@@ -395,7 +395,19 @@ async function main() {
       const code = plaidErrorCode(error);
       console.error(`  KEPT     ${label} — revoke failed: ${plaidErrorMessage(error)}`);
       const detail = error?.response?.data?.error_message ?? '';
-      if (detail.includes('wrong Plaid environment')) {
+      if (code === 'INVALID_API_KEYS') {
+        // Plaid shares client_id across environments but issues a DIFFERENT
+        // secret per environment. Naming production while .env still holds the
+        // sandbox secret lands here, and the bare message ("invalid client_id
+        // or secret") sends people hunting for a typo in a credential that is
+        // perfectly correct — just for the other environment.
+        console.error(
+          `           PLAID_SECRET does not match PLAID_ENV="${plaidEnv}". The client_id is shared across environments but the SECRET is not.`
+        );
+        console.error(
+          '           Supply the matching secret for this run, e.g. PLAID_SECRET=<prod secret> PLAID_ENV=production node ...'
+        );
+      } else if (detail.includes('wrong Plaid environment')) {
         // Plaid named the problem outright: the token is fine, we asked the
         // wrong API. This is emphatically NOT a --force-delete case.
         console.error(
