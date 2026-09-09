@@ -3,6 +3,9 @@
 
 # dependencies
 /node_modules
+# Nested workspace installs (apps/mobile/node_modules is ~290MB). The rule
+# above is root-anchored, so without this a `git add -A` stages all of them.
+**/node_modules/
 /.pnp
 .pnp.js
 
