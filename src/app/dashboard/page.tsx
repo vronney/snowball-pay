@@ -17,8 +17,12 @@ export const metadata: Metadata = {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams?: Record<string, string | string[] | undefined>;
+  // Next 15: searchParams is a Promise. Annotating it as a plain object still
+  // typechecks (this annotation is ours, not the framework's) but reads
+  // undefined at runtime — which silently broke the ?checkout=pro deep link.
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }) {
+  const resolvedSearchParams = await searchParams;
   const session = await auth0.getSession();
   const user = session?.user ?? null;
 
@@ -35,7 +39,7 @@ export default async function DashboardPage({
   // see sessionStorage). Provisioning failures leave `provisioned` null and
   // fall through to the client, which renders the account-issue screen.
   let startOnboarding = false;
-  if (provisioned && cookies().get('sp_onboarding_skipped')?.value !== '1') {
+  if (provisioned && (await cookies()).get('sp_onboarding_skipped')?.value !== '1') {
     try {
       const [debtCount, income] = await Promise.all([
         prisma.debt.count({ where: { userId: provisioned.id } }),
@@ -53,7 +57,9 @@ export default async function DashboardPage({
   // Keep the Pro deep link alive across the detour: the wizard hands it
   // back to the dashboard on completion (or skip) so checkout still starts.
   if (startOnboarding) {
-    redirect(searchParams?.checkout === 'pro' ? '/onboarding?checkout=pro' : '/onboarding');
+    redirect(
+      resolvedSearchParams?.checkout === 'pro' ? '/onboarding?checkout=pro' : '/onboarding'
+    );
   }
 
   // Allowlist override only — the full gate also includes Pro status, which

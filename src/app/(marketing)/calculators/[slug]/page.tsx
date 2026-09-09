@@ -7,19 +7,22 @@ import {
 } from "@/components/calculator/configs";
 
 interface CalculatorSlugPageProps {
-  params: {
+  // Next 15: params is a Promise. Both consumers below became async to await
+  // it — generateStaticParams still returns the plain shape, unchanged.
+  params: Promise<{
     slug: string;
-  };
+  }>;
 }
 
 export function generateStaticParams() {
   return Object.keys(calculatorConfigs).map((slug) => ({ slug }));
 }
 
-export function generateMetadata({
+export async function generateMetadata({
   params,
-}: CalculatorSlugPageProps): Metadata {
-  const config = getCalculatorConfig(params.slug);
+}: CalculatorSlugPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const config = getCalculatorConfig(slug);
 
   if (!config) {
     return {};
@@ -48,10 +51,11 @@ export function generateMetadata({
   };
 }
 
-export default function CalculatorSlugPage({
+export default async function CalculatorSlugPage({
   params,
 }: CalculatorSlugPageProps) {
-  const config = getCalculatorConfig(params.slug);
+  const { slug } = await params;
+  const config = getCalculatorConfig(slug);
 
   if (!config) {
     notFound();

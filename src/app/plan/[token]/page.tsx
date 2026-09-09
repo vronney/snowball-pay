@@ -7,11 +7,14 @@ import type { Debt } from "@/types";
 import Image from "next/image";
 
 interface Props {
-  params: { token: string };
+  // Next 15: params is a Promise. Reading it synchronously here would have
+  // passed undefined to verifyShareToken and 404'd every shared plan link.
+  params: Promise<{ token: string }>;
 }
 
 export default async function SharedPlanPage({ params }: Props) {
-  const userId = verifyShareToken(params.token);
+  const { token } = await params;
+  const userId = verifyShareToken(token);
   if (!userId) notFound();
 
   const [rawDebts, income, expenses] = await Promise.all([

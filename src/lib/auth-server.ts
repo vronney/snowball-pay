@@ -29,7 +29,7 @@ async function captureAccountCreated(userId: string): Promise<void> {
     // cookies() throws outside a request scope (e.g. build-time prerender);
     // treat that as no consent rather than failing provisioning.
     consent =
-      cookies().get(ANALYTICS_CONSENT_KEY)?.value === 'granted'
+      (await cookies()).get(ANALYTICS_CONSENT_KEY)?.value === 'granted'
         ? 'granted'
         : 'denied';
   } catch {

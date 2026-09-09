@@ -9,8 +9,10 @@ const UpdatePaymentSchema = z.object({ amount: z.number().positive() });
 /** DELETE /api/payments/[id] — unmark a payment as paid */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  // Next 15: route handler params is a Promise.
+  const params = await context.params;
   if (!isValidId(params.id)) return badRequest('Invalid id');
   const auth = await verifyAuth(request);
   if (!auth.valid || !auth.user) return unauthorized();
@@ -54,8 +56,10 @@ export async function DELETE(
 /** PATCH /api/payments/[id] — update payment amount and adjust debt balance */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  // Next 15: route handler params is a Promise.
+  const params = await context.params;
   if (!isValidId(params.id)) return badRequest('Invalid id');
   const auth = await verifyAuth(request);
   if (!auth.valid || !auth.user) return unauthorized();

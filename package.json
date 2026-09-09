@@ -39,7 +39,7 @@
     "html-to-image": "^1.11.13",
     "jose": "^6.2.3",
     "lucide-react": "^0.294.0",
-    "next": "14.2.35",
+    "next": "15.5.25",
     "pdf-parse": "^1.1.1",
     "plaid": "^42.2.0",
     "postcss": "^8.4.31",
