@@ -27,8 +27,10 @@
  *   # Execute
  *   node scripts/revoke-orphaned-plaid-items.mjs --yes
  *
- *   # Target a single item
- *   node scripts/revoke-orphaned-plaid-items.mjs --item <plaidItemId> --yes
+ *   # Target a single item. --item accepts EITHER the local row id or the
+ *   # Plaid item_id (the one the Plaid dashboard shows); both are printed by
+ *   # the dry-run listing.
+ *   node scripts/revoke-orphaned-plaid-items.mjs --item <row id | plaid item_id> --yes
  *
  *   # Widen or narrow the in-flight-link guard (default 60 minutes)
  *   node scripts/revoke-orphaned-plaid-items.mjs --min-age-minutes 15
@@ -37,7 +39,7 @@
  *   node scripts/revoke-orphaned-plaid-items.mjs --allow-legacy-plaintext --yes
  *
  *   # Drop a row you have CONFIRMED in the Plaid dashboard is already gone
- *   node scripts/revoke-orphaned-plaid-items.mjs --item <id> --force-delete --yes
+ *   node scripts/revoke-orphaned-plaid-items.mjs --item <plaid item_id> --force-delete --yes
  *
  * PLAID_ENV must be set explicitly and must match the environment the stored
  * tokens belong to. Production tokens sent to sandbox come back as
@@ -57,11 +59,20 @@
  *   - Items newer than --min-age-minutes (default 60) are ignored entirely.
  *     exchange-token creates the Item BEFORE attaching its debts, so a link in
  *     flight looks exactly like an orphan; revoking one would kill a user's
- *     brand-new token. The zero-debt re-check at delete time cannot prevent
- *     that — the token is already gone by then — so the age floor, not the
- *     re-check, is what actually closes this race.
- *   - The zero-debt check is STILL re-asserted inside the delete, as a second
- *     line of defence for the row itself.
+ *     brand-new token.
+ *   - Debts are re-counted immediately before itemRemove, and the zero-debt
+ *     condition is re-asserted again inside the delete.
+ *
+ * What those do NOT amount to, stated plainly: the race is NARROWED, not
+ * closed. A debt can still attach between the final count and itemRemove.
+ * Closing it properly would mean claiming or locking the row so the linking
+ * path cannot use it — heavier machinery than a hand-run cleanup warrants.
+ * Note also that exchange-token UPSERTS on itemId, so a duplicate submission
+ * updates an existing row without moving its createdAt: an old, debt-less row
+ * can be mid-write, which the age floor does not cover.
+ *
+ * SO: this is a MAINTENANCE-WINDOW script. Run it when you are not expecting
+ * anyone to be linking a bank. Do not put it on a cron.
  *   - --force-delete requires --item. Without a selector it would skip
  *     revocation for every orphan at once, discarding unverified tokens.
  */
@@ -210,7 +221,7 @@ async function main() {
   }
 
   if (forceDelete && !onlyItem) {
-    console.error('--force-delete requires --item <plaidItemId>.');
+    console.error('--force-delete requires --item <row id | plaid item_id>.');
     console.error(
       'It skips revocation entirely, so it is only valid for a single row whose'
     );
@@ -234,7 +245,12 @@ async function main() {
   const cutoff = new Date(Date.now() - minAge * 60 * 1000);
   const items = await prisma.plaidItem.findMany({
     where: {
-      ...(onlyItem ? { id: onlyItem } : {}),
+      // Accept EITHER identifier. The docs said "<plaidItemId>" while this
+      // matched the local cuid, so pasting the id from the Plaid dashboard --
+      // which is exactly what --force-delete instructs you to confirm against
+      // -- silently matched nothing. Taking both removes the ambiguity rather
+      // than making the operator remember which id this one flag wants.
+      ...(onlyItem ? { OR: [{ id: onlyItem }, { itemId: onlyItem }] } : {}),
       debts: { none: {} },
       createdAt: { lt: cutoff },
     },
@@ -317,6 +333,22 @@ async function main() {
       // Undecryptable means we cannot revoke it, and deleting the row would
       // destroy the ciphertext a correct key could still recover.
       console.error(`  KEPT     ${label} — decrypt failed: ${error.message}`);
+      kept += 1;
+      continue;
+    }
+
+    // Last look before the irreversible call. The scan happened potentially
+    // many revocations ago; this narrows the exposure from "however long the
+    // whole run takes" to the microseconds between this read and itemRemove.
+    //
+    // It does NOT close the race, and must not be described as if it does:
+    // a debt can still attach in that gap. It is defence in depth behind the
+    // age floor, not a substitute for it.
+    const attachedNow = await prisma.debt.count({ where: { plaidItemId: item.id } });
+    if (attachedNow > 0) {
+      console.warn(
+        `  SKIPPED  ${label} — ${attachedNow} debt(s) attached since the scan; not revoking`
+      );
       kept += 1;
       continue;
     }
