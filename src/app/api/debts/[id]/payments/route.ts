@@ -5,8 +5,10 @@ import { verifyAuth, unauthorized, badRequest, serverError, isValidId } from '@/
 /** GET /api/debts/[id]/payments — returns all payment records for a specific debt, newest first */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
+  // Next 15: route handler params is a Promise.
+  const params = await context.params;
   if (!isValidId(params.id)) return badRequest('Invalid id');
   const auth = await verifyAuth(request);
   if (!auth.valid || !auth.user) return unauthorized();

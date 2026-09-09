@@ -19,6 +19,12 @@ if (isProductionBuild && !process.env.TRIAL_GRANT_SECRET) {
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // apps/mobile (the Expo app, merged in #99) ships its own package-lock.json,
+  // so Next 15 sees two lockfiles and has to guess which directory is the
+  // workspace root. Guessing wrong changes which files get traced into the
+  // serverless bundle. Pin it to this directory — the web app is the root of
+  // its own build, and the mobile app is not part of it.
+  outputFileTracingRoot: __dirname,
   async headers() {
     return [
       {

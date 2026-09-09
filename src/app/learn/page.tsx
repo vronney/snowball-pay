@@ -247,13 +247,15 @@ const learnJsonLd = {
 export default async function LearnPage({
   searchParams,
 }: {
-  searchParams?: { ab?: string | string[] };
+  // Next 15: a Promise, not a plain object. See dashboard/page.tsx.
+  searchParams?: Promise<{ ab?: string | string[] }>;
 }) {
+  const resolvedSearchParams = await searchParams;
   const session = await auth0.getSession();
   const isLoggedIn = !!session;
-  const abParam = Array.isArray(searchParams?.ab)
-    ? searchParams?.ab[0]
-    : searchParams?.ab;
+  const abParam = Array.isArray(resolvedSearchParams?.ab)
+    ? resolvedSearchParams?.ab[0]
+    : resolvedSearchParams?.ab;
   const copy = abParam === "b" ? COPY_B : COPY_A;
   const snowballStartHref = isLoggedIn
     ? "/dashboard"
