@@ -7,6 +7,14 @@ export interface PlaidBalanceUpdate {
   id: string;
   newBalance: number;
   newOriginalBalance: number;
+  /**
+   * Set only when the debt has no stored mask yet. Backfills
+   * Debt.plaidAccountMask for rows created before it existed, so the
+   * re-link matcher in exchange-token has something stable to match on.
+   * Plaid rotates account_id per Item and withholds persistent_account_id
+   * for these accounts, so without this a re-link duplicates the debt.
+   */
+  newMask?: string;
 }
 
 export interface PlaidItemSyncResult {
@@ -72,6 +80,8 @@ export async function syncPlaidItemBalances(item: {
       id: d.id,
       newBalance,
       newOriginalBalance: Math.max(d.originalBalance, newBalance),
+      // Never overwrite a mask we already hold — only fill the gap.
+      ...(!d.plaidAccountMask && account?.mask ? { newMask: account.mask } : {}),
     }];
   });
 
@@ -93,6 +103,7 @@ export async function syncPlaidItemBalances(item: {
         data: {
           balance: u.newBalance,
           originalBalance: u.newOriginalBalance,
+          ...(u.newMask ? { plaidAccountMask: u.newMask } : {}),
           lastSyncedAt: now,
         },
       });

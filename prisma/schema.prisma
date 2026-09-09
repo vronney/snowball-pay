@@ -106,6 +106,14 @@ model Debt {
   // the same debt on re-link instead of creating a duplicate. Null for accounts
   // where Plaid doesn't provide one (some loan types).
   plaidPersistentAccountId String?
+  // Last 4 of the account number. Plaid returns persistent_account_id for only
+  // some institutions/account types (in production every linked debt here has
+  // it null), and account_id is rotated on every new Item BY DESIGN. With both
+  // unusable a re-link matched nothing and inserted a duplicate debt beside the
+  // original. Mask is stable across re-links and, scoped to one institution and
+  // category for one user, is specific enough to re-attach. Informational only:
+  // no unique constraint, since two cards at one bank can share a mask.
+  plaidAccountMask  String?
   plaidItemId       String?
   plaidItem         PlaidItem? @relation(fields: [plaidItemId], references: [id], onDelete: SetNull)
   lastSyncedAt      DateTime?

@@ -13,6 +13,7 @@ import {
   PLAID_ITEM_LIMIT_MESSAGE,
   findLiabilityForAccount,
   extractInterestRate,
+  plaidFallbackMatchKey,
   extractCurrentBalance,
   extractCreditLimit,
   extractMinimumPayment,
@@ -93,9 +94,19 @@ export async function POST(request: NextRequest) {
     const accountsResponse = await plaidClient.accountsGet({ access_token: accessToken });
     const incomingAccounts = accountsResponse.data.accounts;
 
+    // Institution of the Item being exchanged — the scope for mask matching.
+    const incomingInstitutionKey =
+      accountsResponse.data.item?.institution_id ?? null;
+
     const linkedDebts = await prisma.debt.findMany({
       where: { userId, isLinked: true, plaidItemId: { not: null } },
-      select: { plaidAccountId: true, plaidPersistentAccountId: true },
+      select: {
+        plaidAccountId: true,
+        plaidPersistentAccountId: true,
+        plaidAccountMask: true,
+        category: true,
+        plaidItem: { select: { institutionId: true } },
+      },
     });
     const linkedPersistentIds = new Set(
       linkedDebts.map((d) => d.plaidPersistentAccountId).filter((v): v is string => !!v)
@@ -103,9 +114,33 @@ export async function POST(request: NextRequest) {
     const linkedAccountIds = new Set(
       linkedDebts.map((d) => d.plaidAccountId).filter((v): v is string => !!v)
     );
-    const isAlreadyLinked = (acc: { account_id: string; persistent_account_id?: string | null }) =>
-      (!!acc.persistent_account_id && linkedPersistentIds.has(acc.persistent_account_id)) ||
-      linkedAccountIds.has(acc.account_id);
+    // Third tier — see plaidFallbackMatchKey. Without it this guard never
+    // fired for accounts Plaid gives no persistent id for, because the only
+    // other identifier (account_id) is regenerated on every re-link.
+    const linkedFallbackKeys = new Set(
+      linkedDebts
+        .map((d) =>
+          plaidFallbackMatchKey(d.plaidItem?.institutionId, d.plaidAccountMask, d.category)
+        )
+        .filter((v): v is string => !!v)
+    );
+    const isAlreadyLinked = (acc: {
+      account_id: string;
+      persistent_account_id?: string | null;
+      mask?: string | null;
+      subtype?: string | null;
+    }) => {
+      if (acc.persistent_account_id && linkedPersistentIds.has(acc.persistent_account_id)) {
+        return true;
+      }
+      if (linkedAccountIds.has(acc.account_id)) return true;
+      const fallbackKey = plaidFallbackMatchKey(
+        incomingInstitutionKey,
+        acc.mask,
+        mapCategoryFromPlaid(acc.subtype || '')
+      );
+      return !!fallbackKey && linkedFallbackKeys.has(fallbackKey);
+    };
 
     if (incomingAccounts.length > 0 && incomingAccounts.every(isAlreadyLinked)) {
       // Revoke the just-exchanged token immediately — we're not keeping it, and
@@ -203,21 +238,36 @@ export async function POST(request: NextRequest) {
         isLinked: true,
         plaidAccountId: true,
         plaidPersistentAccountId: true,
+        plaidAccountMask: true,
+        category: true,
+        plaidItem: { select: { institutionId: true } },
       },
     });
     type ExistingDebt = (typeof existingDebts)[number];
     const byPersistent = new Map<string, ExistingDebt>();
     const byAccount = new Map<string, ExistingDebt>();
+    const byFallback = new Map<string, ExistingDebt>();
     for (const d of existingDebts) {
       if (d.plaidPersistentAccountId) byPersistent.set(d.plaidPersistentAccountId, d);
       if (d.plaidAccountId) byAccount.set(d.plaidAccountId, d);
+      const key = plaidFallbackMatchKey(
+        d.plaidItem?.institutionId,
+        d.plaidAccountMask,
+        d.category
+      );
+      // First writer wins: if two debts collide on institution+mask+category
+      // the key isn't discriminating, so don't let a later row silently
+      // displace an earlier one.
+      if (key && !byFallback.has(key)) byFallback.set(key, d);
     }
     const matchExisting = (
       persistentId: string | null | undefined,
-      accountId: string
+      accountId: string,
+      fallbackKey: string | null
     ): ExistingDebt | undefined =>
       (persistentId ? byPersistent.get(persistentId) : undefined) ??
-      byAccount.get(accountId);
+      byAccount.get(accountId) ??
+      (fallbackKey ? byFallback.get(fallbackKey) : undefined);
 
     // Step 5: Partition incoming accounts. Skip accounts Plaid can't give a
     // current balance for — importing them as $0 would create a phantom
@@ -250,6 +300,7 @@ export async function POST(request: NextRequest) {
       balance: number;
       accountId: string;
       persistentId: string | null;
+      accountMask: string | null;
     }[] = [];
     for (const account of accounts) {
       // Balance and limit live on the ACCOUNT (accounts[].balances); the
@@ -262,7 +313,13 @@ export async function POST(request: NextRequest) {
       if (balance === null) continue;
 
       const persistentId = account.persistent_account_id ?? null;
-      const existing = matchExisting(persistentId, account.account_id);
+      const accountMask = account.mask ?? null;
+      const category = mapCategoryFromPlaid(account.subtype || '');
+      const existing = matchExisting(
+        persistentId,
+        account.account_id,
+        plaidFallbackMatchKey(institutionId, accountMask, category)
+      );
 
       if (existing) {
         // Already linked & active under some Item — leave it; re-linking would
@@ -273,6 +330,7 @@ export async function POST(request: NextRequest) {
           balance,
           accountId: account.account_id,
           persistentId,
+          accountMask,
         });
         continue;
       }
@@ -282,7 +340,7 @@ export async function POST(request: NextRequest) {
       toCreate.push({
         userId,
         name: account.name || `${account.subtype} - ${account.mask}`,
-        category: mapCategoryFromPlaid(account.subtype || ''),
+        category,
         balance,
         originalBalance: balance,
         interestRate: extractInterestRate(liability),
@@ -292,6 +350,7 @@ export async function POST(request: NextRequest) {
         isLinked: true,
         plaidAccountId: account.account_id,
         plaidPersistentAccountId: persistentId,
+        plaidAccountMask: accountMask,
         plaidItemId: plaidItem.id,
         lastSyncedAt: now,
       });
@@ -337,6 +396,9 @@ export async function POST(request: NextRequest) {
             plaidItemId: plaidItem.id,
             plaidAccountId: r.accountId,
             ...(r.persistentId ? { plaidPersistentAccountId: r.persistentId } : {}),
+            // Backfills rows created before the mask was stored, so the next
+            // re-link can match even if Plaid still withholds a persistent id.
+            ...(r.accountMask ? { plaidAccountMask: r.accountMask } : {}),
             lastSyncedAt: now,
             balance: r.balance,
           },

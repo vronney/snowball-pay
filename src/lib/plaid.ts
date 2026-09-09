@@ -133,6 +133,34 @@ export const PLAID_ITEM_LIMIT_MESSAGE =
   `or email support@getsnowballpay.com and we'll raise your limit — it's a fraud guard, not a plan limit.`;
 
 /**
+ * Fallback identity for a Plaid account, used only when
+ * `persistent_account_id` is absent.
+ *
+ * Plaid rotates `account_id` on every new Item by design, and returns
+ * `persistent_account_id` for only some institutions and account types — in
+ * this app's production data every linked debt has it null. That left the
+ * re-link matcher with nothing stable to match on, so re-linking a bank
+ * inserted a duplicate debt row instead of re-attaching the existing one
+ * (observed 2026-09-09: a second USAA Item plus a duplicate debt).
+ *
+ * Institution + last-4 + category is stable across re-links and specific
+ * enough to re-attach within a single user's debts. It is deliberately NOT a
+ * uniqueness constraint: two cards at one bank can share a mask, so this is
+ * only ever consulted after the two stronger identifiers miss.
+ *
+ * Returns null when any component is missing — callers must treat that as
+ * "no match possible" rather than matching other incomplete keys.
+ */
+export function plaidFallbackMatchKey(
+  institutionKey: string | null | undefined,
+  mask: string | null | undefined,
+  category: string | null | undefined
+): string | null {
+  if (!institutionKey || !mask || !category) return null;
+  return `${institutionKey}|${mask}|${category}`.toLowerCase();
+}
+
+/**
  * Whether a debt's balance math is deferred to Plaid sync right now: linked
  * AND its owner can still sync (Pro or allowlist). After a Pro → free
  * downgrade the link is dormant, so the debt behaves like a manual one.
