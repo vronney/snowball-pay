@@ -113,11 +113,23 @@ const allowLegacyPlaintext = flag('allow-legacy-plaintext');
  * seconds old.
  */
 const DEFAULT_MIN_AGE_MINUTES = 60;
-const parsedMinAge = Number.parseInt(arg('min-age-minutes') ?? '', 10);
-const minAge =
-  Number.isFinite(parsedMinAge) && parsedMinAge >= 0
-    ? parsedMinAge
-    : DEFAULT_MIN_AGE_MINUTES;
+const rawMinAge = arg('min-age-minutes');
+// parseInt takes a numeric PREFIX: parseInt('1e2', 10) is 1, not 100. A typo
+// meant to widen the guard to 100 minutes would instead narrow it to one,
+// re-opening the in-flight-link window this flag exists to close. Silently
+// falling back to the default hides the typo just as effectively, so a
+// malformed value is refused outright.
+if (rawMinAge !== undefined && !/^\d+$/.test(rawMinAge)) {
+  console.error(`--min-age-minutes must be a non-negative integer (got "${rawMinAge}").`);
+  console.error('Values like "1e2" or "30m" are refused, not truncated:');
+  console.error('parseInt would read "1e2" as 1 minute, not 100.');
+  process.exit(1);
+}
+const minAge = rawMinAge === undefined ? DEFAULT_MIN_AGE_MINUTES : Number(rawMinAge);
+if (!Number.isSafeInteger(minAge)) {
+  console.error(`--min-age-minutes is too large to be exact (got "${rawMinAge}").`);
+  process.exit(1);
+}
 
 // --- Token decryption -------------------------------------------------------
 // Mirrors src/lib/plaidCrypto.ts. Duplicated rather than imported because that
@@ -295,6 +307,11 @@ async function main() {
   let revoked = 0;
   let forced = 0;
   let kept = 0;
+  // Revoked at Plaid but the row could not be deleted, because debts attached
+  // in between. Counted separately: these are NOT "kept for retry" (the token
+  // is already gone; retrying achieves nothing) and they are the worst outcome
+  // this script can produce, so they must never be invisible in the summary.
+  let stranded = 0;
 
   for (const item of items) {
     const label = `${item.id} (${item.institutionName ?? 'unknown'})`;
@@ -386,17 +403,23 @@ async function main() {
       where: { id: item.id, debts: { none: {} } },
     });
     if (deleted.count === 0) {
+      stranded += 1;
       console.warn(
-        `  WARNING  ${label} — token revoked but the row now has debts attached; row left in place. Those debts are no longer syncable and need a re-link.`
+        `  STRANDED ${label} — token revoked but debts attached in the meantime; row left in place. Those debts can no longer sync and need a re-link.`
       );
     }
   }
 
   console.log(
-    `\nDone. revoked=${revoked} force-deleted=${forced} kept-for-retry=${kept}`
+    `\nDone. revoked=${revoked} force-deleted=${forced} kept-for-retry=${kept} stranded=${stranded}`
   );
   if (kept > 0) {
     console.log('Rows kept still hold live tokens. Investigate, then re-run.');
+  }
+  if (stranded > 0) {
+    console.log(
+      `${stranded} row(s) had their token revoked after debts attached. Those debts need a re-link.`
+    );
   }
 }
 
