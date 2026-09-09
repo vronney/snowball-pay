@@ -68,13 +68,19 @@ const nextConfig = {
   eslint: {
     dirs: ['src'],
   },
+  // Both of these graduated out of `experimental` in Next 15. Left inside it
+  // they are not deprecated-but-honoured -- Next reports them as
+  // "Unrecognized key(s)" and IGNORES them, silently and without failing the
+  // build. That matters most for serverExternalPackages: these three are
+  // deliberately kept out of the server-component bundle (@auth0/nextjs-auth0
+  // is the auth layer; pdf-parse and pdfjs-dist are Node-only).
+  typedRoutes: true,
+  serverExternalPackages: ['@auth0/nextjs-auth0', 'pdf-parse', 'pdfjs-dist'],
   experimental: {
-    typedRoutes: true,
     serverActions: {
       bodySizeLimit: '10mb',
     },
-    serverComponentsExternalPackages: ['@auth0/nextjs-auth0', 'pdf-parse', 'pdfjs-dist'],
-  }
+  },
 };
 
 module.exports = nextConfig;
