@@ -66,6 +66,13 @@ export default function SaveScreen() {
         params: result.skippedDebts > 0 ? { skipped: String(result.skippedDebts) } : {},
       });
     } catch (e) {
+      // 409: the account already has a plan (income saved on the web, or a
+      // racing submit landed first). The server refused to overwrite it —
+      // same outcome as the existing-debts check above.
+      if (e instanceof ApiError && e.status === 409) {
+        router.replace({ pathname: '/(app)/dashboard', params: { existing: '1' } });
+        return;
+      }
       if (e instanceof ApiError && e.isUpgradeRequired) {
         setError(
           `The free plan holds ${config.freeDebtLimit} debts and this plan has ${payload.debts.length}. Pro ($${config.proMonthlyPrice}/mo) keeps all of them — this plan is working against ${money(interest)} in interest.`,
