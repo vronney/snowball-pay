@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
+import { Prisma } from '@prisma/client';
 
 const { mockPrisma } = vi.hoisted(() => {
   const mockPrisma = {
@@ -9,7 +10,8 @@ const { mockPrisma } = vi.hoisted(() => {
       create: vi.fn(),
     },
     income: {
-      upsert: vi.fn(),
+      findUnique: vi.fn(),
+      create: vi.fn(),
     },
     calculatorLead: {
       updateMany: vi.fn(),
@@ -80,7 +82,8 @@ describe('POST /api/onboarding/complete', () => {
     vi.mocked(getUserTier).mockResolvedValue('free');
     mockPrisma.debt.count.mockResolvedValue(0);
     mockPrisma.debt.findFirst.mockResolvedValue(null);
-    mockPrisma.income.upsert.mockResolvedValue({ id: 'income-1' });
+    mockPrisma.income.findUnique.mockResolvedValue(null);
+    mockPrisma.income.create.mockResolvedValue({ id: 'income-1' });
     mockPrisma.calculatorLead.updateMany.mockResolvedValue({ count: 0 });
     let debtSeq = 0;
     mockPrisma.debt.create.mockImplementation(async ({ data }: { data: { name: string } }) => ({
@@ -100,6 +103,42 @@ describe('POST /api/onboarding/complete', () => {
     expect(res.status).toBe(401);
   });
 
+  it('refuses to overwrite an existing plan: 409, no income upsert, no debts', async () => {
+    // Regression, 2026-09-10: an existing Pro user signed in through the
+    // calculator's save flow, and the express screen replaced their real
+    // take-home with the calculator's $5,200 sample.
+    vi.mocked(getUserTier).mockResolvedValue('pro');
+    mockPrisma.income.findUnique.mockResolvedValue({ id: 'income-existing' });
+
+    const res = await POST(makeRequest({ income: INCOME, debts: [debt('Credit Card', 14200)] }));
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: 'plan_exists' });
+    expect(mockPrisma.income.findUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { userId: 'user-1' } }),
+    );
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.income.create).not.toHaveBeenCalled();
+    expect(mockPrisma.debt.create).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when a concurrent submit created the income first', async () => {
+    // Two racing submits can both pass the existence check; the income INSERT
+    // (unique userId) is the atomic guard, so the loser must 409 rather than
+    // overwrite the row the winner just wrote.
+    mockPrisma.income.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed on the fields: (`userId`)', {
+        code: 'P2002',
+        clientVersion: 'test',
+      }),
+    );
+
+    const res = await POST(makeRequest({ income: INCOME, debts: [debt('Visa', 1000)] }));
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ error: 'plan_exists' });
+  });
+
   it('persists a custom attack order sent as priorityOrder', async () => {
     vi.mocked(getUserTier).mockResolvedValue('pro');
     const res = await POST(
@@ -117,8 +156,8 @@ describe('POST /api/onboarding/complete', () => {
       ['Card', 2],
       ['Car', 1],
     ]);
-    expect(mockPrisma.income.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ update: expect.objectContaining({ payoffMethod: 'custom' }) }),
+    expect(mockPrisma.income.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ payoffMethod: 'custom' }) }),
     );
   });
 
@@ -239,10 +278,9 @@ describe('POST /api/onboarding/complete', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mockPrisma.income.upsert).toHaveBeenCalledWith(
+    expect(mockPrisma.income.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        update: expect.objectContaining({ payoffMethod: 'snowball' }),
-        create: expect.objectContaining({ payoffMethod: 'snowball' }),
+        data: expect.objectContaining({ payoffMethod: 'snowball' }),
       }),
     );
   });
@@ -258,9 +296,9 @@ describe('POST /api/onboarding/complete', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mockPrisma.income.upsert).toHaveBeenCalledWith(
+    expect(mockPrisma.income.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        update: expect.objectContaining({ payoffMethod: 'custom' }),
+        data: expect.objectContaining({ payoffMethod: 'custom' }),
       }),
     );
   });

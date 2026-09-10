@@ -867,6 +867,21 @@ export function OnboardingWizard({
         err && typeof err === "object" && "response" in err
           ? (err as { response?: { status?: number } }).response?.status
           : undefined;
+      // 409: the account already has a plan (an existing user who signed in
+      // through the calculator, or a replay after the first submit landed).
+      // The server refused to overwrite it, so there's nothing to retry —
+      // drop the calculator draft and take them to the plan they have.
+      if (status === 409) {
+        try {
+          localStorage.removeItem(ONBOARDING_DRAFT_KEY);
+        } catch {
+          // Ignore storage cleanup errors
+        }
+        clearCalculatorDraft();
+        submitIdempotencyKeyRef.current = null;
+        router.push(dashboardHref);
+        return;
+      }
       setSubmitError(
         status === 401
           ? "We couldn't link this account. If this email is already registered with a different sign-in method (like Google), log out and sign in with that method — or verify your email and log in again."

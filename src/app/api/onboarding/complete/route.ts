@@ -60,6 +60,14 @@ function setCachedReplay(userId: string, idempotencyKey: string, response: unkno
   });
 }
 
+/** The account already has a plan; onboarding refuses to replace it. */
+function planExists() {
+  return NextResponse.json(
+    { error: 'plan_exists', message: 'This account already has a plan.' },
+    { status: 409 }
+  );
+}
+
 export async function POST(request: NextRequest) {
   const auth = await verifyAuth(request);
   if (!auth.valid || !auth.user) return unauthorized();
@@ -74,6 +82,18 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const parsed = COMPLETE_SCHEMA.parse(body);
+
+    // Onboarding creates a plan; it never replaces one. For an account that
+    // already has an income row, the upsert below would overwrite the user's
+    // real take-home, essentials and acceleration with whatever the calculator
+    // held (observed 2026-09-10: an existing Pro user signed in through the
+    // calculator's save flow and got the $5,200 sample). Refuse instead — the
+    // wizard treats 409 as "already set up" and goes to the dashboard.
+    const existingIncome = await prisma.income.findUnique({
+      where: { userId: auth.user.id },
+      select: { id: true },
+    });
+    if (existingIncome) return planExists();
 
     const incomingDebts = parsed.debts ?? (parsed.firstDebt ? [parsed.firstDebt] : []);
 
@@ -108,16 +128,11 @@ export async function POST(request: NextRequest) {
       // "use the full surplus" default and is never written here, so the plan
       // matches the numbers the user saw in the calculator.
       const seededAcceleration = parsed.income.extraPayment;
-      const income = await tx.income.upsert({
-        where: { userId: auth.user!.id },
-        update: {
-          monthlyTakeHome: parsed.income.monthlyTakeHome,
-          essentialExpenses: parsed.income.essentialExpenses,
-          extraPayment: 0,
-          accelerationAmount: seededAcceleration,
-          payoffMethod,
-        },
-        create: {
+      // create, never upsert: userId is unique, so this insert is the atomic
+      // guard for a concurrent submit that also passed the check above — it
+      // fails with P2002 (→ 409) instead of overwriting the winner's row.
+      const income = await tx.income.create({
+        data: {
           userId: auth.user!.id,
           monthlyTakeHome: parsed.income.monthlyTakeHome,
           essentialExpenses: parsed.income.essentialExpenses,
@@ -212,6 +227,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
+    // Lost the race described at the income insert: a plan now exists, and
+    // the transaction rolled back without touching it.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      return planExists();
+    }
     if (error instanceof z.ZodError) {
       return badRequest(error.issues[0]?.message || 'Invalid request payload');
     }
