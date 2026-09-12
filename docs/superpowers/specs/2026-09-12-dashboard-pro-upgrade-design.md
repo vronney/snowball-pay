@@ -79,30 +79,42 @@ One small file per figure, with no React and no Prisma, so they can be imported 
 ### 5.2 Endpoint: `GET /api/dashboard/insights`
 
 - Auth via `verifyAuth`. Rate limited with the existing `rateLimit` helpers.
-- Query: `today=YYYY-MM-DD`, Zod-validated, accepted only within ±1 day of the server date (otherwise the server date is used).
+- Query: `today=YYYY-MM-DD`, accepted only when it is a real calendar date within ±36h of the server's date (regex + real-date check in `src/lib/dashboard/today.ts` `resolveToday`), otherwise the server's date is used.
 - Loads debts, income, expenses, current-month and historical payment records, snapshots, and the billing verdict in parallel, then returns:
 
+Actual shapes, from `src/lib/dashboard/types.ts`:
+
 ```ts
+export interface RateOpportunity { debtId: string; debtName: string; apr: number; targetApr: number; annualEstimate: number }
+export interface RateWatch { cards: number; annualEstimate: number; top: RateOpportunity }
+
+export interface StrategyComparison {
+  current: 'snowball' | 'avalanche';
+  currentInterest: number;
+  alternative: 'snowball' | 'avalanche';
+  alternativeInterest: number;
+  /** max(0, currentInterest − alternativeInterest) */
+  alternativeSaves: number;
+}
+
 interface DashboardInsights {
-  asOf: { year: number; month: number; day: number };
-  tier: { proEligible: boolean; paidPro: boolean; trial: TrialState };
-  readiness: PlanReadiness;
+  asOf: { year: number; month: number; day: number }; // month: 0-11
+  tier: { proEligible: boolean; paidPro: boolean; trial: { active: boolean; endsAt: string | null } };
+  readiness: PlanReadiness; // never null
   interest: { monthlyEstimate: number; avgMonthlySavedByPlan: number | null } | null;
   paymentGap: { expected: number; logged: number; missed: MissedPayment[]; missedMinimums: number; notYetDue: number } | null;
   coachMoves: CoachMove[];
-  rateWatch: { cards: number; annualEstimate: number } | null;
-  strategy: { current: PayoffMethod; currentInterest: number; alternative: 'snowball' | 'avalanche'; alternativeInterest: number } | null;
+  rateWatch: RateWatch | null;
+  strategy: StrategyComparison | null;
   planGap: { amount: number; asOfMonth: string } | null;
-  uncounted: { count: number; balance: number; monthsImpact: number | null } | null; // joins the interface in PR 4
   progress: { paidToDate: number; startingTotal: number; streak: number; grid: StreakCell[] } | null;
   plan: { method: PayoffMethod; months: number; debtFreeDate: string; totalInterest: number } | null; // for Expo parity; web keeps its existing client computation for existing cards
-  trialMoment: TrialMoment | null; // §7; joins the interface in PR 6
 }
 ```
 
-`readiness` is always computable (it never returns null).
+`readiness` is always computable (it never returns null). PR 4 adds `uncounted: { count: number; balance: number; monthsImpact: number | null } | null`. PR 6 adds `trialMoment: TrialMoment | null` (§7).
 
-- Web: `useDashboardInsights()` in `src/lib/hooks.ts` (React Query key `['dashboard-insights']`), invalidated by every debt, income, expense, and payment mutation hook.
+- Web: `useDashboardInsights()` in `src/lib/hooks.ts` (React Query key `['dashboard-insights']`). Invalidation is one global React Query `MutationCache` (`src/app/providers.tsx`) that invalidates `['dashboard-insights']` after every settled mutation, not per-hook edits.
 - Expo: reads the same endpoint in its follow-up. In this effort Expo gets only the `inPlan` filter (§6.2).
 
 ### 5.3 Feature flag
@@ -239,9 +251,9 @@ Placeholders `{…}` are filled only from insights values. Everything else is th
 - **Hero:** "Debt-free by" · "{Month YYYY}" · "{formatMonths(months)} to go".
 - **Moves:**
   - `log_missed`: "Log the {n} payments {Mon} is missing." / "{Mon} shows {logged} of {expected} payments logged; {n} are past their due date — ${missedMinimums} in minimums."
-  - `use_unallocated`: "Put ${x}/mo of unused cash to work." / "It is left after essentials and minimums. Applying it finishes {n} months sooner."
+  - `use_unallocated`: "Put ${x}/mo of unused cash to work." / "It's left after essentials, minimums and your planned extra. Applying it finishes {formatMonths} sooner."
   - `switch_strategy`: "Switch to {alt} — ${x} less interest." / "Same payments, different order. Switching is free and recalculates the whole plan."
-  - `call_apr`: "Call {card} about its {apr}% APR" / value "${x}/yr est."
+  - `call_apr`: "Call {card} about its {apr}% APR" / "Asking for {target}% could save about ${x} a year." / value "${x}/yr est."
 - **More moves:** "{n} more moves found" + Pro chip.
 - **Coach closing:** "Those {n} are worth ${perYear}/yr{, plus ${oneTime} over the plan}{ and {m} months sooner}. Pro is ${12×12}/yr." CTA "Unlock all {n}".
 - **Debts closing:** "{date} ignores ${uncounted}{ — about {months} months it doesn't include}." CTA per §7 E.

@@ -42,7 +42,7 @@
 
 ## Color
 
-- **Approach:** Restrained — blue (#2563eb) is used ONLY for action, progress, and active states. Not on nav, not on passive elements. Color earns its place.
+- **Approach:** Restrained — blue (#2563eb) is used ONLY for action, progress, and active states. Not on nav, not on passive elements (two passive exceptions: see the 2026-09-12 decision). Color earns its place.
 
 ### Light Mode (default)
 | Token             | Hex       | Usage                                      |
