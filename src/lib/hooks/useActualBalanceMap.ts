@@ -21,7 +21,9 @@ export interface ActualBalanceMonth {
  * drops every debt without a snapshot that month (e.g. only Plaid-linked debts
  * get a snapshot on sync), understating the total by the missing debts.
  */
-export function computeActualBalanceTotals(snapshots: BalanceSnapshot[]): ActualBalanceMonth[] {
+export function computeActualBalanceTotals(
+  snapshots: ReadonlyArray<Pick<BalanceSnapshot, 'debtId' | 'balance' | 'recordedAt'>>,
+): ActualBalanceMonth[] {
   if (snapshots.length === 0) return [];
 
   // Group per debt as { ym: "YYYY-MM", balance }[], sorted oldest→newest.
