@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   if (!auth.valid || !auth.user) return unauthorized();
   const userId = auth.user.id;
 
-  if (!(await limits.dashboardInsights(userId))) return tooManyRequests(undefined, 60);
+  if (!(await limits.dashboardInsights(userId))) return tooManyRequests();
 
   const today = resolveToday(new URL(request.url).searchParams.get('today'));
 

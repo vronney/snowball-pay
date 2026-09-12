@@ -22,7 +22,7 @@ vi.mock('@/lib/gates', () => ({ resolveBillingVerdict: vi.fn() }));
 vi.mock('@/lib/rateLimit', () => ({ limits: { dashboardInsights: vi.fn() } }));
 
 import { GET } from '@/app/api/dashboard/insights/route';
-import { verifyAuth } from '@/lib/auth-server';
+import { verifyAuth, tooManyRequests } from '@/lib/auth-server';
 import { resolveBillingVerdict } from '@/lib/gates';
 import { limits } from '@/lib/rateLimit';
 
@@ -60,6 +60,7 @@ describe('GET /api/dashboard/insights', () => {
     vi.mocked(limits.dashboardInsights).mockResolvedValue(false);
     expect((await GET(req())).status).toBe(429);
     expect(limits.dashboardInsights).toHaveBeenCalledWith('user-1');
+    expect(tooManyRequests).toHaveBeenCalledWith();
   });
 
   it('builds insights from the user\'s own rows, uncached', async () => {
