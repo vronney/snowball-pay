@@ -32,6 +32,7 @@ import {
   isNegotiableCard,
   missingInputFields,
   computeRateTargets,
+  estimateAnnualSavings,
   type UserSuppliedContext,
 } from "./apr-negotiation-adapter";
 
@@ -95,14 +96,6 @@ function fillRebuttal(r: Rebuttal, inputs: NegotiationInputs): Rebuttal {
     situation: fillTemplate(r.situation, inputs),
     response: fillTemplate(r.response, inputs),
   };
-}
-
-/** Rough annual interest saving = balance * (currentAPR - targetAPR) / 100. */
-function estimateAnnualSavings(balance: number, currentApr: number, targetApr: number): number | null {
-  if (![balance, currentApr, targetApr].every(Number.isFinite)) return null;
-  const delta = currentApr - targetApr;
-  if (delta <= 0) return 0;
-  return Math.round((balance * delta) / 100);
 }
 
 export function useAprNegotiation(): UseAprNegotiationResult {

@@ -159,6 +159,14 @@ export function computeRateTargets(currentApr: number): RateTargets {
   };
 }
 
+/** Rough annual interest saving = balance * (currentAPR - targetAPR) / 100. */
+export function estimateAnnualSavings(balance: number, currentApr: number, targetApr: number): number | null {
+  if (![balance, currentApr, targetApr].every(Number.isFinite)) return null;
+  const delta = currentApr - targetApr;
+  if (delta <= 0) return 0;
+  return Math.round((balance * delta) / 100);
+}
+
 /* -------------------------------------------------------------------------
  * Guards
  * ---------------------------------------------------------------------- */
