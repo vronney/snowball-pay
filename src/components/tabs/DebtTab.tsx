@@ -18,7 +18,6 @@ import {
   PlusCircle,
   Inbox,
   Bell,
-  ChevronDown,
   Calendar,
   Lock,
   Loader2,
@@ -31,16 +30,15 @@ import { formatCurrency } from "@/lib/utils";
 import { calculatePlanMetrics } from "@/lib/payoffPlan";
 import DebtCard from "@/components/DebtCard";
 import CompactDebtRow from "@/components/debt/CompactDebtRow";
+import DebtAccountsHeader from "@/components/debt/DebtAccountsHeader";
 import DebtForm from "@/components/DebtForm";
 import PaymentCalendar from "@/components/PaymentCalendar";
 import { getUpcomingPayments, computeStreak, isDebtPastDueThisMonth, isDebtBankLinked } from "@/lib/debtHelpers";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isActiveDebt, selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
 import {
   Collapsible,
-  CollapsibleTrigger,
   CollapsibleContent,
 } from "@/components/ui/collapsible";
 import { track, Events } from "@/lib/analytics";
@@ -544,89 +542,15 @@ export default function DebtTab({
             className="rounded-xl bg-white"
             style={{ border: "1px solid rgba(15,23,42,0.08)" }}
           >
-            <CollapsibleTrigger
-              type="button"
-              className="w-full flex items-center justify-between p-4 bg-transparent border-0 cursor-pointer text-left"
-              style={{ fontFamily: "inherit" }}
-            >
-              <span
-                className="font-semibold text-sm flex items-center gap-x-2 gap-y-1 flex-wrap min-w-0"
-                style={{ color: "#0f172a" }}
-              >
-                <span className="whitespace-nowrap">Your debt accounts</span>
-                <Badge
-                  variant="secondary"
-                  className="bg-black/5 text-slate-600 border-transparent"
-                >
-                  {debts.length}
-                </Badge>
-                {(() => {
-                  if (activeDebts.length === 0) return null;
-                  const logged = activeDebts.filter((d) => paidDebtIds.has(d.id)).length;
-                  const done = logged === activeDebts.length;
-                  return (
-                    <span
-                      className="mono"
-                      style={{
-                        fontSize: "10px",
-                        fontWeight: 700,
-                        color: done ? "#059669" : "#64748b",
-                        background: done ? "rgba(16,185,129,0.10)" : "rgba(15,23,42,0.05)",
-                        border: `1px solid ${done ? "rgba(16,185,129,0.22)" : "rgba(15,23,42,0.08)"}`,
-                        borderRadius: "6px",
-                        padding: "1px 7px",
-                        fontVariantNumeric: "tabular-nums",
-                      }}
-                    >
-                      {logged}/{activeDebts.length} logged{done ? " ✓" : ""}
-                    </span>
-                  );
-                })()}
-              </span>
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "8px" }}
-              >
-                {!showForm && (
-                  <div className="flex items-center gap-2">
-                    {subscription && !isPro && debts.length >= 4 && (
-                      <span
-                        className="mono"
-                        style={{ fontSize: "10px", fontWeight: 600, color: "#64748b", fontVariantNumeric: "tabular-nums" }}
-                      >
-                        {debts.length}/5 on Free
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      aria-label="Add debt"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setShowForm(true);
-                      }}
-                      className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold flex-shrink-0"
-                      style={{
-                        background: "rgba(37,99,235,0.08)",
-                        color: "#2563eb",
-                        border: "1px solid rgba(37,99,235,0.18)",
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      <PlusCircle size={12} />
-                      <span className="hidden sm:inline">Add Debt</span>
-                    </button>
-                  </div>
-                )}
-                <ChevronDown
-                  size={16}
-                  style={{
-                    color: "#94a3b8",
-                    transition: "transform 0.2s",
-                    transform: debtsOpen ? "rotate(180deg)" : "rotate(0deg)",
-                  }}
-                />
-              </div>
-            </CollapsibleTrigger>
+            <DebtAccountsHeader
+              open={debtsOpen}
+              debtCount={debts.length}
+              activeDebtCount={activeDebts.length}
+              loggedCount={activeDebts.filter((d) => paidDebtIds.has(d.id)).length}
+              showAddButton={!showForm}
+              showFreeCount={Boolean(subscription) && !isPro && debts.length >= 4}
+              onAddDebt={() => setShowForm(true)}
+            />
 
             <CollapsibleContent>
               <div className="px-4 pb-4">
