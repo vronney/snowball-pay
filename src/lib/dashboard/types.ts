@@ -4,7 +4,12 @@ export type ReadinessStepId = 'debts' | 'income' | 'expenses' | 'dueDates' | 'fi
 export interface ReadinessStep {
   id: ReadinessStepId;
   complete: boolean;
-  /** Items still to do (e.g. debts missing a due day). 0 when complete; 1 for non-countable steps. */
+  /**
+   * Items still to do (e.g. debts missing a due day). 0 when complete — and
+   * also for `dueDates` when there are no active debts (the CTA always
+   * targets the first incomplete step, which is then `debts`). 1 for
+   * non-countable steps.
+   */
   pendingCount: number;
 }
 export interface PlanReadiness { steps: ReadinessStep[]; completeCount: number; percent: number }
@@ -32,14 +37,29 @@ export interface StrategyComparison {
   alternativeSaves: number;
 }
 
-/** amount > 0 = ahead of plan, < 0 = behind (usePlannerComputed semantics). */
+/**
+ * amount > 0 = ahead of plan, < 0 = behind (usePlannerComputed semantics).
+ * asOfMonth: engine label, e.g. "Sep 2026".
+ */
 export interface PlanGap { amount: number; asOfMonth: string }
 
 export type StreakCellState = 'inactive' | 'logged' | 'missed' | 'current' | 'currentComplete' | 'future';
+/** month: "YYYY-MM". */
 export interface StreakCell { month: string; state: StreakCellState }
 export interface ProgressSummary { paidToDate: number; startingTotal: number; streak: number; grid: StreakCell[] }
 
-export interface PlanSummary { method: PayoffMethod; months: number; debtFreeDate: string; totalInterest: number }
+export interface PlanSummary {
+  method: PayoffMethod;
+  months: number;
+  /**
+   * ISO instant computed by the engine from the SERVER clock (`snowball.ts`
+   * uses `new Date()`). Web keeps its own client-side computation for
+   * displayed dates; Expo should format only the month and treat
+   * month-boundary skew as possible.
+   */
+  debtFreeDate: string;
+  totalInterest: number;
+}
 
 export interface TierInfo { proEligible: boolean; paidPro: boolean; trial: { active: boolean; endsAt: string | null } }
 
@@ -56,6 +76,7 @@ export type CoachMoveId = CoachMove['id'];
 
 /** PR 4 adds `uncounted`; PR 6 adds `trialMoment` and trial eligibility on `tier`. */
 export interface DashboardInsights {
+  /** month: 0-11 (JS Date semantics). */
   asOf: { year: number; month: number; day: number };
   tier: TierInfo;
   readiness: PlanReadiness;

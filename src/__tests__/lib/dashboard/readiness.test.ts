@@ -53,6 +53,12 @@ describe('computePlanReadiness (spec §5.1)', () => {
     expect(firstIncompleteStep(r)).toBeNull();
   });
 
+  it('reports dueDates as complete-shaped (pendingCount 0) with no active debts, and the first incomplete step is debts', () => {
+    const r = computePlanReadiness({ debts: [], income: null, recurringExpenseCount: 0, hasAnyPayment: false });
+    expect(r.steps.find((s) => s.id === 'dueDates')).toEqual({ id: 'dueDates', complete: false, pendingCount: 0 });
+    expect(firstIncompleteStep(r)?.id).toBe('debts');
+  });
+
   it('treats a zero take-home as incomplete income', () => {
     const r = computePlanReadiness({
       debts: [debt(100, 3)],

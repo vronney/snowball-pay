@@ -1,6 +1,6 @@
 import type { BalanceSnapshot, Debt, Income } from '@/types';
 import { calculateMinimumsOnlyResult, calculatePlanMetrics } from '@/lib/payoffPlan';
-import { computeActualBalanceTotals } from '@/lib/hooks/useActualBalanceMap';
+import { computeActualBalanceTotals } from '@/lib/actualBalance';
 import { computeCoachMoves } from './coachMoves';
 import { computeMonthlyInterest } from './interest';
 import { computePaymentGap, type PaymentRecordLike } from './paymentGap';
