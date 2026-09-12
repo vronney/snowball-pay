@@ -26,6 +26,16 @@ const config: Config = {
         danger: '#EF4444',
         sidebar: '#ffffff',
         border: '#E5E7EB',
+        // Dashboard v2 (2026-09-12) — see DESIGN.md decisions.
+        ink: '#0b1220',
+        'ink-accent': '#6ee7b7',
+        'streak-miss': '#fecaca',
+        'streak-miss-border': '#f87171',
+        'streak-future': '#e2e8f0',
+        'focus-card': '#fffbeb',
+        'focus-card-border': 'rgba(245,158,11,0.35)',
+        'streak-pill': '#ffedd5',
+        'streak-pill-text': '#7c2d12',
       },
       keyframes: {
         slideUp: {
@@ -35,6 +45,12 @@ const config: Config = {
       },
       animation: {
         slideUp: 'slideUp 0.46s cubic-bezier(0.22,1,0.36,1)',
+      },
+      boxShadow: {
+        card: '0 1px 4px rgba(15,23,42,0.06)',
+        float: '0 12px 34px rgba(15,23,42,0.09)',
+        'cta-ink': '0 10px 24px rgba(15,23,42,0.18)',
+        'cta-blue': '0 0 0 1px rgba(37,99,235,0.22), 0 0 14px rgba(37,99,235,0.2)',
       },
     },
   },
