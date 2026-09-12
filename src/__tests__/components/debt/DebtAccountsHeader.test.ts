@@ -43,11 +43,14 @@ describe('DebtAccountsHeader', () => {
     expect(render({ showAddButton: false })).not.toContain('aria-label="Add debt"');
   });
 
-  it('still toggles the accounts list from the header', () => {
+  it('still toggles the accounts list from the header (title and chevron are both triggers)', () => {
     const html = render();
     expect(html).toContain('Your debt accounts');
-    expect(html).toMatch(/aria-expanded="true"/);
-    expect(render({ open: false })).toMatch(/aria-expanded="false"/);
+    expect(html.match(/aria-expanded="true"/g)).toHaveLength(2);
+    expect(html).toContain('aria-label="Collapse debt accounts"');
+    const closed = render({ open: false });
+    expect(closed.match(/aria-expanded="false"/g)).toHaveLength(2);
+    expect(closed).toContain('aria-label="Expand debt accounts"');
   });
 
   it('shows the logged chip only when there are active debts', () => {
