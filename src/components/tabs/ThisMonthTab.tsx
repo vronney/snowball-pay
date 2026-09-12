@@ -15,6 +15,7 @@ import RollForwardAdvice from "@/components/payoff/RollForwardAdvice";
 import CoachBriefCard from "@/components/payoff/CoachBriefCard";
 import { cardSurface, color } from "@/lib/designTokens";
 import PlanStatStrip from "@/components/dashboard/PlanStatStrip";
+import { computeThisMonthPaidProgress } from "@/lib/dashboard/progress";
 
 interface ThisMonthTabProps {
   debts: Debt[];
@@ -103,19 +104,10 @@ export default function ThisMonthTab({
   // Overall payoff progress for the hero gauge: principal paid across all
   // debts. Debts without a recorded originalBalance contribute their current
   // balance to the denominator (0% progress) rather than skewing the ratio.
-  const { totalPaid, totalOriginal, hasOriginalBalances } = useMemo(() => {
-    let paid = 0;
-    let original = 0;
-    let known = false;
-    for (const d of debts) {
-      const hasOriginal = d.originalBalance > 0;
-      if (hasOriginal) known = true;
-      const base = hasOriginal ? d.originalBalance : d.balance;
-      original += base;
-      paid += Math.max(0, base - d.balance);
-    }
-    return { totalPaid: paid, totalOriginal: original, hasOriginalBalances: known };
-  }, [debts]);
+  const { totalPaid, totalOriginal, hasOriginalBalances } = useMemo(
+    () => computeThisMonthPaidProgress(debts),
+    [debts],
+  );
 
   // Focus debt = first active debt in payoff order that still needs this month's payment.
   const focusDebt = useMemo(() => {

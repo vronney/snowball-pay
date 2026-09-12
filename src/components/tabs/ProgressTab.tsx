@@ -5,6 +5,7 @@ import { BalanceSnapshot, Debt, Expense, Income } from "@/types";
 import { type Tab } from "@/components/dashboard/types";
 import { useAllSnapshots } from "@/lib/hooks";
 import { formatCurrency } from "@/lib/utils";
+import { computeProgressStreak, computeProgressTotals } from "@/lib/dashboard/progress";
 import {
   BadgeCheck,
   BadgeDollarSign,
@@ -248,35 +249,10 @@ export default function ProgressTab({
     return [domainMin, domainMax];
   }, [chartData, chartView]);
 
-  const stats = useMemo(() => {
-    const currentTotal = debts.reduce((sum, debt) => sum + debt.balance, 0);
-    const originalTotal = debts.reduce(
-      (sum, debt) => sum + (debt.originalBalance || debt.balance),
-      0,
-    );
-    const totalPaid = Math.max(0, originalTotal - currentTotal);
-    const paidOffCount = debts.filter((debt) => debt.balance <= 0).length;
-
-    const monthKeys = Array.from(
-      new Set(snapshots.map((snapshot) => snapshot.recordedAt.slice(0, 7))),
-    ).sort();
-    let streak = 0;
-    if (monthKeys.length) {
-      streak = 1;
-      for (let i = monthKeys.length - 1; i > 0; i -= 1) {
-        const cur = new Date(`${monthKeys[i]}-01`);
-        const prev = new Date(`${monthKeys[i - 1]}-01`);
-        const diffMonths =
-          (cur.getFullYear() - prev.getFullYear()) * 12 +
-          cur.getMonth() -
-          prev.getMonth();
-        if (diffMonths === 1) streak += 1;
-        else break;
-      }
-    }
-
-    return { currentTotal, totalPaid, paidOffCount, streak, originalTotal };
-  }, [snapshots, debts]);
+  const stats = useMemo(
+    () => ({ ...computeProgressTotals(debts), streak: computeProgressStreak(snapshots) }),
+    [snapshots, debts],
+  );
 
   const pctPaid =
     stats.originalTotal > 0 ? (stats.totalPaid / stats.originalTotal) * 100 : 0;
