@@ -6,6 +6,8 @@ import { track, Events } from '@/lib/analytics';
 import { computeHighlightStat } from '@/lib/highlightStat';
 import type { MilestoneTier } from '@/lib/milestoneDetection';
 import type { CancellationReason } from '@/lib/cancellation';
+import type { DashboardInsights } from '@/lib/dashboard/types';
+import { localDateParam } from '@/lib/dashboard/today';
 
 /**
  * Extract a user-safe error message from Axios/network errors.
@@ -771,6 +773,23 @@ export function useSubscription() {
       return data;
     },
     staleTime: 5 * 60 * 1000, // 5 min
+  });
+}
+
+// ===== DASHBOARD INSIGHTS (v2) =====
+
+/** Every dashboard v2 figure, computed server-side (spec §5.2). */
+export function useDashboardInsights(enabled = true) {
+  return useQuery<DashboardInsights>({
+    queryKey: ['dashboard-insights'],
+    queryFn: async () => {
+      const { data } = await axios.get(`${API_URL}/api/dashboard/insights`, {
+        params: { today: localDateParam() },
+      });
+      return data;
+    },
+    enabled,
+    staleTime: 60 * 1000,
   });
 }
 

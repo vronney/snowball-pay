@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode, Suspense } from 'react';
-import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
+import { QueryClientProvider, QueryClient, MutationCache } from '@tanstack/react-query';
 import PostHogProvider from '@/components/analytics/PostHogProvider';
 import AnalyticsConsentBanner from '@/components/analytics/AnalyticsConsentBanner';
 import axios from 'axios';
@@ -61,7 +61,15 @@ function getResponseStatus(error: unknown): number | undefined {
   return typeof status === 'number' ? status : undefined;
 }
 
-const queryClient = new QueryClient({
+// Annotated: the MutationCache callback references queryClient inside its own initializer.
+const queryClient: QueryClient = new QueryClient({
+  mutationCache: new MutationCache({
+    // Any mutation can move a dashboard figure (debts, income, expenses,
+    // payments, snapshots), so refetch insights once each one settles.
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ['dashboard-insights'] });
+    },
+  }),
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
