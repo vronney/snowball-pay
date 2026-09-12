@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { type Debt, type Income } from '@/types';
 import { type PayoffMethod, type PayoffResult } from '@/lib/snowball';
 import { type ChartEntry } from '@/components/payoff/BalanceOverTimeChart';
+import { computePlanGapValue } from '@/lib/dashboard/planGap';
 import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 
 export interface SmartCalendarItem {
@@ -53,15 +54,7 @@ export function usePlannerComputed(
 ): PlannerComputed {
   const today = useMemo(() => new Date(), []);
 
-  const lastActualPoint = useMemo(() => {
-    const reversed = [...balanceChartData].reverse();
-    return reversed.find((p) => p.actualBalance != null);
-  }, [balanceChartData]);
-
-  const planGap = useMemo(() => {
-    if (lastActualPoint?.actualBalance == null || lastActualPoint.totalBalance == null) return null;
-    return lastActualPoint.totalBalance - lastActualPoint.actualBalance;
-  }, [lastActualPoint]);
+  const planGap = useMemo(() => computePlanGapValue(balanceChartData), [balanceChartData]);
 
   const confidencePct = useMemo(() => {
     if (!hasRealSnapshots || planGap == null) return 60;

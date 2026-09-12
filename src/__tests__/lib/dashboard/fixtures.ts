@@ -1,4 +1,5 @@
 import type { BalanceSnapshot, Debt, Income } from '@/types';
+import type { PayoffResult } from '@/lib/snowball';
 
 export function makeDebt(
   overrides: Partial<Debt> & { id: string; balance: number; minimumPayment: number },
@@ -43,4 +44,22 @@ export function makeIncome(overrides: Partial<Income> = {}): Income {
 export function makeSnapshot(debtId: string, ym: string, balance: number): BalanceSnapshot {
   const iso = `${ym}-01T00:00:00.000Z`;
   return { id: `${debtId}-${ym}`, debtId, userId: 'user-1', balance, recordedAt: iso, createdAt: iso };
+}
+
+/** A PayoffResult stub. balances = [["Sep 2026", 1000], ...]; months defaults to balances.length - 1. */
+export function makeResult(
+  balances: Array<[string, number]>,
+  extra: Partial<Omit<PayoffResult, 'monthlyBalances'>> = {},
+): PayoffResult {
+  return {
+    months: Math.max(0, balances.length - 1),
+    years: 0,
+    totalInterestPaid: 0,
+    totalAmountPaid: 0,
+    debtFreeDate: new Date('2027-01-01T00:00:00Z'),
+    payoffSchedule: [],
+    monthlyPayment: 0,
+    monthlyBalances: balances.map(([date, totalBalance], month) => ({ month, date, totalBalance })),
+    ...extra,
+  };
 }
