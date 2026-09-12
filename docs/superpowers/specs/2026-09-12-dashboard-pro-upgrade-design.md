@@ -68,11 +68,11 @@ One small file per figure, with no React and no Prisma, so they can be imported 
 | `coachMoves.ts` | `computeCoachMoves(ctx)` | Ranked list, each move emitted only when its value is positive: 1. `log_missed` (count and minimums), 2. `use_unallocated` (engine months sooner if acceleration is raised to available cash flow; ≥1 month), 3. `switch_strategy` (engine interest difference to the other method; ≥$1, total over plan), 4. `call_apr` (highest-APR negotiable card, `estimateAnnualSavings` to its target; /yr, est.). The first move is `isFree` for Free users. All moves are free for Pro and trial users. |
 | `coachMoveCopy.ts` | `coachMoveCopy(move)` | Title and body templates (§8.4). One source for web and Expo. |
 | `rateWatch.ts` | `computeRateWatch(debts)` | Negotiable cards (`isNegotiableCard`) with APR above target. Returns `{ cards, annualEstimate }` = Σ `estimateAnnualSavings`. |
-| `strategy.ts` | `computeStrategyComparison(plan, alt)` | Current vs the other method's total interest (engine). |
+| `strategy.ts` | `computeStrategyComparison(plan, alt)` | Mirrors `PayoffTab.tsx:258-270`: null for custom ordering or an empty plan; alternative is avalanche, or snowball when current is avalanche. |
 | `planGap.ts` | `computePlanGap(chartPoints)` | Extracted verbatim from the `IntelligenceTab` chart builder and `usePlannerComputed.planGap`. Null without snapshots. |
-| `uncounted.ts` | `computeUncounted(debts, income, expenses)` | Balance and count of active `inPlan=false` debts. `monthsImpact` = months(all active debts in plan) − months(current plan). Null if either run hits the 360-month cap. |
+| `uncounted.ts` | `computeUncounted(debts, income, expenses)` | Balance and count of active `inPlan=false` debts. `monthsImpact` = months(all active debts in plan) − months(current plan). Null if either run hits the 360-month cap. (built in PR 4, with `Debt.inPlan`) |
 | `progress.ts` | `computeProgressTotals`, `computeProgressStreak`, `computeThisMonthPaidProgress` | Verbatim extractions of `ProgressTab.tsx:251-282` and `ThisMonthTab.tsx:106-118`. |
-| `streakGrid.ts` | `computeStreakGrid(snapshotMonths, gap, today)` | 12 cells: 8 past months, the current month, and 3 future. A past month is `logged` if it has a snapshot, otherwise `missed`. The current month is `current` (amber) while any active debt is unlogged, otherwise `currentComplete`. Future months are `future`. The streak count is `computeProgressStreak` (unchanged). |
+| `streakGrid.ts` | `computeStreakGrid(snapshotMonths, gap, today)` | 12 cells: 8 past months, the current month, and 3 future. A past month before the first snapshot month is `inactive`; after it, `logged` if it has a snapshot, otherwise `missed`. The current month is `current` (amber) while any active debt is unlogged, otherwise `currentComplete`. Future months are `future`. The streak count is `computeProgressStreak` (unchanged). |
 
 `estimateAnnualSavings` moves out of the `useAprNegotiation` hook file into `apr-negotiation-adapter.ts`, and the hook re-imports it. The behavior is unchanged.
 
@@ -86,19 +86,21 @@ One small file per figure, with no React and no Prisma, so they can be imported 
 interface DashboardInsights {
   asOf: { year: number; month: number; day: number };
   tier: { proEligible: boolean; paidPro: boolean; trial: TrialState };
-  readiness: PlanReadiness | null;
+  readiness: PlanReadiness;
   interest: { monthlyEstimate: number; avgMonthlySavedByPlan: number | null } | null;
   paymentGap: { expected: number; logged: number; missed: MissedPayment[]; missedMinimums: number; notYetDue: number } | null;
   coachMoves: CoachMove[];
   rateWatch: { cards: number; annualEstimate: number } | null;
   strategy: { current: PayoffMethod; currentInterest: number; alternative: 'snowball' | 'avalanche'; alternativeInterest: number } | null;
   planGap: { amount: number; asOfMonth: string } | null;
-  uncounted: { count: number; balance: number; monthsImpact: number | null } | null;
+  uncounted: { count: number; balance: number; monthsImpact: number | null } | null; // joins the interface in PR 4
   progress: { paidToDate: number; startingTotal: number; streak: number; grid: StreakCell[] } | null;
   plan: { method: PayoffMethod; months: number; debtFreeDate: string; totalInterest: number } | null; // for Expo parity; web keeps its existing client computation for existing cards
-  trialMoment: TrialMoment | null; // §7
+  trialMoment: TrialMoment | null; // §7; joins the interface in PR 6
 }
 ```
+
+`readiness` is always computable (it never returns null).
 
 - Web: `useDashboardInsights()` in `src/lib/hooks.ts` (React Query key `['dashboard-insights']`), invalidated by every debt, income, expense, and payment mutation hook.
 - Expo: reads the same endpoint in its follow-up. In this effort Expo gets only the `inPlan` filter (§6.2).
@@ -312,3 +314,4 @@ Catch-up plans (D6), the Expo dashboard tabs (D1), Payoff Autopilot, letting Fre
 - **The migration on the Neon free plan** (6h history): take a manual snapshot before deploying PR 4.
 - **Flag-off users with `inPlan=false` debts:** this can only happen to flagged users while the flag is partial. The old UI would show those debts without the "not counted" label. It is acceptable during owner-only rollout and resolved at `all`.
 - **The streak window choice** (8 past, current, 3 future) is a presentation choice. The count itself is unchanged.
+- **`planGap` is the verbatim Pro formula.** When only some debts have snapshots, it can overstate "ahead" (actual totals omit debts without snapshots). v2 only shows the gap when behind; fixing the formula would change Pro users' numbers, so it is out of scope.
