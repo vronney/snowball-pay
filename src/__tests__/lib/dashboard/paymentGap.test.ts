@@ -29,7 +29,8 @@ describe('computePaymentGap (spec §5.1)', () => {
   it('counts any record in the month as logged (same rule as This Month paidDebtIds)', () => {
     const gap = computePaymentGap(DEBTS, [{ debtId: 'b', dueYear: 2026, dueMonth: 8 }], TODAY);
     expect(gap?.logged).toBe(1);
-    expect(gap?.missed).toEqual([{ debtId: 'a', minimumPayment: 25 }]); // b's record counts as logged, so only a is missed
+    // b's record counts as logged, so only a is missed (its due day, 5, has passed and it has no record).
+    expect(gap?.missed).toEqual([{ debtId: 'a', minimumPayment: 25 }]);
   });
 
   it('treats the due day itself as on time', () => {

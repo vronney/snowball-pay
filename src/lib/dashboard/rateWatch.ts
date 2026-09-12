@@ -28,6 +28,7 @@ export function computeRateWatch(
       };
     })
     .filter((o) => o.annualEstimate > 0)
+    // top = highest APR, matching the APR-negotiation card's default card (not necessarily the largest $ saving).
     .sort((a, b) => b.apr - a.apr);
 
   if (opportunities.length === 0) return null;
