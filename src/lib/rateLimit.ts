@@ -129,6 +129,10 @@ export const limits = {
   ogCardIp: (ip: string) =>
     check('og-card-ip', `og-card-ip:${ip}`, 10, '3600 s', 60 * 60 * 1000),
 
+  /** 120 dashboard-insights reads per 10 min per user (refetched after every mutation). */
+  dashboardInsights: (userId: string) =>
+    check('dash-insights', `dash-insights:${userId}`, 120, '600 s', 10 * 60 * 1000),
+
   // ── Plaid (per user). Plaid bills per liabilitiesGet / item link, so these
   // cap the cost of a runaway or abusive client. ──────────────────────────────
 
