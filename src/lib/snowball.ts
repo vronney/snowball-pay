@@ -44,7 +44,7 @@ export interface PayoffResult {
   monthlyBalances: MonthlyBalance[];
 }
 
-const MAX_MONTHS = 360;
+export const MAX_MONTHS = 360;
 
 function getSorter(method: PayoffMethod) {
   if (method === 'avalanche') {
