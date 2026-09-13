@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { calculatePlanMetrics, calculateResultForAcceleration } from '@/lib/payoffPlan';
+import { MAX_MONTHS } from '@/lib/snowball';
 import { computeCoachMoves, summarizeMoveValues } from '@/lib/dashboard/coachMoves';
+import { isPayoffComplete } from '@/lib/dashboard/payoffCompletion';
 import type { PaymentGap, RateWatch, StrategyComparison } from '@/lib/dashboard/types';
 import { makeDebt, makeIncome } from './fixtures';
 
@@ -64,6 +66,19 @@ describe('computeCoachMoves (spec §5.1, D2)', () => {
     const metrics = calculatePlanMetrics(stuck, broke, [])!;
     const moves = computeCoachMoves({ ...base, debts: stuck, income: broke, metrics, paymentGap: null, strategy: null, rateWatch: null, proEligible: false });
     expect(moves.find((m) => m.id === 'use_unallocated')).toBeUndefined();
+  });
+
+  it('offers "unused cash" for a plan that finishes in exactly month 360 (Codex P2)', () => {
+    // $36,000 at 0% paid at the $100 minimum ends in month 360 but does pay off, so it isn't capped.
+    const exact = [makeDebt({ id: 'x', balance: 36_000, minimumPayment: 100, interestRate: 0 })];
+    // Take-home 3000 − essentials 2890 − minimum 100 = $10/mo left over; no planned extra.
+    const income = makeIncome({ monthlyTakeHome: 3000, essentialExpenses: 2890, accelerationAmount: 0 });
+    const metrics = calculatePlanMetrics(exact, income, [])!;
+    expect(metrics.result.months).toBe(MAX_MONTHS);
+    expect(isPayoffComplete(metrics.result)).toBe(true); // finished, not stopped by the cap
+    const move = computeCoachMoves({ ...base, debts: exact, income, metrics, paymentGap: null, strategy: null, rateWatch: null, proEligible: false })
+      .find((m) => m.id === 'use_unallocated');
+    expect(move?.value.amount).toBeGreaterThanOrEqual(1);
   });
 
   it('calls about the highest-APR card worth ≥ $1 when the top card is nearly paid off (Codex P2)', () => {

@@ -1,10 +1,10 @@
 import type { Debt } from '@/types';
-import { MAX_MONTHS } from '@/lib/snowball';
 import {
   calculateResultForAcceleration,
   type PayoffIncomeInput,
   type PlanMetrics,
 } from '@/lib/payoffPlan';
+import { isPayoffComplete } from './payoffCompletion';
 import type { CoachMove, PaymentGap, RateWatch, StrategyComparison } from './types';
 
 export interface CoachMovesInput {
@@ -48,7 +48,9 @@ export function computeCoachMoves(input: CoachMovesInput): CoachMove[] {
   }
 
   const m = input.metrics;
-  if (m && input.income && m.result.months > 0 && m.result.months < MAX_MONTHS) {
+  // A plan that pays off (even in exactly month 360) can finish sooner; one
+  // stopped at the engine cap has no real payoff month to improve on.
+  if (m && input.income && m.result.months > 0 && isPayoffComplete(m.result)) {
     const unusedMonthly = m.availableCashFlow - m.effectiveAcceleration;
     if (unusedMonthly >= 1) {
       const faster = calculateResultForAcceleration(
