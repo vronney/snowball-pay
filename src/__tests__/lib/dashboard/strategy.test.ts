@@ -41,11 +41,32 @@ describe('computeStrategyComparison (mirrors PayoffTab.tsx:258-270)', () => {
   });
 
   it('skips comparisons when either projection cannot pay off within the cap', () => {
-    const debts = [makeDebt({ balance: 1000, minimumPayment: 0, interestRate: 20 })];
+    const debts = [makeDebt({ id: 'x', balance: 1000, minimumPayment: 0, interestRate: 20 })];
     const income = makeIncome({ monthlyTakeHome: 0, essentialExpenses: 0, payoffMethod: 'snowball' });
     const metrics = calculatePlanMetrics(debts, income, [])!;
 
     expect(metrics.result.months).toBe(MAX_MONTHS);
     expect(computeStrategyComparison(debts, income, metrics)).toBeNull();
+  });
+
+  it('skips the comparison when only one method caps, in either direction', () => {
+    // Snowball pays the $20k 0% loan first while the $40k 30% card (minimum below its monthly
+    // interest) grows past what the payment covers, so snowball caps; avalanche attacks the card
+    // first and finishes. Comparing a truncated 30-year total with a completed one would
+    // overstate the saving, so both directions must return null.
+    const debts = [
+      makeDebt({ id: 'loan', balance: 20_000, minimumPayment: 100, interestRate: 0 }),
+      makeDebt({ id: 'card', balance: 40_000, minimumPayment: 900, interestRate: 30 }),
+    ];
+    for (const [current, alternative] of [['snowball', 'avalanche'], ['avalanche', 'snowball']] as const) {
+      const income = makeIncome({ monthlyTakeHome: 5000, essentialExpenses: 2000, accelerationAmount: 150, payoffMethod: current });
+      const metrics = calculatePlanMetrics(debts, income, [])!;
+      const alt = calculateResultForAcceleration(debts, income, metrics, metrics.effectiveAcceleration, alternative);
+      const snowballMonths = current === 'snowball' ? metrics.result.months : alt.months;
+      const avalancheMonths = current === 'avalanche' ? metrics.result.months : alt.months;
+      expect(snowballMonths).toBe(MAX_MONTHS); // fixture really is one-sided
+      expect(avalancheMonths).toBeLessThan(MAX_MONTHS);
+      expect(computeStrategyComparison(debts, income, metrics)).toBeNull();
+    }
   });
 });

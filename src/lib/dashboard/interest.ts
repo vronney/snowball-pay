@@ -1,6 +1,7 @@
 import type { Debt } from '@/types';
 import type { PayoffResult } from '@/lib/snowball';
 import { isActiveDebt } from '@/lib/monthlyFocusDebt';
+import { isPayoffComplete } from './payoffCompletion';
 import type { MonthlyInterest } from './types';
 
 /**
@@ -20,8 +21,10 @@ export function computeMonthlyInterest(
     .reduce((sum, debt) => sum + ((debt.balance * debt.interestRate) / 100) / 12, 0);
   if (!Number.isFinite(monthlyEstimate) || monthlyEstimate <= 0) return null;
 
+  // Only projections that pay off have lifetime totals; a capped run's
+  // interest stops at 360 months, so the difference isn't a real saving.
   let avgMonthlySavedByPlan: number | null = null;
-  if (plan && minimumsOnly && plan.months > 0) {
+  if (plan && minimumsOnly && plan.months > 0 && isPayoffComplete(plan) && isPayoffComplete(minimumsOnly)) {
     const totalSaved = Math.max(0, minimumsOnly.totalInterestPaid - plan.totalInterestPaid);
     const avg = totalSaved / plan.months;
     avgMonthlySavedByPlan = Number.isFinite(avg) && avg > 0 ? avg : null;

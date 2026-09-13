@@ -103,13 +103,13 @@ describe('buildDashboardInsights', () => {
 
   it('does not report a debt-free date for a capped projection', () => {
     const out = buildDashboardInsights(input({
-      debts: [makeDebt({ balance: 1000, minimumPayment: 0, interestRate: 20 })],
+      debts: [makeDebt({ id: 'x', balance: 1000, minimumPayment: 0, interestRate: 20 })],
       income: makeIncome({ monthlyTakeHome: 0, essentialExpenses: 0 }),
       expenses: [],
     }));
 
     expect(calculatePlanMetrics(
-      [makeDebt({ balance: 1000, minimumPayment: 0, interestRate: 20 })],
+      [makeDebt({ id: 'x', balance: 1000, minimumPayment: 0, interestRate: 20 })],
       makeIncome({ monthlyTakeHome: 0, essentialExpenses: 0 }),
       [],
     )?.result.months).toBe(MAX_MONTHS);

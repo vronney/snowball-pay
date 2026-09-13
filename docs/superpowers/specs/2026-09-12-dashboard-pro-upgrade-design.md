@@ -63,12 +63,13 @@ One small file per figure, with no React and no Prisma, so they can be imported 
 | File | Export | Definition |
 |---|---|---|
 | `readiness.ts` | `computePlanReadiness(input)` | Steps in order: **debts** (≥1 active debt), **income** (`monthlyTakeHome > 0`), **expenses** (`essentialExpenses > 0` or ≥1 recurring expense), **dueDates** (every active debt has `dueDate`; `pendingCount` = debts missing it), **firstPayment** (≥1 `PaymentRecord` ever). Returns `{ steps, completeCount, percent }`. |
-| `interest.ts` | `computeMonthlyInterest(debts, plan, minimumsOnly)` | `monthlyEstimate` = Σ over active debts of balance × APR ÷ 100 ÷ 12 (identical to `usePlannerComputed.monthlyInterestLeak`). `avgMonthlySavedByPlan` = max(0, minimumsOnly.totalInterest − plan.totalInterest) ÷ plan.months (identical to `monthlyInterestAvoided`). Includes debts outside the plan, because lenders charge them regardless. |
+| `interest.ts` | `computeMonthlyInterest(debts, plan, minimumsOnly)` | `monthlyEstimate` = Σ over active debts of balance × APR ÷ 100 ÷ 12 (identical to `usePlannerComputed.monthlyInterestLeak`). `avgMonthlySavedByPlan` = max(0, minimumsOnly.totalInterest − plan.totalInterest) ÷ plan.months (identical to `monthlyInterestAvoided`), or null unless both the plan and the minimums-only projection pay off (`isPayoffComplete`): a capped run's interest stops at 360 months, so the difference isn't a real saving. Includes debts outside the plan, because lenders charge them regardless. |
 | `paymentGap.ts` | `computePaymentGap(debts, records, today)` | Over all active debts: `logged` = has a record for today's year/month. `missed` = unlogged and `isDebtPastDueThisMonth` (existing helper). `missedMinimums` = Σ their `minimumPayment`. `notYetDue` = unlogged and not past due, or with no due day. A debt with no due day is never "missed". |
 | `coachMoves.ts` | `computeCoachMoves(ctx)` | Ranked list, each move emitted only when its value is positive: 1. `log_missed` (count and minimums), 2. `use_unallocated` (engine months sooner if acceleration is raised to available cash flow; ≥1 month), 3. `switch_strategy` (engine interest difference to the other method; ≥$1, total over plan), 4. `call_apr` (rate watch's `moveTarget`: the highest-APR negotiable card whose estimate is at least $1, so a nearly paid-off top card doesn't hide a material saving; unrounded estimate (same formula as the APR card), floored for display; /yr, est.). The first move is `isFree` for Free users. All moves are free for Pro and trial users. |
 | `coachMoveCopy.ts` | `coachMoveCopy(move)` | Title and body templates (§8.4). One source for web and Expo. |
 | `rateWatch.ts` | `computeRateWatch(debts)` | Active negotiable cards (`isNegotiableCard`) with a positive estimate at their APR target. Returns `null` when none qualify; otherwise `{ cards, annualEstimate, top, moveTarget }`: `cards` = how many qualify, `annualEstimate` = Σ `estimateAnnualSavingsExact` over them (unrounded, same formula as the APR card, floored for display), `top` = the qualifying card with the highest APR (the APR card's default card, not necessarily the largest saving), `moveTarget` = the highest-APR qualifying card whose estimate is at least $1, or `null` (the `call_apr` card). |
-| `strategy.ts` | `computeStrategyComparison(plan, alt)` | Mirrors `PayoffTab.tsx:258-270`: null for custom ordering or an empty plan; alternative is avalanche, or snowball when current is avalanche. |
+| `strategy.ts` | `computeStrategyComparison(plan, alt)` | Mirrors `PayoffTab.tsx:258-270`: null for custom ordering, an empty plan, or when either projection doesn't pay off within the 360-month cap (`isPayoffComplete`; the Payoff tab still shows those truncated totals); alternative is avalanche, or snowball when current is avalanche. |
+| `payoffCompletion.ts` | `isPayoffComplete(result)` | True only when the engine's final simulated balance reaches zero (≤ $0.01). A run stopped at the 360-month cap isn't a payoff plan, so `plan`, the strategy comparison and `avgMonthlySavedByPlan` all check it. |
 | `planGap.ts` | `computePlanGap(chartPoints)` | Extracted verbatim from the `IntelligenceTab` chart builder and `usePlannerComputed.planGap`. Null without snapshots. |
 | `uncounted.ts` | `computeUncounted(debts, income, expenses)` | Balance and count of active `inPlan=false` debts. `monthsImpact` = months(all active debts in plan) − months(current plan). Null if either run hits the 360-month cap. (built in PR 4, with `Debt.inPlan`) |
 | `progress.ts` | `computeProgressTotals`, `computeProgressStreak`, `computeThisMonthPaidProgress` | Verbatim extractions of `ProgressTab.tsx:251-282` and `ThisMonthTab.tsx:106-118`. |
@@ -86,7 +87,7 @@ Actual shapes, from `src/lib/dashboard/types.ts`:
 
 ```ts
 export interface RateOpportunity { debtId: string; debtName: string; apr: number; targetApr: number; annualEstimate: number }
-export interface RateWatch { cards: number; annualEstimate: number; top: RateOpportunity }
+export interface RateWatch { cards: number; annualEstimate: number; top: RateOpportunity; moveTarget: RateOpportunity | null }
 
 export interface StrategyComparison {
   current: 'snowball' | 'avalanche';
@@ -108,7 +109,7 @@ interface DashboardInsights {
   strategy: StrategyComparison | null;
   planGap: { amount: number; asOfMonth: string } | null;
   progress: { paidToDate: number; startingTotal: number; streak: number; grid: StreakCell[] } | null;
-  plan: { method: PayoffMethod; months: number; debtFreeDate: string; totalInterest: number } | null; // debtFreeDate: client-local calendar date YYYY-MM-DD (today + plan months); for Expo parity, web keeps its existing client computation for existing cards
+  plan: { method: PayoffMethod; months: number; debtFreeDate: string; totalInterest: number } | null; // null without a plan or when it can't pay off within the 360-month cap (isPayoffComplete). debtFreeDate: client-local calendar date YYYY-MM-DD (today + plan months); for Expo parity, web keeps its existing client computation for existing cards
 }
 ```
 
