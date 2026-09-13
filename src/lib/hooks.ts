@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Debt, Income, Expense, DebtSummary, BudgetSummary, BalanceSnapshot } from '@/types';
 import axios, { AxiosError } from 'axios';
@@ -7,7 +8,7 @@ import { computeHighlightStat } from '@/lib/highlightStat';
 import type { MilestoneTier } from '@/lib/milestoneDetection';
 import type { CancellationReason } from '@/lib/cancellation';
 import type { DashboardInsights } from '@/lib/dashboard/types';
-import { localDateParam } from '@/lib/dashboard/today';
+import { localDateParam, onLocalDayChange } from '@/lib/dashboard/today';
 
 /**
  * Extract a user-safe error message from Axios/network errors.
@@ -778,13 +779,23 @@ export function useSubscription() {
 
 // ===== DASHBOARD INSIGHTS (v2) =====
 
+/** The client's local date, updated at local midnight while the page stays open. */
+function useLocalDay(): string {
+  const [day, setDay] = useState(localDateParam);
+  useEffect(() => onLocalDayChange(setDay), []);
+  return day;
+}
+
 /** Every dashboard v2 figure, computed server-side (spec §5.2). */
 export function useDashboardInsights(enabled = true) {
+  const today = useLocalDay();
   return useQuery<DashboardInsights>({
-    queryKey: ['dashboard-insights'],
+    // Keyed by day so a tab left open overnight fetches the new day's figures.
+    // The global ['dashboard-insights'] invalidation still matches by prefix.
+    queryKey: ['dashboard-insights', today],
     queryFn: async () => {
       const { data } = await axios.get(`${API_URL}/api/dashboard/insights`, {
-        params: { today: localDateParam() },
+        params: { today },
       });
       return data;
     },

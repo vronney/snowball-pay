@@ -114,7 +114,7 @@ interface DashboardInsights {
 
 `readiness` is always computable (it never returns null). PR 4 adds `uncounted: { count: number; balance: number; monthsImpact: number | null } | null`. PR 6 adds `trialMoment: TrialMoment | null` (§7).
 
-- Web: `useDashboardInsights()` in `src/lib/hooks.ts` (React Query key `['dashboard-insights']`). Invalidation is one global React Query `MutationCache` (`src/app/providers.tsx`) that invalidates `['dashboard-insights']` after every settled mutation, not per-hook edits.
+- Web: `useDashboardInsights()` in `src/lib/hooks.ts` (React Query key `['dashboard-insights', today]`, where `today` is the client's local date and updates at local midnight via `onLocalDayChange`, so a tab left open overnight fetches the new day). Invalidation is one global React Query `MutationCache` (`src/app/providers.tsx`) that invalidates `['dashboard-insights']` after every settled mutation, not per-hook edits.
 - Expo: reads the same endpoint in its follow-up. In this effort Expo gets only the `inPlan` filter (§6.2).
 
 ### 5.3 Feature flag

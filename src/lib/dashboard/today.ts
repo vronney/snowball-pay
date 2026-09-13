@@ -8,6 +8,33 @@ export function localDateParam(d: Date = new Date()): string {
   return `${d.getFullYear()}-${mm}-${dd}`;
 }
 
+/** Extra wait past midnight so a timer that fires a hair early still lands on the new day. */
+const ROLLOVER_GRACE_MS = 1000;
+
+/** Milliseconds from `now` until the next local midnight. */
+export function msUntilNextLocalMidnight(now: Date = new Date()): number {
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  return next.getTime() - now.getTime();
+}
+
+/**
+ * Calls `onChange` with the new local date shortly after each local midnight
+ * until the returned function cancels it. It reschedules itself after every
+ * call, so a timer that fires early just reports the same day again (a no-op
+ * for a React state setter).
+ */
+export function onLocalDayChange(onChange: (day: string) => void): () => void {
+  let timer: ReturnType<typeof setTimeout>;
+  const schedule = () => {
+    timer = setTimeout(() => {
+      onChange(localDateParam());
+      schedule();
+    }, msUntilNextLocalMidnight() + ROLLOVER_GRACE_MS);
+  };
+  schedule();
+  return () => clearTimeout(timer);
+}
+
 /**
  * The client's date (so "missed" and "this month" match the browser), trusted
  * only when it is a real date within ±36h of the server's; otherwise the

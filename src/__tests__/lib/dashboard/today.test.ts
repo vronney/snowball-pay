@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { localDateParam, resolveToday } from '@/lib/dashboard/today';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { localDateParam, resolveToday, msUntilNextLocalMidnight, onLocalDayChange } from '@/lib/dashboard/today';
 
 const NOW = new Date(2026, 8, 12, 15, 30); // Sep 12 2026, 3:30pm local
 
@@ -21,5 +21,37 @@ describe('today helpers (spec §5.2)', () => {
   });
   it('round-trips', () => {
     expect(resolveToday(localDateParam(NOW), NOW)).toEqual(new Date(2026, 8, 12));
+  });
+});
+
+describe('local day rollover (a tab left open overnight, CodeRabbit)', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('measures the time to the next local midnight', () => {
+    expect(msUntilNextLocalMidnight(new Date(2026, 8, 13, 23, 59, 30))).toBe(30_000);
+    expect(msUntilNextLocalMidnight(new Date(2026, 8, 13, 0, 0, 0))).toBe(24 * 60 * 60 * 1000);
+    expect(msUntilNextLocalMidnight(new Date(2026, 11, 31, 23, 0))).toBe(60 * 60 * 1000);
+  });
+
+  it('reports each new local day just after midnight until cancelled', () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    vi.setSystemTime(new Date(2026, 8, 13, 23, 59, 0));
+    const onChange = vi.fn();
+    const cancel = onLocalDayChange(onChange);
+
+    vi.advanceTimersByTime(59_000);
+    expect(onChange).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(2_000); // past midnight, including the grace second
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenLastCalledWith('2026-09-14');
+
+    vi.advanceTimersByTime(24 * 60 * 60 * 1000);
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(onChange).toHaveBeenLastCalledWith('2026-09-15');
+
+    cancel();
+    vi.advanceTimersByTime(3 * 24 * 60 * 60 * 1000);
+    expect(onChange).toHaveBeenCalledTimes(2);
   });
 });
