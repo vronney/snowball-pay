@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getUpcomingPayments, isDebtOverdueThisMonth } from '@/lib/debtHelpers';
+import { getUpcomingPayments, isDebtOverdueThisMonth, isDebtPastDueThisMonth } from '@/lib/debtHelpers';
 import type { Debt } from '@/types';
 
 function makeDebt(overrides: Partial<Debt> & { id: string }): Debt {
@@ -107,5 +107,30 @@ describe('getUpcomingPayments', () => {
       'overdue',
       'due-soon',
     ]);
+  });
+});
+
+describe('isDebtPastDueThisMonth with an injected today', () => {
+  const today = new Date(2026, 8, 12); // Sep 12, local time
+
+  it('is past due when the due day has passed and nothing is logged', () => {
+    expect(isDebtPastDueThisMonth({ balance: 100, dueDate: 10 }, false, today)).toBe(true);
+  });
+  it('is not past due on the due day itself', () => {
+    expect(isDebtPastDueThisMonth({ balance: 100, dueDate: 12 }, false, today)).toBe(false);
+  });
+  it('is not past due once logged, when paid off, or with no due day', () => {
+    expect(isDebtPastDueThisMonth({ balance: 100, dueDate: 10 }, true, today)).toBe(false);
+    expect(isDebtPastDueThisMonth({ balance: 0, dueDate: 10 }, false, today)).toBe(false);
+    expect(isDebtPastDueThisMonth({ balance: 100, dueDate: null }, false, today)).toBe(false);
+  });
+  it('defaults today to the current date for existing callers', () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(new Date(2026, 8, 12));
+      expect(isDebtPastDueThisMonth({ balance: 100, dueDate: 10 }, false)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

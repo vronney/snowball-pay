@@ -42,7 +42,7 @@
 
 ## Color
 
-- **Approach:** Restrained — blue (#2563eb) is used ONLY for action, progress, and active states. Not on nav, not on passive elements. Color earns its place.
+- **Approach:** Restrained — blue (#2563eb) is used ONLY for action, progress, and active states. Not on nav, not on passive elements (two passive exceptions: see the 2026-09-12 decision). Color earns its place.
 
 ### Light Mode (default)
 | Token             | Hex       | Usage                                      |
@@ -103,7 +103,7 @@ These are defined per-milestone in `PaymentCelebrationBanner.tsx` and `JourneyTa
 - **Principle:** The active snowball target gets the full width of the main area. Other debts are a quieter list below. The layout says "here's what to do today" not "here's all your data."
 - **Grid:** 12 columns on desktop (≥1024px), 4 on mobile (≤768px)
 - **Max content width:** 1280px
-- **Sidebar:** 220px fixed, icon+label nav, 5 items max
+- **Sidebar:** 220px fixed, icon+label nav (v1). Dashboard v2: 200px, 6 items plus footer; mobile uses a 5-tab bottom bar instead of the drawer (see 2026-09-12).
 
 ### Border Radius — Hierarchical, NOT uniform
 
@@ -164,6 +164,12 @@ The celebration easing (`cubic-bezier(0.22,1,0.36,1)`) is already used in `Payme
 | 2026-08-06 | Card radius normalized to 12px in-app; marketing left alone | 34 `rounded-2xl`/`rounded-3xl` card surfaces (16/24px) contradicted the 12px card rule. Normalized across the authenticated app only — landing, learn, and the calculator keep their own radii, consistent with the marketing/app seam recorded above. Two things deliberately kept their larger radius: the 56px icon tile in `DebtTab` (a tile, not a card — 12px there is arbitrary) and marketing-surface cards. |
 | 2026-08-06 | Card surface + eyebrow consolidated into tokens | `designTokens.cardSurface` and the `.eyebrow` utility existed but were bypassed by ~30 hand-rolled copies. Dashboard cards and telemetry captions now route through them so a future card/caption change is one edit. `cardSurface`'s border alpha was aligned to the shipped majority (0.09, was 0.08). |
 | 2026-07-23 | Tier 1 console instrumentation | Discovery-console *character* inside Clean Signal (light-mode, restrained-blue rules unchanged): `.eyebrow` telemetry captions (10px/700, 0.08em tracked, uppercase, muted), thin SVG radial gauges for payoff progress (blue fill on `--border` track, `RadialGauge.tsx`), `.glow-primary` soft blue glow on active nav rails and primary CTAs only, and statement-style hairline segmentation of stat groups (This Month snapshot). Full dark holographic reskin explicitly deferred as a Tier 2 rebrand decision. |
+| 2026-09-12 | Ink surface token (`ink` #0b1220, `ink-accent` #6ee7b7) | The Pro-upgrade redesign closes every dashboard tab with one dark card naming a number the user owns, and uses ink for the readiness CTA and the sidebar upgrade rail. That fills the "dark surfaces" gap the 2026-08-06 entry flagged, as a token rather than case by case. Ink is for closing cards, ink CTAs and the upgrade rail only. |
+| 2026-09-12 | Dashboard v2 navigation: 200px sidebar (6 items + footer), 5-tab mobile bottom bar | The hamburger hid Intelligence (now "Coach") from most mobile traffic. Income & Budget and Settings move to the avatar menu on mobile. v1 keeps 220px until it is removed. |
+| 2026-09-12 | Blue on two passive labels | The readiness counter ("3 of 5") is progress, and the "Your free move" eyebrow marks the one free coach action. These are the only passive uses of `#2563eb`. |
+| 2026-09-12 | My Debts rows + wallet-card detail | v2 My Debts lists compact rows. The wallet-card `DebtCard` (2026-06-10) remains the expanded detail view. |
+| 2026-09-12 | Dashed border = outside the plan | Dashed borders mean only "saved, outside the plan" (Free debts past the cap). Nothing else may use a dashed border in the dashboard. |
+| 2026-09-12 | Meter motion | Bars, rings and meters animate once, 0 → value, ~600ms ease-out, and are static under `prefers-reduced-motion`. Win moments keep `cubic-bezier(0.22,1,0.36,1)`. |
 
 ## Anti-Patterns (never do these)
 

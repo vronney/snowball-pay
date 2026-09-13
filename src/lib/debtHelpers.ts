@@ -33,8 +33,9 @@ export function isDebtOverdueThisMonth(
 export function isDebtPastDueThisMonth(
   debt: { balance: number; dueDate?: number | null },
   paidThisMonth: boolean,
+  today: Date = new Date(),
 ): boolean {
-  return debt.balance > 0.01 && !paidThisMonth && isDebtOverdueThisMonth(debt.dueDate);
+  return debt.balance > 0.01 && !paidThisMonth && isDebtOverdueThisMonth(debt.dueDate, today);
 }
 
 export interface UpcomingPayment {
