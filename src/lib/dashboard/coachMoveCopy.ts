@@ -25,7 +25,9 @@ export function coachMoveCopy(move: CoachMove): CoachMoveCopy {
       const f = move.facts;
       const n = f.missedCount;
       return {
-        title: `Log the ${n} ${plural(n, 'payment', 'payments')} ${f.monthLabel} is missing.`,
+        title: n === 1
+          ? `Log the missing payment for ${f.monthLabel}.`
+          : `Log the ${n} missing payments for ${f.monthLabel}.`,
         body: `${f.monthLabel} shows ${f.logged} of ${f.expected} payments logged; ${n} ${plural(n, 'is', 'are')} past ${plural(n, 'its', 'their')} due date — ${formatCurrency(f.missedMinimums)} in minimums.`,
         valueLabel: null,
       };

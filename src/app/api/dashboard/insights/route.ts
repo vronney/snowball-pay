@@ -5,7 +5,7 @@ import { resolveBillingVerdict } from '@/lib/gates';
 import { limits } from '@/lib/rateLimit';
 import { buildDashboardInsights } from '@/lib/dashboard/buildInsights';
 import { resolveToday } from '@/lib/dashboard/today';
-import type { Debt, Income } from '@/types';
+import { debtFromRow, incomeFromRow } from '@/lib/prismaMappers';
 
 /** GET /api/dashboard/insights?today=YYYY-MM-DD — every dashboard v2 figure (spec §5.2). */
 export async function GET(request: NextRequest) {
@@ -37,9 +37,9 @@ export async function GET(request: NextRequest) {
 
     const trialEndsAt = verdict.signupTrialEndsAt;
     const insights = buildDashboardInsights({
-      // The same rows GET /api/debts and /api/income serve; nullable dueDate is handled with `== null`.
-      debts: debtRows as unknown as Debt[],
-      income: income as unknown as Income | null,
+      // The same rows GET /api/debts and /api/income serve, mapped to the domain types at this boundary.
+      debts: debtRows.map(debtFromRow),
+      income: income ? incomeFromRow(income) : null,
       expenses,
       monthRecords,
       hasAnyPayment: anyPayment !== null,

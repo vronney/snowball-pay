@@ -7,7 +7,7 @@ describe('coachMoveCopy (spec §8.4): facts only, losses and savings floored', (
       id: 'log_missed', priority: 'high', isFree: true, value: { kind: 'count', amount: 6 },
       facts: { monthLabel: 'Sep', logged: 3, expected: 9, missedCount: 6, missedMinimums: 1674 },
     })).toEqual({
-      title: 'Log the 6 payments Sep is missing.',
+      title: 'Log the 6 missing payments for Sep.',
       body: 'Sep shows 3 of 9 payments logged; 6 are past their due date — $1,674.00 in minimums.',
       valueLabel: null,
     });
@@ -17,7 +17,7 @@ describe('coachMoveCopy (spec §8.4): facts only, losses and savings floored', (
     expect(coachMoveCopy({
       id: 'log_missed', priority: 'high', isFree: true, value: { kind: 'count', amount: 1 },
       facts: { monthLabel: 'Oct', logged: 4, expected: 5, missedCount: 1, missedMinimums: 35 },
-    }).title).toBe('Log the 1 payment Oct is missing.');
+    }).title).toBe('Log the missing payment for Oct.');
   });
 
   it('use_unallocated', () => {

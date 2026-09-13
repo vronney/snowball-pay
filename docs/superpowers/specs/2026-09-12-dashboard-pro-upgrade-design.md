@@ -250,7 +250,7 @@ Placeholders `{…}` are filled only from insights values. Everything else is th
 - **Interest:** "Interest going to lenders this month" · "${monthlyEstimate} est." · "≈${avg}/mo your plan saves vs minimums (avg)".
 - **Hero:** "Debt-free by" · "{Month YYYY}" · "{formatMonths(months)} to go".
 - **Moves:**
-  - `log_missed`: "Log the {n} payments {Mon} is missing." / "{Mon} shows {logged} of {expected} payments logged; {n} are past their due date — ${missedMinimums} in minimums."
+  - `log_missed`: "Log the {n} missing payments for {Mon}." (n = 1: "Log the missing payment for {Mon}.") / "{Mon} shows {logged} of {expected} payments logged; {n} are past their due date — ${missedMinimums} in minimums."
   - `use_unallocated`: "Put ${x}/mo of unused cash to work." / "It's left after essentials, minimums and your planned extra. Applying it finishes {formatMonths} sooner."
   - `switch_strategy`: "Switch to {alt} — ${x} less interest." / "Same payments, different order. Switching is free and recalculates the whole plan."
   - `call_apr`: "Call {card} about its {apr}% APR" / "Asking for {target}% could save about ${x} a year." / value "${x}/yr est."
