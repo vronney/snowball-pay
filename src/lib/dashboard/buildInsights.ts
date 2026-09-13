@@ -11,6 +11,7 @@ import { computePlanReadiness } from './readiness';
 import { computeStrategyComparison } from './strategy';
 import { computeStreakGrid, snapshotMonthSet } from './streakGrid';
 import { localDateParam } from './today';
+import { isPayoffComplete } from './payoffCompletion';
 import type { DashboardInsights, ProgressSummary, TierInfo } from './types';
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -40,6 +41,7 @@ export function buildDashboardInsights(input: InsightsInput): DashboardInsights 
   const expenses = input.expenses.map((e) => ({ amount: e.amount }));
 
   const metrics = calculatePlanMetrics(debts, income, expenses, { planStartDate });
+  const completedPlan = metrics && isPayoffComplete(metrics.result) ? metrics : null;
   const minimums = debts.length > 0 ? calculateMinimumsOnlyResult(debts, planStartDate) : null;
 
   const readiness = computePlanReadiness({
@@ -96,10 +98,10 @@ export function buildDashboardInsights(input: InsightsInput): DashboardInsights 
     strategy,
     planGap,
     progress,
-    plan: metrics
+    plan: completedPlan
       ? {
-          method: metrics.method,
-          months: metrics.result.months,
+          method: completedPlan.method,
+          months: completedPlan.result.months,
           // Mirror the engine (snowball.ts ~200-201), anchored on the
           // client's day instead of the server clock's `new Date()`, and
           // rendered as a client-local calendar date — `toISOString()` would
@@ -107,10 +109,10 @@ export function buildDashboardInsights(input: InsightsInput): DashboardInsights 
           // time zones.
           debtFreeDate: (() => {
             const free = new Date(planStartDate);
-            free.setMonth(free.getMonth() + metrics.result.months);
+            free.setMonth(free.getMonth() + completedPlan.result.months);
             return localDateParam(free);
           })(),
-          totalInterest: metrics.result.totalInterestPaid,
+          totalInterest: completedPlan.result.totalInterestPaid,
         }
       : null,
   };

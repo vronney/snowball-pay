@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculatePlanMetrics } from '@/lib/payoffPlan';
+import { MAX_MONTHS } from '@/lib/snowball';
 import { buildDashboardInsights, type InsightsInput } from '@/lib/dashboard/buildInsights';
 import { computeProgressStreak, computeProgressTotals } from '@/lib/dashboard/progress';
 import { localDateParam } from '@/lib/dashboard/today';
@@ -98,6 +99,21 @@ describe('buildDashboardInsights', () => {
     expect(empty.paymentGap).toBeNull();
     expect(empty.interest).toBeNull();
     expect(empty.coachMoves).toEqual([]);
+  });
+
+  it('does not report a debt-free date for a capped projection', () => {
+    const out = buildDashboardInsights(input({
+      debts: [makeDebt({ balance: 1000, minimumPayment: 0, interestRate: 20 })],
+      income: makeIncome({ monthlyTakeHome: 0, essentialExpenses: 0 }),
+      expenses: [],
+    }));
+
+    expect(calculatePlanMetrics(
+      [makeDebt({ balance: 1000, minimumPayment: 0, interestRate: 20 })],
+      makeIncome({ monthlyTakeHome: 0, essentialExpenses: 0 }),
+      [],
+    )?.result.months).toBe(MAX_MONTHS);
+    expect(out.plan).toBeNull();
   });
 
   it('frees every move for Pro', () => {

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculatePlanMetrics, calculateResultForAcceleration } from '@/lib/payoffPlan';
+import { MAX_MONTHS } from '@/lib/snowball';
 import { computeStrategyComparison } from '@/lib/dashboard/strategy';
 import { makeDebt, makeIncome } from './fixtures';
 
@@ -37,5 +38,14 @@ describe('computeStrategyComparison (mirrors PayoffTab.tsx:258-270)', () => {
     const paidOff = [makeDebt({ id: 'z', balance: 0, minimumPayment: 0 })];
     const snow = makeIncome({ payoffMethod: 'snowball' });
     expect(computeStrategyComparison(paidOff, snow, calculatePlanMetrics(paidOff, snow, [])!)).toBeNull();
+  });
+
+  it('skips comparisons when either projection cannot pay off within the cap', () => {
+    const debts = [makeDebt({ balance: 1000, minimumPayment: 0, interestRate: 20 })];
+    const income = makeIncome({ monthlyTakeHome: 0, essentialExpenses: 0, payoffMethod: 'snowball' });
+    const metrics = calculatePlanMetrics(debts, income, [])!;
+
+    expect(metrics.result.months).toBe(MAX_MONTHS);
+    expect(computeStrategyComparison(debts, income, metrics)).toBeNull();
   });
 });

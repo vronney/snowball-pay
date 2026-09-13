@@ -4,6 +4,7 @@ import {
   type PayoffIncomeInput,
   type PlanMetrics,
 } from '@/lib/payoffPlan';
+import { isPayoffComplete } from './payoffCompletion';
 import type { StrategyComparison } from './types';
 
 /**
@@ -17,7 +18,13 @@ export function computeStrategyComparison(
   metrics: PlanMetrics,
   planStartDate?: Date,
 ): StrategyComparison | null {
-  if (metrics.method === 'custom' || metrics.result.months === 0) return null;
+  if (
+    metrics.method === 'custom' ||
+    metrics.result.months === 0 ||
+    !isPayoffComplete(metrics.result)
+  ) {
+    return null;
+  }
   const current = metrics.method;
   const alternative = current === 'avalanche' ? 'snowball' : 'avalanche';
   const alt = calculateResultForAcceleration(
@@ -28,6 +35,7 @@ export function computeStrategyComparison(
     alternative,
     planStartDate,
   );
+  if (!isPayoffComplete(alt)) return null;
   const currentInterest = metrics.result.totalInterestPaid;
   return {
     current,
