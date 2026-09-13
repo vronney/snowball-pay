@@ -33,6 +33,19 @@ describe('local day rollover (a tab left open overnight, CodeRabbit)', () => {
     expect(msUntilNextLocalMidnight(new Date(2026, 11, 31, 23, 0))).toBe(60 * 60 * 1000);
   });
 
+  it('measures real time across a 23-hour DST day (US spring forward)', () => {
+    const originalTz = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    try {
+      const beforeJump = new Date(2026, 2, 8, 1, 30); // Mar 8 2026, 1:30am EST; clocks jump 2am → 3am
+      expect(beforeJump.getTimezoneOffset()).toBe(300); // the pin took effect
+      expect(msUntilNextLocalMidnight(beforeJump)).toBe(21.5 * 60 * 60 * 1000);
+    } finally {
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    }
+  });
+
   it('reports each new local day just after midnight until cancelled', () => {
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
     vi.setSystemTime(new Date(2026, 8, 13, 23, 59, 0));
