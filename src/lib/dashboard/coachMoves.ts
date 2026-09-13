@@ -76,13 +76,14 @@ export function computeCoachMoves(input: CoachMovesInput): CoachMove[] {
     });
   }
 
-  const top = input.rateWatch?.top;
-  if (top && top.annualEstimate >= 1) {
+  // moveTarget already skips cards worth under $1 (rateWatch.ts).
+  const target = input.rateWatch?.moveTarget;
+  if (target) {
     drafts.push({
       id: 'call_apr',
       priority: 'medium',
-      value: { kind: 'perYear', amount: top.annualEstimate },
-      facts: top,
+      value: { kind: 'perYear', amount: target.annualEstimate },
+      facts: target,
     });
   }
 

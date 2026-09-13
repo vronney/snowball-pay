@@ -13,7 +13,8 @@ const INCOME = makeIncome({ monthlyTakeHome: 3000, essentialExpenses: 2000, acce
 const METRICS = calculatePlanMetrics(DEBTS, INCOME, [])!;
 const GAP: PaymentGap = { expected: 9, logged: 3, missed: [{ debtId: 'a', minimumPayment: 30 }], missedMinimums: 30, notYetDue: 5 };
 const STRATEGY: StrategyComparison = { current: 'snowball', currentInterest: 900, alternative: 'avalanche', alternativeInterest: 700, alternativeSaves: 200 };
-const RATES: RateWatch = { cards: 1, annualEstimate: 300, top: { debtId: 'b', debtName: 'b', apr: 25, targetApr: 17.5, annualEstimate: 300 } };
+const TOP_CARD = { debtId: 'b', debtName: 'b', apr: 25, targetApr: 17.5, annualEstimate: 300 };
+const RATES: RateWatch = { cards: 1, annualEstimate: 300, top: TOP_CARD, moveTarget: TOP_CARD };
 
 const base = { paymentGap: GAP, monthLabel: 'Sep', debts: DEBTS, income: INCOME, metrics: METRICS, strategy: STRATEGY, rateWatch: RATES };
 
@@ -63,6 +64,27 @@ describe('computeCoachMoves (spec §5.1, D2)', () => {
     const metrics = calculatePlanMetrics(stuck, broke, [])!;
     const moves = computeCoachMoves({ ...base, debts: stuck, income: broke, metrics, paymentGap: null, strategy: null, rateWatch: null, proEligible: false });
     expect(moves.find((m) => m.id === 'use_unallocated')).toBeUndefined();
+  });
+
+  it('calls about the highest-APR card worth ≥ $1 when the top card is nearly paid off (Codex P2)', () => {
+    const tiny = { debtId: 't', debtName: 'Tiny', apr: 30, targetApr: 21, annualEstimate: 0.09 };
+    const material = { debtId: 'b', debtName: 'b', apr: 25, targetApr: 17.5, annualEstimate: 75 };
+    const moves = computeCoachMoves({
+      ...base,
+      proEligible: true,
+      rateWatch: { cards: 2, annualEstimate: 75.09, top: tiny, moveTarget: material },
+    });
+    expect(moves.find((m) => m.id === 'call_apr')).toMatchObject({ value: { kind: 'perYear', amount: 75 }, facts: material });
+  });
+
+  it('omits call_apr when no card is worth ≥ $1', () => {
+    const tiny = { debtId: 't', debtName: 'Tiny', apr: 30, targetApr: 21, annualEstimate: 0.09 };
+    const moves = computeCoachMoves({
+      ...base,
+      proEligible: true,
+      rateWatch: { cards: 1, annualEstimate: 0.09, top: tiny, moveTarget: null },
+    });
+    expect(moves.find((m) => m.id === 'call_apr')).toBeUndefined();
   });
 });
 

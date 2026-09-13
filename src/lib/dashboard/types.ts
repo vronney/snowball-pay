@@ -26,7 +26,14 @@ export interface PaymentGap {
 }
 
 export interface RateOpportunity { debtId: string; debtName: string; apr: number; targetApr: number; annualEstimate: number }
-export interface RateWatch { cards: number; annualEstimate: number; top: RateOpportunity }
+export interface RateWatch {
+  cards: number;
+  annualEstimate: number;
+  /** Highest-APR card: the APR-negotiation card's default. */
+  top: RateOpportunity;
+  /** Highest-APR card whose estimate is at least $1 — the `call_apr` move's card. */
+  moveTarget: RateOpportunity | null;
+}
 
 export interface StrategyComparison {
   current: 'snowball' | 'avalanche';
