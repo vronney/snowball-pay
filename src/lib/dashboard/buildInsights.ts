@@ -45,7 +45,9 @@ export function buildDashboardInsights(input: InsightsInput): DashboardInsights 
   const readiness = computePlanReadiness({
     debts,
     income,
-    recurringExpenseCount: input.expenses.filter((e) => e.amount > 0).length,
+    // Any saved recurring expense counts, $0 included (spec §5.1; matches the
+    // Income tab, which only shows its empty state when there are none).
+    recurringExpenseCount: input.expenses.length,
     hasAnyPayment: input.hasAnyPayment,
   });
   const interest = computeMonthlyInterest(debts, metrics?.result ?? null, minimums);

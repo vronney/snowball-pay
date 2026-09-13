@@ -59,6 +59,14 @@ describe('buildDashboardInsights', () => {
     }
   });
 
+  it('counts a saved $0 recurring expense toward the expenses step (spec §5.1, Codex)', () => {
+    const out = buildDashboardInsights(input({
+      income: makeIncome({ monthlyTakeHome: 3000, essentialExpenses: 0, accelerationAmount: 100 }),
+      expenses: [{ amount: 0 }],
+    }));
+    expect(out.readiness.steps.find((s) => s.id === 'expenses')?.complete).toBe(true);
+  });
+
   it('assembles every figure', () => {
     const out = buildDashboardInsights(input());
     expect(out.asOf).toEqual({ year: 2026, month: 8, day: 12 });
