@@ -67,4 +67,19 @@ describe('local day rollover (a tab left open overnight, CodeRabbit)', () => {
     vi.advanceTimersByTime(3 * 24 * 60 * 60 * 1000);
     expect(onChange).toHaveBeenCalledTimes(2);
   });
+
+  it('stays cancelled when onChange cancels from inside the callback (CodeRabbit)', () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    vi.setSystemTime(new Date(2026, 8, 13, 23, 59, 0));
+    let cancel = () => {};
+    const onChange = vi.fn(() => cancel());
+    cancel = onLocalDayChange(onChange);
+
+    vi.advanceTimersByTime(61_000);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(0); // nothing re-armed after the cancel
+
+    vi.advanceTimersByTime(3 * 24 * 60 * 60 * 1000);
+    expect(onChange).toHaveBeenCalledTimes(1);
+  });
 });

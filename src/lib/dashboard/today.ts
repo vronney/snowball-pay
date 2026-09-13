@@ -21,18 +21,22 @@ export function msUntilNextLocalMidnight(now: Date = new Date()): number {
  * Calls `onChange` with the new local date shortly after each local midnight
  * until the returned function cancels it. It reschedules itself after every
  * call, so a timer that fires early just reports the same day again (a no-op
- * for a React state setter).
+ * for a React state setter). Cancelling from inside `onChange` is final.
  */
 export function onLocalDayChange(onChange: (day: string) => void): () => void {
   let timer: ReturnType<typeof setTimeout>;
+  let cancelled = false;
   const schedule = () => {
     timer = setTimeout(() => {
       onChange(localDateParam());
-      schedule();
+      if (!cancelled) schedule();
     }, msUntilNextLocalMidnight() + ROLLOVER_GRACE_MS);
   };
   schedule();
-  return () => clearTimeout(timer);
+  return () => {
+    cancelled = true;
+    clearTimeout(timer);
+  };
 }
 
 /**
