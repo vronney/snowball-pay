@@ -17,7 +17,11 @@ describe('coachMoveCopy (spec §8.4): facts only, losses and savings floored', (
     expect(coachMoveCopy({
       id: 'log_missed', priority: 'high', isFree: true, value: { kind: 'count', amount: 1 },
       facts: { monthLabel: 'Oct', logged: 4, expected: 5, missedCount: 1, missedMinimums: 35 },
-    }).title).toBe('Log the missing payment for Oct.');
+    })).toEqual({
+      title: 'Log the missing payment for Oct.',
+      body: 'Oct shows 4 of 5 payments logged; 1 is past its due date — $35.00 in minimums.',
+      valueLabel: null,
+    });
   });
 
   it('use_unallocated', () => {

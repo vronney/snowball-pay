@@ -41,13 +41,22 @@ describe('buildDashboardInsights', () => {
   });
 
   it('anchors debtFreeDate on the client day, not UTC midnight (Codex P1)', () => {
-    // Sep 1 local: adding months via setMonth must not roll back a day under
-    // toISOString()'s UTC-midnight rendering in US time zones.
-    const today = new Date(2026, 8, 1);
-    const out = buildDashboardInsights(input({ today }));
-    const plain = calculatePlanMetrics(DEBTS, INCOME, [{ amount: 50 }], { planStartDate: new Date(2026, 8, 1) })!;
-    expect(out.plan?.debtFreeDate).toBe(localDateParam(new Date(2026, 8 + plain.result.months, 1)));
-    expect(out.plan?.debtFreeDate.endsWith('-01')).toBe(true);
+    // Pinned to a zone ahead of UTC: there, local midnight on Sep 1 is still
+    // Aug 31 in UTC, so a toISOString()-based date would read a day early. In
+    // UTC or US zones that regression would pass unnoticed (CodeRabbit).
+    const originalTz = process.env.TZ;
+    process.env.TZ = 'Asia/Tokyo';
+    try {
+      expect(new Date(2026, 8, 1).getTimezoneOffset()).toBe(-540); // the pin took effect
+      const today = new Date(2026, 8, 1);
+      const out = buildDashboardInsights(input({ today }));
+      const plain = calculatePlanMetrics(DEBTS, INCOME, [{ amount: 50 }], { planStartDate: new Date(2026, 8, 1) })!;
+      expect(out.plan?.debtFreeDate).toBe(localDateParam(new Date(2026, 8 + plain.result.months, 1)));
+      expect(out.plan?.debtFreeDate.endsWith('-01')).toBe(true);
+    } finally {
+      if (originalTz === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTz;
+    }
   });
 
   it('assembles every figure', () => {
