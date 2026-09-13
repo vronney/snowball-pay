@@ -104,7 +104,7 @@ export default function DebtAccountsHeader({
         <CollapsibleTrigger
           type="button"
           aria-label={open ? "Collapse debt accounts" : "Expand debt accounts"}
-          className="flex items-center p-0 bg-transparent border-0 cursor-pointer"
+          className="flex min-h-11 min-w-11 flex-shrink-0 items-center justify-center p-0 bg-transparent border-0 cursor-pointer"
         >
           <ChevronDown
             size={16}

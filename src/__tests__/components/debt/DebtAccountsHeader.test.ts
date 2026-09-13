@@ -48,6 +48,7 @@ describe('DebtAccountsHeader', () => {
     expect(html).toContain('Your debt accounts');
     expect(html.match(/aria-expanded="true"/g)).toHaveLength(2);
     expect(html).toContain('aria-label="Collapse debt accounts"');
+    expect(html).toContain('min-h-11 min-w-11');
     const closed = render({ open: false });
     expect(closed.match(/aria-expanded="false"/g)).toHaveLength(2);
     expect(closed).toContain('aria-label="Expand debt accounts"');
