@@ -167,6 +167,18 @@ export function estimateAnnualSavings(balance: number, currentApr: number, targe
   return Math.round((balance * delta) / 100);
 }
 
+/**
+ * Same formula as `estimateAnnualSavings`, unrounded. Used where several
+ * cards' estimates get summed (rate watch) so the total doesn't drift from
+ * rounding each card first — round (or floor, per §4) only for display.
+ */
+export function estimateAnnualSavingsExact(balance: number, currentApr: number, targetApr: number): number | null {
+  if (![balance, currentApr, targetApr].every(Number.isFinite)) return null;
+  const delta = currentApr - targetApr;
+  if (delta <= 0) return 0;
+  return (balance * delta) / 100;
+}
+
 /* -------------------------------------------------------------------------
  * Guards
  * ---------------------------------------------------------------------- */

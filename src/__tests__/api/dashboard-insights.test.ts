@@ -103,4 +103,11 @@ describe('GET /api/dashboard/insights', () => {
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Failed to load dashboard insights' });
   });
+
+  it('returns 500 (not a bypass) when the rate limiter itself fails (CodeRabbit)', async () => {
+    vi.mocked(limits.dashboardInsights).mockRejectedValue(new Error('redis down'));
+    const res = await GET(req());
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: 'Failed to load dashboard insights' });
+  });
 });

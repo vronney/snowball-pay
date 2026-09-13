@@ -52,4 +52,15 @@ describe('coachMoveCopy (spec §8.4): facts only, losses and savings floored', (
       valueLabel: '$742/yr est.',
     });
   });
+
+  it('call_apr with an unrounded rate-watch estimate floors without float error (Codex P2)', () => {
+    expect(coachMoveCopy({
+      id: 'call_apr', priority: 'medium', isFree: false, value: { kind: 'perYear', amount: 75.75 },
+      facts: { debtId: 'd1', debtName: 'Citi Simplicity', apr: 24.99, targetApr: 17.49, annualEstimate: 75.75 },
+    })).toEqual({
+      title: 'Call Citi Simplicity about its 24.99% APR',
+      body: 'Asking for 17.49% could save about $75 a year.',
+      valueLabel: '$75/yr est.',
+    });
+  });
 });

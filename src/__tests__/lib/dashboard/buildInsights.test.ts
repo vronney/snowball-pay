@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { calculatePlanMetrics } from '@/lib/payoffPlan';
 import { buildDashboardInsights, type InsightsInput } from '@/lib/dashboard/buildInsights';
 import { computeProgressStreak, computeProgressTotals } from '@/lib/dashboard/progress';
+import { localDateParam } from '@/lib/dashboard/today';
 import { makeDebt, makeIncome, makeSnapshot } from './fixtures';
 
 const TODAY = new Date(2026, 8, 12);
@@ -34,9 +35,19 @@ describe('buildDashboardInsights', () => {
     expect(out.plan).toEqual({
       method: 'snowball',
       months: plain.result.months,
-      debtFreeDate: expect.any(String),
+      debtFreeDate: localDateParam(new Date(2026, 8 + plain.result.months, 12)),
       totalInterest: plain.result.totalInterestPaid,
     });
+  });
+
+  it('anchors debtFreeDate on the client day, not UTC midnight (Codex P1)', () => {
+    // Sep 1 local: adding months via setMonth must not roll back a day under
+    // toISOString()'s UTC-midnight rendering in US time zones.
+    const today = new Date(2026, 8, 1);
+    const out = buildDashboardInsights(input({ today }));
+    const plain = calculatePlanMetrics(DEBTS, INCOME, [{ amount: 50 }], { planStartDate: new Date(2026, 8, 1) })!;
+    expect(out.plan?.debtFreeDate).toBe(localDateParam(new Date(2026, 8 + plain.result.months, 1)));
+    expect(out.plan?.debtFreeDate.endsWith('-01')).toBe(true);
   });
 
   it('assembles every figure', () => {

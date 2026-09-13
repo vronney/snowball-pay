@@ -52,10 +52,11 @@ export interface PlanSummary {
   method: PayoffMethod;
   months: number;
   /**
-   * ISO instant computed by the engine from the SERVER clock (`snowball.ts`
-   * uses `new Date()`). Web keeps its own client-side computation for
-   * displayed dates; Expo should format only the month and treat
-   * month-boundary skew as possible.
+   * Client-local calendar date YYYY-MM-DD (today + plan months). Mirrors the
+   * engine's month math (`snowball.ts`), anchored on the client's day instead
+   * of the server clock, so it never reads a day/month early from UTC
+   * rendering. Web keeps its own client-side computation for displayed
+   * dates; Expo can use this directly.
    */
   debtFreeDate: string;
   totalInterest: number;

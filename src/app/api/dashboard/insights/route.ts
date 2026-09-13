@@ -13,11 +13,11 @@ export async function GET(request: NextRequest) {
   if (!auth.valid || !auth.user) return unauthorized();
   const userId = auth.user.id;
 
-  if (!(await limits.dashboardInsights(userId))) return tooManyRequests();
-
   const today = resolveToday(new URL(request.url).searchParams.get('today'));
 
   try {
+    if (!(await limits.dashboardInsights(userId))) return tooManyRequests();
+
     const [debtRows, income, expenses, monthRecords, anyPayment, snapshots, verdict] = await Promise.all([
       prisma.debt.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } }),
       prisma.income.findUnique({ where: { userId } }),

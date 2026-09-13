@@ -126,8 +126,11 @@ describe('isDebtPastDueThisMonth with an injected today', () => {
   });
   it('defaults today to the current date for existing callers', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date(2026, 8, 12));
-    expect(isDebtPastDueThisMonth({ balance: 100, dueDate: 10 }, false)).toBe(true);
-    vi.useRealTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 8, 12));
+      expect(isDebtPastDueThisMonth({ balance: 100, dueDate: 10 }, false)).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

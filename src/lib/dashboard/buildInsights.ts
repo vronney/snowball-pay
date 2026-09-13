@@ -10,6 +10,7 @@ import { computeRateWatch } from './rateWatch';
 import { computePlanReadiness } from './readiness';
 import { computeStrategyComparison } from './strategy';
 import { computeStreakGrid, snapshotMonthSet } from './streakGrid';
+import { localDateParam } from './today';
 import type { DashboardInsights, ProgressSummary, TierInfo } from './types';
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -97,7 +98,16 @@ export function buildDashboardInsights(input: InsightsInput): DashboardInsights 
       ? {
           method: metrics.method,
           months: metrics.result.months,
-          debtFreeDate: metrics.result.debtFreeDate.toISOString(),
+          // Mirror the engine (snowball.ts ~200-201), anchored on the
+          // client's day instead of the server clock's `new Date()`, and
+          // rendered as a client-local calendar date — `toISOString()` would
+          // report UTC midnight, which reads as the previous day/month in US
+          // time zones.
+          debtFreeDate: (() => {
+            const free = new Date(planStartDate);
+            free.setMonth(free.getMonth() + metrics.result.months);
+            return localDateParam(free);
+          })(),
           totalInterest: metrics.result.totalInterestPaid,
         }
       : null,

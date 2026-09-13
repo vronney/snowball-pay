@@ -2,15 +2,17 @@ import type { Debt } from '@/types';
 import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 import {
   computeRateTargets,
-  estimateAnnualSavings,
+  estimateAnnualSavingsExact,
   isNegotiableCard,
 } from '@/lib/apr-negotiation/apr-negotiation-adapter';
 import type { RateOpportunity, RateWatch } from './types';
 
 /**
  * Estimated yearly interest recoverable if each active credit card drops to
- * its APR-negotiation target (≈30% lower, floor 9.99%). The same estimate the
- * APR card shows, so it is labelled "est." wherever it appears.
+ * its APR-negotiation target (≈30% lower, floor 9.99%). Same formula as the
+ * APR card, but unrounded here (each card's `annualEstimate` and their sum),
+ * floored only for display — so the total may read $1 under the APR card,
+ * which rounds its own single-card estimate.
  */
 export function computeRateWatch(
   debts: ReadonlyArray<Pick<Debt, 'id' | 'name' | 'category' | 'balance' | 'interestRate'>>,
@@ -24,7 +26,7 @@ export function computeRateWatch(
         debtName: d.name,
         apr: d.interestRate,
         targetApr,
-        annualEstimate: estimateAnnualSavings(d.balance, d.interestRate, targetApr) ?? 0,
+        annualEstimate: estimateAnnualSavingsExact(d.balance, d.interestRate, targetApr) ?? 0,
       };
     })
     .filter((o) => o.annualEstimate > 0)
