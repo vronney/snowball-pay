@@ -18,6 +18,18 @@ interface SavePlanModalProps {
   calculatorState?: CalculatorSessionState;
 }
 
+type SavePlanModalDismissReason =
+  | "backdrop"
+  | "close_icon"
+  | "close_without_saving";
+
+function trackSavePlanModalDismiss(reason: SavePlanModalDismissReason): void {
+  track(Events.SAVE_PLAN_MODAL_DISMISSED, {
+    source: "calculator_result",
+    reason,
+  });
+}
+
 /**
  * Email capture shown from the calculator result: persists the full
  * calculator session locally, then hands off to Auth0 signup with the email
@@ -111,7 +123,10 @@ export default function SavePlanModal({
         padding: "16px",
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) {
+          trackSavePlanModalDismiss("backdrop");
+          onClose();
+        }
       }}
     >
       <div
@@ -126,7 +141,10 @@ export default function SavePlanModal({
         }}
       >
         <button
-          onClick={onClose}
+          onClick={() => {
+            trackSavePlanModalDismiss("close_icon");
+            onClose();
+          }}
           aria-label="Close"
           style={{
             position: "absolute",
@@ -307,7 +325,10 @@ export default function SavePlanModal({
               really does risk losing it when the tab goes. */}
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => {
+              trackSavePlanModalDismiss("close_without_saving");
+              onClose();
+            }}
             style={{
               display: "block",
               margin: "14px auto 0",

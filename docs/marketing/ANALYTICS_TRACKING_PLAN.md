@@ -34,6 +34,9 @@ Visitors can change their choice in the Cookies and Similar Technologies section
 | Calculator intent | `calculator_started` | First calculator interaction | calculator slug, interaction type | Does the landing message create action? |
 | Value reached | `calculator_result_viewed` | First valid result after interaction | debt count, projected months | Can visitors complete the calculator? |
 | Save intent | `calculator_save_clicked` | Save-plan CTA click | CTA location, projected months | Is the result valuable enough to save? |
+| Save modal viewed | `save_plan_modal_viewed` | Save-plan modal impression from calculator result | source | Do save-intent users actually see the email capture modal? |
+| Save modal dismissed | `save_plan_modal_dismissed` | User closes save-plan modal without submitting | source, reason | Which close path causes save-plan abandonment? |
+| Plan saved email captured | `plan_saved_email_captured` | Valid email submitted in save-plan modal | source | How many result viewers complete email capture? |
 | Signup intent | `signup_started` | Auth0 signup entry | source location | Which CTA creates account intent? |
 | Onboarding step viewed | `onboarding_step_viewed` | A direct-wizard step is first shown in the session | step name, position, total steps, source | Where does first-plan setup lose people? |
 | Onboarding step completed | `onboarding_step_completed` | A validated step advances or the final setup save succeeds | step name, position, total steps, source | Which required input creates the most friction? |
