@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { auth0 } from '@/lib/auth0';
 import { ensureUserProvisioned } from '@/lib/auth-server';
 import { isPlaidAllowed } from '@/lib/plaid';
+import { isDashboardV2 } from '@/lib/flags';
 import { prisma } from '@/lib/prisma';
 import DashboardClient from '@/components/DashboardClient';
 import { AuthenticatedAnalytics } from '@/components/analytics/AuthenticatedAnalytics';
@@ -75,7 +76,11 @@ export default async function DashboardPage({
           transactionId={`signup:${provisioned.id}`}
         />
       )}
-      <DashboardClient user={user} plaidTestAccess={isPlaidAllowed(user?.email)} />
+      <DashboardClient
+        user={user}
+        plaidTestAccess={isPlaidAllowed(user?.email)}
+        dashboardV2={isDashboardV2(user?.email)}
+      />
     </>
   );
 }

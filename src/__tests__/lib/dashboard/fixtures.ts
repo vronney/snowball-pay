@@ -1,5 +1,6 @@
 import type { BalanceSnapshot, Debt, Income } from '@/types';
 import type { PayoffResult } from '@/lib/snowball';
+import type { CoachMove } from '@/lib/dashboard/types';
 
 export function makeDebt(
   overrides: Partial<Debt> & { id: string; balance: number; minimumPayment: number },
@@ -61,5 +62,45 @@ export function makeResult(
     monthlyPayment: 0,
     monthlyBalances: balances.map(([date, totalBalance], month) => ({ month, date, totalBalance })),
     ...extra,
+  };
+}
+
+export function makeLogMissedMove(monthLabel: string, missedCount: number, isFree = true): CoachMove {
+  return {
+    id: 'log_missed',
+    priority: 'high',
+    isFree,
+    value: { kind: 'count', amount: missedCount },
+    facts: { monthLabel, logged: 1, expected: 1 + missedCount, missedCount, missedMinimums: 50 * missedCount },
+  };
+}
+
+export function makeCallAprMove(debtId: string, annualEstimate: number, isFree = false): CoachMove {
+  return {
+    id: 'call_apr',
+    priority: 'medium',
+    isFree,
+    value: { kind: 'perYear', amount: annualEstimate },
+    facts: { debtId, debtName: debtId, apr: 28, targetApr: 19.6, annualEstimate },
+  };
+}
+
+export function makeSwitchMove(alternative: 'snowball' | 'avalanche', amount: number, isFree = false): CoachMove {
+  return {
+    id: 'switch_strategy',
+    priority: 'medium',
+    isFree,
+    value: { kind: 'total', amount },
+    facts: { alternative, interestDifference: amount },
+  };
+}
+
+export function makeUnallocatedMove(monthsSooner: number, isFree = false): CoachMove {
+  return {
+    id: 'use_unallocated',
+    priority: 'high',
+    isFree,
+    value: { kind: 'months', amount: monthsSooner },
+    facts: { unusedMonthly: 200, targetAcceleration: 700, monthsSooner },
   };
 }

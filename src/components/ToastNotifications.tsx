@@ -8,6 +8,8 @@ import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 
 interface Props {
   debts: Debt[];
+  /** CSS bottom offset. v2 lifts toasts above its mobile bottom bar. */
+  bottom?: string;
 }
 
 interface Toast {
@@ -20,7 +22,7 @@ interface Toast {
 
 const DISMISS_DURATION = 8000;
 
-export default function ToastNotifications({ debts }: Props) {
+export default function ToastNotifications({ debts, bottom = '24px' }: Props) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const shown = useRef<Set<string>>(new Set());
   const markPaid = useMarkPaid();
@@ -68,7 +70,7 @@ export default function ToastNotifications({ debts }: Props) {
   return (
     <div style={{
       position: 'fixed',
-      bottom: '24px',
+      bottom,
       right: '24px',
       zIndex: 200,
       display: 'flex',

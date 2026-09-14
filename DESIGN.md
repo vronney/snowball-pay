@@ -42,7 +42,7 @@
 
 ## Color
 
-- **Approach:** Restrained — blue (#2563eb) is used ONLY for action, progress, and active states. Not on nav, not on passive elements (two passive exceptions: see the 2026-09-12 decision). Color earns its place.
+- **Approach:** Restrained — blue (#2563eb) is used ONLY for action, progress, and active states. Not on nav, not on passive elements (passive exceptions: see the 2026-09-12 and 2026-09-14 decisions). Color earns its place.
 
 ### Light Mode (default)
 | Token             | Hex       | Usage                                      |
@@ -170,6 +170,7 @@ The celebration easing (`cubic-bezier(0.22,1,0.36,1)`) is already used in `Payme
 | 2026-09-12 | My Debts rows + wallet-card detail | v2 My Debts lists compact rows. The wallet-card `DebtCard` (2026-06-10) remains the expanded detail view. |
 | 2026-09-12 | Dashed border = outside the plan | Dashed borders mean only "saved, outside the plan" (Free debts past the cap). Nothing else may use a dashed border in the dashboard. |
 | 2026-09-12 | Meter motion | Bars, rings and meters animate once, 0 → value, ~600ms ease-out, and are static under `prefers-reduced-motion`. Win moments keep `cubic-bezier(0.22,1,0.36,1)`. |
+| 2026-09-14 | Blue on the avatar initials badge | Users without a profile picture see their initials on a light-blue badge in blue text (`bg-action/10`, `text-action`), as the handoff draws it and as the v1 header already did. The badge opens the dashboard v2 account menu. This is a third passive use of `#2563eb`, alongside the two in the 2026-09-12 entry: it marks the user's own account, not an action. Approved by the owner during PR 2 review. |
 
 ## Anti-Patterns (never do these)
 

@@ -224,7 +224,7 @@ Currency figures use the mono stack with `tabular-nums`. Every paragraph and mul
 
 1. The `ink` dark surface is allowed on closing cards, primary ink CTAs, and the sidebar upgrade rail. `ink-accent` is for savings figures on ink.
 2. The in-app sidebar is 200px with 6 items plus the footer. Mobile uses a 5-tab bottom bar instead of the drawer.
-3. Blue is allowed on two passive labels: the readiness counter (it is progress) and the "Your free move" eyebrow.
+3. Blue is allowed on two passive labels: the readiness counter (it is progress) and the "Your free move" eyebrow. Added 2026-09-14: the avatar initials badge that opens the account menu (approved by the owner in PR 2; see DESIGN.md).
 4. My Debts uses compact rows on the tab. The wallet-card `DebtCard` is kept as the expanded detail.
 5. Dashed borders are reserved for "outside the plan".
 6. Win-moment easing stays `cubic-bezier(0.22,1,0.36,1)`. Meters animate once, 0 → value, ~600ms ease-out, and honor `prefers-reduced-motion`.
@@ -234,6 +234,20 @@ Currency figures use the mono stack with `tabular-nums`. Every paragraph and mul
 - **Shell:** `V2Shell`, `V2Sidebar` (200px, nav, Coach dot, `UpgradeRail`), `V2Header` (56px, title, Link bank [paid only, unchanged], notifications, `AvatarMenu`: Income & Budget / Settings / Sign out), `BottomTabBar` (Month · Debts · Coach · Plan · Progress, lucide icons matching the sidebar, 44px targets, `env(safe-area-inset-bottom)`). Mobile body: a `100dvh` column with an inner scroll area, and every direct child `shrink-0`.
   - **Coach rename:** the tab id stays `intelligence` (deep links, analytics). Only the label changes.
   - **Coach dot:** shown while the current move-set fingerprint differs from the last one seen (localStorage); cleared when Coach opens.
+  - **PR 2 decisions (2026-09-14):**
+    - Layout:
+      - The mobile shell applies at ≤768px, matching v1 and the tabs' own CSS.
+      - There is one scroll model at every width: only `<main>` scrolls.
+      - Settings and Sign out live only in the avatar menu.
+      - `TrialCountdownBanner` stays at the top of the scroll area until PR 6.
+      - Toasts clear the bottom bar via `--v2-tabbar-offset`.
+    - Upgrade rail:
+      - It shows to Free users with at least one gated move.
+      - Copy: "{n} moves waiting · ${perYear}/yr est." The per-year figure counts per-year values only (X7) and hides under $1.
+      - CTA "Unlock all {n}" ("Unlock the move" for one) opens the existing `UpgradeModal` with its coach copy. PR 6 swaps in "Try Pro free" for trial-eligible users.
+    - Coach dot:
+      - Its fingerprint is the move set's identity (month for `log_missed`, card for `call_apr`, alternative for `switch_strategy`), not its amounts.
+      - It is stored under `sp_coach_seen`, which sign-out clears.
 - **Shared cards:** `ReadinessCard`, `InterestMeter` (full and compact), `DebtFreeHero`, `FreeMoveCard`, `MoreMovesList`, `RateWatchCard`, `ClosingCard` (ink and red variants), `ProChip`, `GatedTile` (`aria-disabled`, accessible name "{feature} — Pro", opens the upgrade sheet).
 - **Sheets:** `DueDatesSheet` (a day picker per debt → existing `PATCH /api/debts/[id]`), `BulkLogSheet` (pre-filled missed payments at their minimums → the existing `useMarkPaid` per debt, sequentially, so balance updates, snapshots, and celebrations behave exactly as today), `UpgradeSheet` (states A and E, and the fallback modal).
 - **Tabs:**
