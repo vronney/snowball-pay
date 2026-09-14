@@ -121,6 +121,8 @@ describe('SavePlanModal', () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true } as Response)));
     const mockTrack = vi.mocked(track);
     const setTimeoutSpy = vi.spyOn(window, 'setTimeout');
+    const assignSpy = vi.fn();
+    vi.stubGlobal('location', { assign: assignSpy } as unknown as Location);
 
     render(
       createElement(SavePlanModal, {
@@ -151,6 +153,12 @@ describe('SavePlanModal', () => {
     });
     expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
     expect(setTimeoutSpy).toHaveBeenLastCalledWith(expect.any(Function), 180);
+    expect(assignSpy).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(180);
+    expect(assignSpy).toHaveBeenCalledWith(
+      '/auth/login?returnTo=%2Fonboarding%3Fsource%3Dcalculator&screen_hint=signup&login_hint=user%2Btest%40example.com',
+    );
   });
 
   it('clears pending redirect timeout when unmounted before delay elapses', () => {
