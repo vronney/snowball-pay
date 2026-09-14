@@ -116,7 +116,7 @@ describe('SavePlanModal', () => {
     });
   });
 
-  it('tracks email capture/start and redirects after a short delay on submit', () => {
+  it('tracks email capture/start and redirects after a short delay on submit', async () => {
     vi.useFakeTimers();
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true } as Response)));
     const mockTrack = vi.mocked(track);
@@ -151,6 +151,7 @@ describe('SavePlanModal', () => {
       transport: 'sendBeacon',
       send_instantly: true,
     });
+    await Promise.resolve();
     expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
     expect(setTimeoutSpy).toHaveBeenLastCalledWith(expect.any(Function), 180);
     expect(assignSpy).not.toHaveBeenCalled();
