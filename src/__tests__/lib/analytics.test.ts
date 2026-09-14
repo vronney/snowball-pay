@@ -59,6 +59,22 @@ describe('analytics client', () => {
     expect(posthog.capture).toHaveBeenCalledWith('plan_generated', undefined);
   });
 
+  it('forwards capture options when provided', async () => {
+    const { track } = await import('@/lib/analytics');
+
+    track(
+      'plan_saved_email_captured',
+      { source: 'save_plan_modal' },
+      { transport: 'sendBeacon', send_instantly: true },
+    );
+
+    expect(posthog.capture).toHaveBeenCalledWith(
+      'plan_saved_email_captured',
+      { source: 'save_plan_modal' },
+      { transport: 'sendBeacon', send_instantly: true },
+    );
+  });
+
   it('initialises before events and identity, and only initialises once', async () => {
     const { identify, track } = await import('@/lib/analytics');
 

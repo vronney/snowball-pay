@@ -116,7 +116,11 @@ export function track(
 ): void {
   try {
     if (!initialiseAnalytics()) return;
-    posthog.capture(event, props, options);
+    if (options) {
+      posthog.capture(event, props, options);
+      return;
+    }
+    posthog.capture(event, props);
   } catch {
     // Never let analytics break the app
   }
