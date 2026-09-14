@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X, ArrowRight, Loader2 } from "lucide-react";
 import { track, Events } from "@/lib/analytics";
 import {
@@ -49,9 +49,16 @@ export default function SavePlanModal({
   const [website, setWebsite] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const redirectTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     track(Events.SAVE_PLAN_MODAL_VIEWED, { source: "calculator_result" });
+    return () => {
+      if (redirectTimeoutRef.current !== null) {
+        window.clearTimeout(redirectTimeoutRef.current);
+        redirectTimeoutRef.current = null;
+      }
+    };
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -104,8 +111,12 @@ export default function SavePlanModal({
     // Briefly defer navigation so the analytics captures and keepalive lead
     // request can flush before the full-page Auth0 redirect.
     const loginUrl = `/auth/login?returnTo=${encodeURIComponent("/onboarding?source=calculator")}&screen_hint=signup&login_hint=${encodeURIComponent(trimmed)}`;
-    window.setTimeout(() => {
+    if (redirectTimeoutRef.current !== null) {
+      window.clearTimeout(redirectTimeoutRef.current);
+    }
+    redirectTimeoutRef.current = window.setTimeout(() => {
       navigateToSignup(loginUrl);
+      redirectTimeoutRef.current = null;
     }, SIGNUP_REDIRECT_DELAY_MS);
   };
 
