@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import SavePlanModal from '@/components/calculator/SavePlanModal';
 import { ConsentBannerPanel } from '@/components/analytics/AnalyticsConsentBanner';
 import { track } from '@/lib/analytics';
@@ -13,6 +13,8 @@ vi.mock('@/lib/analytics', () => ({
   Events: {
     SAVE_PLAN_MODAL_VIEWED: 'save_plan_modal_viewed',
     SAVE_PLAN_MODAL_DISMISSED: 'save_plan_modal_dismissed',
+    PLAN_SAVED_EMAIL: 'plan_saved_email_captured',
+    SIGNUP_STARTED: 'signup_started',
   },
 }));
 
@@ -26,6 +28,12 @@ function zIndexOf(html: string, selector: RegExp): number {
 describe('SavePlanModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it('stacks above the analytics consent banner so the sheet cannot cover its form', () => {
@@ -105,6 +113,49 @@ describe('SavePlanModal', () => {
     expect(mockTrack).toHaveBeenCalledWith('save_plan_modal_dismissed', {
       source: 'calculator_result',
       reason: 'close_without_saving',
+    });
+  });
+
+  it('tracks email capture/start and redirects on submit', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true } as Response)));
+    const mockTrack = vi.mocked(track);
+    const assignSpy = vi.fn();
+    vi.stubGlobal(
+      'location',
+      { ...window.location, assign: assignSpy } as unknown as Location,
+    );
+
+    render(
+      createElement(SavePlanModal, {
+        onClose: vi.fn(),
+        debtFreeDate: 'Mar 2029',
+        interestSaved: 1200,
+      }),
+    );
+    mockTrack.mockClear();
+
+    const emailInput = screen.getByLabelText('Your email');
+    fireEvent.change(emailInput, {
+      target: { value: 'User+test@example.com ' },
+    });
+    fireEvent.submit(emailInput.closest('form')!);
+
+    await waitFor(() => {
+      expect(mockTrack).toHaveBeenCalledWith('plan_saved_email_captured', {
+        source: 'save_plan_modal',
+      }, {
+        transport: 'sendBeacon',
+        send_instantly: true,
+      });
+      expect(mockTrack).toHaveBeenCalledWith('signup_started', {
+        source: 'save_plan_modal',
+      }, {
+        transport: 'sendBeacon',
+        send_instantly: true,
+      });
+      expect(assignSpy).toHaveBeenCalledWith(
+        '/auth/login?returnTo=%2Fonboarding%3Fsource%3Dcalculator&screen_hint=signup&login_hint=user%2Btest%40example.com',
+      );
     });
   });
 });

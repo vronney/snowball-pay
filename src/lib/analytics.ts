@@ -33,6 +33,10 @@ function isInternalHost(): boolean {
 }
 
 type AnalyticsMode = 'anonymous' | 'full';
+type TrackOptions = {
+  transport?: 'sendBeacon' | 'XHR';
+  send_instantly?: boolean;
+};
 let mode: AnalyticsMode | null = null;
 let optedOut = false;
 
@@ -105,9 +109,17 @@ export function initialiseAnalytics(): boolean {
 }
 
 /** Fire a known client-side analytics event after ensuring the SDK is ready. */
-export function track(event: AnalyticsEvent, props?: Record<string, unknown>): void {
+export function track(
+  event: AnalyticsEvent,
+  props?: Record<string, unknown>,
+  options?: TrackOptions,
+): void {
   try {
     if (!initialiseAnalytics()) return;
+    if (options) {
+      posthog.capture(event, props, options);
+      return;
+    }
     posthog.capture(event, props);
   } catch {
     // Never let analytics break the app
