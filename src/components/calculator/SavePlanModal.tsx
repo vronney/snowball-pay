@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { X, ArrowRight, Loader2 } from "lucide-react";
 import { track, Events } from "@/lib/analytics";
 import {
@@ -30,8 +30,6 @@ function trackSavePlanModalDismiss(reason: SavePlanModalDismissReason): void {
   });
 }
 
-const SIGNUP_REDIRECT_DELAY_MS = 180;
-
 /**
  * Email capture shown from the calculator result: persists the full
  * calculator session locally, then hands off to Auth0 signup with the email
@@ -47,16 +45,9 @@ export default function SavePlanModal({
   const [website, setWebsite] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const redirectTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     track(Events.SAVE_PLAN_MODAL_VIEWED, { source: "calculator_result" });
-    return () => {
-      if (redirectTimeoutRef.current !== null) {
-        window.clearTimeout(redirectTimeoutRef.current);
-        redirectTimeoutRef.current = null;
-      }
-    };
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -114,16 +105,10 @@ export default function SavePlanModal({
       });
     }
 
-    // Briefly defer navigation so the analytics captures and keepalive lead
-    // request can flush before the full-page Auth0 redirect.
+    // Redirect to Auth0 signup with login_hint pre-filled so the email
+    // is already in the signup form — reduces friction.
     const loginUrl = `/auth/login?returnTo=${encodeURIComponent("/onboarding?source=calculator")}&screen_hint=signup&login_hint=${encodeURIComponent(trimmed)}`;
-    if (redirectTimeoutRef.current !== null) {
-      window.clearTimeout(redirectTimeoutRef.current);
-    }
-    redirectTimeoutRef.current = window.setTimeout(() => {
-      redirectTimeoutRef.current = null;
-      window.location.assign(loginUrl);
-    }, SIGNUP_REDIRECT_DELAY_MS);
+    window.location.assign(loginUrl);
   };
 
   return (
