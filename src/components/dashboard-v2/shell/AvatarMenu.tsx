@@ -61,10 +61,13 @@ export default function AvatarMenu({ user, initials, onSelectTab }: AvatarMenuPr
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
       items[(index - 1 + items.length) % items.length]?.focus();
-    } else if (event.key === " " && items[index]?.tagName === "A") {
+    } else if (event.key === " ") {
       // Sign out is a link, and links don't activate on Space; the menu buttons already do.
-      event.preventDefault();
-      items[index].click();
+      const target = items[index];
+      if (target?.tagName === "A") {
+        event.preventDefault();
+        target.click();
+      }
     } else if (event.key === "Tab") {
       setOpen(false);
     }
