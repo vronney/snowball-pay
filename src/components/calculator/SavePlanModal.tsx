@@ -70,8 +70,16 @@ export default function SavePlanModal({
     }
 
     setLoading(true);
-    track(Events.PLAN_SAVED_EMAIL, { source: "save_plan_modal" });
-    track(Events.SIGNUP_STARTED, { source: "save_plan_modal" });
+    track(
+      Events.PLAN_SAVED_EMAIL,
+      { source: "save_plan_modal" },
+      { transport: "sendBeacon", send_instantly: true },
+    );
+    track(
+      Events.SIGNUP_STARTED,
+      { source: "save_plan_modal" },
+      { transport: "sendBeacon", send_instantly: true },
+    );
 
     // Persist the lead + plan summary server-side before the Auth0 redirect,
     // so abandoning at signup/MFA doesn't lose the contact. The snapshot of

@@ -139,9 +139,15 @@ describe('SavePlanModal', () => {
 
     expect(mockTrack).toHaveBeenCalledWith('plan_saved_email_captured', {
       source: 'save_plan_modal',
+    }, {
+      transport: 'sendBeacon',
+      send_instantly: true,
     });
     expect(mockTrack).toHaveBeenCalledWith('signup_started', {
       source: 'save_plan_modal',
+    }, {
+      transport: 'sendBeacon',
+      send_instantly: true,
     });
     expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
     expect(setTimeoutSpy).toHaveBeenLastCalledWith(expect.any(Function), 180);
