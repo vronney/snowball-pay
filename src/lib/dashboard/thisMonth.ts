@@ -123,7 +123,7 @@ export function heroView(
 export interface RateWatchView { eyebrow: string; figure: string; caption: string }
 
 export function rateWatchView(rateWatch: RateWatch | null): RateWatchView | null {
-  if (!rateWatch || floorDollars(rateWatch.annualEstimate) < 1) return null;
+  if (!rateWatch || !Number.isFinite(rateWatch.annualEstimate) || floorDollars(rateWatch.annualEstimate) < 1) return null;
   const one = rateWatch.cards === 1;
   return {
     eyebrow: `Rate watch · ${rateWatch.cards} ${one ? 'card' : 'cards'}`,

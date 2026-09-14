@@ -135,9 +135,10 @@ describe('rateWatchView', () => {
     });
   });
 
-  it('hides without cards or under $1', () => {
+  it('hides without cards, under $1, or without a finite estimate', () => {
     expect(rateWatchView(null)).toBeNull();
     expect(rateWatchView(watch(2, 0.99))).toBeNull();
+    expect(rateWatchView(watch(2, Number.NaN))).toBeNull();
   });
 });
 
