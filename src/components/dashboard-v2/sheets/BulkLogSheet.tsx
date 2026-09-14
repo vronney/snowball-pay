@@ -1,0 +1,142 @@
+"use client";
+
+import { useId, useState } from "react";
+import { getErrorMessage, useMarkPaid } from "@/lib/hooks";
+import { track, Events } from "@/lib/analytics";
+import type { LogRow } from "@/lib/dashboard/thisMonth";
+import { CTA_BLUE, ERROR_LINE } from "../styles";
+import Sheet from "./Sheet";
+
+interface BulkLogSheetProps {
+  title: string;
+  rows: ReadonlyArray<LogRow>;
+  /** The month being logged: insights.asOf, the client's local today. month: 0-11. */
+  year: number;
+  month: number;
+  onClose: () => void;
+}
+
+export function logPaymentsLabel(n: number): string {
+  return n === 1 ? "Log 1 payment" : `Log ${n} payments`;
+}
+
+/** A typed dollar amount, rounded to cents, or null unless it is a positive number. */
+export function parseAmount(raw: string): number | null {
+  const value = Number(raw.trim());
+  if (!Number.isFinite(value) || value <= 0) return null;
+  return Math.round(value * 100) / 100;
+}
+
+/**
+ * "Log them now" / "Log your first payment" (spec §8.3): the payments
+ * pre-filled at their minimums, each logged through the existing useMarkPaid,
+ * one at a time, so balances, snapshots and celebrations behave exactly as a
+ * single log does.
+ */
+export default function BulkLogSheet({ title, rows, year, month, onClose }: BulkLogSheetProps) {
+  const baseId = useId();
+  const markPaid = useMarkPaid();
+  const [amounts, setAmounts] = useState<Readonly<Record<string, string>>>({});
+  const [unchecked, setUnchecked] = useState<ReadonlySet<string>>(() => new Set());
+  const [loggedIds, setLoggedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const amountText = (row: LogRow) => amounts[row.debtId] ?? row.amount.toFixed(2);
+  const pending = rows.filter((r) => !loggedIds.has(r.debtId));
+  const selected = pending.filter((r) => !unchecked.has(r.debtId));
+  const invalid = selected.some((r) => parseAmount(amountText(r)) === null);
+
+  const toggle = (debtId: string) => {
+    setUnchecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(debtId)) next.delete(debtId);
+      else next.add(debtId);
+      return next;
+    });
+  };
+
+  const submit = async () => {
+    setSaving(true);
+    setError(null);
+    const logged = new Set(loggedIds);
+    let count = 0;
+    for (const row of selected) {
+      const amount = parseAmount(amountText(row));
+      if (amount === null) continue; // unreachable: `invalid` disables the button
+      try {
+        await markPaid.mutateAsync({ debtId: row.debtId, amount, dueYear: year, dueMonth: month });
+        logged.add(row.debtId);
+        count += 1;
+      } catch (err) {
+        setLoggedIds(logged);
+        if (count > 0) track(Events.BULK_LOG_SUBMITTED, { debt_count: count });
+        setError(`${row.name} didn't save. ${getErrorMessage(err, "Please try again.")}`);
+        setSaving(false);
+        return;
+      }
+    }
+    track(Events.BULK_LOG_SUBMITTED, { debt_count: count });
+    setSaving(false);
+    onClose();
+  };
+
+  return (
+    <Sheet
+      title={title}
+      description="Pre-filled at each minimum. Change an amount if you paid a different one."
+      busy={saving}
+      onClose={onClose}
+      footer={
+        <>
+          {invalid && !error && (
+            <p className="mb-2 text-[13px] text-txt-muted">Each checked payment needs an amount above $0.</p>
+          )}
+          {error && <p role="alert" className={`mb-2 ${ERROR_LINE}`}>{error}</p>}
+          <button
+            type="button"
+            onClick={submit}
+            disabled={saving || selected.length === 0 || invalid}
+            className={CTA_BLUE}
+          >
+            {saving ? "Saving…" : selected.length === 0 ? "Log payments" : logPaymentsLabel(selected.length)}
+          </button>
+        </>
+      }
+    >
+      <ul className="flex flex-col divide-y divide-border">
+        {pending.map((row) => {
+          const checkboxId = `${baseId}-${row.debtId}`;
+          const checked = !unchecked.has(row.debtId);
+          return (
+            <li key={row.debtId} className="flex min-h-11 items-center gap-3 py-1.5">
+              <input
+                id={checkboxId}
+                type="checkbox"
+                checked={checked}
+                disabled={saving}
+                onChange={() => toggle(row.debtId)}
+                className="h-5 w-5 shrink-0 accent-action"
+              />
+              <label htmlFor={checkboxId} className="flex min-h-11 min-w-0 flex-1 items-center">
+                <span className="truncate text-[14px] font-semibold text-txt">{row.name}</span>
+              </label>
+              <span className="flex shrink-0 items-center gap-1">
+                <span aria-hidden="true" className="text-[14px] text-txt-muted">$</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  aria-label={`Amount for ${row.name}`}
+                  value={amountText(row)}
+                  disabled={saving || !checked}
+                  onChange={(event) => setAmounts((prev) => ({ ...prev, [row.debtId]: event.target.value }))}
+                  className="mono min-h-11 w-24 rounded-lg border border-border bg-surface px-2 text-right text-[14px] tabular-nums text-txt outline-none focus-visible:outline-2 focus-visible:outline-action disabled:opacity-50"
+                />
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </Sheet>
+  );
+}
