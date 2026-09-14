@@ -88,7 +88,7 @@ export default function AvatarMenu({ user, initials, onSelectTab }: AvatarMenuPr
             className="h-[30px] w-[30px] rounded-full object-cover"
           />
         ) : (
-          <span className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-surface-2 text-[11px] font-extrabold text-txt">
+          <span className="flex h-[30px] w-[30px] items-center justify-center rounded-full bg-action/10 text-[11px] font-extrabold text-action">
             {initials}
           </span>
         )}

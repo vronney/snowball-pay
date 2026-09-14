@@ -224,7 +224,7 @@ Currency figures use the mono stack with `tabular-nums`. Every paragraph and mul
 
 1. The `ink` dark surface is allowed on closing cards, primary ink CTAs, and the sidebar upgrade rail. `ink-accent` is for savings figures on ink.
 2. The in-app sidebar is 200px with 6 items plus the footer. Mobile uses a 5-tab bottom bar instead of the drawer.
-3. Blue is allowed on two passive labels: the readiness counter (it is progress) and the "Your free move" eyebrow.
+3. Blue is allowed on two passive labels: the readiness counter (it is progress) and the "Your free move" eyebrow. Added 2026-09-14: the avatar initials badge that opens the account menu (approved by the owner in PR 2; see DESIGN.md).
 4. My Debts uses compact rows on the tab. The wallet-card `DebtCard` is kept as the expanded detail.
 5. Dashed borders are reserved for "outside the plan".
 6. Win-moment easing stays `cubic-bezier(0.22,1,0.36,1)`. Meters animate once, 0 → value, ~600ms ease-out, and honor `prefers-reduced-motion`.
