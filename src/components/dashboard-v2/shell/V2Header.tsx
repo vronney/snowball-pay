@@ -23,6 +23,11 @@ export interface V2HeaderProps {
 const PLAID_SLOT =
   "[&_.plaid-link-btn]:gap-[7px] [&_.plaid-link-btn]:px-3.5 [&_.plaid-link-btn]:py-2 max-[768px]:[&_.plaid-link-btn]:gap-1.5 max-[768px]:[&_.plaid-link-btn]:px-3 max-[479px]:[&_.plaid-link-btn]:gap-0 max-[479px]:[&_.plaid-link-btn]:rounded-full max-[479px]:[&_.plaid-link-btn]:p-2.5 max-[479px]:[&_.plaid-link-label]:hidden";
 
+// The bell (v1 NotificationPanel, ~34px) and Link bank are reused as-is; on
+// mobile the shell lifts both to its 44px touch-target minimum.
+const MOBILE_TARGETS =
+  "max-[768px]:[&_button[aria-label='Notifications']]:min-h-11 max-[768px]:[&_button[aria-label='Notifications']]:min-w-11 max-[768px]:[&_.plaid-link-btn]:min-h-11 max-[768px]:[&_.plaid-link-btn]:min-w-11";
+
 /** 56px header (spec §8.3): title on desktop, wordmark on mobile; bell, Link bank (unchanged gate), account menu. */
 export default function V2Header({
   activeTab,
@@ -44,7 +49,7 @@ export default function V2Header({
           {V2_TAB_LABELS[activeTab]}
         </h1>
       </div>
-      <div className={`flex shrink-0 items-center gap-2 ${PLAID_SLOT}`}>
+      <div className={`flex shrink-0 items-center gap-2 ${PLAID_SLOT} ${MOBILE_TARGETS}`}>
         <NotificationPanel
           notifications={notifications}
           tabLabels={V2_TAB_LABELS}

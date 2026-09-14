@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { runLogoutClientCleanup } from '@/lib/logout-client';
@@ -21,6 +21,10 @@ function renderMenu() {
 }
 
 describe('AvatarMenu', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('starts closed', () => {
     const { trigger } = renderMenu();
     expect(trigger.getAttribute('aria-expanded')).toBe('false');
@@ -73,5 +77,26 @@ describe('AvatarMenu', () => {
     expect(signOut.getAttribute('href')).toBe('/auth/logout');
     fireEvent.click(signOut);
     expect(runLogoutClientCleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it('activates the focused Sign out link with Space, like the menu buttons', () => {
+    const { trigger } = renderMenu();
+    fireEvent.click(trigger);
+    const menu = screen.getByRole('menu');
+    fireEvent.keyDown(menu, { key: 'ArrowUp' });
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Sign out' }));
+    fireEvent.keyDown(menu, { key: ' ' });
+    expect(runLogoutClientCleanup).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves Space on a menu button to the browser, so it is never clicked twice', () => {
+    const { onSelectTab, trigger } = renderMenu();
+    fireEvent.click(trigger);
+    const menu = screen.getByRole('menu');
+    fireEvent.keyDown(menu, { key: 'ArrowDown' });
+    expect(document.activeElement).toBe(screen.getByRole('menuitem', { name: 'Settings' }));
+    fireEvent.keyDown(menu, { key: ' ' });
+    expect(onSelectTab).not.toHaveBeenCalled();
+    expect(runLogoutClientCleanup).not.toHaveBeenCalled();
   });
 });

@@ -56,4 +56,14 @@ describe('V2Header', () => {
     renderHeader();
     expect(screen.getByRole('button', { name: 'Account menu' })).toBeTruthy();
   });
+
+  it('gives the bell and Link bank 44px targets on mobile', () => {
+    renderHeader({ plaidEnabled: true });
+    const actions = screen.getByRole('button', { name: 'Account menu' }).closest('header > div:last-child');
+    const classes = actions?.className.split(/\s+/) ?? [];
+    for (const target of ["[&_button[aria-label='Notifications']]", '[&_.plaid-link-btn]']) {
+      expect(classes).toContain(`max-[768px]:${target}:min-h-11`);
+      expect(classes).toContain(`max-[768px]:${target}:min-w-11`);
+    }
+  });
 });
