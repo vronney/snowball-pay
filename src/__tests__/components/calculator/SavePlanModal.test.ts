@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import SavePlanModal from '@/components/calculator/SavePlanModal';
 import { ConsentBannerPanel } from '@/components/analytics/AnalyticsConsentBanner';
 import { track } from '@/lib/analytics';
@@ -116,7 +116,7 @@ describe('SavePlanModal', () => {
     });
   });
 
-  it('tracks email capture/start and redirects on submit', () => {
+  it('tracks email capture/start and redirects on submit', async () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true } as Response)));
     const mockTrack = vi.mocked(track);
     const assignSpy = vi.fn();
@@ -140,20 +140,22 @@ describe('SavePlanModal', () => {
     });
     fireEvent.submit(emailInput.closest('form')!);
 
-    expect(mockTrack).toHaveBeenCalledWith('plan_saved_email_captured', {
-      source: 'save_plan_modal',
-    }, {
-      transport: 'sendBeacon',
-      send_instantly: true,
+    await waitFor(() => {
+      expect(mockTrack).toHaveBeenCalledWith('plan_saved_email_captured', {
+        source: 'save_plan_modal',
+      }, {
+        transport: 'sendBeacon',
+        send_instantly: true,
+      });
+      expect(mockTrack).toHaveBeenCalledWith('signup_started', {
+        source: 'save_plan_modal',
+      }, {
+        transport: 'sendBeacon',
+        send_instantly: true,
+      });
+      expect(assignSpy).toHaveBeenCalledWith(
+        '/auth/login?returnTo=%2Fonboarding%3Fsource%3Dcalculator&screen_hint=signup&login_hint=user%2Btest%40example.com',
+      );
     });
-    expect(mockTrack).toHaveBeenCalledWith('signup_started', {
-      source: 'save_plan_modal',
-    }, {
-      transport: 'sendBeacon',
-      send_instantly: true,
-    });
-    expect(assignSpy).toHaveBeenCalledWith(
-      '/auth/login?returnTo=%2Fonboarding%3Fsource%3Dcalculator&screen_hint=signup&login_hint=user%2Btest%40example.com',
-    );
   });
 });
