@@ -69,4 +69,11 @@ describe('Sheet', () => {
     fireEvent.keyDown(close, { key: 'Tab', shiftKey: true });
     expect(document.activeElement).toBe(save);
   });
+
+  it('reclaims focus for the dialog when it has drifted outside (e.g. to <body>)', () => {
+    renderSheet();
+    (document.activeElement as HTMLElement | null)?.blur();
+    fireEvent.keyDown(document, { key: 'Tab' });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close' }));
+  });
 });

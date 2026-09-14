@@ -72,7 +72,11 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
 
 const saveIncome = { mutate: vi.fn(), isPending: false };
 
-function renderTab(data: DashboardInsights | undefined, query: { isError?: boolean; refetch?: () => void } = {}) {
+function renderTab(
+  data: DashboardInsights | undefined,
+  query: { isError?: boolean; refetch?: () => void } = {},
+  overrides: { debts?: ReturnType<typeof makeDebt>[]; income?: ReturnType<typeof makeIncome> | undefined } = {},
+) {
   vi.mocked(useDashboardInsights).mockReturnValue(
     { data, isError: false, refetch: vi.fn(), ...query } as unknown as ReturnType<typeof useDashboardInsights>,
   );
@@ -81,7 +85,11 @@ function renderTab(data: DashboardInsights | undefined, query: { isError?: boole
   vi.mocked(useUpdateDebt).mockReturnValue({ mutateAsync: vi.fn() } as unknown as ReturnType<typeof useUpdateDebt>);
   const onNavigate = vi.fn();
   const onSetPendingCoachExtra = vi.fn();
-  render(createElement(ThisMonthV2, { debts: DEBTS, income: makeIncome(), onNavigate, onSetPendingCoachExtra }));
+  const debts = overrides.debts ?? DEBTS;
+  // Distinguish "not passed" (default income) from an explicit `income: undefined`
+  // override — a default-parameter destructure can't tell those apart.
+  const income = 'income' in overrides ? overrides.income : makeIncome();
+  render(createElement(ThisMonthV2, { debts, income, onNavigate, onSetPendingCoachExtra }));
   return { onNavigate, onSetPendingCoachExtra };
 }
 
@@ -166,6 +174,17 @@ describe('ThisMonthV2', () => {
     expect((within(sheet).getByLabelText('Amount for Car loan') as HTMLInputElement).value).toBe('310.00');
   });
 
+  it('sends the first-payment CTA to Debts instead of an empty sheet when every debt is paid off', () => {
+    const { onNavigate } = renderTab(
+      insights({ readiness: readiness(['debts', 'income', 'expenses', 'dueDates'], 0) }),
+      {},
+      { debts: [makeDebt({ id: 'z', name: 'Old', balance: 0, minimumPayment: 10 })] },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Log your first payment' }));
+    expect(onNavigate).toHaveBeenCalledWith('debts');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('opens the bulk log with the missed payments from the free move', () => {
     renderTab(insights());
     fireEvent.click(screen.getByRole('button', { name: 'Log it now' }));
@@ -182,6 +201,24 @@ describe('ThisMonthV2', () => {
       { monthlyTakeHome: 4_000, essentialExpenses: 2_000, extraPayment: 0, payoffMethod: 'avalanche', accelerationAmount: null },
       expect.objectContaining({ onError: expect.any(Function) }),
     );
+  });
+
+  it('does not mutate or track a strategy switch when income has not loaded yet', () => {
+    renderTab(
+      insights({ coachMoves: [makeSwitchMove('avalanche', 1030, true)] }),
+      {},
+      { income: undefined },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Avalanche' }));
+    expect(saveIncome.mutate).not.toHaveBeenCalled();
+    expect(track).not.toHaveBeenCalled();
+  });
+
+  it('shows an alert when the strategy switch fails', () => {
+    saveIncome.mutate.mockImplementationOnce((_vars: unknown, opts: { onError: (err: unknown) => void }) => opts.onError(new Error('boom')));
+    renderTab(insights({ coachMoves: [makeSwitchMove('avalanche', 1030, true)] }));
+    fireEvent.click(screen.getByRole('button', { name: 'Switch to Avalanche' }));
+    expect(screen.getByRole('alert')).toBeTruthy();
   });
 
   it('opens the upgrade modal with the coach copy from the more-moves row', () => {

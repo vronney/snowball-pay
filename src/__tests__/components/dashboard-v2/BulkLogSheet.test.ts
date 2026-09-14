@@ -38,6 +38,7 @@ describe('parseAmount', () => {
   it('accepts positive amounts, rounded to cents', () => {
     expect(parseAmount('25')).toBe(25);
     expect(parseAmount(' 310.556 ')).toBe(310.56);
+    expect(parseAmount('.5')).toBe(0.5);
   });
 
   it('rejects empty, zero, negative and non-numbers', () => {
@@ -45,6 +46,10 @@ describe('parseAmount', () => {
     expect(parseAmount('0')).toBeNull();
     expect(parseAmount('-5')).toBeNull();
     expect(parseAmount('1,000')).toBeNull();
+    expect(parseAmount('0.004')).toBeNull();
+    expect(parseAmount('.001')).toBeNull();
+    expect(parseAmount('1e3')).toBeNull();
+    expect(parseAmount('0x10')).toBeNull();
   });
 });
 

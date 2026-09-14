@@ -290,7 +290,7 @@ Placeholders `{…}` are filled only from insights values. Everything else is th
     - Interest shows whole dollars floored. The bar and the avg line hide unless the average floors to at least $1.
     - The hero's "to go" is muted, not blue. The ring is v1's paid-off share, 56px at every width.
     - Rate watch is shown only on the desktop shell (≥769px).
-    - When every card hides, one card says "Nothing to show for {Month} yet." with a button to My Debts. When rate watch is the only card with a figure, that card shows on phones only, because phones hide rate watch.
+    - When every card hides, one card says "Nothing to show for {Month} yet." with a button to My Debts. When rate watch is the only card with a figure, the empty-state card shows on phones only, because phones hide rate watch.
     - Sheets are bottom sheets on phones and centered dialogs from 769px, portaled to `<body>`. They write sequentially through the existing hooks and stop at the first failure.
     - Green text uses the `success-text` token (#15803d); `success` is for fills (DESIGN.md 2026-09-14).
 - **My Debts:** as approved in §6.3 and §8.3. The header pill "{counted} of {n} counted", the two-up totals, the outside section, and the closing card appear only when outside-plan debts exist.

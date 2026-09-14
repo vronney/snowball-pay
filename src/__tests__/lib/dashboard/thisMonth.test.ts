@@ -44,9 +44,9 @@ describe('readinessView', () => {
     expect(readinessView(readinessFor(debts, true))).toBeNull();
   });
 
-  it('hides a step that has nothing to do yet (due dates before any debt)', () => {
+  it('hides the debt-dependent steps until a debt exists', () => {
     const view = readinessView(readinessFor([]));
-    expect(view?.chips.map((c) => c.id)).toEqual(['debts', 'income', 'expenses', 'firstPayment']);
+    expect(view?.chips.map((c) => c.id)).toEqual(['debts', 'income', 'expenses']);
     expect(view?.cta).toEqual({ step: 'debts', label: 'Add your debts' });
   });
 });
@@ -115,6 +115,7 @@ describe('heroView', () => {
     expect(heroView(null, [])).toBeNull();
     expect(heroView({ ...plan, months: 0 }, [])).toBeNull();
     expect(heroView({ ...plan, debtFreeDate: 'soon' }, [])).toBeNull();
+    expect(heroView({ ...plan, months: Number.NaN }, [])).toBeNull();
   });
 });
 

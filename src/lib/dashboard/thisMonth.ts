@@ -43,14 +43,18 @@ export function readinessCtaLabel(step: ReadinessStep): string {
 export function readinessView(readiness: PlanReadiness): ReadinessView | null {
   const next = firstIncompleteStep(readiness);
   if (!next) return null;
+  const debtsDone = readiness.steps.find((s) => s.id === 'debts')?.complete ?? false;
   return {
     title: `Your plan is ${readiness.percent}% set up`,
     counter: `${readiness.completeCount} of ${readiness.steps.length}`,
     percent: readiness.percent,
-    // An unfinished step with nothing to count (due dates before any debt
-    // exists) has no action of its own yet, so its chip stays hidden.
+    // A chip shows once its step is complete, or once it has something to
+    // act on. While `debts` is unfinished, the steps that act on a debt
+    // (`dueDates`, `firstPayment`) have nothing to do yet, so their chips
+    // stay hidden until a debt exists.
     chips: readiness.steps
-      .filter((s) => s.complete || s.pendingCount > 0)
+      .filter((s) => s.complete
+        || (s.pendingCount > 0 && (debtsDone || (s.id !== 'dueDates' && s.id !== 'firstPayment'))))
       .map((s) => ({ id: s.id, label: STEP_LABELS[s.id], complete: s.complete })),
     cta: { step: next.id, label: readinessCtaLabel(next) },
   };
@@ -110,7 +114,7 @@ export function heroView(
   plan: PlanSummary | null,
   debts: ReadonlyArray<Pick<Debt, 'balance' | 'originalBalance'>>,
 ): HeroView | null {
-  if (!plan || plan.months <= 0) return null;
+  if (!plan || !Number.isFinite(plan.months) || plan.months <= 0) return null;
   const dateLabel = monthYearLabel(plan.debtFreeDate);
   if (!dateLabel) return null;
   const { totalPaid, totalOriginal } = computeThisMonthPaidProgress(debts);

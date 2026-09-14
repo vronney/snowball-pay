@@ -62,6 +62,13 @@ export default function Sheet({ title, description, busy = false, onClose, child
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       const active = document.activeElement;
+      if (!dialogRef.current.contains(active)) {
+        // Focus drifted outside the dialog (e.g. to <body>) — pull it back in
+        // rather than letting Tab reach the page behind the sheet.
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
       if (event.shiftKey && (active === first || active === headingRef.current)) {
         event.preventDefault();
         last.focus();

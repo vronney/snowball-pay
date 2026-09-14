@@ -87,19 +87,28 @@ export default function ThisMonthV2({ debts, income, onNavigate, onSetPendingCoa
       if (debtsMissingDueDate(debts).length > 0) setSheet({ kind: "dueDates" });
       else onNavigate("debts");
     } else {
-      openLog(activeDebtRows(debts));
+      const rows = activeDebtRows(debts);
+      // Same trailing-refetch guard as due dates: with no active debt left to
+      // log (e.g. every debt just got paid off), go to Debts instead of
+      // opening an empty sheet.
+      if (rows.length > 0) openLog(rows);
+      else onNavigate("debts");
     }
   };
 
   const onMoveAction = (action: FreeMoveAction) => {
     if (!freeMove) return;
     const { move } = freeMove;
-    track(Events.COACH_MOVE_CTA, { move: move.id, gated: false });
     if (action === "bulk_log") {
-      openLog(missedPaymentRows(insights.paymentGap, debts));
+      const rows = missedPaymentRows(insights.paymentGap, debts);
+      if (rows.length === 0) return;
+      track(Events.COACH_MOVE_CTA, { move: move.id, gated: false });
+      openLog(rows);
     } else if (action === "open_plan") {
+      track(Events.COACH_MOVE_CTA, { move: move.id, gated: false });
       onNavigate("plan");
     } else if (move.id === "switch_strategy" && income) {
+      track(Events.COACH_MOVE_CTA, { move: move.id, gated: false });
       setSwitchError(null);
       // PayoffTab's exact save payload: the same write as the Plan tab's
       // method toggle. The global mutation cache then refreshes insights.

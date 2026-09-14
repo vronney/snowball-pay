@@ -20,11 +20,20 @@ export function logPaymentsLabel(n: number): string {
   return n === 1 ? "Log 1 payment" : `Log ${n} payments`;
 }
 
-/** A typed dollar amount, rounded to cents, or null unless it is a positive number. */
+/** A plain decimal, e.g. "25", ".5" or "310.556" — never scientific notation, hex, or a comma. */
+const PLAIN_DECIMAL = /^(\d+(\.\d*)?|\.\d+)$/;
+
+/**
+ * A typed dollar amount, rounded to cents, or null unless the trimmed input
+ * is a plain decimal that rounds to a positive amount. Rounding first means
+ * a sub-cent value like "0.004" or ".001" rounds to $0 and is rejected,
+ * instead of writing a $0 payment.
+ */
 export function parseAmount(raw: string): number | null {
-  const value = Number(raw.trim());
-  if (!Number.isFinite(value) || value <= 0) return null;
-  return Math.round(value * 100) / 100;
+  const trimmed = raw.trim();
+  if (!PLAIN_DECIMAL.test(trimmed)) return null;
+  const rounded = Math.round(Number(trimmed) * 100) / 100;
+  return rounded > 0 ? rounded : null;
 }
 
 /**
