@@ -121,8 +121,8 @@ export default function SavePlanModal({
       window.clearTimeout(redirectTimeoutRef.current);
     }
     redirectTimeoutRef.current = window.setTimeout(() => {
-      window.location.assign(loginUrl);
       redirectTimeoutRef.current = null;
+      window.location.assign(loginUrl);
     }, SIGNUP_REDIRECT_DELAY_MS);
   };
 
