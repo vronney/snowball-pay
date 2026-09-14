@@ -56,4 +56,18 @@ describe('useCoachDot', () => {
     rerender({ moves, open: false });
     expect(result.current).toBe(false);
   });
+
+  it('never shows the dot on the render that opens Coach', () => {
+    const moves = [makeLogMissedMove('Sep', 2)];
+    const renders: boolean[] = [];
+    const { rerender } = renderHook(({ moves: m, open }: Props) => {
+      const dot = useCoachDot(m, open);
+      renders.push(dot);
+      return dot;
+    }, { initialProps: { moves, open: false } });
+    expect(renders.at(-1)).toBe(true);
+    const before = renders.length;
+    rerender({ moves, open: true });
+    expect(renders.slice(before)).not.toContain(true);
+  });
 });
