@@ -121,14 +121,12 @@ describe('SavePlanModal', () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true } as Response)));
     const mockTrack = vi.mocked(track);
     const setTimeoutSpy = vi.spyOn(window, 'setTimeout');
-    const navigateToSignup = vi.fn();
 
     render(
       createElement(SavePlanModal, {
         onClose: vi.fn(),
         debtFreeDate: 'Mar 2029',
         interestSaved: 1200,
-        navigateToSignup,
       }),
     );
     mockTrack.mockClear();
@@ -147,11 +145,32 @@ describe('SavePlanModal', () => {
     });
     expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
     expect(setTimeoutSpy).toHaveBeenLastCalledWith(expect.any(Function), 180);
-    expect(navigateToSignup).not.toHaveBeenCalled();
+  });
 
-    vi.runAllTimers();
-    expect(navigateToSignup).toHaveBeenCalledWith(
-      '/auth/login?returnTo=%2Fonboarding%3Fsource%3Dcalculator&screen_hint=signup&login_hint=user%2Btest%40example.com',
+  it('clears pending redirect timeout when unmounted before delay elapses', () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true } as Response)));
+    const setTimeoutSpy = vi.spyOn(window, 'setTimeout');
+    const clearTimeoutSpy = vi.spyOn(window, 'clearTimeout');
+
+    const { unmount } = render(
+      createElement(SavePlanModal, {
+        onClose: vi.fn(),
+        debtFreeDate: 'Mar 2029',
+        interestSaved: 1200,
+      }),
     );
+
+    const emailInput = screen.getByLabelText('Your email');
+    fireEvent.change(emailInput, {
+      target: { value: 'user@example.com' },
+    });
+    fireEvent.submit(emailInput.closest('form')!);
+
+    const timeoutId = setTimeoutSpy.mock.results[0]?.value;
+    expect(timeoutId).toBeDefined();
+
+    unmount();
+    expect(clearTimeoutSpy).toHaveBeenCalledWith(timeoutId);
   });
 });
