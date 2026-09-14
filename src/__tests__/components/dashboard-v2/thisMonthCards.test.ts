@@ -30,15 +30,17 @@ describe('ReadinessCard', () => {
     const bar = screen.getByRole('progressbar', { name: 'Your plan is 60% set up' });
     expect(bar.getAttribute('aria-valuenow')).toBe('60');
     expect((bar.firstElementChild as HTMLElement).style.width).toBe('60%');
-    expect(screen.getByRole('button', { name: 'Debts, done' }).className).toContain('text-success-text');
-    expect(screen.getByRole('button', { name: 'Due dates, to do' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Debts.*done/ }).className).toContain('text-success-text');
+    expect(screen.getByRole('button', { name: /Due dates.*to do/ })).toBeTruthy();
+    expect(screen.getAllByText(', done').every((el) => el.className.includes('sr-only'))).toBe(true);
+    expect(screen.getAllByText(', to do').every((el) => el.className.includes('sr-only'))).toBe(true);
   });
 
   it('reports CTA and chip presses separately', () => {
     const onStep = vi.fn();
     render(createElement(ReadinessCard, { view: READINESS, onStep }));
     fireEvent.click(screen.getByRole('button', { name: 'Add 2 due dates' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Income, done' }));
+    fireEvent.click(screen.getByRole('button', { name: /Income.*done/ }));
     expect(onStep.mock.calls).toEqual([['dueDates', 'cta'], ['income', 'chip']]);
   });
 

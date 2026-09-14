@@ -53,7 +53,7 @@ export default function ReadinessCard({ view, onStep }: ReadinessCardProps) {
               >
                 {chip.complete && <span aria-hidden="true">✓&nbsp;</span>}
                 {chip.label}
-                {chip.complete ? ", done" : ", to do"}
+                <span className="sr-only">{chip.complete ? ", done" : ", to do"}</span>
               </button>
             </li>
           ))}
