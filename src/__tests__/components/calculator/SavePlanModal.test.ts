@@ -1,15 +1,17 @@
-import { describe, expect, it, vi } from 'vitest';
+// @vitest-environment jsdom
+
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import SavePlanModal, {
-  trackSavePlanModalDismiss,
-} from '@/components/calculator/SavePlanModal';
+import { fireEvent, render, screen } from '@testing-library/react';
+import SavePlanModal from '@/components/calculator/SavePlanModal';
 import { ConsentBannerPanel } from '@/components/analytics/AnalyticsConsentBanner';
 import { track } from '@/lib/analytics';
 
 vi.mock('@/lib/analytics', () => ({
   track: vi.fn(),
   Events: {
+    SAVE_PLAN_MODAL_VIEWED: 'save_plan_modal_viewed',
     SAVE_PLAN_MODAL_DISMISSED: 'save_plan_modal_dismissed',
   },
 }));
@@ -22,6 +24,10 @@ function zIndexOf(html: string, selector: RegExp): number {
 }
 
 describe('SavePlanModal', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('stacks above the analytics consent banner so the sheet cannot cover its form', () => {
     const modal = renderToStaticMarkup(
       createElement(SavePlanModal, {
@@ -39,22 +45,64 @@ describe('SavePlanModal', () => {
     expect(modalLayer).toBe(9999);
   });
 
-  it('tracks dismiss reasons for save-plan modal exits', () => {
+  it('tracks backdrop dismiss and closes modal', () => {
+    const onClose = vi.fn();
     const mockTrack = vi.mocked(track);
 
-    trackSavePlanModalDismiss('backdrop');
-    trackSavePlanModalDismiss('close_icon');
-    trackSavePlanModalDismiss('close_without_saving');
+    render(
+      createElement(SavePlanModal, {
+        onClose,
+        debtFreeDate: 'Mar 2029',
+        interestSaved: 1200,
+      }),
+    );
+    mockTrack.mockClear();
+    fireEvent.click(screen.getByRole('dialog'));
 
-    expect(mockTrack).toHaveBeenNthCalledWith(1, 'save_plan_modal_dismissed', {
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(mockTrack).toHaveBeenCalledWith('save_plan_modal_dismissed', {
       source: 'calculator_result',
       reason: 'backdrop',
     });
-    expect(mockTrack).toHaveBeenNthCalledWith(2, 'save_plan_modal_dismissed', {
+  });
+
+  it('tracks close-icon dismiss and closes modal', () => {
+    const onClose = vi.fn();
+    const mockTrack = vi.mocked(track);
+
+    render(
+      createElement(SavePlanModal, {
+        onClose,
+        debtFreeDate: 'Mar 2029',
+        interestSaved: 1200,
+      }),
+    );
+    mockTrack.mockClear();
+    fireEvent.click(screen.getByLabelText('Close'));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(mockTrack).toHaveBeenCalledWith('save_plan_modal_dismissed', {
       source: 'calculator_result',
       reason: 'close_icon',
     });
-    expect(mockTrack).toHaveBeenNthCalledWith(3, 'save_plan_modal_dismissed', {
+  });
+
+  it('tracks text-link dismiss and closes modal', () => {
+    const onClose = vi.fn();
+    const mockTrack = vi.mocked(track);
+
+    render(
+      createElement(SavePlanModal, {
+        onClose,
+        debtFreeDate: 'Mar 2029',
+        interestSaved: 1200,
+      }),
+    );
+    mockTrack.mockClear();
+    fireEvent.click(screen.getByText('Close without saving my plan'));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(mockTrack).toHaveBeenCalledWith('save_plan_modal_dismissed', {
       source: 'calculator_result',
       reason: 'close_without_saving',
     });
