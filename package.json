@@ -19,7 +19,7 @@
     "db:use:prod": "node scripts/neon-switch.mjs production"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.79.0",
+    "@anthropic-ai/sdk": "^0.110.0",
     "@auth0/nextjs-auth0": "^4.16.0",
     "@prisma/adapter-neon": "^7.8.0",
     "@prisma/client": "^6.0.0",
