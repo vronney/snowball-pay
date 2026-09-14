@@ -22,6 +22,8 @@ const config: Config = {
         primary: '#2F80ED',
         secondary: '#6B7280',
         success: '#27AE60',
+        // Green TEXT on light surfaces: 5.0:1 on white. `success` (2.9:1) is for fills only.
+        'success-text': '#15803d',
         warning: '#F59E0B',
         danger: '#EF4444',
         sidebar: '#ffffff',

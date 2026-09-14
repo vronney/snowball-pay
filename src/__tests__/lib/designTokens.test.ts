@@ -35,4 +35,9 @@ describe('dashboard v2 design tokens (spec §8.1)', () => {
     expect(extend.colors.danger).toBe('#EF4444');
     expect(extend.colors.border).toBe('#E5E7EB');
   });
+
+  it('adds an accessible green for text (DESIGN.md 2026-09-14)', () => {
+    expect(extend.colors['success-text']).toBe('#15803d');
+    expect(extend.colors.success).toBe('#27AE60');
+  });
 });

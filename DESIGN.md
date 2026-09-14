@@ -62,6 +62,7 @@
 | Token       | Hex       | Usage                                  |
 |-------------|-----------|----------------------------------------|
 | `--success` | `#10b981` | Debt paid off milestone, success state |
+| `--success-text` | `#15803d` | Green text on light surfaces (5.0:1): savings figures, done chips |
 | `--warning` | `#f59e0b` | Due date warnings, three-quarter badge |
 | `--error`   | `#ef4444` | Form errors, past-due state            |
 | `--info`    | `#0ea5e9` | Informational banners                  |
@@ -171,6 +172,7 @@ The celebration easing (`cubic-bezier(0.22,1,0.36,1)`) is already used in `Payme
 | 2026-09-12 | Dashed border = outside the plan | Dashed borders mean only "saved, outside the plan" (Free debts past the cap). Nothing else may use a dashed border in the dashboard. |
 | 2026-09-12 | Meter motion | Bars, rings and meters animate once, 0 → value, ~600ms ease-out, and are static under `prefers-reduced-motion`. Win moments keep `cubic-bezier(0.22,1,0.36,1)`. |
 | 2026-09-14 | Blue on the avatar initials badge | Users without a profile picture see their initials on a light-blue badge in blue text (`bg-action/10`, `text-action`), as the handoff draws it and as the v1 header already did. The badge opens the dashboard v2 account menu. This is a third passive use of `#2563eb`, alongside the two in the 2026-09-12 entry: it marks the user's own account, not an action. Approved by the owner during PR 2 review. |
+| 2026-09-14 | Green text token (`success-text` #15803d) | The Tailwind `success` token (#27AE60) is 2.9:1 on white, under WCAG AA even for large text, and dashboard v2 puts green on 11px chip labels and savings figures. `success-text` (5.0:1, the check color `UpgradeModal` already uses) is for green text on light surfaces; `success` stays for fills (bars, tints). Approved by the owner with the PR 3 plan. |
 
 ## Anti-Patterns (never do these)
 
