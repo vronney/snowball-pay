@@ -62,6 +62,11 @@ export const Events = {
   BANK_LINK_COMPLETED: 'bank_link_completed',
   BANK_LINK_FAILED: 'bank_link_failed',
   BANK_LINK_EXITED: 'bank_link_exited',
+  // Dashboard v2 This Month (spec §9). Only strings, booleans and debt_count:
+  // the sanitiser redacts any other number.
+  READINESS_CTA: 'readiness_cta',
+  COACH_MOVE_CTA: 'coach_move_cta',
+  BULK_LOG_SUBMITTED: 'bulk_log_submitted',
 } as const;
 
 export type AnalyticsEvent = (typeof Events)[keyof typeof Events];
