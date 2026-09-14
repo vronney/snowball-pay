@@ -114,6 +114,19 @@ describe('ThisMonthV2', () => {
     }));
     expect(screen.queryAllByRole('heading')).toHaveLength(0);
     expect(screen.getByText('Nothing to show for September yet.')).toBeTruthy();
+    expect(screen.getByText('Nothing to show for September yet.').closest('section')?.className).not.toContain('min-[769px]:hidden');
+  });
+
+  it('keeps the empty state for phones only when rate watch is the one card left', () => {
+    renderTab(insights({
+      readiness: readiness(['debts', 'income', 'expenses', 'dueDates', 'firstPayment']),
+      interest: null,
+      plan: null,
+      coachMoves: [],
+    }));
+    expect(screen.getByRole('heading', { name: 'Rate watch · 1 card' })).toBeTruthy();
+    const empty = screen.getByText('Nothing to show for September yet.').closest('section');
+    expect(empty?.className).toContain('min-[769px]:hidden');
   });
 
   it('gives Pro and trial users the AI brief instead of the free move, wired like v1', () => {

@@ -162,7 +162,8 @@ export default function ThisMonthV2({ debts, income, onNavigate, onSetPendingCoa
       )}
       {coach}
       {nothingToShow && (
-        <section className={`${CARD} p-5 text-center`}>
+        // Rate watch is hidden on phones (README §1), so there the empty state still shows; from 769px rate watch is real content.
+        <section className={`${CARD} p-5 text-center${rateWatch ? " min-[769px]:hidden" : ""}`}>
           <p className="text-[14px] font-semibold text-txt">Nothing to show for {longMonthLabel(month)} yet.</p>
           <button type="button" onClick={() => onNavigate("debts")} className={INLINE_BUTTON}>
             Go to My Debts
