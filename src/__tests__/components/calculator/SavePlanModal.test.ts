@@ -120,7 +120,10 @@ describe('SavePlanModal', () => {
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true } as Response)));
     const mockTrack = vi.mocked(track);
     const assignSpy = vi.fn();
-    vi.stubGlobal('location', { assign: assignSpy } as unknown as Location);
+    vi.stubGlobal(
+      'location',
+      { ...window.location, assign: assignSpy } as unknown as Location,
+    );
 
     render(
       createElement(SavePlanModal, {
