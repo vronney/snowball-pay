@@ -16,6 +16,10 @@ describe('computeUpgradeRail', () => {
     expect(computeUpgradeRail({ tier: PRO, coachMoves: [makeCallAprMove('c1', 500, true)] })).toBeNull();
   });
 
+  it('is null for Pro users even if a move arrives gated', () => {
+    expect(computeUpgradeRail({ tier: PRO, coachMoves: [makeCallAprMove('c1', 500, false)] })).toBeNull();
+  });
+
   it('is null when nothing is gated', () => {
     expect(computeUpgradeRail({ tier: FREE, coachMoves: [makeLogMissedMove('Sep', 2)] })).toBeNull();
     expect(computeUpgradeRail({ tier: FREE, coachMoves: [] })).toBeNull();

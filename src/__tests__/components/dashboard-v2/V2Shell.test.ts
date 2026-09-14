@@ -90,16 +90,16 @@ describe('V2Shell', () => {
     expect(screen.getByRole('navigation', { name: 'Dashboard' })).toBeTruthy();
     expect(screen.getByRole('navigation', { name: 'Dashboard sections' })).toBeTruthy();
     expect(screen.queryByText(/waiting/)).toBeNull();
-    expect(screen.queryAllByText(', new moves')).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: 'Coach, new moves' })).toHaveLength(0);
   });
 
   it('shows the Coach dot on both navs until Coach is opened', () => {
     const { setTab } = renderShell('this-month', insights({ coachMoves: MOVES }));
-    expect(screen.getAllByText(', new moves')).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Coach, new moves' })).toHaveLength(2);
     setTab('intelligence');
-    expect(screen.queryAllByText(', new moves')).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: 'Coach, new moves' })).toHaveLength(0);
     setTab('this-month');
-    expect(screen.queryAllByText(', new moves')).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: 'Coach, new moves' })).toHaveLength(0);
   });
 
   it('resets the scroll area to the top on a tab change', () => {

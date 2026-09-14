@@ -36,7 +36,7 @@ export default function V2Header({
 }: V2HeaderProps) {
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-surface px-4 min-[769px]:px-[26px]">
-      <a href="/" aria-label="SnowballPay home" className="shrink-0 min-[769px]:hidden">
+      <a href="/" aria-label="SnowballPay home" className="inline-flex min-h-11 shrink-0 items-center min-[769px]:hidden">
         <Image src="/logo-dark.svg" alt="" width={120} height={22} priority />
       </a>
       <div className="min-w-0 flex-1">

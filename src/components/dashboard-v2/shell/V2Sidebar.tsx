@@ -42,7 +42,7 @@ export default function V2Sidebar({ activeTab, onSelectTab, coachDot, rail, onUp
                   }`}
                 >
                   <Icon size={16} strokeWidth={active ? 2.2 : 1.7} aria-hidden="true" />
-                  <span className="flex-1">{label}</span>{showDot && (<><span className="h-[7px] w-[7px] rounded-full bg-danger" aria-hidden="true" /><span className="sr-only">, new moves</span></>)}
+                  <span className="flex-1">{label}</span>{showDot && <span className="h-[7px] w-[7px] rounded-full bg-danger" aria-hidden="true" />}
                 </button>
               </li>
             );

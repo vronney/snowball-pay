@@ -26,7 +26,7 @@ export default function BottomTabBar({ activeTab, onSelectTab, coachDot }: Botto
                 type="button"
                 onClick={() => onSelectTab(id)}
                 aria-current={active ? "page" : undefined}
-                aria-label={showDot && id === COACH_TAB ? `${shortLabel}, new moves` : undefined}
+                aria-label={showDot ? `${shortLabel}, new moves` : undefined}
                 className={`flex min-h-11 w-full flex-col items-center justify-center gap-[3px] rounded-lg py-[5px] text-[10px] outline-none focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-action ${
                   active ? "font-extrabold text-action" : "font-bold text-txt-muted"
                 }`}
@@ -37,7 +37,7 @@ export default function BottomTabBar({ activeTab, onSelectTab, coachDot }: Botto
                     <span className="absolute -right-2 -top-1 h-[7px] w-[7px] rounded-full bg-danger" aria-hidden="true" />
                   )}
                 </span>
-                <span>{shortLabel}</span>{showDot && <span className="sr-only">, new moves</span>}
+                <span>{shortLabel}</span>
               </button>
             </li>
           );
