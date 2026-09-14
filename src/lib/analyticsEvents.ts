@@ -18,6 +18,7 @@ export const Events = {
   DEBT_CAP_PROMPT_VIEWED: 'debt_cap_prompt_viewed',
   DEBT_CAP_PROMPT_DISMISSED: 'debt_cap_prompt_dismissed',
   SAVE_PLAN_MODAL_VIEWED: 'save_plan_modal_viewed',
+  SAVE_PLAN_MODAL_DISMISSED: 'save_plan_modal_dismissed',
   ONBOARDING_EXPRESS_VIEWED: 'onboarding_express_viewed',
   ONBOARDING_EXPRESS_COMPLETED: 'onboarding_express_completed',
   ONBOARDING_STEP_VIEWED: 'onboarding_step_viewed',
