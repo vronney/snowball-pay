@@ -13,6 +13,7 @@ interface SavePlanModalProps {
   onClose: () => void;
   debtFreeDate: string;
   interestSaved: number;
+  navigateToSignup?: (url: string) => void;
   /** Full calculator session — persisted locally so the exact plan (every
    *  debt, not just the first) survives the Auth0 signup round trip. */
   calculatorState?: CalculatorSessionState;
@@ -41,6 +42,7 @@ export default function SavePlanModal({
   onClose,
   debtFreeDate,
   interestSaved,
+  navigateToSignup = (url: string) => window.location.assign(url),
   calculatorState,
 }: SavePlanModalProps) {
   const [email, setEmail] = useState("");
@@ -103,7 +105,7 @@ export default function SavePlanModal({
     // request can flush before the full-page Auth0 redirect.
     const loginUrl = `/auth/login?returnTo=${encodeURIComponent("/onboarding?source=calculator")}&screen_hint=signup&login_hint=${encodeURIComponent(trimmed)}`;
     window.setTimeout(() => {
-      window.location.assign(loginUrl);
+      navigateToSignup(loginUrl);
     }, SIGNUP_REDIRECT_DELAY_MS);
   };
 
