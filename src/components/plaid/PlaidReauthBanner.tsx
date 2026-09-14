@@ -37,6 +37,8 @@ export function PlaidReauthBanner({ plaidItemId }: { plaidItemId: string }) {
       try {
         await axios.post('/api/plaid/clear-reauth', { plaidItemId });
         queryClient.invalidateQueries({ queryKey: ['debts'] });
+        // A raw axios write, so the global MutationCache never sees it.
+        queryClient.invalidateQueries({ queryKey: ['dashboard-insights'] });
       } catch {
         setError('Reconnected, but we couldn’t verify access. Try again.');
       } finally {

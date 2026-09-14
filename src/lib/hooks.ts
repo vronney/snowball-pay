@@ -800,6 +800,9 @@ export function useDashboardInsights(enabled = true) {
       return data;
     },
     enabled,
+    // The key changes at local midnight; show the previous day's figures
+    // while the new day loads instead of flashing the loading state.
+    placeholderData: (previous) => previous,
     staleTime: 60 * 1000,
   });
 }

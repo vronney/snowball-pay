@@ -6,6 +6,7 @@ import PostHogProvider from '@/components/analytics/PostHogProvider';
 import AnalyticsConsentBanner from '@/components/analytics/AnalyticsConsentBanner';
 import axios from 'axios';
 import { shouldRedirectOn401 } from '@/lib/authRedirect';
+import { shouldRetryQuery } from '@/lib/queryRetry';
 
 // Global 401 handler — redirect to login when the session expires.
 // Debounced so rapid-fire 401s don't trigger multiple redirects, and
@@ -53,14 +54,6 @@ axios.interceptors.response.use(undefined, (error) => {
   return Promise.reject(error);
 });
 
-function getResponseStatus(error: unknown): number | undefined {
-  if (typeof error !== 'object' || error === null) return undefined;
-  const response = 'response' in error ? error.response : undefined;
-  if (typeof response !== 'object' || response === null) return undefined;
-  const status = 'status' in response ? response.status : undefined;
-  return typeof status === 'number' ? status : undefined;
-}
-
 // Annotated: the MutationCache callback references queryClient inside its own initializer.
 const queryClient: QueryClient = new QueryClient({
   mutationCache: new MutationCache({
@@ -74,11 +67,7 @@ const queryClient: QueryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
       gcTime: 1000 * 60 * 30, // 30 minutes
-      retry: (failureCount, error) => {
-        const status = getResponseStatus(error);
-        if (status === 401 || status === 403 || status === 404) return false;
-        return failureCount < 2;
-      },
+      retry: shouldRetryQuery,
     },
     mutations: {
       retry: false,
