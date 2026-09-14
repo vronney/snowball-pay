@@ -41,6 +41,7 @@ import { daysUntilTrialEnd } from "@/lib/lifecycleTrial";
 import { track, Events } from "@/lib/analytics";
 import { useIdleTimeout } from "@/lib/hooks/useIdleTimeout";
 import { runLogoutClientCleanup } from "@/lib/logout-client";
+import V2Shell from "@/components/dashboard-v2/shell/V2Shell";
 
 type UserInfo = {
   name?: string | null;
@@ -66,9 +67,12 @@ function isValidTab(value: string | null): value is Tab {
 export default function DashboardClient({
   user,
   plaidTestAccess = false,
+  dashboardV2 = false,
 }: {
   user: UserInfo | null;
   plaidTestAccess?: boolean;
+  /** Dashboard v2 shell (spec §5.3), decided server-side by isDashboardV2. */
+  dashboardV2?: boolean;
 }) {
   const searchParams = useSearchParams();
   // Seed from a validated ?tab= deep link so the first tab-view event records
@@ -395,6 +399,174 @@ export default function DashboardClient({
     );
   }
 
+  const handleNavigate = (tab: Tab, debtId?: string) => {
+    setActiveTab(tab);
+    if (debtId) setOpenPaymentDebtId(debtId);
+  };
+  const handleMarkPaid = (debtId: string, amount: number, year: number, month: number) =>
+    markPaid.mutate({ debtId, amount, dueYear: year, dueMonth: month });
+
+  // Shared by both shells: the prompts above the tab, then the active tab.
+  const mainContent = (
+    <>
+      {/* Only for users who can actually link, already have debts worth
+          syncing, and haven't linked one. Sits on the two tabs where
+          balances are the subject, not on Settings or Income. */}
+      {plaidEnabled &&
+        (activeTab === "this-month" || activeTab === "debts") &&
+        unlinkedDebtCount > 0 &&
+        !hasLinkedBankDebt && (
+          <LinkBankPrompt manualDebtCount={unlinkedDebtCount} />
+        )}
+      {activeTab === "progress" && debts.length > 0 && (
+        <div className="mb-4">
+          <MilestoneWidget debts={debts} />
+        </div>
+      )}
+      <div key={activeTab} className="tab-fade-in">
+        {activeTab === "this-month" && (
+          <ThisMonthTab
+            debts={debts}
+            income={income}
+            expenses={expenses}
+            isLoading={debtsLoading || incomeLoading}
+            userName={user?.name}
+            onNavigate={(tab) => setActiveTab(tab)}
+            onSetPendingCoachExtra={setPendingCoachExtra}
+          />
+        )}
+        {activeTab === "debts" && (
+          <DebtTab
+            debts={debts}
+            isLoading={debtsLoading}
+            openPaymentDebtId={openPaymentDebtId}
+            onPaymentPanelOpened={() => setOpenPaymentDebtId(null)}
+            requestAddDebt={fabAddDebtRequest}
+            onAddDebtHandled={() => setFabAddDebtRequest(false)}
+          />
+        )}
+        {activeTab === "income" && (
+          <IncomeTab
+            income={income}
+            expenses={expenses}
+            debts={debts}
+            isLoading={incomeLoading || expensesLoading}
+          />
+        )}
+        {activeTab === "plan" && (
+          <PayoffTab
+            debts={debts}
+            income={income}
+            expenses={expenses}
+            isLoading={debtsLoading || incomeLoading}
+            onNavigate={(tab) => setActiveTab(tab)}
+          />
+        )}
+        {activeTab === "progress" && (
+          <ProgressTab
+            debts={debts}
+            income={income}
+            expenses={expenses}
+            isLoading={debtsLoading || incomeLoading}
+            onNavigate={(tab) => setActiveTab(tab)}
+          />
+        )}
+        {activeTab === "intelligence" && (
+          <IntelligenceTab
+            debts={debts}
+            income={income}
+            expenses={expenses}
+            isLoading={debtsLoading || incomeLoading}
+            pendingExtra={pendingCoachExtra}
+            onConsumePendingExtra={() => setPendingCoachExtra(null)}
+          />
+        )}
+        {activeTab === "settings" && <SettingsTab user={user} />}
+      </div>
+    </>
+  );
+
+  const upgradeModalNode = upgradeModal.open && (
+    <UpgradeModal
+      feature={upgradeModal.feature}
+      interestAtStake={interestAtStake}
+      onClose={() => setUpgradeModal({ open: false })}
+    />
+  );
+
+  const idleDialog = warning && (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="idle-title"
+      style={{
+        position: "fixed", inset: 0, zIndex: 9999,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        background: "rgba(15,23,42,0.5)",
+      }}
+    >
+      <div style={{
+        background: "#ffffff", borderRadius: 12, padding: "28px 32px",
+        maxWidth: 360, width: "calc(100% - 32px)",
+        boxShadow: "0 8px 32px rgba(15,23,42,0.18)",
+        textAlign: "center",
+      }}>
+        <p id="idle-title" style={{ fontWeight: 700, fontSize: 16, color: "#0f172a", marginBottom: 8 }}>
+          Still there?
+        </p>
+        <p style={{ fontSize: 14, color: "#64748b", marginBottom: 20, lineHeight: 1.5 }}>
+          You&apos;ll be logged out in{" "}
+          <span className="mono" style={{ color: "#2563eb", fontWeight: 600 }}>
+            {countdown}s
+          </span>{" "}
+          due to inactivity.
+        </p>
+        <button
+          onClick={stayLoggedIn}
+          style={{
+            width: "100%", padding: "10px 0", borderRadius: 8, border: "none",
+            background: "#2563eb", color: "#ffffff", fontWeight: 600,
+            fontSize: 14, cursor: "pointer", marginBottom: 10, fontFamily: "inherit",
+          }}
+        >
+          Stay logged in
+        </button>
+        <button
+          onClick={logout}
+          style={{
+            background: "none", border: "none", color: "#64748b",
+            fontSize: 13, cursor: "pointer", fontFamily: "inherit",
+          }}
+        >
+          Log out now
+        </button>
+      </div>
+    </div>
+  );
+
+  if (dashboardV2) {
+    return (
+      <>
+        <V2Shell
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
+          notifications={notifications}
+          onNavigate={handleNavigate}
+          onMarkPaid={handleMarkPaid}
+          user={user}
+          initials={initials}
+          plaidEnabled={plaidEnabled}
+          banner={<TrialCountdownBanner sub={subData} hasLinkedBankDebt={hasLinkedBankDebt} />}
+          overlays={<ToastNotifications debts={debts} bottom="calc(24px + var(--v2-tabbar-offset, 0px))" />}
+        >
+          {mainContent}
+        </V2Shell>
+        {upgradeModalNode}
+        {idleDialog}
+      </>
+    );
+  }
+
   return (
     <div style={{ display: "flex", minHeight: "100dvh", background: "#f8fafc" }}>
       <DashboardSidebar
@@ -414,13 +586,8 @@ export default function DashboardClient({
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
           notifications={notifications}
-          onNavigate={(tab, debtId) => {
-            setActiveTab(tab);
-            if (debtId) setOpenPaymentDebtId(debtId);
-          }}
-          onMarkPaid={(debtId, amount, year, month) =>
-            markPaid.mutate({ debtId, amount, dueYear: year, dueMonth: month })
-          }
+          onNavigate={handleNavigate}
+          onMarkPaid={handleMarkPaid}
           user={user}
           initials={initials}
           plaidEnabled={plaidEnabled}
@@ -428,142 +595,15 @@ export default function DashboardClient({
 
         <TrialCountdownBanner sub={subData} hasLinkedBankDebt={hasLinkedBankDebt} />
         <main style={{ flex: 1, padding: "32px", width: "100%" }} className="db-content">
-          {/* Only for users who can actually link, already have debts worth
-              syncing, and haven't linked one. Sits on the two tabs where
-              balances are the subject, not on Settings or Income. */}
-          {plaidEnabled &&
-            (activeTab === "this-month" || activeTab === "debts") &&
-            unlinkedDebtCount > 0 &&
-            !hasLinkedBankDebt && (
-              <LinkBankPrompt manualDebtCount={unlinkedDebtCount} />
-            )}
-          {activeTab === "progress" && debts.length > 0 && (
-            <div className="mb-4">
-              <MilestoneWidget debts={debts} />
-            </div>
-          )}
-          <div key={activeTab} className="tab-fade-in">
-            {activeTab === "this-month" && (
-              <ThisMonthTab
-                debts={debts}
-                income={income}
-                expenses={expenses}
-                isLoading={debtsLoading || incomeLoading}
-                userName={user?.name}
-                onNavigate={(tab) => setActiveTab(tab)}
-                onSetPendingCoachExtra={setPendingCoachExtra}
-              />
-            )}
-            {activeTab === "debts" && (
-              <DebtTab
-                debts={debts}
-                isLoading={debtsLoading}
-                openPaymentDebtId={openPaymentDebtId}
-                onPaymentPanelOpened={() => setOpenPaymentDebtId(null)}
-                requestAddDebt={fabAddDebtRequest}
-                onAddDebtHandled={() => setFabAddDebtRequest(false)}
-              />
-            )}
-            {activeTab === "income" && (
-              <IncomeTab
-                income={income}
-                expenses={expenses}
-                debts={debts}
-                isLoading={incomeLoading || expensesLoading}
-              />
-            )}
-            {activeTab === "plan" && (
-              <PayoffTab
-                debts={debts}
-                income={income}
-                expenses={expenses}
-                isLoading={debtsLoading || incomeLoading}
-                onNavigate={(tab) => setActiveTab(tab)}
-              />
-            )}
-            {activeTab === "progress" && (
-              <ProgressTab
-                debts={debts}
-                income={income}
-                expenses={expenses}
-                isLoading={debtsLoading || incomeLoading}
-                onNavigate={(tab) => setActiveTab(tab)}
-              />
-            )}
-            {activeTab === "intelligence" && (
-              <IntelligenceTab
-                debts={debts}
-                income={income}
-                expenses={expenses}
-                isLoading={debtsLoading || incomeLoading}
-                pendingExtra={pendingCoachExtra}
-                onConsumePendingExtra={() => setPendingCoachExtra(null)}
-              />
-            )}
-            {activeTab === "settings" && <SettingsTab user={user} />}
-          </div>
+          {mainContent}
         </main>
       </div>
 
       <ToastNotifications debts={debts} />
 
-      {upgradeModal.open && (
-        <UpgradeModal
-          feature={upgradeModal.feature}
-          interestAtStake={interestAtStake}
-          onClose={() => setUpgradeModal({ open: false })}
-        />
-      )}
+      {upgradeModalNode}
 
-      {warning && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="idle-title"
-          style={{
-            position: "fixed", inset: 0, zIndex: 9999,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            background: "rgba(15,23,42,0.5)",
-          }}
-        >
-          <div style={{
-            background: "#ffffff", borderRadius: 12, padding: "28px 32px",
-            maxWidth: 360, width: "calc(100% - 32px)",
-            boxShadow: "0 8px 32px rgba(15,23,42,0.18)",
-            textAlign: "center",
-          }}>
-            <p id="idle-title" style={{ fontWeight: 700, fontSize: 16, color: "#0f172a", marginBottom: 8 }}>
-              Still there?
-            </p>
-            <p style={{ fontSize: 14, color: "#64748b", marginBottom: 20, lineHeight: 1.5 }}>
-              You&apos;ll be logged out in{" "}
-              <span className="mono" style={{ color: "#2563eb", fontWeight: 600 }}>
-                {countdown}s
-              </span>{" "}
-              due to inactivity.
-            </p>
-            <button
-              onClick={stayLoggedIn}
-              style={{
-                width: "100%", padding: "10px 0", borderRadius: 8, border: "none",
-                background: "#2563eb", color: "#ffffff", fontWeight: 600,
-                fontSize: 14, cursor: "pointer", marginBottom: 10, fontFamily: "inherit",
-              }}
-            >
-              Stay logged in
-            </button>
-            <button
-              onClick={logout}
-              style={{
-                background: "none", border: "none", color: "#64748b",
-                fontSize: 13, cursor: "pointer", fontFamily: "inherit",
-              }}
-            >
-              Log out now
-            </button>
-          </div>
-        </div>
-      )}
+      {idleDialog}
 
       <style>{`
         .db-main { margin-left: 220px; }

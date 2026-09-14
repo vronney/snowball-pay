@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import DashboardClient from '@/components/DashboardClient';
+import { useDashboardInsights } from '@/lib/hooks';
+import ToastNotifications from '@/components/ToastNotifications';
 
 const { stub } = vi.hoisted(() => ({
   stub: (name: string, named?: string) => async () => {
@@ -76,5 +78,38 @@ describe('DashboardClient with the flag off (v1 must render unchanged, spec §5.
     expect(
       renderToStaticMarkup(createElement(DashboardClient, { user: USER, plaidTestAccess: true })),
     ).toMatchSnapshot();
+  });
+});
+
+describe('DashboardClient flag wiring', () => {
+  it('renders identical markup when the flag is explicitly off', () => {
+    const implicit = renderToStaticMarkup(createElement(DashboardClient, { user: USER }));
+    const explicit = renderToStaticMarkup(createElement(DashboardClient, { user: USER, dashboardV2: false }));
+    expect(explicit).toBe(implicit);
+  });
+
+  it('never asks for dashboard insights with the flag off', () => {
+    renderToStaticMarkup(createElement(DashboardClient, { user: USER, dashboardV2: false }));
+    expect(useDashboardInsights).not.toHaveBeenCalled();
+  });
+
+  it('renders the v2 shell around the same tab content with the flag on', () => {
+    const html = renderToStaticMarkup(createElement(DashboardClient, { user: USER, dashboardV2: true }));
+    expect(html).not.toContain('db-sidebar');
+    expect(html).toContain('aria-label="Dashboard sections"');
+    expect(html).toContain('aria-label="Dashboard"');
+    expect(html).toContain('data-stub="ThisMonthTab"');
+    expect(html).toContain('data-stub="TrialCountdownBanner"');
+    expect(useDashboardInsights).toHaveBeenCalled();
+  });
+
+  it('lifts toasts above the bottom bar only in v2', () => {
+    renderToStaticMarkup(createElement(DashboardClient, { user: USER, dashboardV2: true }));
+    expect(vi.mocked(ToastNotifications).mock.calls.at(-1)?.[0]).toMatchObject({
+      bottom: 'calc(24px + var(--v2-tabbar-offset, 0px))',
+    });
+    vi.mocked(ToastNotifications).mockClear();
+    renderToStaticMarkup(createElement(DashboardClient, { user: USER }));
+    expect(vi.mocked(ToastNotifications).mock.calls.at(-1)?.[0]).not.toHaveProperty('bottom');
   });
 });
