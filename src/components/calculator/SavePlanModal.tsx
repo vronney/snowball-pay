@@ -30,6 +30,8 @@ function trackSavePlanModalDismiss(reason: SavePlanModalDismissReason): void {
   });
 }
 
+const SIGNUP_REDIRECT_DELAY_MS = 180;
+
 /**
  * Email capture shown from the calculator result: persists the full
  * calculator session locally, then hands off to Auth0 signup with the email
@@ -97,10 +99,12 @@ export default function SavePlanModal({
       });
     }
 
-    // Redirect to Auth0 signup with login_hint pre-filled so the email
-    // is already in the signup form — reduces friction.
+    // Briefly defer navigation so the analytics captures and keepalive lead
+    // request can flush before the full-page Auth0 redirect.
     const loginUrl = `/auth/login?returnTo=${encodeURIComponent("/onboarding?source=calculator")}&screen_hint=signup&login_hint=${encodeURIComponent(trimmed)}`;
-    window.location.href = loginUrl;
+    window.setTimeout(() => {
+      window.location.assign(loginUrl);
+    }, SIGNUP_REDIRECT_DELAY_MS);
   };
 
   return (

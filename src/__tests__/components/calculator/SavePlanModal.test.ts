@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -13,6 +13,8 @@ vi.mock('@/lib/analytics', () => ({
   Events: {
     SAVE_PLAN_MODAL_VIEWED: 'save_plan_modal_viewed',
     SAVE_PLAN_MODAL_DISMISSED: 'save_plan_modal_dismissed',
+    PLAN_SAVED_EMAIL: 'plan_saved_email_captured',
+    SIGNUP_STARTED: 'signup_started',
   },
 }));
 
@@ -26,6 +28,12 @@ function zIndexOf(html: string, selector: RegExp): number {
 describe('SavePlanModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   it('stacks above the analytics consent banner so the sheet cannot cover its form', () => {
@@ -106,5 +114,35 @@ describe('SavePlanModal', () => {
       source: 'calculator_result',
       reason: 'close_without_saving',
     });
+  });
+
+  it('tracks email capture/start and redirects after a short delay on submit', () => {
+    vi.useFakeTimers();
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true } as Response)));
+    const mockTrack = vi.mocked(track);
+    const setTimeoutSpy = vi.spyOn(window, 'setTimeout');
+
+    render(
+      createElement(SavePlanModal, {
+        onClose: vi.fn(),
+        debtFreeDate: 'Mar 2029',
+        interestSaved: 1200,
+      }),
+    );
+    mockTrack.mockClear();
+
+    fireEvent.change(screen.getByLabelText('Your email'), {
+      target: { value: 'User+test@example.com ' },
+    });
+    fireEvent.submit(screen.getByRole('button', { name: /create free account and save plan/i }));
+
+    expect(mockTrack).toHaveBeenCalledWith('plan_saved_email_captured', {
+      source: 'save_plan_modal',
+    });
+    expect(mockTrack).toHaveBeenCalledWith('signup_started', {
+      source: 'save_plan_modal',
+    });
+    expect(setTimeoutSpy).toHaveBeenCalledTimes(1);
+    expect(setTimeoutSpy).toHaveBeenLastCalledWith(expect.any(Function), 180);
   });
 });
