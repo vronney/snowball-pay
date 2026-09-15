@@ -6,14 +6,22 @@ import { useCreateDebt } from '@/lib/hooks';
 import { track, Events } from '@/lib/analytics';
 import DebtFormSheet from '@/components/dashboard-v2/debts/DebtFormSheet';
 
+// Captures what the `onSubmit` promise resolves to (CodeRabbit C6: `false`
+// on a failed save must keep the typed form values, `true` on success).
+const { submitResults } = vi.hoisted(() => ({ submitResults: [] as unknown[] }));
+
 vi.mock('@/components/DebtForm', async () => {
   const { createElement: h } = await import('react');
   return {
-    default: (p: { onSubmit: (data: unknown) => void; onCancel: () => void }) =>
+    default: (p: { onSubmit: (data: unknown) => unknown; onCancel: () => void }) =>
       h('div', null,
         h('button', {
           type: 'button',
-          onClick: () => p.onSubmit({ name: 'Store card', category: 'Credit Card', balance: 1200, interestRate: 24.99, minimumPayment: 40 }),
+          onClick: () => {
+            void Promise.resolve(
+              p.onSubmit({ name: 'Store card', category: 'Credit Card', balance: 1200, interestRate: 24.99, minimumPayment: 40 }),
+            ).then((result) => submitResults.push(result));
+          },
         }, 'Submit form'),
         h('button', { type: 'button', onClick: p.onCancel }, 'Cancel form')),
   };
@@ -40,7 +48,10 @@ function renderSheet(
   return { mutateAsync, onClose };
 }
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.clearAllMocks();
+  submitResults.length = 0;
+});
 
 describe('DebtFormSheet', () => {
   it('opts in to saving past the Free cap, then closes', async () => {
@@ -50,6 +61,7 @@ describe('DebtFormSheet', () => {
     expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ name: 'Store card', allowOutsidePlan: true }));
     expect(track).toHaveBeenCalledWith(Events.DEBT_ADDED, { category: 'Credit Card' });
     expect(track).not.toHaveBeenCalledWith(Events.DEBT_SAVED_OUTSIDE_PLAN);
+    await waitFor(() => expect(submitResults).toEqual([true]));
   });
 
   it('records a save outside the plan', async () => {
@@ -70,6 +82,9 @@ describe('DebtFormSheet', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit form' }));
     expect(await screen.findByRole('alert')).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
+    // Resolves to false (never rejects) so DebtForm keeps the typed values
+    // instead of resetting them (CodeRabbit C6).
+    await waitFor(() => expect(submitResults).toEqual([false]));
   });
 
   it("closes from the form's cancel", () => {

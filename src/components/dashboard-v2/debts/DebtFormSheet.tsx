@@ -33,15 +33,19 @@ export default function DebtFormSheet({ notice, allowOutsidePlan, onClose }: Deb
   const createDebt = useCreateDebt();
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (formData: Partial<Debt>) => {
+  const handleSubmit = async (formData: Partial<Debt>): Promise<boolean> => {
     setError(null);
     try {
       const result = await createDebt.mutateAsync({ ...formData, allowOutsidePlan });
       track(Events.DEBT_ADDED, { category: formData.category });
       if (result.outsidePlan) track(Events.DEBT_SAVED_OUTSIDE_PLAN);
       onClose();
+      return true;
     } catch (err) {
       setError(getErrorMessage(err, "Couldn't save this debt. Try again."));
+      // Tells DebtForm to keep the typed values instead of resetting them
+      // (CodeRabbit C6).
+      return false;
     }
   };
 
