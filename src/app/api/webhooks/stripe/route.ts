@@ -90,9 +90,19 @@ export async function POST(request: NextRequest) {
           },
         });
         // Becoming Pro counts every debt: bring back any saved outside the
-        // plan (spec §6.3). Losing Pro never moves one out. A failure fails
-        // the event so Stripe retries it; the move is idempotent.
-        if (fields.paidTier === 'pro') await moveOutsideDebtsIntoPlan(userId);
+        // plan (spec §6.3). Losing Pro never moves one out.
+        //
+        // Stripe doesn't order or dedupe deliveries, so this event's status can
+        // be stale (an old "active" arriving after a cancellation). Moving
+        // outside-plan debts into the plan is this PR's own effect of a Pro
+        // status, so confirm the subscription is still Pro on Stripe's current
+        // object first. A failed read throws → 500 → Stripe retries the event.
+        if (fields.paidTier === 'pro') {
+          const current = await getStripe().subscriptions.retrieve(sub.id);
+          if (resolveSubscriptionFields(current).paidTier === 'pro') {
+            await moveOutsideDebtsIntoPlan(userId);
+          }
+        }
         await enforceMfaForPro(fields.paidTier, user.auth0Id);
         break;
       }

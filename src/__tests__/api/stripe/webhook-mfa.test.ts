@@ -86,6 +86,10 @@ describe('POST /api/webhooks/stripe — MFA trigger', () => {
     vi.clearAllMocks();
     mockPrisma.user.update.mockResolvedValue(UPDATED_USER);
     mockSetMfaRequired.mockResolvedValue(undefined);
+    // Default: Stripe's fresh read still reports Pro, so a Pro
+    // subscription.created/updated event's move-in check (round 3, CodeRabbit
+    // C5) doesn't 500 every test here for want of a mock.
+    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'active' }));
   });
 
   it('flags MFA on the Auth0 account when subscription lands on pro', async () => {
