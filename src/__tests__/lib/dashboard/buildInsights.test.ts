@@ -120,4 +120,23 @@ describe('buildDashboardInsights', () => {
     const pro = buildDashboardInsights(input({ tier: { ...FREE, proEligible: true, paidPro: true } }));
     expect(pro.coachMoves.every((m) => m.isFree)).toBe(true);
   });
+
+  it('reports debts saved outside the plan and keeps them out of the plan (spec §6.2)', () => {
+    const outside = makeDebt({ id: 'x', balance: 3_000, minimumPayment: 90, interestRate: 26, inPlan: false });
+    const plain = buildDashboardInsights(input());
+    const out = buildDashboardInsights(input({ debts: [...DEBTS, outside] }));
+    expect(plain.uncounted).toBeNull();
+    expect(out.uncounted).toMatchObject({ count: 1, balance: 3_000 });
+    expect(out.plan).toEqual(plain.plan);
+  });
+
+  it('keeps the plan gap unchanged when an outside debt (with its own snapshots) is added (spec §6.2)', () => {
+    const outside = makeDebt({ id: 'x', balance: 3_000, minimumPayment: 90, interestRate: 26, inPlan: false });
+    const plain = buildDashboardInsights(input());
+    const out = buildDashboardInsights(input({
+      debts: [...DEBTS, outside],
+      snapshots: [...input().snapshots, makeSnapshot('x', '2026-08', 3_200), makeSnapshot('x', '2026-09', 3_000)],
+    }));
+    expect(out.planGap).toEqual(plain.planGap);
+  });
 });

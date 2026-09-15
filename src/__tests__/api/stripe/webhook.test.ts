@@ -19,6 +19,9 @@ const { mockStripe, mockPrisma } = vi.hoisted(() => {
     user: {
       update: vi.fn(),
     },
+    debt: {
+      updateMany: vi.fn(),
+    },
   };
 
   return { mockStripe, mockPrisma };
@@ -81,6 +84,7 @@ function makeEvent(type: string, object: Record<string, unknown>) {
 describe('POST /api/webhooks/stripe', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.debt.updateMany.mockResolvedValue({ count: 0 });
   });
 
   // --- Signature verification ---
@@ -109,6 +113,7 @@ describe('POST /api/webhooks/stripe', () => {
   it('upgrades user to pro on subscription.created with active status', async () => {
     const sub = makeSub({ status: 'active' });
     mockStripe.webhooks.constructEvent.mockReturnValue(makeEvent('customer.subscription.created', sub));
+    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'active' }));
     mockPrisma.user.update.mockResolvedValue({});
 
     const res = await POST(makeRequest('{}'));
@@ -128,6 +133,7 @@ describe('POST /api/webhooks/stripe', () => {
     const trialEnd = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
     const sub = makeSub({ status: 'trialing', trial_end: trialEnd });
     mockStripe.webhooks.constructEvent.mockReturnValue(makeEvent('customer.subscription.created', sub));
+    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'active' }));
     mockPrisma.user.update.mockResolvedValue({});
 
     await POST(makeRequest('{}'));
@@ -161,6 +167,7 @@ describe('POST /api/webhooks/stripe', () => {
     const cancelAt = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
     const sub = makeSub({ status: 'active', cancel_at: cancelAt });
     mockStripe.webhooks.constructEvent.mockReturnValue(makeEvent('customer.subscription.updated', sub));
+    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'active' }));
     mockPrisma.user.update.mockResolvedValue({});
 
     await POST(makeRequest('{}'));
@@ -372,5 +379,92 @@ describe('POST /api/webhooks/stripe', () => {
 
     const res = await POST(makeRequest('{}'));
     expect(res.status).toBe(500);
+  });
+
+  // --- Becoming Pro counts every debt (spec §6.3) ---
+
+  it('moves debts saved outside the plan into it when a subscription turns Pro', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('customer.subscription.created', makeSub({ status: 'active' })),
+    );
+    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'active' }));
+    mockPrisma.user.update.mockResolvedValue({});
+    expect((await POST(makeRequest('{}'))).status).toBe(200);
+    expect(mockPrisma.debt.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', inPlan: false },
+      data: { inPlan: true },
+    });
+    expect(mockStripe.subscriptions.retrieve).toHaveBeenCalledWith('sub_test_123');
+  });
+
+  // --- Stale Pro events must not move debts in (CodeRabbit C5, round 3) ---
+
+  it('does not move debts in when the event is stale — Stripe now reports the subscription canceled', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('customer.subscription.updated', makeSub({ status: 'active' })),
+    );
+    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'canceled' }));
+    mockPrisma.user.update.mockResolvedValue({});
+
+    const res = await POST(makeRequest('{}'));
+
+    expect(res.status).toBe(200);
+    // The tier write still happens exactly as today, from the event itself.
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: expect.objectContaining({ paidTier: 'pro', subscriptionStatus: 'active' }),
+    });
+    expect(mockPrisma.debt.updateMany).not.toHaveBeenCalled();
+    expect(mockStripe.subscriptions.retrieve).toHaveBeenCalledWith('sub_test_123');
+  });
+
+  it('fails the event, so Stripe retries, when the fresh subscription read fails', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('customer.subscription.created', makeSub({ status: 'active' })),
+    );
+    mockStripe.subscriptions.retrieve.mockRejectedValue(new Error('stripe down'));
+    mockPrisma.user.update.mockResolvedValue({});
+
+    const res = await POST(makeRequest('{}'));
+
+    expect(res.status).toBe(500);
+    expect(mockPrisma.debt.updateMany).not.toHaveBeenCalled();
+    expect(mockStripe.subscriptions.retrieve).toHaveBeenCalledWith('sub_test_123');
+  });
+
+  it('moves them in when checkout completes on Pro', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(makeEvent('checkout.session.completed', {
+      mode: 'subscription', metadata: { userId: 'user-1' }, customer: 'cus_1', subscription: 'sub_test_123',
+    }));
+    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'active' }));
+    mockPrisma.user.update.mockResolvedValue({});
+    await POST(makeRequest('{}'));
+    expect(mockPrisma.debt.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', inPlan: false },
+      data: { inPlan: true },
+    });
+  });
+
+  it('never moves a debt out of the plan when Pro ends', async () => {
+    mockPrisma.user.update.mockResolvedValue({});
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('customer.subscription.updated', makeSub({ status: 'past_due' })),
+    );
+    await POST(makeRequest('{}'));
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('customer.subscription.deleted', makeSub({ status: 'canceled' })),
+    );
+    await POST(makeRequest('{}'));
+    expect(mockPrisma.debt.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('fails the event, so Stripe retries, when the move fails', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('customer.subscription.updated', makeSub({ status: 'active' })),
+    );
+    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'active' }));
+    mockPrisma.user.update.mockResolvedValue({});
+    mockPrisma.debt.updateMany.mockRejectedValue(new Error('db down'));
+    expect((await POST(makeRequest('{}'))).status).toBe(500);
   });
 });

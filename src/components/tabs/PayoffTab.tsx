@@ -16,6 +16,7 @@ import {
   usePaymentRecords,
 } from "@/lib/hooks";
 import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
+import { planScopedBalanceTotal, planScopedSnapshots } from "@/lib/actualBalance";
 import { formatMonths } from "@/lib/utils";
 import { ChevronRight, CalendarCheck, Link2 } from "lucide-react";
 import { useSharePlan } from "@/lib/hooks/useSharePlan";
@@ -121,7 +122,13 @@ export default function PayoffTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payoffMethod, accelerationAmount, income]);
 
-  const actualBalanceMap = useActualBalanceMap(snapshotsData?.snapshots ?? []);
+  // Actual balances must cover the same debts as the projection, or the
+  // chart and plan-gap comparisons are apples-to-oranges (spec §6.2).
+  const scopedSnapshots = useMemo(
+    () => planScopedSnapshots(snapshotsData?.snapshots ?? [], debts),
+    [snapshotsData, debts],
+  );
+  const actualBalanceMap = useActualBalanceMap(scopedSnapshots);
 
   const planStartDate = income?.createdAt
     ? new Date(income.createdAt)
@@ -340,7 +347,9 @@ export default function PayoffTab({
     (debt) => debt.priorityOrder != null,
   );
   const currentTotalDebt = debts.reduce((s, d) => s + d.balance, 0);
-  const chartStartTotal = chartDebts.reduce((s, d) => s + d.balance, 0);
+  // Month-0 fallback for the actual line — must match the projection's debt
+  // scope (chartDebts, seeded from creation balances), not every saved debt.
+  const chartStartTotal = planScopedBalanceTotal(chartDebts);
   const hasRealSnapshots = actualBalanceMap.size > 0;
   const balanceChartData = baseBalances.map((mb, index) => ({
     date: mb.date,

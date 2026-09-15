@@ -27,6 +27,7 @@ import IncompleteSetupEmail from '@/emails/IncompleteSetupEmail';
 import FirstWinEmail from '@/emails/FirstWinEmail';
 import SharePromptEmail from '@/emails/SharePromptEmail';
 import { calculatePlanMetrics, calculateMinimumsOnlyResult } from '@/lib/payoffPlan';
+import { isPlanDebt } from '@/lib/monthlyFocusDebt';
 import type { Debt } from '@/types';
 import * as React from 'react';
 
@@ -134,7 +135,7 @@ export async function GET(request: NextRequest) {
     },
     include: {
       preferences: true,
-      debts: { select: { id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true, name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true } },
+      debts: { select: { id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true, name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true, inPlan: true } },
       income: true,
       expenses: { select: { amount: true } },
     },
@@ -145,7 +146,8 @@ export async function GET(request: NextRequest) {
       if (await isEmailAlreadySent(user.id, 'lifecycle_day5_sent')) continue;
       if (!user.income) continue;
 
-      const activeDebts = user.debts.filter((debt) => debt.balance > 0.01);
+      // The plan's debts only, so debtCount/totalDebt match the plan date next to them (spec §6.2).
+      const activeDebts = user.debts.filter(isPlanDebt);
       if (activeDebts.length === 0) {
         await markEmailSent(user.id, 'lifecycle_day5_sent');
         continue;
@@ -201,7 +203,7 @@ export async function GET(request: NextRequest) {
     },
     include: {
       preferences: true,
-      debts: { select: { id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true, name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true } },
+      debts: { select: { id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true, name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true, inPlan: true } },
       income: true,
       expenses: { select: { amount: true } },
     },
@@ -212,7 +214,8 @@ export async function GET(request: NextRequest) {
       if (await isEmailAlreadySent(user.id, 'lifecycle_day7_sent')) continue;
       if (!user.income) continue;
 
-      const activeDebts = user.debts.filter((debt) => debt.balance > 0.01);
+      // The plan's debts only, so debtCount/totalDebt match the plan date next to them (spec §6.2).
+      const activeDebts = user.debts.filter(isPlanDebt);
       if (activeDebts.length === 0) {
         await markEmailSent(user.id, 'lifecycle_day7_sent');
         continue;

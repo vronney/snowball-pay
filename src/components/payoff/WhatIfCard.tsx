@@ -9,7 +9,7 @@ import { type Debt, type Income, type Expense } from "@/types";
 import { type PayoffMethod } from "@/lib/snowball";
 import { calculateResultByMethod } from "@/lib/payoffPlan";
 import { formatCurrencyWhole, formatMonths } from "@/lib/utils";
-import { isActiveDebt } from "@/lib/monthlyFocusDebt";
+import { isPlanDebt } from "@/lib/monthlyFocusDebt";
 import { color, easing } from "@/lib/designTokens";
 import { isRungApplicable, ladderHeadroom, rungCaption } from "@/components/payoff/whatIfLadder";
 
@@ -42,7 +42,8 @@ export default function WhatIfCard({
   const isPro = subData?.proEligible === true;
 
 
-  const activeDebts = useMemo(() => debts.filter(isActiveDebt), [debts]);
+  // The plan's debts only (spec §6.2): the ladder is measured against the plan.
+  const activeDebts = useMemo(() => debts.filter(isPlanDebt), [debts]);
   const recurringTotal = useMemo(
     () => expenses.reduce((s, e) => s + e.amount, 0),
     [expenses],

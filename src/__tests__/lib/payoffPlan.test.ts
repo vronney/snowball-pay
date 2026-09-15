@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   calculateMinimumsOnlyResult,
   calculatePlanMetrics,
+  calculateResultByMethod,
+  calculateResultForAcceleration,
   isPayoffMethod,
   methodFromIncome,
 } from '@/lib/payoffPlan';
@@ -135,5 +137,56 @@ describe('payoff plan metrics', () => {
     expect(metrics?.result.payoffSchedule).toHaveLength(1);
     expect(metrics?.result.payoffSchedule[0].debtId).toBe('active-card');
     expect(minimumsOnlyResult.monthlyPayment).toBe(50);
+  });
+});
+
+describe('debts saved outside the plan (spec §6.2)', () => {
+  // The engine dates results from `new Date()`; pin it so runs compare equal.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(2026, 8, 15, 12, 0));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  const income = makeIncome({ monthlyTakeHome: 3_000, essentialExpenses: 1_500, accelerationAmount: 200 });
+  const counted = [
+    makeDebt({ id: 'a', balance: 2_000, minimumPayment: 60, interestRate: 20 }),
+    makeDebt({ id: 'b', balance: 5_000, minimumPayment: 120, interestRate: 8 }),
+  ];
+  const outside = makeDebt({ id: 'x', balance: 9_000, minimumPayment: 250, interestRate: 25, inPlan: false });
+
+  it('gives inPlan: true exactly the results of a debt saved before the column existed', () => {
+    const marked = counted.map((d) => ({ ...d, inPlan: true }));
+    expect(calculatePlanMetrics(marked, income, [])).toEqual(calculatePlanMetrics(counted, income, []));
+    expect(calculateMinimumsOnlyResult(marked)).toEqual(calculateMinimumsOnlyResult(counted));
+  });
+
+  it('leaves an outside debt out of the plan, its minimums and the minimums-only run', () => {
+    expect(calculatePlanMetrics([...counted, outside], income, [])).toEqual(calculatePlanMetrics(counted, income, []));
+    expect(calculateMinimumsOnlyResult([...counted, outside])).toEqual(calculateMinimumsOnlyResult(counted));
+  });
+
+  it('leaves it out of the acceleration and strategy runs', () => {
+    const metrics = calculatePlanMetrics(counted, income, [])!;
+    expect(calculateResultForAcceleration([...counted, outside], income, metrics, 500, 'avalanche'))
+      .toEqual(calculateResultForAcceleration(counted, income, metrics, 500, 'avalanche'));
+  });
+
+  it('drops it inside calculateResultByMethod, for callers that filter by balance only', () => {
+    expect(calculateResultByMethod([...counted, outside], income, 0, 100, 'snowball'))
+      .toEqual(calculateResultByMethod(counted, income, 0, 100, 'snowball'));
+  });
+
+  it('returns null only when no debt is in the plan — not merely when every plan debt is paid off', () => {
+    // Every debt in-plan but paid off: today's non-null result, unchanged.
+    const allPaidOff = [
+      makeDebt({ id: 'a', balance: 0, minimumPayment: 60 }),
+      makeDebt({ id: 'b', balance: 0, minimumPayment: 120 }),
+    ];
+    expect(calculatePlanMetrics(allPaidOff, income, [])).not.toBeNull();
+
+    // Every debt outside the plan: null, same as no debts at all.
+    const allOutside = counted.map((d) => ({ ...d, inPlan: false }));
+    expect(calculatePlanMetrics(allOutside, income, [])).toBeNull();
   });
 });

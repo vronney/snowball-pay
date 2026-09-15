@@ -152,4 +152,16 @@ describe('POST /api/email/lifecycle — plan-aware day0 welcome', () => {
     expect(props.hasDebts).toBe(true);
     expect(props.hasIncome).toBe(true);
   });
+
+  it('counts only the plan debt when one debt is saved outside the plan (spec §6.2, CodeRabbit C3)', async () => {
+    const outside = { ...DEBT, id: 'd2', balance: 9_000, inPlan: false };
+    mockPrisma.user.findUnique.mockResolvedValue(
+      makeUser({ debts: [DEBT, outside], income: INCOME }),
+    );
+
+    await POST(makeRequest());
+
+    const props = rendered[0].props;
+    expect(props.debtCount).toBe(1);
+  });
 });

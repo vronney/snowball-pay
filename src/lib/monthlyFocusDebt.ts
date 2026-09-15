@@ -7,6 +7,20 @@ export function isActiveDebt(debt: Pick<Debt, 'balance'>): boolean {
   return debt.balance > ACTIVE_BALANCE_THRESHOLD;
 }
 
+/**
+ * Counted by the payoff plan (spec §6.1). Only an explicit `false` is
+ * outside: rows from before the column, older payloads and fixtures carry no
+ * value and stay in the plan, so no existing number moves.
+ */
+export function isInPlan(debt: Pick<Debt, 'inPlan'>): boolean {
+  return debt.inPlan !== false;
+}
+
+/** An active debt the plan counts: what plan math feeds the engine (spec §6.2). */
+export function isPlanDebt(debt: Pick<Debt, 'balance' | 'inPlan'>): boolean {
+  return isActiveDebt(debt) && isInPlan(debt);
+}
+
 interface FocusPayoffResult {
   payoffSchedule: DebtPayoffSchedule[];
 }
@@ -16,10 +30,12 @@ export function selectMonthlyFocusDebt(
   payoffResult: FocusPayoffResult | null | undefined,
   paidDebtIds: ReadonlySet<string> = new Set(),
 ): Debt | null {
-  const activeDebts = debts.filter(isActiveDebt);
-  if (activeDebts.length === 0) return null;
+  // Only the plan's debts can be its focus: a debt saved outside the plan has
+  // no place in the payoff order.
+  const planDebts = debts.filter(isPlanDebt);
+  if (planDebts.length === 0) return null;
 
-  const eligibleDebts = activeDebts.filter((debt) => !paidDebtIds.has(debt.id));
+  const eligibleDebts = planDebts.filter((debt) => !paidDebtIds.has(debt.id));
   if (eligibleDebts.length === 0) return null;
 
   const eligibleById = new Map(eligibleDebts.map((debt) => [debt.id, debt]));

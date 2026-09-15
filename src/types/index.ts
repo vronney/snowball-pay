@@ -10,6 +10,8 @@ export interface Debt {
   creditLimit: number;
   priorityOrder?: number | null;
   dueDate?: number;
+  /** False = saved outside the plan on Free past the debt cap (spec §6.1). Absent = in the plan. */
+  inPlan?: boolean;
   createdAt: Date;
   updatedAt: Date;
 

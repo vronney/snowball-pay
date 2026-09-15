@@ -4,6 +4,8 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
 import { getUserTier, FREE_DEBT_LIMIT, upgradeRequired } from '@/lib/gates';
+import { countCountedDebts } from '@/lib/debtCap';
+import { isDashboardV2 } from '@/lib/flags';
 
 const DEBT_SCHEMA = z.object({
   name: z.string().min(1, 'Debt name required'),
@@ -98,18 +100,25 @@ export async function POST(request: NextRequest) {
     const incomingDebts = parsed.debts ?? (parsed.firstDebt ? [parsed.firstDebt] : []);
 
     const tier = await getUserTier(auth.user.id);
+    // Past the Free cap, a dashboard v2 account keeps the overflow as debts
+    // saved outside the plan (spec §6.3). The wizard is shared by v1 and Expo,
+    // so the server decides by the account's flag, not by a request field.
+    const saveOverflowOutside = tier === 'free' && isDashboardV2(auth.user.email);
     let debtCapacity = Infinity;
     if (tier === 'free') {
-      const debtCount = await prisma.debt.count({ where: { userId: auth.user.id } });
-      if (debtCount >= FREE_DEBT_LIMIT) return upgradeRequired('Unlimited debts');
-      debtCapacity = FREE_DEBT_LIMIT - debtCount;
+      const debtCount = await countCountedDebts(auth.user.id);
+      if (debtCount >= FREE_DEBT_LIMIT && !saveOverflowOutside) return upgradeRequired('Unlimited debts');
+      debtCapacity = Math.max(0, FREE_DEBT_LIMIT - debtCount);
     }
 
     // Never fail the whole onboarding because the calculator carried more
     // debts than the free tier allows — save what fits and report the rest
-    // so the dashboard can surface the upgrade path.
-    const debtsToCreate = incomingDebts.slice(0, debtCapacity);
-    const skippedDebts = incomingDebts.length - debtsToCreate.length;
+    // so the dashboard can surface the upgrade path. Dashboard v2 saves the
+    // rest too, outside the plan; skippedDebts stays for older clients.
+    const overflow = Math.max(0, incomingDebts.length - debtCapacity);
+    const debtsToCreate = saveOverflowOutside ? incomingDebts : incomingDebts.slice(0, debtCapacity);
+    const skippedDebts = saveOverflowOutside ? 0 : overflow;
+    const outsidePlanDebts = saveOverflowOutside ? overflow : 0;
 
     // Custom ordering is Pro-only (mirrors POST /api/income). Onboarding
     // never hard-fails on tier limits, so a free user's draft falls back to
@@ -145,7 +154,8 @@ export async function POST(request: NextRequest) {
       const debtIds: string[] = [];
       let dedupedCount = 0;
 
-      for (const debtInput of debtsToCreate) {
+      for (let index = 0; index < debtsToCreate.length; index++) {
+        const debtInput = debtsToCreate[index];
         // Best-effort duplicate guard for replayed onboarding submits (the
         // in-memory replayCache doesn't survive restarts or other instances).
         // Two constraints keep it from eating legitimate debts:
@@ -192,6 +202,8 @@ export async function POST(request: NextRequest) {
             creditLimit: debtInput.creditLimit ?? 0,
             dueDate: debtInput.dueDate,
             priorityOrder: debtInput.priorityOrder,
+            // Past the cap (dashboard v2 only): saved, but outside the plan.
+            ...(index >= debtCapacity ? { inPlan: false } : {}),
           },
         });
         debtIds.push(debt.id);
@@ -202,6 +214,7 @@ export async function POST(request: NextRequest) {
         debtId: debtIds[0],
         debtIds,
         skippedDebts,
+        outsidePlanDebts,
         dedupedDebt: dedupedCount > 0,
       };
     });

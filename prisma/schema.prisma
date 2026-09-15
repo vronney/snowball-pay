@@ -98,6 +98,9 @@ model Debt {
   creditLimit       Float    @default(0) // for credit cards
   priorityOrder     Int?
   dueDate           Int?     // day of month (1-31)
+  // false = saved on Free past the debt cap: kept and shown, but left out of
+  // plan math (spec §6.1). Becoming Pro sets it back to true.
+  inPlan            Boolean  @default(true)
 
   // Plaid linkage — the access token lives on PlaidItem, not here.
   isLinked          Boolean?   @default(false)

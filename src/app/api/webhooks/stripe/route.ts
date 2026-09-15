@@ -6,6 +6,7 @@ import { captureServerEvent } from '@/lib/analytics-server';
 import { Events } from '@/lib/analyticsEvents';
 import { sendCheckoutRecoveryEmail } from '@/lib/checkoutRecovery';
 import { removePlaidItemsForCanceledUser } from '@/lib/plaidCleanup';
+import { moveOutsideDebtsIntoPlan } from '@/lib/debtCap';
 import type Stripe from 'stripe';
 
 // Required: disable body parsing so we can verify the raw signature
@@ -88,6 +89,20 @@ export async function POST(request: NextRequest) {
             ...fields,
           },
         });
+        // Becoming Pro counts every debt: bring back any saved outside the
+        // plan (spec §6.3). Losing Pro never moves one out.
+        //
+        // Stripe doesn't order or dedupe deliveries, so this event's status can
+        // be stale (an old "active" arriving after a cancellation). Moving
+        // outside-plan debts into the plan is this PR's own effect of a Pro
+        // status, so confirm the subscription is still Pro on Stripe's current
+        // object first. A failed read throws → 500 → Stripe retries the event.
+        if (fields.paidTier === 'pro') {
+          const current = await getStripe().subscriptions.retrieve(sub.id);
+          if (resolveSubscriptionFields(current).paidTier === 'pro') {
+            await moveOutsideDebtsIntoPlan(userId);
+          }
+        }
         await enforceMfaForPro(fields.paidTier, user.auth0Id);
         break;
       }
@@ -142,6 +157,8 @@ export async function POST(request: NextRequest) {
             ...subFields,
           },
         });
+        // Same rule as the subscription branch: Pro counts every debt (spec §6.3).
+        if (subFields.paidTier === 'pro') await moveOutsideDebtsIntoPlan(userId);
         await enforceMfaForPro(subFields.paidTier, user.auth0Id);
         if (session.metadata?.analyticsConsent === 'granted') {
           await captureServerEvent({
