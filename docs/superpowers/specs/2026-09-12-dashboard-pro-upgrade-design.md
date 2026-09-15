@@ -157,10 +157,10 @@ Every existing debt becomes `inPlan = true`, so plan math is unchanged, and the 
 ### 6.3 Debt cap
 
 - `POST /api/debts`: Free with ≥5 counted (`inPlan=true`) debts:
-  - Body `allowOutsidePlan: true` (sent only by the v2 UI) → create with `inPlan=false`, respond `201 { debt, outsidePlan: true }`.
+  - Body `allowOutsidePlan: true` (sent only by the v2 UI) and the account is on `DASHBOARD_V2_USERS` → create with `inPlan=false`, respond `201 { debt, outsidePlan: true }`.
   - Otherwise → today's `upgradeRequired('Unlimited debts')` 403.
   - The count basis is otherwise unchanged (it still includes paid-off debts).
-- `POST /api/onboarding/complete`: overflow debts are saved with `inPlan=false` instead of being skipped. `skippedDebts` is kept in the response for older clients.
+- `POST /api/onboarding/complete`: for a dashboard v2 account (server-side flag; the wizard is shared by v1 and Expo), overflow debts are saved with `inPlan=false` instead of being skipped, and the response's new `outsidePlanDebts` counts them. `skippedDebts` stays in the response for older clients (0 in that case). Other accounts keep today's skip.
 - **Becoming Pro** moves every `inPlan=false` debt into the plan: the Stripe webhook activation branch (`api/webhooks/stripe/route.ts` ~L129) and `POST /api/trial/start`.
 - **Losing Pro never removes a debt from the plan** (today's behavior, and the handoff's "nothing is removed" promise).
 
@@ -294,6 +294,19 @@ Placeholders `{…}` are filled only from insights values. Everything else is th
     - Sheets are bottom sheets on phones and centered dialogs from 769px, portaled to `<body>`. They write sequentially through the existing hooks and stop at the first failure.
     - Green text uses the `success-text` token (#15803d); `success` is for fills (DESIGN.md 2026-09-14).
 - **My Debts:** as approved in §6.3 and §8.3. The header pill "{counted} of {n} counted", the two-up totals, the outside section, and the closing card appear only when outside-plan debts exist.
+  - **PR 4 decisions (2026-09-15):**
+    - "Counted" means `inPlan ≠ false`, paid-off debts included (the cap's basis). Deleting a counted debt never pulls an outside debt in.
+    - Layout: toolbar (pill + "Add debt") → two-up → focus card → the plan's rows in payoff order, paid-off last → "Saved, outside the plan" → a collapsed "Payment calendar & reminders" card (upcoming payments, `PaymentCalendar`, "Add to Calendar", gated for Free) → the ink closing card.
+      - v1's stat strip, sort/filter toolbar and helper cards are dropped.
+      - With no debts, a single card reads "No debts yet." with "Add your first debt".
+    - The focus card uses v1 This Month's figures and write: minimum + effective acceleration, "gone in {formatMonths}", "Log payment". The APR is muted text. The focus row stays collapsed.
+    - The closing card and moment E show only for Free accounts with outside debts and a dated plan.
+      - The months clause needs `monthsImpact ≥ 1`.
+      - Singular forms: "1 month", "The uncounted balance adds".
+      - The CTA is "Count all {n} — ${PLANS.pro.price}/mo" → the existing checkout. PR 6 adds the trial CTA.
+    - Balances use `formatCurrency`.
+    - At the cap, the add-debt sheet says "On Free, your plan counts {limit} debts. This one will be saved outside it."
+    - `calculateResultByMethod` drops `inPlan=false` itself, as a safety net for every direct engine caller.
 - **My Plan:**
   - A segmented Snowball / Avalanche / Custom (Pro) control, then the comparison pair and caption. If the current method is already cheaper, the caption says so.
   - The acceleration slider, $0 → available.
@@ -315,6 +328,7 @@ These go through the existing consent-gated `track()`:
 - `coach_move_cta {move, gated}`
 - `bulk_log_submitted {debt_count}` (the analytics sanitiser redacts numbers outside its safe keys)
 - `debt_saved_outside_plan`
+- Moment E also sends the existing `checkout_started {source: 'upgrade_moment_e', billing: 'monthly'}`.
 
 Existing `DASHBOARD_TAB_VIEWED` continues to fire with the same tab ids.
 
