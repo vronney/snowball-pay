@@ -20,6 +20,7 @@ import {
 import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
 import MonthlyReviewEmail from '@/emails/MonthlyReviewEmail';
 import { calculatePlanMetrics } from '@/lib/payoffPlan';
+import { isInPlan } from '@/lib/monthlyFocusDebt';
 import type { Debt } from '@/types';
 import * as React from 'react';
 
@@ -60,8 +61,12 @@ export async function GET(request: NextRequest) {
       const checks = (user.preferences?.actionChecks ?? {}) as Record<string, boolean>;
       if (!checks['monthlyReview']) { results.skipped++; continue; }
 
-      const totalBalance = user.debts.reduce((s, d) => s + d.balance, 0);
-      const debtCount    = user.debts.length;
+      // The plan's debts only, so totalBalance/debtCount cover the same debts
+      // as debtFreeDate below (spec §6.2). Not isPlanDebt — a paid-off,
+      // in-plan debt still counts today, and must keep counting.
+      const inPlanDebts  = user.debts.filter(isInPlan);
+      const totalBalance = inPlanDebts.reduce((s, d) => s + d.balance, 0);
+      const debtCount    = inPlanDebts.length;
 
       let debtFreeDate: string | undefined;
       if (user.income) {
