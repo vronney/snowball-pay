@@ -19,6 +19,9 @@ const { mockStripe, mockPrisma, mockSetMfaRequired } = vi.hoisted(() => {
     user: {
       update: vi.fn(),
     },
+    debt: {
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
   };
 
   const mockSetMfaRequired = vi.fn();

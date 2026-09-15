@@ -19,6 +19,9 @@ const { mockStripe, mockPrisma } = vi.hoisted(() => {
     user: {
       update: vi.fn(),
     },
+    debt: {
+      updateMany: vi.fn(),
+    },
   };
 
   return { mockStripe, mockPrisma };
@@ -81,6 +84,7 @@ function makeEvent(type: string, object: Record<string, unknown>) {
 describe('POST /api/webhooks/stripe', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.debt.updateMany.mockResolvedValue({ count: 0 });
   });
 
   // --- Signature verification ---
@@ -372,5 +376,54 @@ describe('POST /api/webhooks/stripe', () => {
 
     const res = await POST(makeRequest('{}'));
     expect(res.status).toBe(500);
+  });
+
+  // --- Becoming Pro counts every debt (spec §6.3) ---
+
+  it('moves debts saved outside the plan into it when a subscription turns Pro', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('customer.subscription.created', makeSub({ status: 'active' })),
+    );
+    mockPrisma.user.update.mockResolvedValue({});
+    expect((await POST(makeRequest('{}'))).status).toBe(200);
+    expect(mockPrisma.debt.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', inPlan: false },
+      data: { inPlan: true },
+    });
+  });
+
+  it('moves them in when checkout completes on Pro', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(makeEvent('checkout.session.completed', {
+      mode: 'subscription', metadata: { userId: 'user-1' }, customer: 'cus_1', subscription: 'sub_test_123',
+    }));
+    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'active' }));
+    mockPrisma.user.update.mockResolvedValue({});
+    await POST(makeRequest('{}'));
+    expect(mockPrisma.debt.updateMany).toHaveBeenCalledWith({
+      where: { userId: 'user-1', inPlan: false },
+      data: { inPlan: true },
+    });
+  });
+
+  it('never moves a debt out of the plan when Pro ends', async () => {
+    mockPrisma.user.update.mockResolvedValue({});
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('customer.subscription.updated', makeSub({ status: 'past_due' })),
+    );
+    await POST(makeRequest('{}'));
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('customer.subscription.deleted', makeSub({ status: 'canceled' })),
+    );
+    await POST(makeRequest('{}'));
+    expect(mockPrisma.debt.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('fails the event, so Stripe retries, when the move fails', async () => {
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('customer.subscription.updated', makeSub({ status: 'active' })),
+    );
+    mockPrisma.user.update.mockResolvedValue({});
+    mockPrisma.debt.updateMany.mockRejectedValue(new Error('db down'));
+    expect((await POST(makeRequest('{}'))).status).toBe(500);
   });
 });
