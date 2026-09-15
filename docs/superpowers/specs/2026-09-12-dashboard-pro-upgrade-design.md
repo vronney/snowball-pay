@@ -154,6 +154,7 @@ Every existing debt becomes `inPlan = true`, so plan math is unchanged, and the 
 - `selectMonthlyFocusDebt` uses `isPlanDebt`.
 - `apps/mobile/src/lib/planInput.ts` `planInputFromServer` (re-exported from `queries.ts`) drops `inPlan === false` debts, so the app's date matches the web.
 - Interest-this-month, payments-due, and rate watch keep `isActiveDebt` (§5.1).
+- Plan-vs-actual comparisons (the plan gap, the Plan and Coach balance charts, the Progress variance chart) drop snapshots and balances of debts saved outside the plan (`planScopedSnapshots` / `planScopedBalanceTotal` in `src/lib/actualBalance.ts`), so both sides cover the same debts.
 
 ### 6.3 Debt cap
 

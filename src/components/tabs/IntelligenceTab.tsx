@@ -9,6 +9,7 @@ import {
 } from "@/lib/payoffPlan";
 import { useAllSnapshots } from "@/lib/hooks";
 import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
+import { planScopedBalanceTotal, planScopedSnapshots } from "@/lib/actualBalance";
 import PlannerIntelligence from "@/components/payoff/PlannerIntelligence";
 import IntelligenceUpgradeTeaser from "@/components/billing/IntelligenceUpgradeTeaser";
 import { AprNegotiationCard } from "@/components/AprNegotiationCard";
@@ -51,8 +52,13 @@ export default function IntelligenceTab({
     [debts],
   );
 
-  // Build balance chart data (same logic as PayoffTab)
-  const actualBalanceMap = useActualBalanceMap(snapshotsData?.snapshots ?? []);
+  // Build balance chart data (same logic as PayoffTab). Actual balances must
+  // cover the same debts as the projection (spec §6.2).
+  const scopedSnapshots = useMemo(
+    () => planScopedSnapshots(snapshotsData?.snapshots ?? [], debts),
+    [snapshotsData, debts],
+  );
+  const actualBalanceMap = useActualBalanceMap(scopedSnapshots);
 
   const balanceChartData: ChartEntry[] = useMemo(
     () =>
@@ -60,7 +66,7 @@ export default function IntelligenceTab({
         planResult,
         minimumsOnlyResult,
         actualBalanceMap,
-        debts.reduce((s, d) => s + (d.balance ?? 0), 0),
+        planScopedBalanceTotal(debts),
       ),
     [planResult, minimumsOnlyResult, actualBalanceMap, debts],
   );

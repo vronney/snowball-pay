@@ -37,6 +37,7 @@ import {
 } from "@/lib/payoffPlan";
 import { isActiveDebt, isPlanDebt } from "@/lib/monthlyFocusDebt";
 import { computeActualBalanceTotals } from "@/lib/hooks/useActualBalanceMap";
+import { planScopedSnapshots } from "@/lib/actualBalance";
 
 interface DataInsightsProps {
   debts: Debt[];
@@ -155,7 +156,7 @@ function buildDebtMix(debts: Debt[]): DebtMixSlice[] {
 }
 
 function buildVarianceData(
-  snapshots: BalanceSnapshot[],
+  snapshots: ReadonlyArray<BalanceSnapshot>,
   plan: PayoffResult | null,
 ): VariancePoint[] {
   if (!plan) return [];
@@ -956,7 +957,7 @@ function VarianceCard({
   snapshots,
   metrics,
 }: {
-  snapshots: BalanceSnapshot[];
+  snapshots: ReadonlyArray<BalanceSnapshot>;
   metrics: PlanMetrics | null;
 }) {
   const data = buildVarianceData(snapshots, metrics?.result ?? null);
@@ -1105,6 +1106,14 @@ export default function DataInsights({
     });
   }, [debts, income, expenses]);
 
+  // The variance chart's "actual" side must cover the same debts as the
+  // projection above (spec §6.2), or a debt saved outside the plan inflates
+  // "actual" against a projection that never counted it.
+  const scopedSnapshots = useMemo(
+    () => planScopedSnapshots(snapshots, debts),
+    [snapshots, debts],
+  );
+
   return (
     <section className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -1134,7 +1143,7 @@ export default function DataInsights({
         <PayoffLeverCard debts={debts} income={income} metrics={metrics} />
         <CashFlowWaterfallCard income={income} metrics={metrics} />
         <DebtMixCard debts={debts} />
-        <VarianceCard snapshots={snapshots} metrics={varianceMetrics} />
+        <VarianceCard snapshots={scopedSnapshots} metrics={varianceMetrics} />
         <InterestPrincipalCard debts={debts.filter(isPlanDebt)} metrics={metrics} />
       </div>
     </section>
