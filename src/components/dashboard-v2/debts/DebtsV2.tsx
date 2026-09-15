@@ -135,9 +135,15 @@ export default function DebtsV2({ debts, income, expenses, openPaymentDebtId, on
     return hosts;
   }, [inPlanRows, outsideRows]);
 
-  const proEligible = insights?.tier.proEligible ?? subscription?.proEligible === true;
+  // While either query is still loading, proEligible is undefined — show no
+  // notice rather than defaulting to Free's "saved outside it" copy, which
+  // would briefly flash for a Pro account.
+  const proEligible = insights?.tier.proEligible ?? subscription?.proEligible;
   const summary = debtsSummaryView(membership);
-  const notice = outsidePlanNotice(membership.counted.length, PLANS.free.debtLimit, proEligible);
+  const notice =
+    proEligible === undefined
+      ? null
+      : outsidePlanNotice(membership.counted.length, PLANS.free.debtLimit, proEligible);
   const closing = insights
     ? debtsClosingView({
         uncounted: insights.uncounted,
@@ -152,7 +158,7 @@ export default function DebtsV2({ debts, income, expenses, openPaymentDebtId, on
     : null;
 
   const logFocusPayment = () => {
-    if (!focusView || logPending) return;
+    if (!focusView || focusView.amount <= 0 || logPending) return;
     setLogPending(true);
     const now = new Date();
     // v1 This Month's focus-card write (ThisMonthTab.tsx:131-144), unchanged.
@@ -241,7 +247,9 @@ export default function DebtsV2({ debts, income, expenses, openPaymentDebtId, on
       </div>
       {summary && <DebtsSummary view={summary} />}
       <PaymentCelebrationBanner />
-      {focusView && <FocusDebtCard view={focusView} pending={logPending} onLog={logFocusPayment} />}
+      {focusView && focusView.amount > 0 && (
+        <FocusDebtCard view={focusView} pending={logPending} onLog={logFocusPayment} />
+      )}
       <section aria-label="Debts in your plan" className="flex flex-col gap-2">
         {inPlanRows.map((debt) => renderRow(debt, false))}
       </section>

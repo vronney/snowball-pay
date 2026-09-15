@@ -153,6 +153,53 @@ describe('DebtsV2 (spec §8.5 My Debts)', () => {
     )).toBeTruthy();
   });
 
+  it('shows no outside-plan notice while insights and subscription are both still loading', () => {
+    // Neither query has resolved yet (data: undefined). proEligible must stay
+    // undefined rather than defaulting to Free, or a Pro account briefly sees
+    // the Free "saved outside it" notice while loading.
+    const five = Array.from({ length: PLANS.free.debtLimit }, (_, i) =>
+      makeDebt({ id: `d${i}`, name: `Debt ${i}`, balance: 100 * (i + 1), minimumPayment: 10 }));
+    vi.mocked(useDashboardInsights).mockReturnValue({ data: undefined } as unknown as ReturnType<typeof useDashboardInsights>);
+    vi.mocked(useSubscription).mockReturnValue({ data: undefined } as unknown as ReturnType<typeof useSubscription>);
+    vi.mocked(useAllSnapshots).mockReturnValue({ data: { snapshots: [] } } as unknown as ReturnType<typeof useAllSnapshots>);
+    vi.mocked(usePaymentRecords).mockReturnValue({ data: { records: [] } } as unknown as ReturnType<typeof usePaymentRecords>);
+    vi.mocked(useDeleteDebt).mockReturnValue({ mutate: vi.fn() } as unknown as ReturnType<typeof useDeleteDebt>);
+    vi.mocked(useMarkPaid).mockReturnValue({ mutate: vi.fn() } as unknown as ReturnType<typeof useMarkPaid>);
+    vi.mocked(useCreateDebt).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useCreateDebt>);
+    vi.mocked(useStartCheckout).mockReturnValue(
+      { mutate: vi.fn(), isPending: false, isError: false, error: null } as unknown as ReturnType<typeof useStartCheckout>,
+    );
+
+    render(createElement(DebtsV2, { debts: five, income: INCOME, expenses: [], openPaymentDebtId: null }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add debt' }));
+    const dialog = screen.getByRole('dialog', { name: 'Add a debt' });
+    expect(within(dialog).queryByText(/saved outside it/)).toBeNull();
+  });
+
+  it('hides the focus card when the focus debt costs nothing this month', () => {
+    // Zero minimum payment and no acceleration (income.accelerationAmount: 0)
+    // makes focusCardView's amount exactly 0 — the card must hide instead of
+    // showing a fake "Pay $0.00 here this month" prompt.
+    const debt = makeDebt({ id: 'zero', name: 'Zero-minimum debt', balance: 500, minimumPayment: 0 });
+    const income = makeIncome({ monthlyTakeHome: 4_000, essentialExpenses: 2_000, accelerationAmount: 0 });
+    vi.mocked(useDashboardInsights).mockReturnValue({ data: insights() } as unknown as ReturnType<typeof useDashboardInsights>);
+    vi.mocked(useSubscription).mockReturnValue(
+      { data: { proEligible: false, plaidEligible: false } } as unknown as ReturnType<typeof useSubscription>,
+    );
+    vi.mocked(useAllSnapshots).mockReturnValue({ data: { snapshots: [] } } as unknown as ReturnType<typeof useAllSnapshots>);
+    vi.mocked(usePaymentRecords).mockReturnValue({ data: { records: [] } } as unknown as ReturnType<typeof usePaymentRecords>);
+    vi.mocked(useDeleteDebt).mockReturnValue({ mutate: vi.fn() } as unknown as ReturnType<typeof useDeleteDebt>);
+    vi.mocked(useMarkPaid).mockReturnValue({ mutate: vi.fn() } as unknown as ReturnType<typeof useMarkPaid>);
+    vi.mocked(useCreateDebt).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useCreateDebt>);
+    vi.mocked(useStartCheckout).mockReturnValue(
+      { mutate: vi.fn(), isPending: false, isError: false, error: null } as unknown as ReturnType<typeof useStartCheckout>,
+    );
+
+    render(createElement(DebtsV2, { debts: [debt], income, expenses: [], openPaymentDebtId: null }));
+    expect(screen.queryByRole('button', { name: 'Log payment' })).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Zero-minimum debt' })).toBeNull();
+  });
+
   it('starts an empty account with one add button', () => {
     renderTab({ debts: [] });
     expect(screen.getByText('No debts yet.')).toBeTruthy();

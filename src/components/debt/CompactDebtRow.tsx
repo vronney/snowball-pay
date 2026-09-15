@@ -43,7 +43,7 @@ const chipBase = {
 const outsideSurface = {
   background: "#f8fafc",
   border: "1px dashed rgba(15,23,42,0.16)",
-  borderRadius: "12px" as const,
+  borderRadius: cardSurface.borderRadius,
 };
 
 /**
