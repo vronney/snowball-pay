@@ -98,7 +98,11 @@ export function calculatePlanMetrics(
     planStartDate?: Date;
   } = {},
 ): PlanMetrics | null {
-  if (!income || debts.length === 0) return null;
+  // No debt in the plan (every one saved outside it, spec §6.2) is "no plan",
+  // same as no debts at all — NOT the same as every plan debt being merely
+  // paid off, which must still compute today's result (isInPlan, not
+  // isPlanDebt/isActiveDebt).
+  if (!income || debts.length === 0 || !debts.some(isInPlan)) return null;
 
   const planDebts = debts.filter(isPlanDebt);
   const recurringTotal = expenses.reduce((sum, expense) => sum + expense.amount, 0);

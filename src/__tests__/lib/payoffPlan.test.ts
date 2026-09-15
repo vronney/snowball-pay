@@ -176,4 +176,17 @@ describe('debts saved outside the plan (spec §6.2)', () => {
     expect(calculateResultByMethod([...counted, outside], income, 0, 100, 'snowball'))
       .toEqual(calculateResultByMethod(counted, income, 0, 100, 'snowball'));
   });
+
+  it('returns null only when no debt is in the plan — not merely when every plan debt is paid off', () => {
+    // Every debt in-plan but paid off: today's non-null result, unchanged.
+    const allPaidOff = [
+      makeDebt({ id: 'a', balance: 0, minimumPayment: 60 }),
+      makeDebt({ id: 'b', balance: 0, minimumPayment: 120 }),
+    ];
+    expect(calculatePlanMetrics(allPaidOff, income, [])).not.toBeNull();
+
+    // Every debt outside the plan: null, same as no debts at all.
+    const allOutside = counted.map((d) => ({ ...d, inPlan: false }));
+    expect(calculatePlanMetrics(allOutside, income, [])).toBeNull();
+  });
 });
