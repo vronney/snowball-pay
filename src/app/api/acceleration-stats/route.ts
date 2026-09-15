@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError } from '@/lib/auth-server';
 import { calculateResultByMethod, methodFromIncome } from '@/lib/payoffPlan';
 import type { Debt } from '@/types';
-import { isActiveDebt } from '@/lib/monthlyFocusDebt';
+import { isPlanDebt } from '@/lib/monthlyFocusDebt';
 
 /** Returns the current month and two prior months as [{year, month}]. */
 function getRolling3Months(): { year: number; month: number }[] {
@@ -74,7 +74,8 @@ export async function GET(request: NextRequest) {
       category: d.category as Debt['category'],
       dueDate: d.dueDate ?? undefined,
     }));
-    const activeDebts = normalizedDebts.filter(isActiveDebt);
+    // The plan's debts only (spec §6.2), so the planned extra matches the dashboard's plan.
+    const activeDebts = normalizedDebts.filter(isPlanDebt);
     const recurringTotal = expenses.reduce((s, e) => s + e.amount, 0);
     const totalMinPayments = activeDebts.reduce((s, d) => s + d.minimumPayment, 0);
 

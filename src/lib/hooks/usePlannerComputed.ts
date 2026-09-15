@@ -3,7 +3,7 @@ import { type Debt, type Income } from '@/types';
 import { type PayoffMethod, type PayoffResult } from '@/lib/snowball';
 import { type ChartEntry } from '@/components/payoff/BalanceOverTimeChart';
 import { computePlanGapValue } from '@/lib/dashboard/planGap';
-import { isActiveDebt } from '@/lib/monthlyFocusDebt';
+import { isActiveDebt, isPlanDebt } from '@/lib/monthlyFocusDebt';
 
 export interface SmartCalendarItem {
   debt: Debt;
@@ -94,7 +94,8 @@ export function usePlannerComputed(
   }, [minimumsOnlyResult.totalInterestPaid, planResult.totalInterestPaid, planResult.months]);
 
   const priorityQueue = useMemo(() => {
-    const sorted = debts.filter(isActiveDebt);
+    // The plan's attack order: a debt saved outside the plan isn't in it.
+    const sorted = debts.filter(isPlanDebt);
     if (payoffMethod === 'avalanche') sorted.sort((a, b) => b.interestRate - a.interestRate);
     else if (payoffMethod === 'custom') sorted.sort((a, b) => (a.priorityOrder ?? Number.MAX_SAFE_INTEGER) - (b.priorityOrder ?? Number.MAX_SAFE_INTEGER));
     else sorted.sort((a, b) => a.balance - b.balance);

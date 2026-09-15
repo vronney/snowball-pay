@@ -9,7 +9,7 @@ import { calculateResultByMethod } from "@/lib/payoffPlan";
 import { formatCurrency, formatCurrencyWhole } from "@/lib/utils";
 import { type ChartEntry } from "@/components/payoff/BalanceOverTimeChart";
 import { usePlannerComputed } from "@/lib/hooks/usePlannerComputed";
-import { isActiveDebt } from "@/lib/monthlyFocusDebt";
+import { isPlanDebt } from "@/lib/monthlyFocusDebt";
 import {
   IntelligenceOverviewCard,
   ForecastCard,
@@ -65,7 +65,7 @@ export default function PlannerIntelligence({
   pendingExtra,
   onConsumePendingExtra,
 }: PlannerIntelligenceProps) {
-  const hasInitialActiveDebts = debts.some(isActiveDebt);
+  const hasInitialActiveDebts = debts.some(isPlanDebt);
   const [sandboxMethod, setSandboxMethod] =
     useState<PayoffMethod>(payoffMethod);
   const [sandboxExtra, setSandboxExtra] = useState<number>(
@@ -75,7 +75,7 @@ export default function PlannerIntelligence({
   );
   const [actionChecks, setActionChecks] = useState<Record<string, boolean>>({});
   const strategyLabRef = useRef<HTMLDivElement>(null);
-  const activeDebts = useMemo(() => debts.filter(isActiveDebt), [debts]);
+  const activeDebts = useMemo(() => debts.filter(isPlanDebt), [debts]);
   const hasActiveDebts = activeDebts.length > 0;
 
   const recurringTotal = useMemo(

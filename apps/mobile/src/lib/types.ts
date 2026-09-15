@@ -25,6 +25,8 @@ export interface Debt {
   creditLimit: number;
   priorityOrder?: number | null;
   dueDate?: number | null;
+  /** False = saved outside the plan on Free (web spec §6.1). Absent from older servers = in the plan. */
+  inPlan?: boolean;
   isLinked?: boolean | null;
   needsReauth?: boolean;
   createdAt: string;
