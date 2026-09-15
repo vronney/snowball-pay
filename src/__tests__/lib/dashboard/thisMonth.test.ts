@@ -190,6 +190,16 @@ describe('sheet rows', () => {
     expect(missedPaymentRows(null, debts)).toEqual([]);
   });
 
+  it("builds missed rows from the current debts: skips ones paid off since, and logs today's minimum", () => {
+    // Insights can trail a payoff or a minimum edit by one refetch.
+    const stale = {
+      expected: 3, logged: 0,
+      missed: [{ debtId: 'b', minimumPayment: 280 }, { debtId: 'paid', minimumPayment: 15 }],
+      missedMinimums: 295, notYetDue: 1,
+    };
+    expect(missedPaymentRows(stale, debts)).toEqual([{ debtId: 'b', name: 'Car', amount: 310 }]);
+  });
+
   it('lists every active debt for the first payment', () => {
     expect(activeDebtRows(debts)).toEqual([
       { debtId: 'a', name: 'Visa', amount: 25 },

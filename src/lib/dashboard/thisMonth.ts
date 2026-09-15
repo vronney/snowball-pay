@@ -185,16 +185,23 @@ export function freeMoveView(insights: Pick<DashboardInsights, 'tier' | 'coachMo
 
 export interface LogRow { debtId: string; name: string; amount: number }
 
-/** The month's missed payments at their minimums (spec §8.3 BulkLogSheet). */
+/**
+ * The month's missed payments at their minimums (spec §8.3 BulkLogSheet).
+ * The debts list can refresh before insights does after a payoff or a
+ * minimum edit, so each row comes from the current debt: debts no longer
+ * active are skipped, and the amount is today's minimum, not the insights copy.
+ */
 export function missedPaymentRows(
   gap: PaymentGap | null,
-  debts: ReadonlyArray<Pick<Debt, 'id' | 'name'>>,
+  debts: ReadonlyArray<Pick<Debt, 'id' | 'name' | 'balance' | 'minimumPayment'>>,
 ): LogRow[] {
   if (!gap) return [];
-  const names = new Map(debts.map((d) => [d.id, d.name]));
+  const byId = new Map(debts.map((d) => [d.id, d]));
   return gap.missed.flatMap((m) => {
-    const name = names.get(m.debtId);
-    return name === undefined ? [] : [{ debtId: m.debtId, name, amount: m.minimumPayment }];
+    const debt = byId.get(m.debtId);
+    return debt && isActiveDebt(debt)
+      ? [{ debtId: debt.id, name: debt.name, amount: debt.minimumPayment }]
+      : [];
   });
 }
 
