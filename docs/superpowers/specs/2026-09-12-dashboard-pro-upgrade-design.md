@@ -149,9 +149,10 @@ Every existing debt becomes `inPlan = true`, so plan math is unchanged, and the 
 
 - `src/lib/monthlyFocusDebt.ts`: add `isPlanDebt(d) = isActiveDebt(d) && d.inPlan !== false`.
 - `src/lib/payoffPlan.ts`: `calculatePlanMetrics`, `calculateMinimumsOnlyResult`, and `calculateResultForAcceleration` filter with `isPlanDebt`. That covers the dashboard, coach brief, emails, crons, and the share page in one place.
-- Direct `calculateResultByMethod` callers switch from `isActiveDebt` to `isPlanDebt`: `WhatIfCard.tsx`, `PlannerIntelligence.tsx`, `api/acceleration-stats/route.ts`, `progress/DataInsights.tsx`. The implementation plan must grep for every engine entry point and list any others.
+- Routes that load debts with an explicit Prisma `select` (the lifecycle email route and the lifecycle, trial, monthly-review and weekly-progress crons) must select `inPlan`, or every debt reads as in the plan; `src/__tests__/lib/debtSelectsCarryInPlan.test.ts` guards this.
+- Direct `calculateResultByMethod` callers switch from `isActiveDebt` to `isPlanDebt`: `WhatIfCard.tsx`, `PlannerIntelligence.tsx`, `api/acceleration-stats/route.ts`, `progress/DataInsights.tsx` (its interest/principal chart receives plan debts only). The implementation plan must grep for every engine entry point and list any others.
 - `selectMonthlyFocusDebt` uses `isPlanDebt`.
-- `apps/mobile/src/lib/queries.ts` `planInputFromServer` drops `inPlan === false` debts, so the app's date matches the web.
+- `apps/mobile/src/lib/planInput.ts` `planInputFromServer` (re-exported from `queries.ts`) drops `inPlan === false` debts, so the app's date matches the web.
 - Interest-this-month, payments-due, and rate watch keep `isActiveDebt` (§5.1).
 
 ### 6.3 Debt cap
