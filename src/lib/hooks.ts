@@ -37,6 +37,9 @@ export function handleUpgradeError(error: unknown): boolean {
 const API_URL = '';
 
 // ===== DEBTS =====
+/** `allowOutsidePlan`: dashboard v2 only — past the Free cap, save outside the plan (spec §6.3). */
+export type CreateDebtInput = Partial<Debt> & { allowOutsidePlan?: boolean };
+
 export function useDebts() {
   return useQuery<{ debts: Debt[] }>({
     queryKey: ['debts'],
@@ -60,9 +63,9 @@ export function useDebt(id: string) {
 export function useCreateDebt() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (debt: Partial<Debt>) => {
+    mutationFn: async (debt: CreateDebtInput) => {
       const { data } = await axios.post(`${API_URL}/api/debts`, debt);
-      return data as { debt: Debt };
+      return data as { debt: Debt; outsidePlan?: true };
     },
     onSuccess: (data) => {
       queryClient.setQueryData<{ debts: Debt[] }>(['debts'], (current) => {

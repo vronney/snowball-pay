@@ -67,6 +67,10 @@ export const Events = {
   READINESS_CTA: 'readiness_cta',
   COACH_MOVE_CTA: 'coach_move_cta',
   BULK_LOG_SUBMITTED: 'bulk_log_submitted',
+  // Dashboard v2 My Debts (spec §9). Strings only.
+  DEBT_SAVED_OUTSIDE_PLAN: 'debt_saved_outside_plan',
+  UPGRADE_MOMENT_VIEWED: 'upgrade_moment_viewed',
+  UPGRADE_MOMENT_CTA: 'upgrade_moment_cta',
 } as const;
 
 export type AnalyticsEvent = (typeof Events)[keyof typeof Events];
