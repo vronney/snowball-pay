@@ -86,9 +86,10 @@ describe('POST /api/webhooks/stripe — MFA trigger', () => {
     vi.clearAllMocks();
     mockPrisma.user.update.mockResolvedValue(UPDATED_USER);
     mockSetMfaRequired.mockResolvedValue(undefined);
-    // Default: Stripe's fresh read still reports Pro, so a Pro
-    // subscription.created/updated event's move-in check (round 3, CodeRabbit
-    // C5) doesn't 500 every test here for want of a mock.
+    // Default: Stripe's fresh read still reports Pro (matching every event
+    // below), so a Pro subscription.created/updated event's move-in check
+    // (round 3, CodeRabbit C5) and its live-state write (round 4, Codex P2)
+    // don't 500 or diverge from the event for want of a mock.
     mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'active' }));
   });
 

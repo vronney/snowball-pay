@@ -133,7 +133,9 @@ describe('POST /api/webhooks/stripe', () => {
     const trialEnd = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60;
     const sub = makeSub({ status: 'trialing', trial_end: trialEnd });
     mockStripe.webhooks.constructEvent.mockReturnValue(makeEvent('customer.subscription.created', sub));
-    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'active' }));
+    // The write now uses Stripe's live state (round 4, Codex P2) — matches
+    // the event here since this test isn't about staleness.
+    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'trialing', trial_end: trialEnd }));
     mockPrisma.user.update.mockResolvedValue({});
 
     await POST(makeRequest('{}'));
@@ -161,13 +163,17 @@ describe('POST /api/webhooks/stripe', () => {
       where: { id: 'user-1' },
       data: expect.objectContaining({ paidTier: 'free', subscriptionStatus: 'past_due' }),
     });
+    // A non-Pro event keeps today's behavior exactly: no fresh read (round 4, Codex P2).
+    expect(mockStripe.subscriptions.retrieve).not.toHaveBeenCalled();
   });
 
   it('sets subscriptionEndsAt from cancel_at when subscription is scheduled for cancellation', async () => {
     const cancelAt = Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60;
     const sub = makeSub({ status: 'active', cancel_at: cancelAt });
     mockStripe.webhooks.constructEvent.mockReturnValue(makeEvent('customer.subscription.updated', sub));
-    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'active' }));
+    // The write now uses Stripe's live state (round 4, Codex P2) — matches
+    // the event here since this test isn't about staleness.
+    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'active', cancel_at: cancelAt }));
     mockPrisma.user.update.mockResolvedValue({});
 
     await POST(makeRequest('{}'));
@@ -375,10 +381,15 @@ describe('POST /api/webhooks/stripe', () => {
   it('returns 500 when prisma update throws', async () => {
     const sub = makeSub({ status: 'active' });
     mockStripe.webhooks.constructEvent.mockReturnValue(makeEvent('customer.subscription.created', sub));
+    // The retrieve happens before the write (round 4, Codex P2) — mock it so
+    // the 500 below actually comes from the prisma rejection this test names,
+    // not from an unmocked retrieve crashing first.
+    mockStripe.subscriptions.retrieve.mockResolvedValue(makeSub({ status: 'active' }));
     mockPrisma.user.update.mockRejectedValueOnce(new Error('DB error'));
 
     const res = await POST(makeRequest('{}'));
     expect(res.status).toBe(500);
+    expect(mockPrisma.user.update).toHaveBeenCalled();
   });
 
   // --- Becoming Pro counts every debt (spec §6.3) ---
@@ -397,9 +408,10 @@ describe('POST /api/webhooks/stripe', () => {
     expect(mockStripe.subscriptions.retrieve).toHaveBeenCalledWith('sub_test_123');
   });
 
-  // --- Stale Pro events must not move debts in (CodeRabbit C5, round 3) ---
+  // --- Stale Pro events must not move debts in, or write stale tier fields
+  // (CodeRabbit C5 round 3; Codex P2 round 4) ---
 
-  it('does not move debts in when the event is stale — Stripe now reports the subscription canceled', async () => {
+  it('writes the live (canceled) state, not the stale event, when the event is stale — Stripe now reports the subscription canceled', async () => {
     mockStripe.webhooks.constructEvent.mockReturnValue(
       makeEvent('customer.subscription.updated', makeSub({ status: 'active' })),
     );
@@ -409,16 +421,18 @@ describe('POST /api/webhooks/stripe', () => {
     const res = await POST(makeRequest('{}'));
 
     expect(res.status).toBe(200);
-    // The tier write still happens exactly as today, from the event itself.
+    // The tier write uses Stripe's LIVE state, not the stale event's fields —
+    // otherwise the account would read as Pro while its outside-plan debts
+    // stay excluded (round 4, Codex P2).
     expect(mockPrisma.user.update).toHaveBeenCalledWith({
       where: { id: 'user-1' },
-      data: expect.objectContaining({ paidTier: 'pro', subscriptionStatus: 'active' }),
+      data: expect.objectContaining({ paidTier: 'free', subscriptionStatus: 'canceled' }),
     });
     expect(mockPrisma.debt.updateMany).not.toHaveBeenCalled();
     expect(mockStripe.subscriptions.retrieve).toHaveBeenCalledWith('sub_test_123');
   });
 
-  it('fails the event, so Stripe retries, when the fresh subscription read fails', async () => {
+  it('fails the event, so Stripe retries, when the fresh subscription read fails — and never writes the stale tier', async () => {
     mockStripe.webhooks.constructEvent.mockReturnValue(
       makeEvent('customer.subscription.created', makeSub({ status: 'active' })),
     );
@@ -429,6 +443,9 @@ describe('POST /api/webhooks/stripe', () => {
 
     expect(res.status).toBe(500);
     expect(mockPrisma.debt.updateMany).not.toHaveBeenCalled();
+    // The retrieve happens BEFORE the write (round 4, Codex P2): a failed
+    // read must never let the stale event's fields land.
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
     expect(mockStripe.subscriptions.retrieve).toHaveBeenCalledWith('sub_test_123');
   });
 
@@ -456,6 +473,8 @@ describe('POST /api/webhooks/stripe', () => {
     );
     await POST(makeRequest('{}'));
     expect(mockPrisma.debt.updateMany).not.toHaveBeenCalled();
+    // Neither event's own fields resolve to Pro, so no fresh read either (round 4, Codex P2).
+    expect(mockStripe.subscriptions.retrieve).not.toHaveBeenCalled();
   });
 
   it('fails the event, so Stripe retries, when the move fails', async () => {

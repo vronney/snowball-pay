@@ -82,28 +82,33 @@ export async function POST(request: NextRequest) {
           break;
         }
         const fields = resolveSubscriptionFields(sub);
+
+        // Stripe doesn't order or dedupe deliveries, so this event's status
+        // can be stale (an old "active" arriving after a cancellation). When
+        // the event itself says Pro, read Stripe's LIVE subscription first
+        // and write ITS fields instead of the stale event's — otherwise the
+        // account would read as Pro (round 3's guard only stopped the debt
+        // move, not the tier write) while its outside-plan debts stay
+        // excluded. A failed read throws → 500 → Stripe retries the event,
+        // and no write happens. A non-Pro event keeps today's behavior
+        // exactly: no retrieve, its own fields written, no move — losing Pro
+        // never moves a debt out, and stale downgrades are pre-existing,
+        // out of scope.
+        const liveFields = fields.paidTier === 'pro'
+          ? resolveSubscriptionFields(await getStripe().subscriptions.retrieve(sub.id))
+          : fields;
+
         const user = await prisma.user.update({
           where: { id: userId },
           data: {
             stripeSubscriptionId: sub.id,
-            ...fields,
+            ...liveFields,
           },
         });
         // Becoming Pro counts every debt: bring back any saved outside the
         // plan (spec §6.3). Losing Pro never moves one out.
-        //
-        // Stripe doesn't order or dedupe deliveries, so this event's status can
-        // be stale (an old "active" arriving after a cancellation). Moving
-        // outside-plan debts into the plan is this PR's own effect of a Pro
-        // status, so confirm the subscription is still Pro on Stripe's current
-        // object first. A failed read throws → 500 → Stripe retries the event.
-        if (fields.paidTier === 'pro') {
-          const current = await getStripe().subscriptions.retrieve(sub.id);
-          if (resolveSubscriptionFields(current).paidTier === 'pro') {
-            await moveOutsideDebtsIntoPlan(userId);
-          }
-        }
-        await enforceMfaForPro(fields.paidTier, user.auth0Id);
+        if (liveFields.paidTier === 'pro') await moveOutsideDebtsIntoPlan(userId);
+        await enforceMfaForPro(liveFields.paidTier, user.auth0Id);
         break;
       }
 
