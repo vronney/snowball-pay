@@ -76,4 +76,16 @@ describe('Sheet', () => {
     fireEvent.keyDown(document, { key: 'Tab' });
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Close' }));
   });
+
+  it('keeps focus on the title while a save has disabled every control', () => {
+    renderSheet({
+      busy: true,
+      footer: createElement('button', { type: 'button', disabled: true }, 'Saving…'),
+      children: createElement('input', { 'aria-label': 'Day', disabled: true }),
+    });
+    (document.activeElement as HTMLElement | null)?.blur();
+    // fireEvent returns false when the handler called preventDefault.
+    expect(fireEvent.keyDown(document, { key: 'Tab' })).toBe(false);
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Add due dates' }));
+  });
 });

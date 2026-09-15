@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { DashboardInsights, PlanReadiness } from '@/lib/dashboard/types';
 import { useDashboardInsights, useMarkPaid, useSaveIncome, useUpdateDebt } from '@/lib/hooks';
 import { track } from '@/lib/analytics';
@@ -72,16 +72,21 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
 
 const saveIncome = { mutate: vi.fn(), isPending: false };
 
+type QueryState = { isError?: boolean; refetch?: () => void; isPlaceholderData?: boolean };
+
 function renderTab(
   data: DashboardInsights | undefined,
-  query: { isError?: boolean; refetch?: () => void } = {},
+  query: QueryState = {},
   overrides: { debts?: ReturnType<typeof makeDebt>[]; income?: ReturnType<typeof makeIncome> | undefined } = {},
 ) {
-  vi.mocked(useDashboardInsights).mockReturnValue(
-    { data, isError: false, refetch: vi.fn(), ...query } as unknown as ReturnType<typeof useDashboardInsights>,
-  );
+  const mockQuery = (next: DashboardInsights | undefined, nextQuery: QueryState) =>
+    vi.mocked(useDashboardInsights).mockReturnValue(
+      { data: next, isError: false, isPlaceholderData: false, refetch: vi.fn(), ...nextQuery } as unknown as ReturnType<typeof useDashboardInsights>,
+    );
+  mockQuery(data, query);
   vi.mocked(useSaveIncome).mockReturnValue(saveIncome as unknown as ReturnType<typeof useSaveIncome>);
-  vi.mocked(useMarkPaid).mockReturnValue({ mutateAsync: vi.fn() } as unknown as ReturnType<typeof useMarkPaid>);
+  const markPaid = { mutateAsync: vi.fn().mockResolvedValue({}) };
+  vi.mocked(useMarkPaid).mockReturnValue(markPaid as unknown as ReturnType<typeof useMarkPaid>);
   vi.mocked(useUpdateDebt).mockReturnValue({ mutateAsync: vi.fn() } as unknown as ReturnType<typeof useUpdateDebt>);
   const onNavigate = vi.fn();
   const onSetPendingCoachExtra = vi.fn();
@@ -89,8 +94,14 @@ function renderTab(
   // Distinguish "not passed" (default income) from an explicit `income: undefined`
   // override — a default-parameter destructure can't tell those apart.
   const income = 'income' in overrides ? overrides.income : makeIncome();
-  render(createElement(ThisMonthV2, { debts, income, onNavigate, onSetPendingCoachExtra }));
-  return { onNavigate, onSetPendingCoachExtra };
+  const props = { debts, income, onNavigate, onSetPendingCoachExtra };
+  const view = render(createElement(ThisMonthV2, props));
+  // New insights arriving while mounted, e.g. the next day's figures.
+  const rerenderWith = (next: DashboardInsights, nextQuery: QueryState = {}) => {
+    mockQuery(next, nextQuery);
+    view.rerender(createElement(ThisMonthV2, props));
+  };
+  return { onNavigate, onSetPendingCoachExtra, markPaid, rerenderWith };
 }
 
 afterEach(() => {
@@ -99,6 +110,28 @@ afterEach(() => {
 });
 
 describe('ThisMonthV2', () => {
+  it("opens no payment sheet while the previous day's figures stand in as a placeholder", () => {
+    renderTab(
+      insights({ readiness: readiness(['debts', 'income', 'expenses', 'dueDates'], 0) }),
+      { isPlaceholderData: true },
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Log it now' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log your first payment' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(track).not.toHaveBeenCalled();
+  });
+
+  it('keeps an open payment sheet on the month it was opened for when the day turns over', async () => {
+    const { markPaid, rerenderWith } = renderTab(insights());
+    fireEvent.click(screen.getByRole('button', { name: 'Log it now' }));
+    rerenderWith(insights({ asOf: { year: 2026, month: 9, day: 1 } }));
+    const sheet = screen.getByRole('dialog', { name: 'Log Sep payments' });
+    fireEvent.click(within(sheet).getByRole('button', { name: 'Log 1 payment' }));
+    await waitFor(() =>
+      expect(markPaid.mutateAsync).toHaveBeenCalledWith({ debtId: 'b', amount: 310, dueYear: 2026, dueMonth: 8 }),
+    );
+  });
+
   it('lays out the Free tab: readiness, interest, hero, rate watch (not on phones), free move', () => {
     renderTab(insights());
     expect(screen.getAllByRole('heading').map((h) => h.textContent)).toEqual([

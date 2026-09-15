@@ -58,7 +58,13 @@ export default function Sheet({ title, description, busy = false, onClose, child
       }
       if (event.key !== "Tab" || !dialogRef.current) return;
       const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE));
-      if (focusable.length === 0) return;
+      if (focusable.length === 0) {
+        // A running save disables every control; hold focus on the title
+        // instead of letting Tab reach the page behind the modal.
+        event.preventDefault();
+        headingRef.current?.focus();
+        return;
+      }
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       const active = document.activeElement;

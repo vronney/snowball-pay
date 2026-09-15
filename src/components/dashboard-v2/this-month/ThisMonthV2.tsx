@@ -45,7 +45,15 @@ interface ThisMonthV2Props {
   onSetPendingCoachExtra: (targetExtra: number) => void;
 }
 
-type OpenSheet = { kind: "dueDates" } | { kind: "log"; rows: LogRow[] } | null;
+/**
+ * A log sheet keeps the month it was opened for (month: 0-11), so its rows
+ * and the month they're logged against can't drift apart if the insights
+ * refetch for a new day while it is open.
+ */
+type OpenSheet =
+  | { kind: "dueDates" }
+  | { kind: "log"; rows: LogRow[]; year: number; month: number }
+  | null;
 
 /**
  * This Month, dashboard v2 (spec §8.5): readiness → interest → debt-free hero
@@ -54,7 +62,7 @@ type OpenSheet = { kind: "dueDates" } | { kind: "log"; rows: LogRow[] } | null;
  * without a real figure doesn't render.
  */
 export default function ThisMonthV2({ debts, income, onNavigate, onSetPendingCoachExtra }: ThisMonthV2Props) {
-  const { data: insights, isError, refetch } = useDashboardInsights();
+  const { data: insights, isError, isPlaceholderData, refetch } = useDashboardInsights();
   const saveIncome = useSaveIncome();
   const [sheet, setSheet] = useState<OpenSheet>(null);
   const [switchError, setSwitchError] = useState<string | null>(null);
@@ -69,16 +77,21 @@ export default function ThisMonthV2({ debts, income, onNavigate, onSetPendingCoa
   const rateWatch = rateWatchView(insights.rateWatch);
   const freeMove = freeMoveView(insights);
   const { year, month } = insights.asOf;
+  // At local midnight the previous day's figures stand in (placeholderData)
+  // while the new day loads, so asOf can still name last month. Hold payment
+  // logging until the real day arrives rather than log against the wrong month.
+  const paymentsLocked = isPlaceholderData;
 
   const openLog = (rows: LogRow[]) => {
-    if (rows.length > 0) setSheet({ kind: "log", rows });
+    if (rows.length > 0) setSheet({ kind: "log", rows, year, month });
   };
 
   const onStep = (stepId: ReadinessStepId, via: "cta" | "chip") => {
     const step = insights.readiness.steps.find((s) => s.id === stepId);
     if (!step) return;
-    if (via === "cta") track(Events.READINESS_CTA, { step: stepId });
     const target = readinessTarget(step);
+    if (target.kind === "firstPaymentSheet" && paymentsLocked) return;
+    if (via === "cta") track(Events.READINESS_CTA, { step: stepId });
     if (target.kind === "tab") {
       onNavigate(target.tab);
     } else if (target.kind === "dueDatesSheet") {
@@ -100,6 +113,7 @@ export default function ThisMonthV2({ debts, income, onNavigate, onSetPendingCoa
     if (!freeMove) return;
     const { move } = freeMove;
     if (action === "bulk_log") {
+      if (paymentsLocked) return;
       const rows = missedPaymentRows(insights.paymentGap, debts);
       if (rows.length === 0) return;
       track(Events.COACH_MOVE_CTA, { move: move.id, gated: false });
@@ -184,10 +198,10 @@ export default function ThisMonthV2({ debts, income, onNavigate, onSetPendingCoa
       )}
       {sheet?.kind === "log" && (
         <BulkLogSheet
-          title={`Log ${shortMonthLabel(month)} payments`}
+          title={`Log ${shortMonthLabel(sheet.month)} payments`}
           rows={sheet.rows}
-          year={year}
-          month={month}
+          year={sheet.year}
+          month={sheet.month}
           onClose={() => setSheet(null)}
         />
       )}
