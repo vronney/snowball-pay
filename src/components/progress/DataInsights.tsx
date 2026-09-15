@@ -35,7 +35,7 @@ import {
   calculatePlanMetrics,
   calculateResultForAcceleration as calculatePayoffResultForAcceleration,
 } from "@/lib/payoffPlan";
-import { isActiveDebt } from "@/lib/monthlyFocusDebt";
+import { isActiveDebt, isPlanDebt } from "@/lib/monthlyFocusDebt";
 import { computeActualBalanceTotals } from "@/lib/hooks/useActualBalanceMap";
 
 interface DataInsightsProps {
@@ -1135,7 +1135,7 @@ export default function DataInsights({
         <CashFlowWaterfallCard income={income} metrics={metrics} />
         <DebtMixCard debts={debts} />
         <VarianceCard snapshots={snapshots} metrics={varianceMetrics} />
-        <InterestPrincipalCard debts={debts} metrics={metrics} />
+        <InterestPrincipalCard debts={debts.filter(isPlanDebt)} metrics={metrics} />
       </div>
     </section>
   );
