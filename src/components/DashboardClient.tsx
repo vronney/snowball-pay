@@ -42,6 +42,7 @@ import { track, Events } from "@/lib/analytics";
 import { useIdleTimeout } from "@/lib/hooks/useIdleTimeout";
 import { runLogoutClientCleanup } from "@/lib/logout-client";
 import V2Shell from "@/components/dashboard-v2/shell/V2Shell";
+import ThisMonthV2 from "@/components/dashboard-v2/this-month/ThisMonthV2";
 
 type UserInfo = {
   name?: string | null;
@@ -424,7 +425,14 @@ export default function DashboardClient({
         </div>
       )}
       <div key={activeTab} className="tab-fade-in">
-        {activeTab === "this-month" && (
+        {activeTab === "this-month" && (dashboardV2 ? (
+          <ThisMonthV2
+            debts={debts}
+            income={income}
+            onNavigate={(tab) => setActiveTab(tab)}
+            onSetPendingCoachExtra={setPendingCoachExtra}
+          />
+        ) : (
           <ThisMonthTab
             debts={debts}
             income={income}
@@ -434,7 +442,7 @@ export default function DashboardClient({
             onNavigate={(tab) => setActiveTab(tab)}
             onSetPendingCoachExtra={setPendingCoachExtra}
           />
-        )}
+        ))}
         {activeTab === "debts" && (
           <DebtTab
             debts={debts}

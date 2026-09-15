@@ -1,5 +1,6 @@
-import { formatCurrency, formatCurrencyWhole, formatMonths } from '@/lib/utils';
+import { formatCurrency, formatMonths } from '@/lib/utils';
 import { formatRate } from '@/lib/apr-negotiation/apr-negotiation-adapter';
+import { floorWhole } from './format';
 import type { CoachMove } from './types';
 
 export interface CoachMoveCopy {
@@ -7,14 +8,6 @@ export interface CoachMoveCopy {
   body: string;
   valueLabel: string | null;
 }
-
-/**
- * Estimates are floored, never rounded up (spec §4). The tiny epsilon guards
- * against float error in unrounded sums (e.g. rate watch's exact estimates)
- * landing just under a whole number (75.75 - 0.00000000001 must still floor
- * to 75, not 74).
- */
-const floorWhole = (n: number) => formatCurrencyWhole(Math.floor(n + 1e-9));
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 const METHOD_LABEL = { snowball: 'Snowball', avalanche: 'Avalanche' } as const;
 

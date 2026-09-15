@@ -248,7 +248,7 @@ Currency figures use the mono stack with `tabular-nums`. Every paragraph and mul
     - Coach dot:
       - Its fingerprint is the move set's identity (month for `log_missed`, card for `call_apr`, alternative for `switch_strategy`), not its amounts.
       - It is stored under `sp_coach_seen`, which sign-out clears.
-- **Shared cards:** `ReadinessCard`, `InterestMeter` (full and compact), `DebtFreeHero`, `FreeMoveCard`, `MoreMovesList`, `RateWatchCard`, `ClosingCard` (ink and red variants), `ProChip`, `GatedTile` (`aria-disabled`, accessible name "{feature} — Pro", opens the upgrade sheet).
+- **Shared cards:** `ReadinessCard`, `InterestMeter` (full and compact), `DebtFreeHero`, `FreeMoveCard`, `MoreMovesList`, `RateWatchCard`, `ClosingCard` (ink and red variants), `ProChip`, `GatedTile` (`aria-disabled`, accessible name "{feature} — Pro", opens the upgrade sheet). `MoreMovesList` (the Coach tab's list with per-move values) ships in PR 5; This Month uses the gated `MoreMovesRow`.
 - **Sheets:** `DueDatesSheet` (a day picker per debt → existing `PATCH /api/debts/[id]`), `BulkLogSheet` (pre-filled missed payments at their minimums → the existing `useMarkPaid` per debt, sequentially, so balance updates, snapshots, and celebrations behave exactly as today), `UpgradeSheet` (states A and E, and the fallback modal).
 - **Tabs:**
   - `ThisMonthV2` (§8.5).
@@ -278,6 +278,21 @@ Placeholders `{…}` are filled only from insights values. Everything else is th
 ### 8.5 Screens (as approved)
 
 - **This Month (Free), mobile:** Readiness → Interest → Debt-free hero → Free move (+ "N more moves · Pro"). The readiness card disappears at 5/5. **Desktop:** readiness full width (CTA right) → 3-up (1.15fr/1fr/1fr: interest, hero with a 60px ring, rate watch) → coach full width (copy left, 250px action column). **Pro and trial:** the coach slot is the existing AI `CoachBriefCard`, with no Pro row. Removed in v2: the greeting line, `PlanStatStrip`, `DebtCapUpsell`, the "All debts" list, and the focus card (D12).
+  - **PR 3 decisions (2026-09-14):**
+    - v2 drops every other v1 This Month element, including `RollForwardAdvice` and the quick-nav buttons (D12). With no debts, the readiness CTA "Add your debts" replaces the empty state.
+    - Readiness chips are buttons (D11). An unfinished step's chip opens its flow: due dates → `DueDatesSheet`, first payment → `BulkLogSheet` with every active debt at its minimum, income and expenses → Income & Budget, debts → My Debts. A done chip opens that step's home. An unfinished step with nothing to count has no chip.
+    - Free-move CTAs:
+      - `log_missed`: "Log them now" / "Log it now" → `BulkLogSheet`.
+      - `switch_strategy`: "Switch to {alt}" saves the method in one tap, with `PayoffTab`'s payload.
+      - `use_unallocated`: "Open My Plan".
+      - `call_apr`: no button. The call script is Pro; PR 5 decides.
+    - "{n} more moves found" + Pro is a gated control (`aria-disabled`, named "{n} more moves found — Pro") that opens `UpgradeModal` with the coach copy.
+    - Interest shows whole dollars floored. The bar and the avg line hide unless the average floors to at least $1.
+    - The hero's "to go" is muted, not blue. The ring is v1's paid-off share, 56px at every width.
+    - Rate watch is shown only on the desktop shell (≥769px).
+    - When every card hides, one card says "Nothing to show for {Month} yet." with a button to My Debts. When rate watch is the only card with a figure, the empty-state card shows on phones only, because phones hide rate watch.
+    - Sheets are bottom sheets on phones and centered dialogs from 769px, portaled to `<body>`. They write sequentially through the existing hooks and stop at the first failure.
+    - Green text uses the `success-text` token (#15803d); `success` is for fills (DESIGN.md 2026-09-14).
 - **My Debts:** as approved in §6.3 and §8.3. The header pill "{counted} of {n} counted", the two-up totals, the outside section, and the closing card appear only when outside-plan debts exist.
 - **My Plan:**
   - A segmented Snowball / Avalanche / Custom (Pro) control, then the comparison pair and caption. If the current method is already cheaper, the caption says so.
@@ -298,7 +313,7 @@ These go through the existing consent-gated `track()`:
 - `trial_self_serve_started`
 - `readiness_cta {step}`
 - `coach_move_cta {move, gated}`
-- `bulk_log_submitted {count}`
+- `bulk_log_submitted {debt_count}` (the analytics sanitiser redacts numbers outside its safe keys)
 - `debt_saved_outside_plan`
 
 Existing `DASHBOARD_TAB_VIEWED` continues to fire with the same tab ids.

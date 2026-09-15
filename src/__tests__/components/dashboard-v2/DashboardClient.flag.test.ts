@@ -56,6 +56,7 @@ vi.mock('@/components/tabs/PayoffTab', stub('PayoffTab'));
 vi.mock('@/components/tabs/ProgressTab', stub('ProgressTab'));
 vi.mock('@/components/tabs/SettingsTab', stub('SettingsTab'));
 vi.mock('@/components/tabs/IntelligenceTab', stub('IntelligenceTab'));
+vi.mock('@/components/dashboard-v2/this-month/ThisMonthV2', stub('ThisMonthV2'));
 vi.mock('@/components/billing/UpgradeModal', stub('UpgradeModal'));
 vi.mock('@/components/dashboard/TrialCountdownBanner', stub('TrialCountdownBanner'));
 vi.mock('@/components/dashboard/LinkBankPrompt', stub('LinkBankPrompt'));
@@ -93,12 +94,13 @@ describe('DashboardClient flag wiring', () => {
     expect(useDashboardInsights).not.toHaveBeenCalled();
   });
 
-  it('renders the v2 shell around the same tab content with the flag on', () => {
+  it('renders the v2 shell, with This Month v2, when the flag is on', () => {
     const html = renderToStaticMarkup(createElement(DashboardClient, { user: USER, dashboardV2: true }));
     expect(html).not.toContain('db-sidebar');
     expect(html).toContain('aria-label="Dashboard sections"');
     expect(html).toContain('aria-label="Dashboard"');
-    expect(html).toContain('data-stub="ThisMonthTab"');
+    expect(html).toContain('data-stub="ThisMonthV2"');
+    expect(html).not.toContain('data-stub="ThisMonthTab"');
     expect(html).toContain('data-stub="TrialCountdownBanner"');
     expect(useDashboardInsights).toHaveBeenCalled();
   });
