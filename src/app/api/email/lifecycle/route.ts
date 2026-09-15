@@ -17,6 +17,7 @@ import IncompleteSetupEmail from '@/emails/IncompleteSetupEmail';
 import FirstWinEmail from '@/emails/FirstWinEmail';
 import SharePromptEmail from '@/emails/SharePromptEmail';
 import { calculatePlanMetrics, calculateMinimumsOnlyResult } from '@/lib/payoffPlan';
+import { isPlanDebt } from '@/lib/monthlyFocusDebt';
 import type { Debt } from '@/types';
 import * as React from 'react';
 
@@ -89,7 +90,8 @@ export async function POST(request: NextRequest) {
 
       if (hasDebts && hasIncome && user.income) {
         try {
-          const activeDebts = user.debts.filter((debt) => debt.balance > 0.01);
+          // The plan's debts only, so debtCount matches the plan date beside it (spec §6.2).
+          const activeDebts = user.debts.filter(isPlanDebt);
           if (activeDebts.length > 0) {
             // Same plan contract as the dashboard: pure-surplus pool with
             // the user's selected acceleration applied.
@@ -145,7 +147,8 @@ export async function POST(request: NextRequest) {
       if (!user.income || user.debts.length === 0) {
         return NextResponse.json({ skipped: true, reason: 'no_plan' });
       }
-      const activeDebts = user.debts.filter((debt) => debt.balance > 0.01);
+      // The plan's debts only, so debtCount matches the plan date beside it (spec §6.2).
+      const activeDebts = user.debts.filter(isPlanDebt);
       if (activeDebts.length === 0) {
         await markSent(user.id, user.preferences?.id, checks, key);
         return NextResponse.json({ skipped: true, reason: 'no_active_debts' });
@@ -177,7 +180,8 @@ export async function POST(request: NextRequest) {
       if (!user.income || user.debts.length === 0) {
         return NextResponse.json({ skipped: true, reason: 'no_plan' });
       }
-      const activeDebts = user.debts.filter((debt) => debt.balance > 0.01);
+      // The plan's debts only, so debtCount/totalDebt match the plan date beside them (spec §6.2).
+      const activeDebts = user.debts.filter(isPlanDebt);
       if (activeDebts.length === 0) {
         await markSent(user.id, user.preferences?.id, checks, key);
         return NextResponse.json({ skipped: true, reason: 'no_active_debts' });
