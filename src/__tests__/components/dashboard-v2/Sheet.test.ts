@@ -88,4 +88,10 @@ describe('Sheet', () => {
     expect(fireEvent.keyDown(document, { key: 'Tab' })).toBe(false);
     expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'Add due dates' }));
   });
+
+  it('drops the footer bar when there is no footer', () => {
+    renderSheet({ footer: undefined });
+    // The header and the body only.
+    expect(screen.getByRole('dialog').children).toHaveLength(2);
+  });
 });
