@@ -12,6 +12,7 @@ import { computeStrategyComparison } from './strategy';
 import { computeStreakGrid, snapshotMonthSet } from './streakGrid';
 import { localDateParam } from './today';
 import { isPayoffComplete } from './payoffCompletion';
+import { computeUncounted } from './uncounted';
 import type { DashboardInsights, ProgressSummary, TierInfo } from './types';
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -115,5 +116,6 @@ export function buildDashboardInsights(input: InsightsInput): DashboardInsights 
           totalInterest: completedPlan.result.totalInterestPaid,
         }
       : null,
+    uncounted: computeUncounted(debts, income, expenses),
   };
 }

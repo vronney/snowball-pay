@@ -66,6 +66,7 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
     planGap: null,
     progress: null,
     plan: { method: 'snowball', months: 31, debtFreeDate: '2029-04-14', totalInterest: 5_000 },
+    uncounted: null,
     ...overrides,
   };
 }
