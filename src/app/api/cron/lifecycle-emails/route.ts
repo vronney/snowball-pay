@@ -134,7 +134,7 @@ export async function GET(request: NextRequest) {
     },
     include: {
       preferences: true,
-      debts: { select: { id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true, name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true } },
+      debts: { select: { id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true, name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true, inPlan: true } },
       income: true,
       expenses: { select: { amount: true } },
     },
@@ -201,7 +201,7 @@ export async function GET(request: NextRequest) {
     },
     include: {
       preferences: true,
-      debts: { select: { id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true, name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true } },
+      debts: { select: { id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true, name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true, inPlan: true } },
       income: true,
       expenses: { select: { amount: true } },
     },

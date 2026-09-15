@@ -140,6 +140,7 @@ export async function GET(request: NextRequest) {
         select: {
           id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true,
           name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true,
+          inPlan: true,
         },
       },
       income: true,

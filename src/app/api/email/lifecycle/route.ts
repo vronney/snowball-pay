@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     where: { id: auth.user.id },
     include: {
       preferences: true,
-      debts: { select: { id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true, name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true } },
+      debts: { select: { id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true, name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true, inPlan: true } },
       income: true,
       expenses: { select: { amount: true } },
     },
