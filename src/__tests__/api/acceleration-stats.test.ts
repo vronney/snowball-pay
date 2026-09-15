@@ -57,4 +57,32 @@ describe('GET /api/acceleration-stats', () => {
     expect(counted.plannedMonthly).toBe(1_390);
     expect(await statsFor([...COUNTED, OUTSIDE])).toEqual(counted);
   });
+
+  it('excludes a payment record on the outside debt from actualExtra (spec §6.2, CodeRabbit C2)', async () => {
+    const withoutOutsidePayment = await statsFor(COUNTED);
+    mockPrisma.paymentRecord.findMany.mockResolvedValue([
+      { debtId: 'a', amount: 400, dueYear: 2026, dueMonth: 8 },
+      { debtId: 'x', amount: 500, dueYear: 2026, dueMonth: 8 },
+    ]);
+    const withOutsidePayment = await statsFor([...COUNTED, OUTSIDE]);
+    expect(withOutsidePayment).toEqual(withoutOutsidePayment);
+  });
+
+  it('returns the zero-stat response when every debt is outside the plan (CodeRabbit C2)', async () => {
+    // Same shape as the existing `!income || debts.length === 0` branch —
+    // compare against that branch's actual output instead of hand-computing
+    // monthRanges (offsets, ordering) a second time in the test.
+    mockPrisma.debt.findMany.mockResolvedValue([]);
+    const res = await GET(new NextRequest('http://localhost/api/acceleration-stats'));
+    const noDebtsZeroStat = await res.json();
+
+    expect(await statsFor([OUTSIDE])).toEqual(noDebtsZeroStat);
+  });
+
+  it('does NOT return the zero-stat response merely because every debt is paid off', async () => {
+    const paidOff = row('paid', 0, 100, 20);
+    const res = await statsFor([paidOff]);
+    expect(res.plannedMonthly).toBeGreaterThan(0);
+    expect(res.currentDebtFreeDate).not.toBeNull();
+  });
 });
