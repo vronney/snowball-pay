@@ -211,7 +211,13 @@ export default function DebtsV2({ debts, income, expenses, openPaymentDebtId, on
     );
   };
 
-  const addSheet = sheet === "add" && <DebtFormSheet notice={notice} onClose={() => setSheet(null)} />;
+  const addSheet = sheet === "add" && (
+    <DebtFormSheet
+      notice={notice}
+      allowOutsidePlan={proEligible !== undefined}
+      onClose={() => setSheet(null)}
+    />
+  );
 
   if (debts.length === 0) {
     return (

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { DashboardInsights } from '@/lib/dashboard/types';
 import {
   useAllSnapshots, useCreateDebt, useDashboardInsights, useDeleteDebt, useMarkPaid,
@@ -35,7 +35,16 @@ vi.mock('@/components/DebtCard', async () => {
 });
 vi.mock('@/components/PaymentCalendar', () => ({ default: () => null }));
 vi.mock('@/components/PaymentCelebrationBanner', () => ({ default: () => null }));
-vi.mock('@/components/DebtForm', () => ({ default: () => null }));
+vi.mock('@/components/DebtForm', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    default: (p: { onSubmit: (data: unknown) => void }) =>
+      h('button', {
+        type: 'button',
+        onClick: () => p.onSubmit({ name: 'Store card', category: 'Credit Card', balance: 1200, interestRate: 24.99, minimumPayment: 40 }),
+      }, 'Submit form'),
+  };
+});
 
 const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
 const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } };
@@ -205,5 +214,36 @@ describe('DebtsV2 (spec §8.5 My Debts)', () => {
     expect(screen.getByText('No debts yet.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Add your first debt' }));
     expect(screen.getByRole('dialog', { name: 'Add a debt' })).toBeTruthy();
+  });
+
+  it('never saves outside the plan unannounced: submits allowOutsidePlan: false while the tier is unknown', async () => {
+    vi.mocked(useDashboardInsights).mockReturnValue({ data: undefined } as unknown as ReturnType<typeof useDashboardInsights>);
+    vi.mocked(useSubscription).mockReturnValue({ data: undefined } as unknown as ReturnType<typeof useSubscription>);
+    vi.mocked(useAllSnapshots).mockReturnValue({ data: { snapshots: [] } } as unknown as ReturnType<typeof useAllSnapshots>);
+    vi.mocked(usePaymentRecords).mockReturnValue({ data: { records: [] } } as unknown as ReturnType<typeof usePaymentRecords>);
+    vi.mocked(useDeleteDebt).mockReturnValue({ mutate: vi.fn() } as unknown as ReturnType<typeof useDeleteDebt>);
+    vi.mocked(useMarkPaid).mockReturnValue({ mutate: vi.fn() } as unknown as ReturnType<typeof useMarkPaid>);
+    const mutateAsync = vi.fn().mockResolvedValue({ debt: { id: 'd1' } });
+    vi.mocked(useCreateDebt).mockReturnValue({ mutateAsync, isPending: false } as unknown as ReturnType<typeof useCreateDebt>);
+    vi.mocked(useStartCheckout).mockReturnValue(
+      { mutate: vi.fn(), isPending: false, isError: false, error: null } as unknown as ReturnType<typeof useStartCheckout>,
+    );
+
+    render(createElement(DebtsV2, { debts: COUNTED, income: INCOME, expenses: [], openPaymentDebtId: null }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add debt' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit form' }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+    expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ allowOutsidePlan: false }));
+  });
+
+  it('submits allowOutsidePlan: true once the tier is known', async () => {
+    renderTab({ debts: COUNTED });
+    const mutateAsync = vi.fn().mockResolvedValue({ debt: { id: 'd1' } });
+    vi.mocked(useCreateDebt).mockReturnValue({ mutateAsync, isPending: false } as unknown as ReturnType<typeof useCreateDebt>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add debt' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit form' }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+    expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ allowOutsidePlan: true }));
   });
 });

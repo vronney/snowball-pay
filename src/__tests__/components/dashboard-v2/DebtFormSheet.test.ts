@@ -29,10 +29,14 @@ vi.mock('@/lib/analytics', async (importOriginal) => ({
 
 const NOTICE = 'On Free, your plan counts 5 debts. This one will be saved outside it.';
 
-function renderSheet(notice: string | null, mutateAsync = vi.fn().mockResolvedValue({ debt: { id: 'd1' } })) {
+function renderSheet(
+  notice: string | null,
+  mutateAsync = vi.fn().mockResolvedValue({ debt: { id: 'd1' } }),
+  allowOutsidePlan = true,
+) {
   vi.mocked(useCreateDebt).mockReturnValue({ mutateAsync, isPending: false } as unknown as ReturnType<typeof useCreateDebt>);
   const onClose = vi.fn();
-  render(createElement(DebtFormSheet, { notice, onClose }));
+  render(createElement(DebtFormSheet, { notice, allowOutsidePlan, onClose }));
   return { mutateAsync, onClose };
 }
 
@@ -72,5 +76,12 @@ describe('DebtFormSheet', () => {
     const { onClose } = renderSheet(null);
     fireEvent.click(screen.getByRole('button', { name: 'Cancel form' }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('submits allowOutsidePlan: false when the tier is unknown', async () => {
+    const { mutateAsync, onClose } = renderSheet(null, undefined, false);
+    fireEvent.click(screen.getByRole('button', { name: 'Submit form' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ name: 'Store card', allowOutsidePlan: false }));
   });
 });
