@@ -6,7 +6,7 @@ import {
   type PayoffMethod,
   type PayoffResult,
 } from '@/lib/snowball';
-import { isActiveDebt } from '@/lib/monthlyFocusDebt';
+import { isInPlan, isPlanDebt } from '@/lib/monthlyFocusDebt';
 
 export interface PayoffIncomeInput {
   monthlyTakeHome: number;
@@ -51,9 +51,14 @@ export function calculateResultByMethod(
   method: PayoffMethod,
   planStartDate?: Date,
 ): PayoffResult {
+  // Debts saved outside the plan never reach the engine, whoever calls it
+  // (spec §6.2). Callers already pass active debts; this drops only
+  // inPlan=false, so their existing inputs are unchanged.
+  const planDebts = debts.filter(isInPlan);
+
   if (method === 'avalanche') {
     return calculateDebtAvalanche(
-      debts,
+      planDebts,
       income.monthlyTakeHome,
       income.essentialExpenses,
       recurringTotal,
@@ -64,7 +69,7 @@ export function calculateResultByMethod(
 
   if (method === 'custom') {
     return calculateDebtCustom(
-      debts,
+      planDebts,
       income.monthlyTakeHome,
       income.essentialExpenses,
       recurringTotal,
@@ -74,7 +79,7 @@ export function calculateResultByMethod(
   }
 
   return calculateDebtSnowball(
-    debts,
+    planDebts,
     income.monthlyTakeHome,
     income.essentialExpenses,
     recurringTotal,
@@ -95,9 +100,9 @@ export function calculatePlanMetrics(
 ): PlanMetrics | null {
   if (!income || debts.length === 0) return null;
 
-  const activeDebts = debts.filter(isActiveDebt);
+  const planDebts = debts.filter(isPlanDebt);
   const recurringTotal = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const totalMinPayments = activeDebts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
+  const totalMinPayments = planDebts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
   const totalEssential = income.essentialExpenses + recurringTotal;
   // The pool is pure surplus: the legacy income.extraPayment field no longer
   // inflates it. The acceleration amount (slider) is the single control for
@@ -116,7 +121,7 @@ export function calculatePlanMetrics(
   const adjustedExtra = effectiveAcceleration - naturalSurplus;
   const method = methodFromIncome(income, options.method);
   const result = calculateResultByMethod(
-    activeDebts,
+    planDebts,
     income,
     recurringTotal,
     adjustedExtra,
@@ -138,9 +143,9 @@ export function calculatePlanMetrics(
 }
 
 export function calculateMinimumsOnlyResult(debts: Debt[], planStartDate?: Date): PayoffResult {
-  const activeDebts = debts.filter(isActiveDebt);
-  const totalMinPayments = activeDebts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
-  return calculateDebtSnowball(activeDebts, totalMinPayments, 0, 0, 0, planStartDate);
+  const planDebts = debts.filter(isPlanDebt);
+  const totalMinPayments = planDebts.reduce((sum, debt) => sum + debt.minimumPayment, 0);
+  return calculateDebtSnowball(planDebts, totalMinPayments, 0, 0, 0, planStartDate);
 }
 
 export function calculateResultForAcceleration(
@@ -150,9 +155,10 @@ export function calculateResultForAcceleration(
   acceleration: number,
   method: PayoffMethod = metrics.method,
   planStartDate?: Date,
-): PayoffResult {  const activeDebts = debts.filter(isActiveDebt);
+): PayoffResult {
+  const planDebts = debts.filter(isPlanDebt);
   return calculateResultByMethod(
-    activeDebts,
+    planDebts,
     income,
     metrics.recurringTotal,
     acceleration - metrics.naturalSurplus,
