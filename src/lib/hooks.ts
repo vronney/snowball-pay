@@ -537,6 +537,7 @@ export function useMarkPaid() {
         queryClient.invalidateQueries({ queryKey: ['snapshots'] }),
         queryClient.invalidateQueries({ queryKey: ['accelerationStats'] }),
         queryClient.invalidateQueries({ queryKey: ['recommendations'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard-insights'] }),
       ]);
     },
   });
@@ -669,6 +670,7 @@ export function useUnmarkPaid() {
         queryClient.invalidateQueries({ queryKey: ['debts'] }),
         queryClient.invalidateQueries({ queryKey: ['snapshots'] }),
         queryClient.invalidateQueries({ queryKey: ['accelerationStats'] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard-insights'] }),
       ]);
     },
   });
