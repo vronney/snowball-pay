@@ -160,6 +160,11 @@ function PlanClosing({
   // The acceleration to restore to if the save behind a fix request fails.
   const [restoreTo, setRestoreTo] = useState(0);
   const [errorShown, setErrorShown] = useState(false);
+  // Set once this fix's own save succeeds, kept independent of fixRequestedAt
+  // so a later, unrelated save can clear the request without silently
+  // wiping an already-shown note; cleared by a fresh press or once the plan
+  // moves away from the fix (below).
+  const [appliedNote, setAppliedNote] = useState<string | null>(null);
   // The "Applied" note must reflect THIS fix's own save actually succeeding,
   // not merely the click, and not some other control's later save: PayoffTab's
   // save is debounced 600ms, can fail, and is shared with the slider and Pro
@@ -169,14 +174,25 @@ function PlanClosing({
   // confirms nor fails the fix.
   const ownSave = fixRequestedAt !== null && requestedAmount !== null
     && ctx.saveSubmittedAt >= fixRequestedAt && ctx.lastSavedAcceleration === requestedAmount;
-  const applied = ownSave && !ctx.saveIsPending && ctx.saveIsSuccess;
+  const saveSucceeded = ownSave && !ctx.saveIsPending && ctx.saveIsSuccess;
   const saveFailed = ownSave && !ctx.saveIsPending && ctx.saveIsError;
-  // Keeps the fix CTA mounted (rather than disappearing, or flipping to "Log
-  // this month's payments") from the click until the debounced save settles.
-  const fixInFlight = fixRequestedAt !== null && !applied && !saveFailed;
+  // "In flight" means only "requested and not yet settled" — both terminal
+  // paths below (success and failure) clear fixRequestedAt, so this alone
+  // keeps the fix CTA mounted and disabled from the click until the save settles.
+  const fixInFlight = fixRequestedAt !== null;
   const view = planClosingView({
     planGap, canFix: ctx.availableCashFlow > ctx.effectiveAcceleration || fixInFlight, missedCount,
   });
+
+  useEffect(() => {
+    if (!saveSucceeded) return;
+    // Record the note from this fix's own successful save, then clear the
+    // request so a later, unrelated save can't be mistaken for this fix's own.
+    setAppliedNote(fixAppliedNote(ctx.planResult.debtFreeDate));
+    setFixRequestedAt(null);
+    setRequestedAmount(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveSucceeded]);
 
   useEffect(() => {
     if (!saveFailed) return;
@@ -189,6 +205,13 @@ function PlanClosing({
     setErrorShown(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveFailed]);
+
+  // Drop the note once the plan moves away from the fix: if the user lowers
+  // the acceleration again (the slider, a what-if control), "Applied — your
+  // plan now ends …" would no longer describe the current plan.
+  useEffect(() => {
+    if (appliedNote !== null && ctx.availableCashFlow > ctx.effectiveAcceleration) setAppliedNote(null);
+  }, [appliedNote, ctx.availableCashFlow, ctx.effectiveAcceleration]);
 
   if (!view) return null;
 
@@ -213,6 +236,7 @@ function PlanClosing({
       track(Events.PLAN_GAP_FIX_APPLIED);
       setRestoreTo(ctx.effectiveAcceleration);
       setErrorShown(false);
+      setAppliedNote(null);
       setFixRequestedAt(requestedAt);
       setRequestedAmount(ctx.availableCashFlow);
       ctx.saveAccelerationNow(ctx.availableCashFlow);
@@ -227,7 +251,7 @@ function PlanClosing({
       figure={view.figure}
       cta={view.cta?.label}
       onCta={view.cta ? onCta : undefined}
-      note={applied ? fixAppliedNote(ctx.planResult.debtFreeDate) : undefined}
+      note={appliedNote ?? undefined}
       error={errorShown ? "Couldn't save the new amount. Try again." : undefined}
       ctaDisabled={fixInFlight || ctx.saveIsPending}
     >

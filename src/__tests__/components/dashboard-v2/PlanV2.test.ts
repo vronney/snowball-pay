@@ -288,6 +288,17 @@ describe('PlanV2 closing card (spec §8.4 "Plan closing")', () => {
       ctx.rerender();
       expect(screen.getByRole('status').textContent).toMatch(/^Applied — your plan now ends [A-Z][a-z]+ \d{4}\.$/);
       expect(screen.queryByRole('button', { name: 'Fix it in one tap' })).toBeNull();
+
+      // The user later lowers the acceleration (the slider, or a what-if
+      // control) and that save completes: the completed fix must not leave
+      // the CTA disabled forever, and the stale "Applied" note — which no
+      // longer describes the current, lower plan — must be gone.
+      slots.ctx = context({
+        effectiveAcceleration: 900, accelerationAmount: 900, saveIsSuccess: true, saveSubmittedAt: capturedSubmittedAt + 10, lastSavedAcceleration: 900,
+      });
+      ctx.rerender();
+      expect(screen.getByRole('button', { name: 'Fix it in one tap' }).hasAttribute('disabled')).toBe(false);
+      expect(screen.queryByRole('status')).toBeNull();
     } finally {
       vi.useRealTimers();
     }
