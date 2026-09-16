@@ -46,6 +46,7 @@ import ThisMonthV2 from "@/components/dashboard-v2/this-month/ThisMonthV2";
 import DebtsV2 from "@/components/dashboard-v2/debts/DebtsV2";
 import PlanV2 from "@/components/dashboard-v2/plan/PlanV2";
 import ProgressV2 from "@/components/dashboard-v2/progress/ProgressV2";
+import CoachV2 from "@/components/dashboard-v2/coach/CoachV2";
 
 type UserInfo = {
   name?: string | null;
@@ -506,7 +507,17 @@ export default function DashboardClient({
             onNavigate={(tab) => setActiveTab(tab)}
           />
         ))}
-        {activeTab === "intelligence" && (
+        {activeTab === "intelligence" && (dashboardV2 ? (
+          <CoachV2
+            debts={debts}
+            income={income}
+            expenses={expenses}
+            isLoading={debtsLoading || incomeLoading}
+            pendingExtra={pendingCoachExtra}
+            onConsumePendingExtra={() => setPendingCoachExtra(null)}
+            onNavigate={(tab) => setActiveTab(tab)}
+          />
+        ) : (
           <IntelligenceTab
             debts={debts}
             income={income}
@@ -515,7 +526,7 @@ export default function DashboardClient({
             pendingExtra={pendingCoachExtra}
             onConsumePendingExtra={() => setPendingCoachExtra(null)}
           />
-        )}
+        ))}
         {activeTab === "settings" && <SettingsTab user={user} />}
       </div>
     </>
