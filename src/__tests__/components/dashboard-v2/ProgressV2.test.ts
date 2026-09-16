@@ -60,7 +60,12 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
   };
 }
 
-type Options = { data?: DashboardInsights | undefined; records?: Array<{ debtId: string }>; placeholder?: boolean };
+type Options = {
+  data?: DashboardInsights | undefined;
+  records?: Array<{ debtId: string }>;
+  placeholder?: boolean;
+  recordsLoading?: boolean;
+};
 
 function renderTab(options: Options = {}) {
   const data = 'data' in options ? options.data : insights();
@@ -68,7 +73,11 @@ function renderTab(options: Options = {}) {
     { data, isPlaceholderData: options.placeholder ?? false } as unknown as ReturnType<typeof useDashboardInsights>,
   );
   vi.mocked(useAllSnapshots).mockReturnValue({ data: { snapshots: SNAPSHOTS } } as unknown as ReturnType<typeof useAllSnapshots>);
-  vi.mocked(usePaymentRecords).mockReturnValue({ data: { records: options.records ?? [] } } as unknown as ReturnType<typeof usePaymentRecords>);
+  vi.mocked(usePaymentRecords).mockReturnValue(
+    (options.recordsLoading
+      ? { data: undefined, isLoading: true }
+      : { data: { records: options.records ?? [] } }) as unknown as ReturnType<typeof usePaymentRecords>,
+  );
   vi.mocked(useMarkPaid).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useMarkPaid>);
   render(createElement(ProgressV2, { debts: DEBTS, income: INCOME, expenses: [], isLoading: false, onNavigate: vi.fn() }));
 }
@@ -114,6 +123,14 @@ describe('ProgressV2 (spec §8.5 Progress)', () => {
     expect(within(dialog).getByText('Visa')).toBeTruthy();
     expect(within(dialog).queryByText('Car loan')).toBeNull();
     expect(within(dialog).queryByText('Caraway')).toBeNull();
+  });
+
+  it("holds Keep the streak until this month's payment records have loaded", () => {
+    renderTab({ recordsLoading: true });
+    const cta = screen.getByRole('button', { name: 'Keep the streak — log 2' }) as HTMLButtonElement;
+    expect(cta.disabled).toBe(true);
+    fireEvent.click(cta);
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 
   it('hides the caption and CTA once everything is logged', () => {

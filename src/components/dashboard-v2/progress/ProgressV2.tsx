@@ -43,6 +43,9 @@ export default function ProgressV2({ debts, income, expenses, isLoading, onNavig
   const recordsYear = insights?.asOf.year ?? today.getFullYear();
   const recordsMonth = insights?.asOf.month ?? today.getMonth();
   const { data: paymentsData } = usePaymentRecords(recordsYear, recordsMonth);
+  // The rows come from this month's records, so the sheet must not open (or the CTA
+  // enable) before that query has data for the currently requested month.
+  const recordsReady = paymentsData !== undefined;
   const [logSheet, setLogSheet] = useState<LogSheet>(null);
 
   // DebtsV2.tsx:77-84: the same plan every tab computes, here for the schedule.
@@ -70,7 +73,7 @@ export default function ProgressV2({ debts, income, expenses, isLoading, onNavig
 
   const openLog = () => {
     // Placeholder-day data can still name last month (ThisMonthV2's guard).
-    if (!insights || isPlaceholderData) return;
+    if (!insights || isPlaceholderData || !recordsReady) return;
     const rows = unloggedRows(debts, paidDebtIds);
     if (rows.length === 0) return;
     setLogSheet({ rows, year: insights.asOf.year, month: insights.asOf.month });
@@ -93,7 +96,7 @@ export default function ProgressV2({ debts, income, expenses, isLoading, onNavig
           {caption && (
             <>
               <p className="mt-3 text-[13px] font-bold text-txt [text-wrap:pretty]">{caption.text}</p>
-              <button type="button" onClick={openLog} className={`mt-3 ${CTA_BLUE}`}>
+              <button type="button" onClick={openLog} disabled={!recordsReady} className={`mt-3 ${CTA_BLUE}`}>
                 {caption.cta}
               </button>
             </>
