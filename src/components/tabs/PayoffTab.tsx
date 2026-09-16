@@ -346,7 +346,7 @@ export default function PayoffTab({
   const hasAnyCustomPriority = activeDebts.some(
     (debt) => debt.priorityOrder != null,
   );
-  const currentTotalDebt = debts.reduce((s, d) => s + d.balance, 0);
+  const currentTotalDebt = planScopedBalanceTotal(debts);
   // Month-0 fallback for the actual line — must match the projection's debt
   // scope (chartDebts, seeded from creation balances), not every saved debt.
   const chartStartTotal = planScopedBalanceTotal(chartDebts);

@@ -8,6 +8,7 @@ import { limits } from '@/lib/rateLimit';
 import { PayoffPlanEmail } from '@/emails/PayoffPlanEmail';
 import { fetchEmailContent } from '@/lib/emailContent';
 import { calculatePlanMetrics } from '@/lib/payoffPlan';
+import { planScopedBalanceTotal } from '@/lib/actualBalance';
 import type { Debt } from '@/types';
 import * as React from 'react';
 
@@ -59,7 +60,7 @@ export async function POST(request: NextRequest) {
     const html = await render(
       React.createElement(PayoffPlanEmail, {
         userName: user?.name ?? undefined,
-        totalDebt: normalizedDebts.reduce((s, d) => s + d.balance, 0),
+        totalDebt: planScopedBalanceTotal(normalizedDebts),
         totalInterestPaid: result.totalInterestPaid,
         monthlyPayment: result.monthlyPayment,
         debtFreeDate: result.debtFreeDate.toLocaleDateString('en-US', {
