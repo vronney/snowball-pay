@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import type { DashboardInsights } from '@/lib/dashboard/types';
 import { useDashboardInsights, useMarkPaid, useSubscription } from '@/lib/hooks';
 import { track, Events } from '@/lib/analytics';
@@ -426,5 +426,93 @@ describe('PlanV2 closing card (spec §8.4 "Plan closing")', () => {
   it('renders no closing card when ahead or without a gap', () => {
     renderTab({ data: insights({ planGap: { amount: 300, asOfMonth: 'Sep 2026' } }) });
     expect(screen.queryByText('Plan vs actual')).toBeNull();
+  });
+
+  it('disables the plan inputs while the fix is in flight and re-enables them after', () => {
+    const saveAccelerationNow = vi.fn();
+    const ctx = renderTab({
+      data: insights({ planGap: BEHIND }),
+      ctx: context({ saveAccelerationNow }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Fix it in one tap' }));
+    expect(saveAccelerationNow).toHaveBeenCalledWith(1_660);
+    const afterPress = Date.now();
+
+    // The fix's own save is now in flight: the strategy segments and the
+    // slider freeze so an edit here can't race the fix's income payload.
+    slots.ctx = context({
+      saveAccelerationNow, effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsPending: true, saveSubmittedAt: afterPress,
+    });
+    ctx.rerender();
+    expect(screen.getByRole('button', { name: 'Snowball' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('button', { name: 'Avalanche' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('slider', { name: 'Apply to Acceleration' }).hasAttribute('disabled')).toBe(true);
+
+    // The fix's own save succeeds: the inputs re-enable.
+    slots.ctx = context({
+      saveAccelerationNow, effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsSuccess: true, saveSubmittedAt: afterPress, lastSavedAcceleration: 1_660,
+    });
+    ctx.rerender();
+    expect(screen.getByRole('button', { name: 'Snowball' }).hasAttribute('disabled')).toBe(false);
+    expect(screen.getByRole('button', { name: 'Avalanche' }).hasAttribute('disabled')).toBe(false);
+    expect(screen.getByRole('slider', { name: 'Apply to Acceleration' }).hasAttribute('disabled')).toBe(false);
+    cleanup();
+
+    // Pro variant: while in flight, the any-amount Apply button and its input
+    // freeze, and WhatIfCard loses its handler (its ladder rungs go inert by
+    // its own isRungApplicable rule); both come back once the save succeeds.
+    const proSave = vi.fn();
+    const proCtx = renderTab({
+      data: insights({ tier: PRO, planGap: BEHIND }),
+      ctx: context({ saveAccelerationNow: proSave }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Fix it in one tap' }));
+    expect(proSave).toHaveBeenCalledWith(1_660);
+    const proAfterPress = Date.now();
+
+    slots.ctx = context({
+      saveAccelerationNow: proSave, effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsPending: true, saveSubmittedAt: proAfterPress,
+    });
+    proCtx.rerender();
+    expect(screen.getByRole('button', { name: 'Apply' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByLabelText('Any amount extra per month').hasAttribute('disabled')).toBe(true);
+    expect(whatIf.last?.onAccelerationChange).toBeUndefined();
+
+    slots.ctx = context({
+      saveAccelerationNow: proSave, effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsSuccess: true, saveSubmittedAt: proAfterPress, lastSavedAcceleration: 1_660,
+    });
+    proCtx.rerender();
+    expect(typeof whatIf.last?.onAccelerationChange).toBe('function');
+  });
+
+  it('restates the applied note from the current projection after a strategy switch', () => {
+    const saveAccelerationNow = vi.fn();
+    const ctx = renderTab({
+      data: insights({ planGap: BEHIND }),
+      ctx: context({ saveAccelerationNow }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Fix it in one tap' }));
+    const afterPress = Date.now();
+
+    slots.ctx = context({
+      saveAccelerationNow, effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsSuccess: true, saveSubmittedAt: afterPress, lastSavedAcceleration: 1_660,
+    });
+    ctx.rerender();
+    expect(screen.getByRole('status').textContent).toMatch(/^Applied — your plan now ends [A-Z][a-z]+ \d{4}\.$/);
+
+    // A Snowball<->Avalanche switch after the fix must not leave the note
+    // stating the old month: it restates from the live projection.
+    slots.ctx = context({
+      saveAccelerationNow,
+      effectiveAcceleration: 1_660,
+      accelerationAmount: 1_660,
+      saveIsSuccess: true,
+      saveSubmittedAt: afterPress,
+      lastSavedAcceleration: 1_660,
+      payoffMethod: 'avalanche',
+      planResult: { ...METRICS.result, debtFreeDate: new Date(2030, 0, 15) },
+    });
+    ctx.rerender();
+    expect(screen.getByRole('status').textContent).toBe('Applied — your plan now ends January 2030.');
   });
 });

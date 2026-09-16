@@ -18,6 +18,8 @@ interface StrategyControlProps {
    */
   customOpen: boolean | undefined;
   pair: StrategyPairView | null;
+  /** True while the plan-gap fix's own save is in flight (PlanV2): disables the segments so an edit can't race it. */
+  disabled?: boolean;
 }
 
 const SEGMENT =
@@ -30,13 +32,13 @@ const SEGMENT_OFF = "border-border bg-surface text-txt-muted hover:bg-bg";
  * The comparison and the switch are free (the handoff's "deliberate" note);
  * only Custom ordering is gated, exactly as v1's StrategySelector gates it.
  */
-export default function StrategyControl({ method, onChange, customOpen, pair }: StrategyControlProps) {
-  const segment = (m: PayoffMethod, disabled = false) => (
+export default function StrategyControl({ method, onChange, customOpen, pair, disabled }: StrategyControlProps) {
+  const segment = (m: PayoffMethod, segmentDisabled = false) => (
     <button
       key={m}
       type="button"
       aria-pressed={method === m}
-      disabled={disabled}
+      disabled={disabled || segmentDisabled}
       onClick={() => onChange(m)}
       className={`${SEGMENT} ${method === m ? SEGMENT_ON : SEGMENT_OFF}`}
     >

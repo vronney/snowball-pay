@@ -19,6 +19,8 @@ interface WhatIfAnyAmountProps {
   availableCashFlow: number;
   effectiveAcceleration: number;
   onApply: (nextAcceleration: number) => void;
+  /** True while the plan-gap fix's own save is in flight (PlanV2): disables Apply and the input so an edit can't race it. */
+  disabled?: boolean;
 }
 
 const APPLY =
@@ -30,7 +32,7 @@ const APPLY =
  * delta, WhatIfCard.tsx:60-66) and applied with the same clamp.
  */
 export default function WhatIfAnyAmount({
-  debts, income, recurringTotal, adjustedExtra, payoffMethod, current, availableCashFlow, effectiveAcceleration, onApply,
+  debts, income, recurringTotal, adjustedExtra, payoffMethod, current, availableCashFlow, effectiveAcceleration, onApply, disabled,
 }: WhatIfAnyAmountProps) {
   const inputId = useId();
   const [raw, setRaw] = useState("");
@@ -62,9 +64,10 @@ export default function WhatIfAnyAmount({
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
           placeholder="e.g. 75"
+          disabled={disabled}
           className="mono min-h-11 w-full rounded-lg border border-border bg-surface px-3 text-[14px] font-bold text-txt outline-none focus-visible:outline-2 focus-visible:outline-action"
         />
-        <button type="button" onClick={apply} disabled={!view?.canApply} className={APPLY}>
+        <button type="button" onClick={apply} disabled={disabled || !view?.canApply} className={APPLY}>
           Apply
         </button>
       </div>

@@ -42,6 +42,11 @@ export default function PlanV2({ debts, income, expenses, isLoading, onNavigate 
   const { data: insights, isPlaceholderData } = useDashboardInsights();
   const { data: subscription } = useSubscription();
   const [logSheet, setLogSheet] = useState<LogSheet>(null);
+  // Mirrors PlanClosing's own fixInFlight (a sibling slot, not a descendant):
+  // while the one-tap fix's own save is in flight, PlanTop's inputs must be
+  // disabled so an edit can't write a second complete income payload that
+  // races the fix's (README "Interactions").
+  const [fixInFlight, setFixInFlight] = useState(false);
   // Undefined until either query answers: the what-if row waits rather than
   // flash Free's gated tiles at a Pro account (as v1's selector waits).
   const proEligible = insights?.tier.proEligible ?? subscription?.proEligible;
@@ -62,13 +67,14 @@ export default function PlanV2({ debts, income, expenses, isLoading, onNavigate 
         expenses={expenses}
         isLoading={isLoading}
         onNavigate={onNavigate}
-        renderTop={(ctx) => <PlanTop ctx={ctx} debts={debts} proEligible={proEligible} />}
+        renderTop={(ctx) => <PlanTop ctx={ctx} debts={debts} proEligible={proEligible} inputsDisabled={fixInFlight} />}
         renderFooter={(ctx) => (
           <PlanClosing
             ctx={ctx}
             planGap={insights?.planGap ?? null}
             missedCount={insights?.paymentGap?.missed.length ?? 0}
             onLog={openLog}
+            onInFlightChange={setFixInFlight}
           />
         )}
       />
@@ -85,7 +91,9 @@ export default function PlanV2({ debts, income, expenses, isLoading, onNavigate 
   );
 }
 
-function PlanTop({ ctx, debts, proEligible }: { ctx: PlanTopContext; debts: Debt[]; proEligible: boolean | undefined }) {
+function PlanTop({
+  ctx, debts, proEligible, inputsDisabled,
+}: { ctx: PlanTopContext; debts: Debt[]; proEligible: boolean | undefined; inputsDisabled: boolean }) {
   const pair = strategyPairView({
     method: ctx.payoffMethod,
     current: ctx.planResult,
@@ -103,14 +111,24 @@ function PlanTop({ ctx, debts, proEligible }: { ctx: PlanTopContext; debts: Debt
 
   return (
     <div className="flex flex-col gap-2.5 min-[769px]:gap-4">
+      {/* inputsDisabled: the one-tap plan-gap fix's own save must settle
+          before another complete income payload is written — an edit here
+          while it's in flight would race the fix's save. */}
       <StrategyControl
         method={ctx.payoffMethod}
         onChange={ctx.setPayoffMethod}
         customOpen={proEligible === undefined ? undefined : proEligible === true}
         pair={pair}
+        disabled={inputsDisabled}
       />
       {accel ? (
-        <AccelerationCard view={accel} value={ctx.effectiveAcceleration} onChange={ctx.setAccelerationAmount} saving={ctx.saveIsPending} />
+        <AccelerationCard
+          view={accel}
+          value={ctx.effectiveAcceleration}
+          onChange={ctx.setAccelerationAmount}
+          saving={ctx.saveIsPending}
+          disabled={inputsDisabled}
+        />
       ) : (
         // v1's RollForwardAdvice "review my plan" button scrolls to this id
         // regardless of whether the slider has room to show; keep the anchor alive.
@@ -128,7 +146,7 @@ function PlanTop({ ctx, debts, proEligible }: { ctx: PlanTopContext; debts: Debt
             payoffMethod={ctx.payoffMethod}
             effectiveAcceleration={ctx.effectiveAcceleration}
             availableCashFlow={ctx.availableCashFlow}
-            onAccelerationChange={ctx.setAccelerationAmount}
+            onAccelerationChange={inputsDisabled ? undefined : ctx.setAccelerationAmount}
             isPro
           />
           <WhatIfAnyAmount
@@ -141,6 +159,7 @@ function PlanTop({ ctx, debts, proEligible }: { ctx: PlanTopContext; debts: Debt
             availableCashFlow={ctx.availableCashFlow}
             effectiveAcceleration={ctx.effectiveAcceleration}
             onApply={ctx.setAccelerationAmount}
+            disabled={inputsDisabled}
           />
         </>
       )}
@@ -150,8 +169,15 @@ function PlanTop({ ctx, debts, proEligible }: { ctx: PlanTopContext; debts: Debt
 }
 
 function PlanClosing({
-  ctx, planGap, missedCount, onLog,
-}: { ctx: PlanTopContext; planGap: PlanGap | null; missedCount: number; onLog: () => void }) {
+  ctx, planGap, missedCount, onLog, onInFlightChange,
+}: {
+  ctx: PlanTopContext;
+  planGap: PlanGap | null;
+  missedCount: number;
+  onLog: () => void;
+  /** Reports this fix's own in-flight window to PlanV2, which disables PlanTop's inputs for its duration. */
+  onInFlightChange: (inFlight: boolean) => void;
+}) {
   const [fixRequestedAt, setFixRequestedAt] = useState<number | null>(null);
   // The acceleration this fix requested, captured at the press — distinguishes
   // this control's own save from a later save made by the slider (or a Pro
@@ -163,8 +189,10 @@ function PlanClosing({
   // Set once this fix's own save succeeds, kept independent of fixRequestedAt
   // so a later, unrelated save can clear the request without silently
   // wiping an already-shown note; cleared by a fresh press or once the plan
-  // moves away from the fix (below).
-  const [appliedNote, setAppliedNote] = useState<string | null>(null);
+  // moves away from the fix (below). Only whether the note should show — its
+  // text is derived from the live projection at render time (below), so a
+  // strategy switch after the fix can't leave it stating a stale month.
+  const [applied, setApplied] = useState(false);
   // The "Applied" note must reflect THIS fix's own save actually succeeding,
   // not merely the click, and not some other control's later save: PayoffTab's
   // save is debounced 600ms, can fail, and is shared with the slider and Pro
@@ -184,11 +212,21 @@ function PlanClosing({
     planGap, canFix: ctx.availableCashFlow > ctx.effectiveAcceleration || fixInFlight, missedCount,
   });
 
+  // Reports this fix's own in-flight window to PlanV2 so PlanTop's inputs
+  // freeze for its duration only — never every pending debounced slider save.
+  // The cleanup also fires on unmount, so a tab switch mid-save can't leave
+  // PlanV2's inputsDisabled stuck true.
+  useEffect(() => {
+    onInFlightChange(fixInFlight);
+    return () => onInFlightChange(false);
+  }, [fixInFlight, onInFlightChange]);
+
   useEffect(() => {
     if (!saveSucceeded) return;
-    // Record the note from this fix's own successful save, then clear the
+    // This fix's own save succeeded — the note now renders from the live
+    // projection (below), so only the flag is recorded here. Clear the
     // request so a later, unrelated save can't be mistaken for this fix's own.
-    setAppliedNote(fixAppliedNote(ctx.planResult.debtFreeDate));
+    setApplied(true);
     setFixRequestedAt(null);
     setRequestedAmount(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -210,8 +248,8 @@ function PlanClosing({
   // the acceleration again (the slider, a what-if control), "Applied — your
   // plan now ends …" would no longer describe the current plan.
   useEffect(() => {
-    if (appliedNote !== null && ctx.availableCashFlow > ctx.effectiveAcceleration) setAppliedNote(null);
-  }, [appliedNote, ctx.availableCashFlow, ctx.effectiveAcceleration]);
+    if (applied && ctx.availableCashFlow > ctx.effectiveAcceleration) setApplied(false);
+  }, [applied, ctx.availableCashFlow, ctx.effectiveAcceleration]);
 
   if (!view) return null;
 
@@ -236,7 +274,7 @@ function PlanClosing({
       track(Events.PLAN_GAP_FIX_APPLIED);
       setRestoreTo(ctx.effectiveAcceleration);
       setErrorShown(false);
-      setAppliedNote(null);
+      setApplied(false);
       setFixRequestedAt(requestedAt);
       setRequestedAmount(ctx.availableCashFlow);
       ctx.saveAccelerationNow(ctx.availableCashFlow);
@@ -251,7 +289,7 @@ function PlanClosing({
       figure={view.figure}
       cta={view.cta?.label}
       onCta={view.cta ? onCta : undefined}
-      note={appliedNote ?? undefined}
+      note={applied ? fixAppliedNote(ctx.planResult.debtFreeDate) : undefined}
       error={errorShown ? "Couldn't save the new amount. Try again." : undefined}
       ctaDisabled={fixInFlight || ctx.saveIsPending}
     >
