@@ -71,6 +71,9 @@ function context(overrides: Partial<PlanTopContext> = {}): PlanTopContext {
     adjustedExtra: METRICS.adjustedExtra,
     recurringTotal: METRICS.recurringTotal,
     saveIsPending: false,
+    saveIsSuccess: false,
+    saveIsError: false,
+    saveSubmittedAt: 0,
     ...overrides,
   };
 }
@@ -102,8 +105,12 @@ function renderTab(options: Options = {}) {
   );
   vi.mocked(useSubscription).mockReturnValue({ data: subscription } as unknown as ReturnType<typeof useSubscription>);
   vi.mocked(useMarkPaid).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useMarkPaid>);
-  render(createElement(PlanV2, { debts: DEBTS, income: INCOME, expenses: [], isLoading: false, onNavigate: vi.fn() }));
-  return ctx;
+  const { rerender } = render(createElement(PlanV2, { debts: DEBTS, income: INCOME, expenses: [], isLoading: false, onNavigate: vi.fn() }));
+  // Re-renders with the same fixed props; the mocked PayoffTab reads slots.ctx
+  // at render time, so callers update that module var before calling this.
+  return Object.assign(ctx, {
+    rerender: () => rerender(createElement(PlanV2, { debts: DEBTS, income: INCOME, expenses: [], isLoading: false, onNavigate: vi.fn() })),
+  });
 }
 
 afterEach(() => {
@@ -218,15 +225,42 @@ describe('PlanV2 top (spec §8.5 My Plan)', () => {
 describe('PlanV2 closing card (spec §8.4 "Plan closing")', () => {
   const BEHIND = { amount: -2621.46, asOfMonth: 'Sep 2026' };
 
-  it('applies the unused cash flow in one tap and reports the new date', () => {
-    const ctx = renderTab({ data: insights({ planGap: BEHIND }) });
+  it('applies the unused cash flow in one tap and reports the new date only once the save actually succeeds', () => {
+    // An OLD successful save (submitted well before the click) must not count.
+    const ctx = renderTab({
+      data: insights({ planGap: BEHIND }),
+      ctx: context({ saveIsSuccess: true, saveSubmittedAt: Date.now() - 60_000 }),
+    });
     expect(screen.getByText('Plan vs actual')).toBeTruthy();
     expect(screen.getByText('$2,621.46 behind')).toBeTruthy();
     expect(screen.getByText('Balances are $2,621.46 above where the plan expected by Sep 2026.')).toBeTruthy();
+
     fireEvent.click(screen.getByRole('button', { name: 'Fix it in one tap' }));
     expect(ctx.setAccelerationAmount).toHaveBeenCalledWith(1_660);
     expect(track).toHaveBeenCalledWith(Events.PLAN_GAP_FIX_APPLIED);
+    expect(screen.queryByRole('status')).toBeNull();
+
+    // The debounced save is now in flight (submitted after the click): CTA disabled, still no note.
+    slots.ctx = context({ saveIsPending: true, saveSubmittedAt: Date.now() + 1 });
+    ctx.rerender();
+    expect(screen.getByRole('button', { name: 'Fix it in one tap' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.queryByRole('status')).toBeNull();
+
+    // The save completes: only now does the note appear.
+    slots.ctx = context({ saveIsSuccess: true, saveSubmittedAt: Date.now() + 1 });
+    ctx.rerender();
     expect(screen.getByRole('status').textContent).toMatch(/^Applied — your plan now ends [A-Z][a-z]+ \d{4}\.$/);
+  });
+
+  it("shows a save error and no 'Applied' note when the debounced save behind the fix fails", () => {
+    const ctx = renderTab({ data: insights({ planGap: BEHIND }) });
+    fireEvent.click(screen.getByRole('button', { name: 'Fix it in one tap' }));
+
+    slots.ctx = context({ saveIsError: true, saveSubmittedAt: Date.now() + 1 });
+    ctx.rerender();
+
+    expect(screen.getByRole('alert').textContent).toBe("Couldn't save the new amount. Try again.");
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
   it("offers to log this month's payments when the cash flow is already applied", () => {

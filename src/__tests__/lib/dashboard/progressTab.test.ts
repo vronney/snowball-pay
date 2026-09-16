@@ -79,13 +79,21 @@ describe('milestonesView (README §4d)', () => {
 
   it('dates a payoff from its first $0 snapshot, leaves it undated otherwise, and names the next payoff from the schedule', () => {
     expect(milestonesView(debts, snapshots, schedule)).toEqual([
-      { kind: 'paidOff', title: 'Caraway paid off', detail: 'Mar 2026' },
-      { kind: 'paidOff', title: 'Old card paid off', detail: null },
-      { kind: 'next', title: 'Next payoff · CreditOne 6610', detail: 'in 3m' },
+      { id: 'paid-caraway', kind: 'paidOff', title: 'Caraway paid off', detail: 'Mar 2026' },
+      { id: 'paid-old', kind: 'paidOff', title: 'Old card paid off', detail: null },
+      { id: 'next-c1', kind: 'next', title: 'Next payoff · CreditOne 6610', detail: 'in 3m' },
     ]);
   });
 
   it('is empty with nothing paid off and no schedule', () => {
     expect(milestonesView([debts[2]], [], [])).toEqual([]);
+  });
+
+  it('gives paid-off rows distinct ids even when debts share a name', () => {
+    const dupNamedDebts = [
+      makeDebt({ id: 'dup-a', name: 'Old card', balance: 0, minimumPayment: 0 }),
+      makeDebt({ id: 'dup-b', name: 'Old card', balance: 0, minimumPayment: 0 }),
+    ];
+    expect(milestonesView(dupNamedDebts, [], []).map((row) => row.id)).toEqual(['paid-dup-a', 'paid-dup-b']);
   });
 });

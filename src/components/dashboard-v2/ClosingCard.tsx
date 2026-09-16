@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { EYEBROW } from "./styles";
+import { ERROR_LINE, EYEBROW } from "./styles";
 
 interface ClosingCardProps {
   /** One sentence naming a number the user already owns (README "The System", rule 2). */
@@ -15,13 +15,17 @@ interface ClosingCardProps {
   figure?: string;
   /** Red only: a status line under the CTA (the new date after "Fix it in one tap"). */
   note?: string;
+  /** Red only: an error line under the CTA when the save behind the CTA failed. */
+  error?: string;
+  /** Red only: disables the CTA while the save behind it is in flight. */
+  ctaDisabled?: boolean;
 }
 
 const INK_CTA =
-  "mt-3 flex min-h-[46px] w-full items-center justify-center rounded-lg bg-ink px-4 text-[14px] font-extrabold text-white shadow-cta-ink outline-none transition-colors hover:bg-ink/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action motion-reduce:transition-none";
+  "mt-3 flex min-h-[46px] w-full items-center justify-center rounded-lg bg-ink px-4 text-[14px] font-extrabold text-white shadow-cta-ink outline-none transition-colors hover:bg-ink/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60";
 
 /** A tab's closing card: ink (My Debts, Coach) or red (My Plan, when behind). */
-export default function ClosingCard({ children, cta, onCta, variant = "ink", eyebrow, figure, note }: ClosingCardProps) {
+export default function ClosingCard({ children, cta, onCta, variant = "ink", eyebrow, figure, note, error, ctaDisabled }: ClosingCardProps) {
   if (variant === "red") {
     return (
       <section className="rounded-xl border border-danger/25 bg-surface px-3.5 py-[13px] shadow-card">
@@ -32,9 +36,12 @@ export default function ClosingCard({ children, cta, onCta, variant = "ink", eye
         )}
         <p className="mt-2 text-[13px] font-semibold leading-snug text-txt [text-wrap:pretty]">{children}</p>
         {cta && onCta && (
-          <button type="button" onClick={onCta} className={INK_CTA}>
+          <button type="button" onClick={onCta} className={INK_CTA} disabled={ctaDisabled}>
             {cta}
           </button>
+        )}
+        {error && (
+          <p role="alert" className={`mt-2 ${ERROR_LINE}`}>{error}</p>
         )}
         {note && (
           <p role="status" className="mt-2 text-[12px] font-semibold text-success-text [text-wrap:pretty]">{note}</p>

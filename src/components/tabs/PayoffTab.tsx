@@ -56,6 +56,10 @@ export interface PlanTopContext {
   adjustedExtra: number;
   recurringTotal: number;
   saveIsPending: boolean;
+  saveIsSuccess: boolean;
+  saveIsError: boolean;
+  /** useMutation's submittedAt: when the latest save was submitted (0 before any). */
+  saveSubmittedAt: number;
 }
 
 interface PayoffTabProps {
@@ -454,6 +458,9 @@ export default function PayoffTab({
     adjustedExtra,
     recurringTotal,
     saveIsPending: saveIncome.isPending,
+    saveIsSuccess: saveIncome.isSuccess,
+    saveIsError: saveIncome.isError,
+    saveSubmittedAt: saveIncome.submittedAt,
   };
 
   return (

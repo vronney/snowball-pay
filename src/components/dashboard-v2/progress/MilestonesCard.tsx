@@ -14,7 +14,7 @@ export default function MilestonesCard({ rows }: { rows: ReadonlyArray<Milestone
       <ul className="mt-2 flex flex-col gap-1.5">
         {rows.map((row) => (
           <li
-            key={`${row.kind}-${row.title}`}
+            key={row.id}
             className={`flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2 text-[13px] ${
               row.kind === "next" ? "bg-bg text-txt-muted" : "bg-surface text-txt"
             }`}

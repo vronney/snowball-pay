@@ -152,9 +152,15 @@ function PlanTop({ ctx, debts, proEligible }: { ctx: PlanTopContext; debts: Debt
 function PlanClosing({
   ctx, planGap, missedCount, onLog,
 }: { ctx: PlanTopContext; planGap: PlanGap | null; missedCount: number; onLog: () => void }) {
-  const [applied, setApplied] = useState(false);
+  const [fixRequestedAt, setFixRequestedAt] = useState<number | null>(null);
   const view = planClosingView({ planGap, canFix: ctx.availableCashFlow > ctx.effectiveAcceleration, missedCount });
   if (!view) return null;
+  // The "Applied" note must reflect the save actually succeeding, not merely
+  // the click: PayoffTab's save is debounced 600ms and can fail. A save only
+  // counts when it was submitted at or after this fix request.
+  const saveAfterRequest = fixRequestedAt !== null && ctx.saveSubmittedAt >= fixRequestedAt;
+  const applied = saveAfterRequest && !ctx.saveIsPending && ctx.saveIsSuccess;
+  const saveFailed = saveAfterRequest && !ctx.saveIsPending && ctx.saveIsError;
   const onCta = () => {
     if (!view.cta) return;
     if (view.cta.kind === "fix") {
@@ -162,7 +168,7 @@ function PlanClosing({
       // debounced save writes it, and the plan below recalculates at once.
       track(Events.PLAN_GAP_FIX_APPLIED);
       ctx.setAccelerationAmount(ctx.availableCashFlow);
-      setApplied(true);
+      setFixRequestedAt(Date.now());
     } else {
       onLog();
     }
@@ -175,6 +181,8 @@ function PlanClosing({
       cta={view.cta?.label}
       onCta={view.cta ? onCta : undefined}
       note={applied ? fixAppliedNote(ctx.planResult.debtFreeDate) : undefined}
+      error={saveFailed ? "Couldn't save the new amount. Try again." : undefined}
+      ctaDisabled={saveAfterRequest && ctx.saveIsPending}
     >
       {view.text}
     </ClosingCard>

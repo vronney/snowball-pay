@@ -38,7 +38,11 @@ export default function ProgressV2({ debts, income, expenses, isLoading, onNavig
   const { data: insights, isPlaceholderData } = useDashboardInsights();
   const { data: snapshotData } = useAllSnapshots();
   const today = new Date();
-  const { data: paymentsData } = usePaymentRecords(today.getFullYear(), today.getMonth());
+  // The month insights was computed for (the server may have rejected the client date), so
+  // the rows and the sheet's month can't disagree; the browser's month only until insights arrive.
+  const recordsYear = insights?.asOf.year ?? today.getFullYear();
+  const recordsMonth = insights?.asOf.month ?? today.getMonth();
+  const { data: paymentsData } = usePaymentRecords(recordsYear, recordsMonth);
   const [logSheet, setLogSheet] = useState<LogSheet>(null);
 
   // DebtsV2.tsx:77-84: the same plan every tab computes, here for the schedule.

@@ -75,7 +75,7 @@ export function monthLabelFromKey(key: string): string {
 
 // ── Milestones (README §4d) ───────────────────────────────────────────────
 
-export interface MilestoneRowView { kind: 'paidOff' | 'next'; title: string; detail: string | null }
+export interface MilestoneRowView { id: string; kind: 'paidOff' | 'next'; title: string; detail: string | null }
 
 /**
  * "{debt} paid off · {Mon YYYY}" from the first month a debt's snapshot
@@ -93,10 +93,11 @@ export function milestonesView(
   }
   const paidOff = debts
     .filter((d) => !isActiveDebt(d))
-    .map((d) => ({ name: d.name, month: zeroMonthById.get(d.id) ?? null }))
+    .map((d) => ({ id: d.id, name: d.name, month: zeroMonthById.get(d.id) ?? null }))
     // Latest payoff first; undated last.
     .sort((a, b) => (b.month ?? '').localeCompare(a.month ?? ''))
     .map((d): MilestoneRowView => ({
+      id: `paid-${d.id}`,
       kind: 'paidOff',
       title: `${d.name} paid off`,
       detail: d.month ? monthLabelFromKey(d.month) : null,
@@ -108,7 +109,7 @@ export function milestonesView(
     .filter((s) => activeIds.has(s.debtId) && s.monthPaidOff > 0)
     .sort((a, b) => a.monthPaidOff - b.monthPaidOff)[0];
   const nextRow: MilestoneRowView[] = next
-    ? [{ kind: 'next', title: `Next payoff · ${nameById.get(next.debtId) ?? ''}`, detail: `in ${formatMonths(next.monthPaidOff)}` }]
+    ? [{ id: `next-${next.debtId}`, kind: 'next', title: `Next payoff · ${nameById.get(next.debtId) ?? ''}`, detail: `in ${formatMonths(next.monthPaidOff)}` }]
     : [];
   return [...paidOff, ...nextRow];
 }

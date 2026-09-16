@@ -423,7 +423,7 @@ export default function DashboardClient({
         !hasLinkedBankDebt && (
           <LinkBankPrompt manualDebtCount={unlinkedDebtCount} />
         )}
-      {activeTab === "progress" && debts.length > 0 && (
+      {activeTab === "progress" && !dashboardV2 && debts.length > 0 && (
         <div className="mb-4">
           <MilestoneWidget debts={debts} />
         </div>

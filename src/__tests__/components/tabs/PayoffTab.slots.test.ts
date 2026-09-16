@@ -53,7 +53,7 @@ type Slots = { renderTop?: (ctx: PlanTopContext) => ReactNode; renderFooter?: (c
 
 function renderTab(slots: Slots = {}, income: Income = INCOME) {
   vi.mocked(useUpdateDebt).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useUpdateDebt>);
-  vi.mocked(useSaveIncome).mockReturnValue({ mutate: vi.fn(), isPending: false, isSuccess: false } as unknown as ReturnType<typeof useSaveIncome>);
+  vi.mocked(useSaveIncome).mockReturnValue({ mutate: vi.fn(), isPending: false, isSuccess: false, isError: false, submittedAt: 0 } as unknown as ReturnType<typeof useSaveIncome>);
   vi.mocked(useAllSnapshots).mockReturnValue({ data: { snapshots: [] } } as unknown as ReturnType<typeof useAllSnapshots>);
   vi.mocked(usePaymentRecords).mockReturnValue({ data: { records: [] } } as unknown as ReturnType<typeof usePaymentRecords>);
   return render(createElement(PayoffTab, { debts: DEBTS, income, expenses: [], isLoading: false, onNavigate: vi.fn(), ...slots }));
@@ -92,6 +92,9 @@ describe('PayoffTab render slots (dashboard v2, PR 5)', () => {
     expect(ctx.effectiveAcceleration).toBe(500);
     expect(ctx.income).toBe(INCOME);
     expect(ctx.saveIsPending).toBe(false);
+    expect(ctx.saveIsSuccess).toBe(false);
+    expect(ctx.saveIsError).toBe(false);
+    expect(ctx.saveSubmittedAt).toBe(0);
   });
 
   it('keeps the custom-order editor under the v2 top while the method is Custom', () => {

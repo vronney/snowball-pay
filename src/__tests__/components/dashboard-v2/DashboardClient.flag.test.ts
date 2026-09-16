@@ -4,8 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import DashboardClient from '@/components/DashboardClient';
-import { useDashboardInsights } from '@/lib/hooks';
+import { useDashboardInsights, useDebts } from '@/lib/hooks';
 import ToastNotifications from '@/components/ToastNotifications';
+import { makeDebt } from '../../lib/dashboard/fixtures';
 
 const { stub, nav } = vi.hoisted(() => ({
   stub: (name: string, named?: string) => async () => {
@@ -30,7 +31,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 }));
 vi.mock('@/lib/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/hooks')>()),
-  useDebts: () => ({ data: { debts: [] }, isLoading: false, isFetching: false, isError: false }),
+  useDebts: vi.fn(() => ({ data: { debts: [] }, isLoading: false, isFetching: false, isError: false })),
   useIncome: () => ({ data: { income: null }, isLoading: false, isFetching: false, isError: false }),
   useExpenses: () => ({ data: { expenses: [] }, isLoading: false }),
   useUserSettings: () => ({ data: undefined }),
@@ -175,5 +176,27 @@ describe('DashboardClient flag wiring', () => {
     const html = renderToStaticMarkup(createElement(DashboardClient, { user: USER }));
     expect(html).toContain('data-stub="IntelligenceTab"');
     expect(html).not.toContain('data-stub="CoachV2"');
+  });
+
+  it('renders v2 Progress without the legacy MilestoneWidget (C5)', () => {
+    vi.mocked(useDebts).mockReturnValueOnce({
+      data: { debts: [makeDebt({ id: 'visa', balance: 100, minimumPayment: 10 })] },
+      isLoading: false, isFetching: false, isError: false,
+    } as unknown as ReturnType<typeof useDebts>);
+    nav.params = new URLSearchParams('tab=progress');
+    const html = renderToStaticMarkup(createElement(DashboardClient, { user: USER, dashboardV2: true }));
+    expect(html).not.toContain('data-stub="MilestoneWidget"');
+    expect(html).toContain('data-stub="ProgressV2"');
+  });
+
+  it('keeps the legacy MilestoneWidget alongside v1 Progress with the flag off (C5)', () => {
+    vi.mocked(useDebts).mockReturnValueOnce({
+      data: { debts: [makeDebt({ id: 'visa', balance: 100, minimumPayment: 10 })] },
+      isLoading: false, isFetching: false, isError: false,
+    } as unknown as ReturnType<typeof useDebts>);
+    nav.params = new URLSearchParams('tab=progress');
+    const html = renderToStaticMarkup(createElement(DashboardClient, { user: USER }));
+    expect(html).toContain('data-stub="MilestoneWidget"');
+    expect(html).toContain('data-stub="ProgressTab"');
   });
 });

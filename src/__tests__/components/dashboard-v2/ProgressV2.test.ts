@@ -98,6 +98,13 @@ describe('ProgressV2 (spec §8.5 Progress)', () => {
     expect(document.querySelector('[data-stub="ProgressTab"]')).not.toBeNull();
     expect(tabProps.last?.showStats).toBe(false);
     expect(document.body.innerHTML).not.toContain('dashed');
+    expect(usePaymentRecords).toHaveBeenLastCalledWith(2026, 8);
+  });
+
+  it("queries payment records for the month insights was computed for, not the browser's current month", () => {
+    // The fake clock is still September (month 8); insights names August (month 7).
+    renderTab({ data: insights({ asOf: { year: 2026, month: 7, day: 31 } }) });
+    expect(usePaymentRecords).toHaveBeenLastCalledWith(2026, 7);
   });
 
   it('"Keep the streak" opens the log sheet with every unlogged active debt at its minimum', () => {

@@ -36,4 +36,18 @@ describe('ClosingCard', () => {
     expect(screen.queryByRole('button')).toBeNull();
     expect(screen.queryByRole('status')).toBeNull();
   });
+
+  it('renders the red variant\'s error line and disables the CTA when the save behind it failed', () => {
+    const onCta = vi.fn();
+    // eslint-disable-next-line react/no-children-prop -- see above.
+    render(createElement(ClosingCard, {
+      variant: 'red', figure: '$2,621.46 behind', cta: 'Fix it in one tap', onCta,
+      error: "Couldn't save the new amount. Try again.",
+      ctaDisabled: true,
+      children: 'Balances are $2,621.46 above where the plan expected by Sep 2026.',
+    }));
+    expect(screen.getByRole('alert').textContent).toBe("Couldn't save the new amount. Try again.");
+    expect(screen.getByRole('button', { name: 'Fix it in one tap' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.queryByRole('status')).toBeNull();
+  });
 });
