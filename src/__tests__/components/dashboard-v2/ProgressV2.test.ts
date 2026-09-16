@@ -65,7 +65,10 @@ type Options = {
   records?: Array<{ debtId: string }>;
   placeholder?: boolean;
   recordsLoading?: boolean;
+  recordsError?: boolean;
 };
+
+const refetchRecords = vi.fn();
 
 function renderTab(options: Options = {}) {
   const data = 'data' in options ? options.data : insights();
@@ -74,9 +77,11 @@ function renderTab(options: Options = {}) {
   );
   vi.mocked(useAllSnapshots).mockReturnValue({ data: { snapshots: SNAPSHOTS } } as unknown as ReturnType<typeof useAllSnapshots>);
   vi.mocked(usePaymentRecords).mockReturnValue(
-    (options.recordsLoading
-      ? { data: undefined, isLoading: true }
-      : { data: { records: options.records ?? [] } }) as unknown as ReturnType<typeof usePaymentRecords>,
+    (options.recordsError
+      ? { data: undefined, isError: true, refetch: refetchRecords }
+      : options.recordsLoading
+        ? { data: undefined, isLoading: true }
+        : { data: { records: options.records ?? [] } }) as unknown as ReturnType<typeof usePaymentRecords>,
   );
   vi.mocked(useMarkPaid).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useMarkPaid>);
   render(createElement(ProgressV2, { debts: DEBTS, income: INCOME, expenses: [], isLoading: false, onNavigate: vi.fn() }));
@@ -131,6 +136,14 @@ describe('ProgressV2 (spec §8.5 Progress)', () => {
     expect(cta.disabled).toBe(true);
     fireEvent.click(cta);
     expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it("shows an error and a working retry when this month's payment records fail to load", () => {
+    renderTab({ recordsError: true });
+    expect(screen.queryByRole('button', { name: /Keep the streak/ })).toBeNull();
+    expect(screen.getByRole('alert').textContent).toBe("Couldn't load this month's payments.");
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(refetchRecords).toHaveBeenCalledTimes(1);
   });
 
   it('hides the caption and CTA once everything is logged', () => {

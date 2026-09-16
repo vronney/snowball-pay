@@ -26,6 +26,12 @@ interface IntelligenceTabProps {
   onConsumePendingExtra?: () => void;
   /** Dashboard v2 Coach (PR 5): a move's request to open the APR script for one card. */
   aprOpenRequest?: AprOpenRequest | null;
+  /**
+   * Dashboard v2 passes its one resolved tier verdict so a stale
+   * subscription cache can't unmount the Pro content the Coach actions
+   * target (PR 5). Omitted = v1: the subscription query decides.
+   */
+  isPro?: boolean;
 }
 
 export default function IntelligenceTab({
@@ -36,9 +42,10 @@ export default function IntelligenceTab({
   pendingExtra,
   onConsumePendingExtra,
   aprOpenRequest,
+  isPro: isProProp,
 }: IntelligenceTabProps) {
   const { data: subData, isLoading: subLoading, refetch: refetchSubscription } = useSubscription();
-  const isPro = subData?.proEligible === true;
+  const isPro = isProProp ?? subData?.proEligible === true;
   const { data: snapshotsData } = useAllSnapshots();
 
   const payoffMethod =

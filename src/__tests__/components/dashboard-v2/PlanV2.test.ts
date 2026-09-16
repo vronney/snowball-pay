@@ -240,26 +240,55 @@ describe('PlanV2 closing card (spec §8.4 "Plan closing")', () => {
     expect(track).toHaveBeenCalledWith(Events.PLAN_GAP_FIX_APPLIED);
     expect(screen.queryByRole('status')).toBeNull();
 
-    // The debounced save is now in flight (submitted after the click): CTA disabled, still no note.
-    slots.ctx = context({ saveIsPending: true, saveSubmittedAt: Date.now() + 1 });
+    // The debounced save is now in flight (submitted after the click, and
+    // PayoffTab's context reflects the applied value): the fix CTA stays
+    // mounted — never "Log this month's payments" — but disabled, still no note.
+    slots.ctx = context({
+      effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsPending: true, saveSubmittedAt: Date.now() + 1,
+    });
     ctx.rerender();
     expect(screen.getByRole('button', { name: 'Fix it in one tap' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.queryByRole('button', { name: "Log this month's payments" })).toBeNull();
     expect(screen.queryByRole('status')).toBeNull();
 
-    // The save completes: only now does the note appear.
-    slots.ctx = context({ saveIsSuccess: true, saveSubmittedAt: Date.now() + 1 });
+    // The save completes: only now does the note appear, and the fix CTA is gone.
+    slots.ctx = context({
+      effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsSuccess: true, saveSubmittedAt: Date.now() + 1,
+    });
     ctx.rerender();
     expect(screen.getByRole('status').textContent).toMatch(/^Applied — your plan now ends [A-Z][a-z]+ \d{4}\.$/);
+    expect(screen.queryByRole('button', { name: 'Fix it in one tap' })).toBeNull();
   });
 
-  it("shows a save error and no 'Applied' note when the debounced save behind the fix fails", () => {
-    const ctx = renderTab({ data: insights({ planGap: BEHIND }) });
+  it("restores the previous acceleration and offers a working retry when the debounced save behind the fix fails", () => {
+    // One setAccelerationAmount mock survives every re-render (each context()
+    // call otherwise makes a fresh vi.fn()), so the calls before and after
+    // the failure can be asserted on the same spy.
+    const setAccelerationAmount = vi.fn();
+    const ctx = renderTab({
+      data: insights({ planGap: BEHIND }),
+      ctx: context({ setAccelerationAmount }),
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Fix it in one tap' }));
+    expect(setAccelerationAmount).toHaveBeenCalledWith(1_660);
 
-    slots.ctx = context({ saveIsError: true, saveSubmittedAt: Date.now() + 1 });
+    slots.ctx = context({
+      setAccelerationAmount, effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsError: true, saveSubmittedAt: Date.now() + 1,
+    });
     ctx.rerender();
 
+    // The restore fires as a side effect of the failed save, using the
+    // acceleration that was in effect before the fix press (500).
+    expect(setAccelerationAmount).toHaveBeenNthCalledWith(2, 500);
     expect(screen.getByRole('alert').textContent).toBe("Couldn't save the new amount. Try again.");
+    expect(screen.queryByRole('status')).toBeNull();
+
+    // The context now reflects the restored acceleration: the fix CTA is
+    // back, enabled, and a fresh press is possible.
+    slots.ctx = context({ setAccelerationAmount });
+    ctx.rerender();
+    const fixButton = screen.getByRole('button', { name: 'Fix it in one tap' });
+    expect(fixButton.hasAttribute('disabled')).toBe(false);
     expect(screen.queryByRole('status')).toBeNull();
   });
 

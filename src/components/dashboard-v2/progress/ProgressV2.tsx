@@ -11,7 +11,7 @@ import { gridCaptionView, milestonesView, paidOffView, streakPill, unloggedRows 
 import type { LogRow } from "@/lib/dashboard/thisMonth";
 import ProgressTab from "@/components/tabs/ProgressTab";
 import BulkLogSheet from "../sheets/BulkLogSheet";
-import { CARD, CTA_BLUE, EYEBROW } from "../styles";
+import { CARD, CTA_BLUE, ERROR_LINE, EYEBROW } from "../styles";
 import MilestonesCard from "./MilestonesCard";
 import PaidOffCard from "./PaidOffCard";
 import StreakGrid from "./StreakGrid";
@@ -42,7 +42,7 @@ export default function ProgressV2({ debts, income, expenses, isLoading, onNavig
   // the rows and the sheet's month can't disagree; the browser's month only until insights arrive.
   const recordsYear = insights?.asOf.year ?? today.getFullYear();
   const recordsMonth = insights?.asOf.month ?? today.getMonth();
-  const { data: paymentsData } = usePaymentRecords(recordsYear, recordsMonth);
+  const { data: paymentsData, isError: recordsError, refetch: refetchRecords } = usePaymentRecords(recordsYear, recordsMonth);
   // The rows come from this month's records, so the sheet must not open (or the CTA
   // enable) before that query has data for the currently requested month.
   const recordsReady = paymentsData !== undefined;
@@ -93,7 +93,14 @@ export default function ProgressV2({ debts, income, expenses, isLoading, onNavig
           <div className="mt-2">
             <StreakGrid cells={progress.grid} />
           </div>
-          {caption && (
+          {caption && recordsError ? (
+            <>
+              <p role="alert" className={`mt-3 ${ERROR_LINE}`}>Couldn&apos;t load this month&apos;s payments.</p>
+              <button type="button" onClick={() => void refetchRecords()} className={`mt-2 ${CTA_BLUE}`}>
+                Try again
+              </button>
+            </>
+          ) : caption && (
             <>
               <p className="mt-3 text-[13px] font-bold text-txt [text-wrap:pretty]">{caption.text}</p>
               <button type="button" onClick={openLog} disabled={!recordsReady} className={`mt-3 ${CTA_BLUE}`}>

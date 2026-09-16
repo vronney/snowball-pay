@@ -200,13 +200,14 @@ describe('CoachV2 for Pro', () => {
     expect(track).not.toHaveBeenCalledWith(Events.COACH_MOVE_CTA, { move: 'switch_strategy', gated: false });
   });
 
-  it('never shows v1\'s Free teaser through IntelligenceTab on transient tier skew (insights Pro, subscription Free)', () => {
+  it('keeps IntelligenceTab mounted with the page\'s resolved isPro verdict on transient tier skew (insights Pro, subscription Free)', () => {
     renderTab({
       data: insights({ tier: PRO, coachMoves: [makeLogMissedMove('Sep', 1, true), makeSwitchMove('avalanche', 1030, true), makeCallAprMove('citi', 742.9, true)] }),
       subscription: { proEligible: false },
     });
     expect(screen.getByRole('button', { name: 'Log it now' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Switch to Avalanche' })).toBeTruthy();
-    expect(document.querySelector('[data-stub="IntelligenceTab"]')).toBeNull();
+    expect(document.querySelector('[data-stub="IntelligenceTab"]')).not.toBeNull();
+    expect(intel.last?.isPro).toBe(true);
   });
 });

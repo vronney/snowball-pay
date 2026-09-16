@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Debt, Expense, Income } from "@/types";
 import type { Tab } from "@/components/dashboard/types";
 import { useDashboardInsights, useSubscription } from "@/lib/hooks";
@@ -153,20 +153,43 @@ function PlanClosing({
   ctx, planGap, missedCount, onLog,
 }: { ctx: PlanTopContext; planGap: PlanGap | null; missedCount: number; onLog: () => void }) {
   const [fixRequestedAt, setFixRequestedAt] = useState<number | null>(null);
-  const view = planClosingView({ planGap, canFix: ctx.availableCashFlow > ctx.effectiveAcceleration, missedCount });
-  if (!view) return null;
+  // The acceleration to restore to if the save behind a fix request fails.
+  const [restoreTo, setRestoreTo] = useState(0);
+  const [errorShown, setErrorShown] = useState(false);
   // The "Applied" note must reflect the save actually succeeding, not merely
   // the click: PayoffTab's save is debounced 600ms and can fail. A save only
   // counts when it was submitted at or after this fix request.
   const saveAfterRequest = fixRequestedAt !== null && ctx.saveSubmittedAt >= fixRequestedAt;
   const applied = saveAfterRequest && !ctx.saveIsPending && ctx.saveIsSuccess;
   const saveFailed = saveAfterRequest && !ctx.saveIsPending && ctx.saveIsError;
+  // Keeps the fix CTA mounted (rather than disappearing, or flipping to "Log
+  // this month's payments") from the click until the debounced save settles.
+  const fixInFlight = fixRequestedAt !== null && !applied && !saveFailed;
+  const view = planClosingView({
+    planGap, canFix: ctx.availableCashFlow > ctx.effectiveAcceleration || fixInFlight, missedCount,
+  });
+
+  useEffect(() => {
+    if (!saveFailed) return;
+    // Restore the previous acceleration so canFix becomes true again on its
+    // own, letting a new press change the value and re-trigger PayoffTab's
+    // debounced save (whose guard compares against its lastLoadedRef).
+    ctx.setAccelerationAmount(restoreTo);
+    setFixRequestedAt(null);
+    setErrorShown(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveFailed]);
+
+  if (!view) return null;
+
   const onCta = () => {
     if (!view.cta) return;
     if (view.cta.kind === "fix") {
       // README "Interactions": apply the unused cash flow. PayoffTab's
       // debounced save writes it, and the plan below recalculates at once.
       track(Events.PLAN_GAP_FIX_APPLIED);
+      setRestoreTo(ctx.effectiveAcceleration);
+      setErrorShown(false);
       ctx.setAccelerationAmount(ctx.availableCashFlow);
       setFixRequestedAt(Date.now());
     } else {
@@ -181,8 +204,8 @@ function PlanClosing({
       cta={view.cta?.label}
       onCta={view.cta ? onCta : undefined}
       note={applied ? fixAppliedNote(ctx.planResult.debtFreeDate) : undefined}
-      error={saveFailed ? "Couldn't save the new amount. Try again." : undefined}
-      ctaDisabled={saveAfterRequest && ctx.saveIsPending}
+      error={errorShown ? "Couldn't save the new amount. Try again." : undefined}
+      ctaDisabled={fixInFlight}
     >
       {view.text}
     </ClosingCard>
