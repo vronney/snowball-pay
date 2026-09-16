@@ -214,7 +214,7 @@ export default function DebtsV2({ debts, income, expenses, openPaymentDebtId, on
   const addSheet = sheet === "add" && (
     <DebtFormSheet
       notice={notice}
-      allowOutsidePlan={proEligible !== undefined}
+      allowOutsidePlan={notice !== null}
       onClose={() => setSheet(null)}
     />
   );

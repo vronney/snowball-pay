@@ -236,8 +236,30 @@ describe('DebtsV2 (spec §8.5 My Debts)', () => {
     expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ allowOutsidePlan: false }));
   });
 
-  it('submits allowOutsidePlan: true once the tier is known', async () => {
-    renderTab({ debts: COUNTED });
+  // Round 6 (Codex r4) P2-a: allowOutsidePlan ties to the warning actually
+  // shown (notice !== null), not merely to the tier being resolved — see
+  // src/lib/dashboard/myDebts.ts outsidePlanNotice for when notice is non-null.
+  it('submits allowOutsidePlan: false for a Free account below the cap (no warning shown)', async () => {
+    // COUNTED has 2 debts; PLANS.free.debtLimit is 5, so this account is below the cap.
+    renderTab({ debts: COUNTED, data: insights({ tier: FREE }) });
+    const mutateAsync = vi.fn().mockResolvedValue({ debt: { id: 'd1' } });
+    vi.mocked(useCreateDebt).mockReturnValue({ mutateAsync, isPending: false } as unknown as ReturnType<typeof useCreateDebt>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add debt' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit form' }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+    expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ allowOutsidePlan: false }));
+  });
+
+  it('submits allowOutsidePlan: true for a Free account at the cap (warning shown)', async () => {
+    const atCap = [
+      makeDebt({ id: 'd1', name: 'Debt 1', balance: 100, minimumPayment: 10, interestRate: 10 }),
+      makeDebt({ id: 'd2', name: 'Debt 2', balance: 100, minimumPayment: 10, interestRate: 10 }),
+      makeDebt({ id: 'd3', name: 'Debt 3', balance: 100, minimumPayment: 10, interestRate: 10 }),
+      makeDebt({ id: 'd4', name: 'Debt 4', balance: 100, minimumPayment: 10, interestRate: 10 }),
+      makeDebt({ id: 'd5', name: 'Debt 5', balance: 100, minimumPayment: 10, interestRate: 10 }),
+    ];
+    renderTab({ debts: atCap, data: insights({ tier: FREE }) });
     const mutateAsync = vi.fn().mockResolvedValue({ debt: { id: 'd1' } });
     vi.mocked(useCreateDebt).mockReturnValue({ mutateAsync, isPending: false } as unknown as ReturnType<typeof useCreateDebt>);
 
@@ -245,5 +267,16 @@ describe('DebtsV2 (spec §8.5 My Debts)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Submit form' }));
     await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
     expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ allowOutsidePlan: true }));
+  });
+
+  it('submits allowOutsidePlan: false for a Pro account (uncapped, notice always null)', async () => {
+    renderTab({ debts: COUNTED, data: insights({ tier: PRO }) });
+    const mutateAsync = vi.fn().mockResolvedValue({ debt: { id: 'd1' } });
+    vi.mocked(useCreateDebt).mockReturnValue({ mutateAsync, isPending: false } as unknown as ReturnType<typeof useCreateDebt>);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add debt' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit form' }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalled());
+    expect(mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ allowOutsidePlan: false }));
   });
 });
