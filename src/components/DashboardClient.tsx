@@ -45,6 +45,7 @@ import V2Shell from "@/components/dashboard-v2/shell/V2Shell";
 import ThisMonthV2 from "@/components/dashboard-v2/this-month/ThisMonthV2";
 import DebtsV2 from "@/components/dashboard-v2/debts/DebtsV2";
 import PlanV2 from "@/components/dashboard-v2/plan/PlanV2";
+import ProgressV2 from "@/components/dashboard-v2/progress/ProgressV2";
 
 type UserInfo = {
   name?: string | null;
@@ -488,7 +489,15 @@ export default function DashboardClient({
             onNavigate={(tab) => setActiveTab(tab)}
           />
         ))}
-        {activeTab === "progress" && (
+        {activeTab === "progress" && (dashboardV2 ? (
+          <ProgressV2
+            debts={debts}
+            income={income}
+            expenses={expenses}
+            isLoading={debtsLoading || incomeLoading}
+            onNavigate={(tab) => setActiveTab(tab)}
+          />
+        ) : (
           <ProgressTab
             debts={debts}
             income={income}
@@ -496,7 +505,7 @@ export default function DashboardClient({
             isLoading={debtsLoading || incomeLoading}
             onNavigate={(tab) => setActiveTab(tab)}
           />
-        )}
+        ))}
         {activeTab === "intelligence" && (
           <IntelligenceTab
             debts={debts}
