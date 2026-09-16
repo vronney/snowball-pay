@@ -138,7 +138,8 @@ export function rateWatchView(rateWatch: RateWatch | null): RateWatchView | null
 
 // ── The free move (README §1d) ─────────────────────────────────────────────
 
-export type FreeMoveAction = 'bulk_log' | 'switch_strategy' | 'open_plan';
+/** `apply_unallocated` is Coach's one-tap for unused cash (PR 5); This Month keeps "Open My Plan". */
+export type FreeMoveAction = 'bulk_log' | 'switch_strategy' | 'open_plan' | 'apply_unallocated';
 export interface FreeMoveView {
   move: CoachMove;
   eyebrow: string;

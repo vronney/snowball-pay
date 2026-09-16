@@ -71,6 +71,8 @@ export const Events = {
   DEBT_SAVED_OUTSIDE_PLAN: 'debt_saved_outside_plan',
   UPGRADE_MOMENT_VIEWED: 'upgrade_moment_viewed',
   UPGRADE_MOMENT_CTA: 'upgrade_moment_cta',
+  // Dashboard v2 My Plan (spec §9, PR 5). No properties.
+  PLAN_GAP_FIX_APPLIED: 'plan_gap_fix_applied',
 } as const;
 
 export type AnalyticsEvent = (typeof Events)[keyof typeof Events];
