@@ -31,6 +31,7 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
     planGap: null,
     progress: null,
     plan: null,
+    uncounted: null,
     ...overrides,
   };
 }

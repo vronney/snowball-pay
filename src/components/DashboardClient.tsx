@@ -43,6 +43,7 @@ import { useIdleTimeout } from "@/lib/hooks/useIdleTimeout";
 import { runLogoutClientCleanup } from "@/lib/logout-client";
 import V2Shell from "@/components/dashboard-v2/shell/V2Shell";
 import ThisMonthV2 from "@/components/dashboard-v2/this-month/ThisMonthV2";
+import DebtsV2 from "@/components/dashboard-v2/debts/DebtsV2";
 
 type UserInfo = {
   name?: string | null;
@@ -443,7 +444,15 @@ export default function DashboardClient({
             onSetPendingCoachExtra={setPendingCoachExtra}
           />
         ))}
-        {activeTab === "debts" && (
+        {activeTab === "debts" && (dashboardV2 ? (
+          <DebtsV2
+            debts={debts}
+            income={income}
+            expenses={expenses}
+            openPaymentDebtId={openPaymentDebtId}
+            onPaymentPanelOpened={() => setOpenPaymentDebtId(null)}
+          />
+        ) : (
           <DebtTab
             debts={debts}
             isLoading={debtsLoading}
@@ -452,7 +461,7 @@ export default function DashboardClient({
             requestAddDebt={fabAddDebtRequest}
             onAddDebtHandled={() => setFabAddDebtRequest(false)}
           />
-        )}
+        ))}
         {activeTab === "income" && (
           <IncomeTab
             income={income}

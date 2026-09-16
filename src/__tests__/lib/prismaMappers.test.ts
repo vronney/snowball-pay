@@ -14,6 +14,7 @@ const DEBT_ROW: DebtRow = {
   creditLimit: 5000,
   priorityOrder: 2,
   dueDate: 14,
+  inPlan: true,
   isLinked: true,
   plaidAccountId: 'acc-1',
   plaidPersistentAccountId: null,
@@ -66,6 +67,7 @@ describe('debtFromRow', () => {
       creditLimit: 5000,
       priorityOrder: 2,
       dueDate: 14,
+      inPlan: true,
       isLinked: true,
       plaidAccountId: 'acc-1',
       plaidPersistentAccountId: null,
@@ -86,6 +88,10 @@ describe('debtFromRow', () => {
 
   it('normalizes an out-of-union category', () => {
     expect(debtFromRow({ ...DEBT_ROW, category: 'Store Card' }).category).toBe('Other');
+  });
+
+  it('carries inPlan, so a debt saved outside the plan stays outside', () => {
+    expect(debtFromRow({ ...DEBT_ROW, inPlan: false }).inPlan).toBe(false);
   });
 
   it('does not mutate the row', () => {

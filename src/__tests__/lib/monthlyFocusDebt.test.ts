@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { selectMonthlyFocusDebt } from '@/lib/monthlyFocusDebt';
+import { isPlanDebt, selectMonthlyFocusDebt } from '@/lib/monthlyFocusDebt';
 import type { Debt } from '@/types';
 import type { DebtPayoffSchedule } from '@/lib/snowball';
 
@@ -73,5 +73,35 @@ describe('selectMonthlyFocusDebt', () => {
     );
 
     expect(focusDebt).toBeNull();
+  });
+});
+
+describe('isPlanDebt (spec §6.2)', () => {
+  it('counts active debts with no inPlan value and with inPlan: true', () => {
+    expect(isPlanDebt(makeDebt({ id: 'a', balance: 300 }))).toBe(true);
+    expect(isPlanDebt(makeDebt({ id: 'a', balance: 300, inPlan: true }))).toBe(true);
+  });
+
+  it('excludes a debt saved outside the plan, and a paid-off one', () => {
+    expect(isPlanDebt(makeDebt({ id: 'a', balance: 300, inPlan: false }))).toBe(false);
+    expect(isPlanDebt(makeDebt({ id: 'a', balance: 0 }))).toBe(false);
+  });
+});
+
+describe('selectMonthlyFocusDebt and debts outside the plan', () => {
+  it('never picks a debt saved outside the plan', () => {
+    const focusDebt = selectMonthlyFocusDebt(
+      [makeDebt({ id: 'outside', balance: 100, inPlan: false }), makeDebt({ id: 'counted', balance: 900 })],
+      { payoffSchedule: payoffSchedule('counted') },
+    );
+    expect(focusDebt?.id).toBe('counted');
+  });
+
+  it('skips it in the no-schedule fallback too', () => {
+    const focusDebt = selectMonthlyFocusDebt(
+      [makeDebt({ id: 'outside', balance: 100, inPlan: false }), makeDebt({ id: 'counted', balance: 900 })],
+      null,
+    );
+    expect(focusDebt?.id).toBe('counted');
   });
 });

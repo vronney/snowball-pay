@@ -40,6 +40,7 @@ export function debtFromRow(row: DebtRow): Debt {
     creditLimit: row.creditLimit,
     priorityOrder: row.priorityOrder,
     dueDate: row.dueDate ?? undefined,
+    inPlan: row.inPlan,
     isLinked: row.isLinked,
     plaidAccountId: row.plaidAccountId,
     plaidPersistentAccountId: row.plaidPersistentAccountId,

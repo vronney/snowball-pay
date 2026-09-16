@@ -69,6 +69,19 @@ export interface PlanSummary {
   totalInterest: number;
 }
 
+/** Debts saved outside the plan on Free past the cap (spec §5.1 `uncounted.ts`). */
+export interface Uncounted {
+  /** Active debts saved outside the plan. */
+  count: number;
+  /** Their total balance. */
+  balance: number;
+  /**
+   * Months the plan would add if they counted. Null without income, or when
+   * either run can't pay off within the 360-month cap (isPayoffComplete).
+   */
+  monthsImpact: number | null;
+}
+
 export interface TierInfo { proEligible: boolean; paidPro: boolean; trial: { active: boolean; endsAt: string | null } }
 
 interface MoveBase { isFree: boolean }
@@ -96,4 +109,5 @@ export interface DashboardInsights {
   planGap: PlanGap | null;
   progress: ProgressSummary | null;
   plan: PlanSummary | null;
+  uncounted: Uncounted | null;
 }

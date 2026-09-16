@@ -14,3 +14,16 @@ describe('dashboard v2 This Month events (spec §9)', () => {
     expect(sanitiseAnalyticsProperties(props)).toEqual(props);
   });
 });
+
+describe('dashboard v2 My Debts events (spec §9)', () => {
+  it('defines the three events', () => {
+    expect(Events.DEBT_SAVED_OUTSIDE_PLAN).toBe('debt_saved_outside_plan');
+    expect(Events.UPGRADE_MOMENT_VIEWED).toBe('upgrade_moment_viewed');
+    expect(Events.UPGRADE_MOMENT_CTA).toBe('upgrade_moment_cta');
+  });
+
+  it('sends their properties through the privacy sanitiser untouched', () => {
+    const props = { state: 'E', action: 'checkout', source: 'upgrade_moment_e', billing: 'monthly' };
+    expect(sanitiseAnalyticsProperties(props)).toEqual(props);
+  });
+});

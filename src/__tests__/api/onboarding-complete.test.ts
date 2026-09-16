@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
 
@@ -77,6 +77,7 @@ function makeRequest(body: Record<string, unknown>, idempotencyKey?: string) {
 
 describe('POST /api/onboarding/complete', () => {
   beforeEach(() => {
+    vi.stubEnv('DASHBOARD_V2_USERS', '');
     vi.clearAllMocks();
     vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
     vi.mocked(getUserTier).mockResolvedValue('free');
@@ -94,6 +95,8 @@ describe('POST /api/onboarding/complete', () => {
       async (fn: (tx: typeof mockPrisma) => Promise<unknown>) => fn(mockPrisma)
     );
   });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   it('returns 401 when unauthenticated', async () => {
     vi.mocked(verifyAuth).mockResolvedValue(UNAUTHED);
@@ -373,5 +376,55 @@ describe('POST /api/onboarding/complete', () => {
     expect(mockPrisma.debt.create).not.toHaveBeenCalled();
     expect(body.debtIds).toEqual(['debt-existing']);
     expect(body.dedupedDebt).toBe(true);
+  });
+
+  it('counts only in-plan debts toward the cap', async () => {
+    await POST(makeRequest({ income: INCOME, debts: [debt('Visa', 1000)] }));
+    expect(mockPrisma.debt.count).toHaveBeenCalledWith({ where: { userId: 'user-1', inPlan: true } });
+  });
+
+  it('still skips the overflow for an account not on dashboard v2', async () => {
+    mockPrisma.debt.count.mockResolvedValue(3);
+    const res = await POST(makeRequest({
+      income: INCOME,
+      debts: [debt('A', 100), debt('B', 200), debt('C', 300), debt('D', 400)],
+    }));
+    expect(await res.json()).toMatchObject({ skippedDebts: 2, outsidePlanDebts: 0 });
+    expect(mockPrisma.debt.create.mock.calls.map((c) => c[0].data.inPlan)).toEqual([undefined, undefined]);
+  });
+
+  describe('on dashboard v2 (spec §6.3)', () => {
+    beforeEach(() => vi.stubEnv('DASHBOARD_V2_USERS', 'test@example.com'));
+
+    it('saves the overflow outside the plan instead of skipping it', async () => {
+      mockPrisma.debt.count.mockResolvedValue(3);
+      const res = await POST(makeRequest({
+        income: INCOME,
+        debts: [debt('A', 100), debt('B', 200), debt('C', 300), debt('D', 400)],
+      }));
+      const body = await res.json();
+      expect(res.status).toBe(200);
+      expect(body).toMatchObject({ skippedDebts: 0, outsidePlanDebts: 2 });
+      expect(body.debtIds).toHaveLength(4);
+      expect(mockPrisma.debt.create.mock.calls.map((c) => [c[0].data.name, c[0].data.inPlan])).toEqual([
+        ['A', undefined], ['B', undefined], ['C', false], ['D', false],
+      ]);
+    });
+
+    it('saves every debt outside the plan when the account is already at the cap', async () => {
+      mockPrisma.debt.count.mockResolvedValue(5);
+      const res = await POST(makeRequest({ income: INCOME, debts: [debt('A', 100), debt('B', 200)] }));
+      expect(res.status).toBe(200);
+      expect(await res.json()).toMatchObject({ skippedDebts: 0, outsidePlanDebts: 2 });
+      expect(mockPrisma.debt.create.mock.calls.map((c) => c[0].data.inPlan)).toEqual([false, false]);
+    });
+
+    it("never saves a Pro account's debts outside the plan", async () => {
+      vi.mocked(getUserTier).mockResolvedValue('pro');
+      const debts = Array.from({ length: 7 }, (_, i) => debt(`Debt ${i + 1}`, 100));
+      const body = await (await POST(makeRequest({ income: INCOME, debts }))).json();
+      expect(body).toMatchObject({ skippedDebts: 0, outsidePlanDebts: 0 });
+      expect(mockPrisma.debt.create.mock.calls.every((c) => c[0].data.inPlan === undefined)).toBe(true);
+    });
   });
 });

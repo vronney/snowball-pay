@@ -110,4 +110,16 @@ describe('GET /api/dashboard/insights', () => {
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: 'Failed to load dashboard insights' });
   });
+
+  it('maps inPlan through: an outside debt is reported and not planned', async () => {
+    const plain = await (await GET(req('?today=2026-09-12'))).json();
+    mockPrisma.debt.findMany.mockResolvedValue([
+      ...DEBT_ROWS,
+      { ...DEBT_ROWS[0], id: 'x', name: 'Store card', balance: 1200, originalBalance: 1200, minimumPayment: 35, inPlan: false },
+    ]);
+    const body = await (await GET(req('?today=2026-09-12'))).json();
+    expect(plain.uncounted).toBeNull();
+    expect(body.uncounted).toMatchObject({ count: 1, balance: 1200 });
+    expect(body.plan).toEqual(plain.plan);
+  });
 });

@@ -1,6 +1,6 @@
 import type { BalanceSnapshot, Debt, Income } from '@/types';
 import { calculateMinimumsOnlyResult, calculatePlanMetrics } from '@/lib/payoffPlan';
-import { computeActualBalanceTotals } from '@/lib/actualBalance';
+import { computeActualBalanceTotals, planScopedBalanceTotal, planScopedSnapshots } from '@/lib/actualBalance';
 import { computeCoachMoves } from './coachMoves';
 import { computeMonthlyInterest } from './interest';
 import { computePaymentGap, type PaymentRecordLike } from './paymentGap';
@@ -12,6 +12,7 @@ import { computeStrategyComparison } from './strategy';
 import { computeStreakGrid, snapshotMonthSet } from './streakGrid';
 import { localDateParam } from './today';
 import { isPayoffComplete } from './payoffCompletion';
+import { computeUncounted } from './uncounted';
 import type { DashboardInsights, ProgressSummary, TierInfo } from './types';
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -69,9 +70,9 @@ export function buildDashboardInsights(input: InsightsInput): DashboardInsights 
   });
 
   const actualBalanceMap: ReadonlyMap<string, number> = new Map(
-    computeActualBalanceTotals(input.snapshots).map((m) => [m.label, m.total]),
+    computeActualBalanceTotals(planScopedSnapshots(input.snapshots, debts)).map((m) => [m.label, m.total]),
   );
-  const currentTotalDebt = debts.reduce((s, d) => s + (d.balance ?? 0), 0);
+  const currentTotalDebt = planScopedBalanceTotal(debts);
   const planGap = metrics
     ? computePlanGap(buildBalanceChartData(metrics.result, minimums, actualBalanceMap, currentTotalDebt))
     : null;
@@ -115,5 +116,6 @@ export function buildDashboardInsights(input: InsightsInput): DashboardInsights 
           totalInterest: completedPlan.result.totalInterestPaid,
         }
       : null,
+    uncounted: computeUncounted(debts, income, expenses),
   };
 }

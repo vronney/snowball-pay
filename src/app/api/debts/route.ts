@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError } from '@/lib/auth-server';
 import { getUserTier, FREE_DEBT_LIMIT, upgradeRequired } from '@/lib/gates';
+import { countCountedDebts } from '@/lib/debtCap';
+import { isDashboardV2 } from '@/lib/flags';
 import { z } from 'zod';
 
 const CreateDebtSchema = z.object({
@@ -12,6 +14,9 @@ const CreateDebtSchema = z.object({
   minimumPayment: z.number().min(0),
   creditLimit: z.number().min(0).optional(),
   dueDate: z.number().min(1).max(31).optional(),
+  // Dashboard v2 only (spec §6.3): past the Free cap, save the debt outside
+  // the plan instead of refusing it. Honored only for flagged accounts.
+  allowOutsidePlan: z.boolean().optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -47,12 +52,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validated = CreateDebtSchema.parse(body);
 
-    // Free-tier debt limit check
+    // Free-tier debt limit. The cap counts in-plan debts, paid-off ones
+    // included (spec §6.3). Past it, dashboard v2 saves the debt outside the
+    // plan; every other client keeps today's 403.
+    let outsidePlan = false;
     const tier = await getUserTier(auth.user.id);
     if (tier === 'free') {
-      const count = await prisma.debt.count({ where: { userId: auth.user.id } });
-      if (count >= FREE_DEBT_LIMIT) {
-        return upgradeRequired('Unlimited debts');
+      const counted = await countCountedDebts(auth.user.id);
+      if (counted >= FREE_DEBT_LIMIT) {
+        if (!validated.allowOutsidePlan || !isDashboardV2(auth.user.email)) {
+          return upgradeRequired('Unlimited debts');
+        }
+        outsidePlan = true;
       }
     }
 
@@ -67,10 +78,12 @@ export async function POST(request: NextRequest) {
         minimumPayment: validated.minimumPayment,
         creditLimit: validated.creditLimit || 0,
         dueDate: validated.dueDate,
+        // Written only as false, so an in-plan save sends exactly today's payload.
+        ...(outsidePlan ? { inPlan: false } : {}),
       },
     });
 
-    return NextResponse.json({ debt }, { status: 201 });
+    return NextResponse.json(outsidePlan ? { debt, outsidePlan: true } : { debt }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return badRequest(error.issues[0]?.message || 'Invalid request payload');

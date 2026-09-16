@@ -7,16 +7,17 @@ import DashboardClient from '@/components/DashboardClient';
 import { useDashboardInsights } from '@/lib/hooks';
 import ToastNotifications from '@/components/ToastNotifications';
 
-const { stub } = vi.hoisted(() => ({
+const { stub, nav } = vi.hoisted(() => ({
   stub: (name: string, named?: string) => async () => {
     const { createElement: h } = await import('react');
     const Stub = () => h('div', { 'data-stub': name });
     return named ? { [named]: Stub } : { default: Stub };
   },
+  nav: { params: new URLSearchParams() },
 }));
 
 vi.mock('next/navigation', () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => nav.params,
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
 }));
 vi.mock('next/image', async () => {
@@ -57,6 +58,7 @@ vi.mock('@/components/tabs/ProgressTab', stub('ProgressTab'));
 vi.mock('@/components/tabs/SettingsTab', stub('SettingsTab'));
 vi.mock('@/components/tabs/IntelligenceTab', stub('IntelligenceTab'));
 vi.mock('@/components/dashboard-v2/this-month/ThisMonthV2', stub('ThisMonthV2'));
+vi.mock('@/components/dashboard-v2/debts/DebtsV2', stub('DebtsV2'));
 vi.mock('@/components/billing/UpgradeModal', stub('UpgradeModal'));
 vi.mock('@/components/dashboard/TrialCountdownBanner', stub('TrialCountdownBanner'));
 vi.mock('@/components/dashboard/LinkBankPrompt', stub('LinkBankPrompt'));
@@ -67,6 +69,7 @@ vi.mock('@/components/plaid/PlaidLink', stub('PlaidLink', 'PlaidLink'));
 const USER = { name: 'Test User', email: 'test@example.com', picture: null };
 
 beforeEach(() => {
+  nav.params = new URLSearchParams();
   vi.clearAllMocks();
 });
 
@@ -113,5 +116,19 @@ describe('DashboardClient flag wiring', () => {
     vi.mocked(ToastNotifications).mockClear();
     renderToStaticMarkup(createElement(DashboardClient, { user: USER }));
     expect(vi.mocked(ToastNotifications).mock.calls.at(-1)?.[0]).not.toHaveProperty('bottom');
+  });
+
+  it('renders My Debts v2 on the debts tab when the flag is on', () => {
+    nav.params = new URLSearchParams('tab=debts');
+    const html = renderToStaticMarkup(createElement(DashboardClient, { user: USER, dashboardV2: true }));
+    expect(html).toContain('data-stub="DebtsV2"');
+    expect(html).not.toContain('data-stub="DebtTab"');
+  });
+
+  it('keeps v1 My Debts with the flag off', () => {
+    nav.params = new URLSearchParams('tab=debts');
+    const html = renderToStaticMarkup(createElement(DashboardClient, { user: USER }));
+    expect(html).toContain('data-stub="DebtTab"');
+    expect(html).not.toContain('data-stub="DebtsV2"');
   });
 });

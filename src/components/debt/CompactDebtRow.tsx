@@ -22,6 +22,8 @@ interface CompactDebtRowProps {
   needsReauth?: boolean;
   /** Bank sync is paused (downgraded plan) — surface a "Sync paused" chip. */
   syncPaused?: boolean;
+  /** Saved outside the plan (spec §8.5): dashed, muted, labeled "Not in plan". */
+  outsidePlan?: boolean;
   /** The untouched <DebtCard/> — rendered verbatim when expanded. */
   children: ReactNode;
 }
@@ -35,6 +37,13 @@ const chipBase = {
   borderRadius: "6px",
   padding: "1px 6px",
   whiteSpace: "nowrap" as const,
+};
+
+// Dashed = saved outside the plan, and nothing else (DESIGN.md 2026-09-12).
+const outsideSurface = {
+  background: "#f8fafc",
+  border: "1px dashed rgba(15,23,42,0.16)",
+  borderRadius: cardSurface.borderRadius,
 };
 
 /**
@@ -52,6 +61,7 @@ export default function CompactDebtRow({
   forceOpen,
   needsReauth = false,
   syncPaused = false,
+  outsidePlan = false,
   children,
 }: CompactDebtRowProps) {
   // `manual` is the user's explicit choice; null means "follow the data". While
@@ -94,7 +104,7 @@ export default function CompactDebtRow({
           style={{
             fontSize: "13.5px",
             fontWeight: 700,
-            color: isPaidOff ? "#059669" : "#0f172a",
+            color: isPaidOff ? "#059669" : outsidePlan ? "#64748b" : "#0f172a",
             overflow: "hidden",
             textOverflow: "ellipsis",
             whiteSpace: "nowrap",
@@ -131,6 +141,11 @@ export default function CompactDebtRow({
         {isLinked && (
           <span style={{ ...chipBase, color: "#64748b", background: "#f1f5f9", border: "1px solid rgba(15,23,42,0.10)" }}>
             <Link2 size={10} strokeWidth={2} /> Linked
+          </span>
+        )}
+        {outsidePlan && (
+          <span style={{ ...chipBase, color: "#64748b", background: "#f8fafc", border: "1px dashed rgba(15,23,42,0.16)" }}>
+            Not in plan
           </span>
         )}
       </span>
@@ -180,7 +195,7 @@ export default function CompactDebtRow({
         justifyContent: "space-between",
         gap: "12px",
         padding: "12px 14px",
-        ...cardSurface,
+        ...(outsidePlan ? outsideSurface : cardSurface),
         cursor: "pointer",
         textAlign: "left",
         fontFamily: "inherit",
@@ -200,7 +215,7 @@ export default function CompactDebtRow({
               display: "block",
               fontSize: "13.5px",
               fontWeight: 700,
-              color: isPaidOff ? "#059669" : "#0f172a",
+              color: isPaidOff ? "#059669" : outsidePlan ? "#64748b" : "#0f172a",
               fontVariantNumeric: "tabular-nums",
             }}
           >

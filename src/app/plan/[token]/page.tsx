@@ -3,6 +3,8 @@ import { verifyShareToken } from "@/lib/shareToken";
 import { prisma } from "@/lib/prisma";
 import { calculatePlanMetrics } from "@/lib/payoffPlan";
 import { formatCurrency, formatMonths } from "@/lib/utils";
+import { planScopedBalanceTotal } from "@/lib/actualBalance";
+import { isInPlan } from "@/lib/monthlyFocusDebt";
 import type { Debt } from "@/types";
 import Image from "next/image";
 
@@ -34,6 +36,7 @@ export default async function SharedPlanPage({ params }: Props) {
     creditLimit: d.creditLimit ?? 0,
     dueDate: d.dueDate ?? undefined,
     priorityOrder: d.priorityOrder ?? undefined,
+    inPlan: d.inPlan,
     createdAt: d.createdAt, updatedAt: d.updatedAt,
   }));
 
@@ -54,7 +57,8 @@ export default async function SharedPlanPage({ params }: Props) {
   const debtFreeDate = result.debtFreeDate.toLocaleDateString("en-US", {
     month: "long", year: "numeric",
   });
-  const totalDebt = debts.reduce((s, d) => s + d.balance, 0);
+  const planDebts = debts.filter(isInPlan);
+  const totalDebt = planScopedBalanceTotal(planDebts);
   const totalInterest = Math.round(result.totalInterestPaid);
   const months = result.months;
   const timeStr = formatMonths(months);
@@ -85,7 +89,7 @@ export default async function SharedPlanPage({ params }: Props) {
             {debtFreeDate}
           </h1>
           <p style={{ fontSize: "14px", color: "#64748b", margin: 0 }}>
-            {timeStr} from now · {debts.length} debt{debts.length !== 1 ? "s" : ""}
+            {timeStr} from now · {planDebts.length} debt{planDebts.length !== 1 ? "s" : ""}
           </p>
         </div>
 

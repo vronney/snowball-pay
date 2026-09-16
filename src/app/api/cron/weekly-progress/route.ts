@@ -21,6 +21,7 @@ import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
 import WeeklyProgressEmail from '@/emails/WeeklyProgressEmail';
 import { calculatePlanMetrics } from '@/lib/payoffPlan';
 import { parseLawfulStoredBrief } from '@/lib/coachBriefSafety';
+import { isInPlan } from '@/lib/monthlyFocusDebt';
 import type { Debt } from '@/types';
 import * as React from 'react';
 
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
           id: true, balance: true, originalBalance: true,
           interestRate: true, minimumPayment: true, name: true,
           category: true, creditLimit: true, createdAt: true,
-          updatedAt: true, userId: true, dueDate: true,
+          updatedAt: true, userId: true, dueDate: true, inPlan: true,
         },
       },
       income: true,
@@ -66,7 +67,10 @@ export async function GET(request: NextRequest) {
       const checks = (user.preferences?.actionChecks ?? {}) as Record<string, boolean>;
       if (!checks['weeklyProgress']) { results.skipped++; continue; }
 
-      const totalBalance        = user.debts.reduce((s, d) => s + d.balance, 0);
+      // The plan's debts only, so totalBalance covers the same debts as
+      // debtFreeDate below (spec §6.2). Not isPlanDebt — a paid-off, in-plan
+      // debt still counts today, and must keep counting.
+      const totalBalance        = user.debts.filter(isInPlan).reduce((s, d) => s + d.balance, 0);
       const totalPaidThisMonth  = user.paymentRecords.reduce((s, r) => s + r.amount, 0);
       const paymentsCount       = user.paymentRecords.length;
 

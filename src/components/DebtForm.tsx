@@ -3,7 +3,13 @@ import { Plus, Check, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Debt } from '@/types';
 
 interface DebtFormProps {
-  onSubmit: (data: any) => void;
+  /**
+   * A resolved `false` means the save failed: the form keeps what the user
+   * typed instead of resetting (CodeRabbit C6). v1 callers return `void`
+   * (or nothing at all), so they reset exactly as before, on both success
+   * and failure.
+   */
+  onSubmit: (data: any) => void | boolean | Promise<void | boolean>;
   onCancel: () => void;
   isLoading: boolean;
   initialData?: Partial<Debt>;
@@ -296,13 +302,13 @@ export default function DebtForm({ onSubmit, onCancel, isLoading, initialData, s
   const [formData, setFormData] = useState(() => buildInitialState(initialData));
   const [error, setError] = useState('');
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setError('');
     if (!formData.name || !formData.category || !formData.balance || !formData.interestRate || !formData.minimumPayment) {
       setError('Please fill in all required fields.');
       return;
     }
-    onSubmit({
+    const result = await onSubmit({
       name: formData.name,
       category: formData.category,
       balance: parseFloat(formData.balance),
@@ -311,6 +317,9 @@ export default function DebtForm({ onSubmit, onCancel, isLoading, initialData, s
       creditLimit: formData.creditLimit ? parseFloat(formData.creditLimit) : 0,
       dueDate: formData.dueDate ? parseInt(formData.dueDate) : undefined,
     });
+    // Only a resolved `false` (a failed save) skips the reset — keeps what
+    // the user typed instead of wiping it on error (CodeRabbit C6).
+    if (result === false) return;
     if (!initialData) {
       setFormData(buildInitialState());
     }

@@ -20,8 +20,8 @@ export interface SheetProps {
   busy?: boolean;
   onClose: () => void;
   children: ReactNode;
-  /** Pinned under the scrolling body: the primary action. */
-  footer: ReactNode;
+  /** Pinned under the scrolling body: the primary action. Omit when the body brings its own (a form's buttons). */
+  footer?: ReactNode;
 }
 
 /**
@@ -134,10 +134,18 @@ export default function Sheet({ title, description, busy = false, onClose, child
             <X size={18} aria-hidden="true" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-2">{children}</div>
-        <div className="shrink-0 border-t border-border px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 min-[769px]:pb-3">
-          {footer}
+        <div
+          className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 ${
+            footer != null ? "py-2" : "pb-[calc(12px+env(safe-area-inset-bottom))] pt-2 min-[769px]:pb-3"
+          }`}
+        >
+          {children}
         </div>
+        {footer != null && (
+          <div className="shrink-0 border-t border-border px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 min-[769px]:pb-3">
+            {footer}
+          </div>
+        )}
       </div>
     </div>,
     document.body,
