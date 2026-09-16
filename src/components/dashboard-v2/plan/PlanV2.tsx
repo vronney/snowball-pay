@@ -129,6 +129,7 @@ function PlanTop({ ctx, debts, proEligible }: { ctx: PlanTopContext; debts: Debt
             effectiveAcceleration={ctx.effectiveAcceleration}
             availableCashFlow={ctx.availableCashFlow}
             onAccelerationChange={ctx.setAccelerationAmount}
+            isPro
           />
           <WhatIfAnyAmount
             debts={debts}

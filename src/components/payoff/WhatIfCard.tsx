@@ -24,6 +24,12 @@ interface WhatIfCardProps {
   effectiveAcceleration?: number;
   availableCashFlow?: number;
   onAccelerationChange?: (amount: number) => void;
+  /**
+   * Dashboard v2 passes the page's one resolved tier verdict, so a stale
+   * subscription cache can't flip this card while the rest of the page
+   * renders Pro (PR 5). Omitted = v1: the subscription query decides.
+   */
+  isPro?: boolean;
 }
 
 export default function WhatIfCard({
@@ -37,9 +43,10 @@ export default function WhatIfCard({
   effectiveAcceleration,
   availableCashFlow,
   onAccelerationChange,
+  isPro: isProProp,
 }: WhatIfCardProps) {
   const { data: subData } = useSubscription();
-  const isPro = subData?.proEligible === true;
+  const isPro = isProProp ?? subData?.proEligible === true;
 
 
   // The plan's debts only (spec §6.2): the ladder is measured against the plan.

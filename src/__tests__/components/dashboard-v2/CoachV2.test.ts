@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { DashboardInsights } from '@/lib/dashboard/types';
 import {
   useDashboardInsights, useMarkPaid, useSaveIncome, useSubscription,
@@ -173,9 +173,31 @@ describe('CoachV2 for Pro', () => {
       expect.objectContaining({ payoffMethod: 'avalanche', accelerationAmount: 200 }),
       expect.any(Object),
     );
+    // Let the switch save settle (PR 5's serialization fix disables every
+    // row's CTA, including this unrelated apr_script row, while any save is
+    // pending) before opening the call script, matching a real mutation's
+    // onSettled callback — the mock only doesn't call it on its own.
+    const [, saveOptions] = saveIncome.mutate.mock.calls[0] as [unknown, { onSettled: () => void }];
+    act(() => saveOptions.onSettled());
     fireEvent.click(screen.getByRole('button', { name: 'Open the call script' }));
     expect(intel.last?.aprOpenRequest).toMatchObject({ debtId: 'citi' });
     expect(track).toHaveBeenCalledWith(Events.COACH_MOVE_CTA, { move: 'call_apr', gated: false });
+  });
+
+  it('serializes one-tap saves: a second move stays disabled while the first is pending', () => {
+    renderTab({
+      data: insights({ tier: PRO, coachMoves: [makeUnallocatedMove(3, true), makeSwitchMove('avalanche', 1030, true)] }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply $200/mo' }));
+    expect(saveIncome.mutate).toHaveBeenCalledTimes(1);
+    const applyButton = screen.getByRole('button', { name: 'Saving…' });
+    expect(applyButton.hasAttribute('disabled')).toBe(true);
+    const switchButton = screen.getByRole('button', { name: 'Switch to Avalanche' });
+    expect(switchButton.hasAttribute('disabled')).toBe(true);
+
+    fireEvent.click(switchButton);
+    expect(saveIncome.mutate).toHaveBeenCalledTimes(1);
+    expect(track).not.toHaveBeenCalledWith(Events.COACH_MOVE_CTA, { move: 'switch_strategy', gated: false });
   });
 
   it('never shows v1\'s Free teaser through IntelligenceTab on transient tier skew (insights Pro, subscription Free)', () => {

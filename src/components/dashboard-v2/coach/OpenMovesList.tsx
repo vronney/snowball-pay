@@ -7,7 +7,7 @@ import { CARD, CTA_BLUE, ERROR_LINE, EYEBROW } from "../styles";
 interface OpenMovesListProps {
   rows: ReadonlyArray<OpenMoveRow>;
   onAction: (row: OpenMoveRow) => void;
-  /** The move whose one-tap save is running. */
+  /** The move whose one-tap save is running; while set, every row's CTA is disabled (save() serializes to one in-flight request at a time). */
   pendingId: CoachMoveId | null;
   error: string | null;
 }
@@ -35,7 +35,7 @@ export default function OpenMovesList({ rows, onAction, pendingId, error }: Open
                 <p className="mt-1 text-[13px] leading-[1.55] text-txt-muted [text-wrap:pretty]">{row.copy.body}</p>
               </div>
               <div className="min-[1024px]:w-[220px] min-[1024px]:shrink-0">
-                <button type="button" onClick={() => onAction(row)} disabled={pending} className={CTA_BLUE}>
+                <button type="button" onClick={() => onAction(row)} disabled={pendingId !== null} className={CTA_BLUE}>
                   {pending ? "Saving…" : row.cta.label}
                 </button>
               </div>

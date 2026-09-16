@@ -78,7 +78,7 @@ export default function CoachV2({
   const openRows = openMoveRows(insights);
 
   const save = (move: CoachMove, patch: Parameters<typeof incomeSavePayload>[1]) => {
-    if (!income) return;
+    if (!income || pendingMove !== null) return;
     track(Events.COACH_MOVE_CTA, { move: move.id, gated: false });
     setError(null);
     setPendingMove(move.id);

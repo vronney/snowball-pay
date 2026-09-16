@@ -12,6 +12,7 @@ import PlanV2 from '@/components/dashboard-v2/plan/PlanV2';
 import { makeDebt, makeIncome } from '../../lib/dashboard/fixtures';
 
 const slots = vi.hoisted(() => ({ ctx: null as unknown }));
+const whatIf = vi.hoisted(() => ({ last: null as null | Record<string, unknown> }));
 
 vi.mock('@/lib/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/hooks')>()),
@@ -33,7 +34,12 @@ vi.mock('@/components/tabs/PayoffTab', async () => {
 });
 vi.mock('@/components/payoff/WhatIfCard', async () => {
   const { createElement: h } = await import('react');
-  return { default: () => h('div', { 'data-stub': 'WhatIfCard' }) };
+  return {
+    default: (p: Record<string, unknown>) => {
+      whatIf.last = p;
+      return h('div', { 'data-stub': 'WhatIfCard' });
+    },
+  };
 });
 
 const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
@@ -100,7 +106,10 @@ function renderTab(options: Options = {}) {
   return ctx;
 }
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.clearAllMocks();
+  whatIf.last = null;
+});
 
 describe('PlanV2 top (spec §8.5 My Plan)', () => {
   it('renders the segmented control with the comparison pair, and switches through PayoffTab', () => {
@@ -188,6 +197,14 @@ describe('PlanV2 top (spec §8.5 My Plan)', () => {
     fireEvent.change(screen.getByLabelText('Any amount extra per month'), { target: { value: '100000' } });
     expect(status.textContent).toContain('more room');
     expect(status.querySelector('span')?.className).not.toContain('text-success-text');
+  });
+
+  it('passes the page\'s one resolved tier verdict to WhatIfCard, overriding a stale Free subscription cache', () => {
+    renderTab({ data: insights({ tier: PRO }), subscription: { proEligible: false } });
+    expect(document.querySelector('[data-stub="WhatIfCard"]')).not.toBeNull();
+    expect(whatIf.last?.isPro).toBe(true);
+    expect(screen.getByLabelText('Any amount extra per month')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '+$100 — Pro' })).toBeNull();
   });
 
   it('hides the what-if row and holds Custom until the tier is known', () => {
