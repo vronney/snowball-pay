@@ -39,9 +39,12 @@ vi.mock('@/components/payoff/WhatIfCard', async () => {
 const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
 const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } };
 const INCOME = makeIncome({ monthlyTakeHome: 4_000, essentialExpenses: 2_000, payoffMethod: 'snowball', accelerationAmount: 500 });
+// Visa is snowball's target (smallest balance); the car loan is avalanche's
+// (highest rate) — the two methods must diverge so the comparison pair and
+// its caption assert something real, not a tie.
 const DEBTS = [
-  makeDebt({ id: 'visa', name: 'Visa', balance: 3_000, minimumPayment: 90, interestRate: 24 }),
-  makeDebt({ id: 'car', name: 'Car loan', balance: 9_000, minimumPayment: 250, interestRate: 7 }),
+  makeDebt({ id: 'visa', name: 'Visa', balance: 3_000, minimumPayment: 90, interestRate: 7 }),
+  makeDebt({ id: 'car', name: 'Car loan', balance: 9_000, minimumPayment: 250, interestRate: 24 }),
 ];
 // PayoffTab's own numbers (PayoffTab.tsx:137-145, 265-278): surplus 4000 − 2000 − 340 = 1660, acceleration 500.
 const METRICS = calculatePlanMetrics(DEBTS, INCOME, [], { method: 'snowball', accelerationAmount: 500 })!;
@@ -105,12 +108,13 @@ describe('PlanV2 top (spec §8.5 My Plan)', () => {
     expect(screen.getByRole('button', { name: 'Snowball' }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('button', { name: 'Avalanche' }).getAttribute('aria-pressed')).toBe('false');
     expect(screen.getByText('Yours · Snowball')).toBeTruthy();
-    // With this fixture, Visa is both the smaller balance and the higher rate,
-    // so snowball and avalanche land on the identical order — strategyVerdict's
-    // tied-on-both-axes branch (strategyVerdict.ts:41), not a "switch" verdict.
-    expect(
-      screen.getByText(/Switch above and the whole plan recalculates|You're on the cheaper of the two|Both methods finish on the same date/),
-    ).toBeTruthy();
+    expect(screen.getByText(/Switch above and the whole plan recalculates|You're on the cheaper of the two/)).toBeTruthy();
+    // The pair must carry a real difference, not a tie: the two mono figures
+    // inside the Strategy card (yours, then the alternative) render distinct text.
+    const strategy = within(screen.getByRole('region', { name: 'Strategy' }));
+    const figures = strategy.getAllByText(/^\$[\d,]+$/);
+    expect(figures.length).toBe(2);
+    expect(figures[0].textContent).not.toBe(figures[1].textContent);
     fireEvent.click(screen.getByRole('button', { name: 'Avalanche' }));
     expect(ctx.setPayoffMethod).toHaveBeenCalledWith('avalanche');
   });
