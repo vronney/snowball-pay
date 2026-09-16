@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement, type ReactNode } from 'react';
-import { render } from '@testing-library/react';
+import { act, render } from '@testing-library/react';
 import type { Income } from '@/types';
 import { useAllSnapshots, usePaymentRecords, useSaveIncome, useUpdateDebt } from '@/lib/hooks';
 import PayoffTab, { type PlanTopContext } from '@/components/tabs/PayoffTab';
@@ -52,11 +52,12 @@ const DEBTS = [
 type Slots = { renderTop?: (ctx: PlanTopContext) => ReactNode; renderFooter?: (ctx: PlanTopContext) => ReactNode };
 
 function renderTab(slots: Slots = {}, income: Income = INCOME) {
+  const mutate = vi.fn();
   vi.mocked(useUpdateDebt).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useUpdateDebt>);
-  vi.mocked(useSaveIncome).mockReturnValue({ mutate: vi.fn(), isPending: false, isSuccess: false, isError: false, submittedAt: 0 } as unknown as ReturnType<typeof useSaveIncome>);
+  vi.mocked(useSaveIncome).mockReturnValue({ mutate, isPending: false, isSuccess: false, isError: false, submittedAt: 0 } as unknown as ReturnType<typeof useSaveIncome>);
   vi.mocked(useAllSnapshots).mockReturnValue({ data: { snapshots: [] } } as unknown as ReturnType<typeof useAllSnapshots>);
   vi.mocked(usePaymentRecords).mockReturnValue({ data: { records: [] } } as unknown as ReturnType<typeof usePaymentRecords>);
-  return render(createElement(PayoffTab, { debts: DEBTS, income, expenses: [], isLoading: false, onNavigate: vi.fn(), ...slots }));
+  return { ...render(createElement(PayoffTab, { debts: DEBTS, income, expenses: [], isLoading: false, onNavigate: vi.fn(), ...slots })), mutate };
 }
 
 const has = (container: HTMLElement, name: string) => container.querySelector(`[data-stub="${name}"]`) !== null;
@@ -95,6 +96,34 @@ describe('PayoffTab render slots (dashboard v2, PR 5)', () => {
     expect(ctx.saveIsSuccess).toBe(false);
     expect(ctx.saveIsError).toBe(false);
     expect(ctx.saveSubmittedAt).toBe(0);
+    expect(typeof ctx.saveAccelerationNow === 'function').toBe(true);
+  });
+
+  it('saveAccelerationNow saves at once and stops the debounced effect from saving again', () => {
+    const seen: PlanTopContext[] = [];
+    const { mutate } = renderTab({
+      renderTop: (ctx) => { seen.push(ctx); return createElement('div', { 'data-stub': 'v2-top' }); },
+    });
+    const ctx = seen[seen.length - 1];
+
+    act(() => ctx.saveAccelerationNow(900));
+
+    expect(mutate).toHaveBeenCalledTimes(1);
+    expect(mutate).toHaveBeenCalledWith({
+      monthlyTakeHome: 4_000,
+      essentialExpenses: 2_000,
+      extraPayment: 0,
+      payoffMethod: 'snowball',
+      accelerationAmount: 900,
+    });
+
+    vi.useFakeTimers();
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
+    vi.useRealTimers();
+
+    expect(mutate).toHaveBeenCalledTimes(1);
   });
 
   it('keeps the custom-order editor under the v2 top while the method is Custom', () => {

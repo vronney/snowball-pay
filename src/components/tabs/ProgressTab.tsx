@@ -311,11 +311,13 @@ export default function ProgressTab({
   if (isLoading || snapsLoading) {
     return (
       <section className="space-y-5">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[0, 1, 2, 3].map((index) => (
-            <Skeleton key={index} className="h-20 rounded-xl" />
-          ))}
-        </div>
+        {showStats && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[0, 1, 2, 3].map((index) => (
+              <Skeleton key={index} className="h-20 rounded-xl" />
+            ))}
+          </div>
+        )}
         <Skeleton className="h-64 rounded-xl" />
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <Skeleton className="h-80 rounded-xl" />

@@ -46,6 +46,12 @@ export interface PlanTopContext {
   /** The saved request; null = use all available cash flow. */
   accelerationAmount: number | null;
   setAccelerationAmount: (amount: number) => void;
+  /**
+   * Saves an acceleration at once (no debounce), for one-tap actions that
+   * must not be lost if the tab unmounts. Syncs the auto-save guard so the
+   * debounced effect doesn't send the same value again.
+   */
+  saveAccelerationNow: (amount: number) => void;
   income: Income;
   expenses: Expense[];
   planResult: PayoffResult;
@@ -444,11 +450,24 @@ export default function PayoffTab({
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const saveAccelerationNow = (amount: number) => {
+    setAccelerationAmount(amount);
+    lastLoadedRef.current = { method: payoffMethod, accel: amount };
+    saveIncome.mutate({
+      monthlyTakeHome: income.monthlyTakeHome,
+      essentialExpenses: income.essentialExpenses,
+      extraPayment: income.extraPayment,
+      payoffMethod,
+      accelerationAmount: amount,
+    });
+  };
+
   const slotContext: PlanTopContext = {
     payoffMethod,
     setPayoffMethod,
     accelerationAmount,
     setAccelerationAmount,
+    saveAccelerationNow,
     income,
     expenses,
     planResult,

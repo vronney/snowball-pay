@@ -28,8 +28,12 @@ vi.mock('recharts', async () => {
 
 const DEBTS = [makeDebt({ id: 'visa', name: 'Visa', balance: 900, originalBalance: 1_000, minimumPayment: 25 })];
 
-function renderTab(showStats?: boolean) {
-  vi.mocked(useAllSnapshots).mockReturnValue({ data: { snapshots: [] }, isLoading: false } as unknown as ReturnType<typeof useAllSnapshots>);
+function renderTab(showStats?: boolean, snapsLoading = false) {
+  vi.mocked(useAllSnapshots).mockReturnValue(
+    (snapsLoading
+      ? { data: undefined, isLoading: true }
+      : { data: { snapshots: [] }, isLoading: false }) as unknown as ReturnType<typeof useAllSnapshots>,
+  );
   render(createElement(ProgressTab, {
     debts: DEBTS, income: makeIncome(), expenses: [], isLoading: false, onNavigate: vi.fn(),
     ...(showStats === undefined ? {} : { showStats }),
@@ -55,5 +59,16 @@ describe('ProgressTab.showStats (dashboard v2, PR 5)', () => {
     expect(screen.getByText('Milestones')).toBeTruthy();
     expect(document.querySelector('[data-stub="DataInsights"]')).not.toBeNull();
     expect(document.querySelector('[data-stub="JourneyTab"]')).not.toBeNull();
+  });
+
+  it('shows the stat skeleton grid while loading by default (v1)', () => {
+    renderTab(undefined, true);
+    expect(document.querySelector('.grid.grid-cols-2')?.children.length).toBe(4);
+  });
+
+  it('hides the stat skeleton grid while loading under v2, but keeps the chart skeleton', () => {
+    renderTab(false, true);
+    expect(document.querySelector('.grid.grid-cols-2')).toBeNull();
+    expect(document.querySelector('.h-64')).not.toBeNull();
   });
 });

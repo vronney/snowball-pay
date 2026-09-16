@@ -185,12 +185,13 @@ function PlanClosing({
   const onCta = () => {
     if (!view.cta) return;
     if (view.cta.kind === "fix") {
-      // README "Interactions": apply the unused cash flow. PayoffTab's
-      // debounced save writes it, and the plan below recalculates at once.
+      // README "Interactions": apply the unused cash flow. Saved immediately
+      // (not PayoffTab's debounced path) so the fix survives a tab switch
+      // before the debounce would have settled; the plan recalculates at once.
       track(Events.PLAN_GAP_FIX_APPLIED);
       setRestoreTo(ctx.effectiveAcceleration);
       setErrorShown(false);
-      ctx.setAccelerationAmount(ctx.availableCashFlow);
+      ctx.saveAccelerationNow(ctx.availableCashFlow);
       setFixRequestedAt(Date.now());
     } else {
       onLog();
