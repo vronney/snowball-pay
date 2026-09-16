@@ -227,45 +227,69 @@ describe('PlanV2 closing card (spec §8.4 "Plan closing")', () => {
   const BEHIND = { amount: -2621.46, asOfMonth: 'Sep 2026' };
 
   it('applies the unused cash flow in one tap and reports the new date only once the save actually succeeds', () => {
-    // One saveAccelerationNow mock survives every re-render (each context()
+    // This exercises the ordering the "record the timestamp before the save"
+    // fix depends on: fixRequestedAt must be stamped BEFORE saveAccelerationNow
+    // runs, not after. saveAccelerationNow here mimics the real one — it's
+    // synchronous, but its own Date.now() read (standing in for
+    // saveIncome.mutate's submittedAt) happens inside the call, and a beat of
+    // wall-clock time (modeled as +5ms via fake timers) is spent afterward
+    // before anything else in the handler could read the clock again. If
+    // PlanV2's onCta captured fixRequestedAt via Date.now() AFTER calling
+    // saveAccelerationNow (the old, broken order) instead of before it, that
+    // read would land after this beat, making fixRequestedAt > submittedAt —
+    // the "Applied" gate (saveSubmittedAt >= fixRequestedAt) would then never
+    // open and this test's final assertion would fail. One
+    // saveAccelerationNow instance survives every re-render (each context()
     // call otherwise makes a fresh vi.fn()), so the press can be asserted on
     // the same spy the later re-renders were built with.
-    const saveAccelerationNow = vi.fn();
-    // An OLD successful save (submitted well before the click) must not count.
-    const ctx = renderTab({
-      data: insights({ planGap: BEHIND }),
-      ctx: context({ saveIsSuccess: true, saveSubmittedAt: Date.now() - 60_000, saveAccelerationNow }),
-    });
-    expect(screen.getByText('Plan vs actual')).toBeTruthy();
-    expect(screen.getByText('$2,621.46 behind')).toBeTruthy();
-    expect(screen.getByText('Balances are $2,621.46 above where the plan expected by Sep 2026.')).toBeTruthy();
+    vi.useFakeTimers();
+    let capturedSubmittedAt = 0;
+    try {
+      const saveAccelerationNow = vi.fn(() => {
+        capturedSubmittedAt = Date.now();
+        slots.ctx = context({
+          effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsPending: true, saveSubmittedAt: capturedSubmittedAt, saveAccelerationNow,
+        });
+        // The beat of wall-clock time spent inside the real mutate() call,
+        // after its own submittedAt has already been stamped.
+        vi.setSystemTime(Date.now() + 5);
+      });
+      // An OLD successful save (submitted well before the click) must not count.
+      const ctx = renderTab({
+        data: insights({ planGap: BEHIND }),
+        ctx: context({ saveIsSuccess: true, saveSubmittedAt: Date.now() - 60_000, saveAccelerationNow }),
+      });
+      expect(screen.getByText('Plan vs actual')).toBeTruthy();
+      expect(screen.getByText('$2,621.46 behind')).toBeTruthy();
+      expect(screen.getByText('Balances are $2,621.46 above where the plan expected by Sep 2026.')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Fix it in one tap' }));
-    // The fix saves immediately — not through PayoffTab's debounced path —
-    // so it survives a tab switch before the debounce would have settled.
-    expect(saveAccelerationNow).toHaveBeenCalledWith(1_660);
-    expect(ctx.setAccelerationAmount).not.toHaveBeenCalled();
-    expect(track).toHaveBeenCalledWith(Events.PLAN_GAP_FIX_APPLIED);
-    expect(screen.queryByRole('status')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Fix it in one tap' }));
+      // The fix saves immediately — not through PayoffTab's debounced path —
+      // so it survives a tab switch before the debounce would have settled.
+      expect(saveAccelerationNow).toHaveBeenCalledWith(1_660);
+      expect(ctx.setAccelerationAmount).not.toHaveBeenCalled();
+      expect(track).toHaveBeenCalledWith(Events.PLAN_GAP_FIX_APPLIED);
+      expect(screen.queryByRole('status')).toBeNull();
 
-    // The debounced save is now in flight (submitted after the click, and
-    // PayoffTab's context reflects the applied value): the fix CTA stays
-    // mounted — never "Log this month's payments" — but disabled, still no note.
-    slots.ctx = context({
-      effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsPending: true, saveSubmittedAt: Date.now() + 1, saveAccelerationNow,
-    });
-    ctx.rerender();
-    expect(screen.getByRole('button', { name: 'Fix it in one tap' }).hasAttribute('disabled')).toBe(true);
-    expect(screen.queryByRole('button', { name: "Log this month's payments" })).toBeNull();
-    expect(screen.queryByRole('status')).toBeNull();
+      // The debounced save is now in flight (submitted inside the press, and
+      // PayoffTab's context reflects the applied value): the fix CTA stays
+      // mounted — never "Log this month's payments" — but disabled, still no note.
+      ctx.rerender();
+      expect(screen.getByRole('button', { name: 'Fix it in one tap' }).hasAttribute('disabled')).toBe(true);
+      expect(screen.queryByRole('button', { name: "Log this month's payments" })).toBeNull();
+      expect(screen.queryByRole('status')).toBeNull();
 
-    // The save completes: only now does the note appear, and the fix CTA is gone.
-    slots.ctx = context({
-      effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsSuccess: true, saveSubmittedAt: Date.now() + 1, saveAccelerationNow,
-    });
-    ctx.rerender();
-    expect(screen.getByRole('status').textContent).toMatch(/^Applied — your plan now ends [A-Z][a-z]+ \d{4}\.$/);
-    expect(screen.queryByRole('button', { name: 'Fix it in one tap' })).toBeNull();
+      // The save completes: only now does the note appear, and the fix CTA
+      // is gone. This is the assertion the ordering race broke.
+      slots.ctx = context({
+        effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsSuccess: true, saveSubmittedAt: capturedSubmittedAt, saveAccelerationNow,
+      });
+      ctx.rerender();
+      expect(screen.getByRole('status').textContent).toMatch(/^Applied — your plan now ends [A-Z][a-z]+ \d{4}\.$/);
+      expect(screen.queryByRole('button', { name: 'Fix it in one tap' })).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("restores the previous acceleration and offers a working retry when the debounced save behind the fix fails", () => {

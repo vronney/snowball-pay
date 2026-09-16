@@ -188,11 +188,17 @@ function PlanClosing({
       // README "Interactions": apply the unused cash flow. Saved immediately
       // (not PayoffTab's debounced path) so the fix survives a tab switch
       // before the debounce would have settled; the plan recalculates at once.
+      // The request timestamp must be captured BEFORE the save call: the save
+      // is synchronous and stamps ctx.saveSubmittedAt itself, and the
+      // "Applied" gate below requires saveSubmittedAt >= fixRequestedAt. If
+      // the timestamp were taken after the save, a same-millisecond ordering
+      // could make submittedAt < fixRequestedAt and the note would never show.
+      const requestedAt = Date.now();
       track(Events.PLAN_GAP_FIX_APPLIED);
       setRestoreTo(ctx.effectiveAcceleration);
       setErrorShown(false);
+      setFixRequestedAt(requestedAt);
       ctx.saveAccelerationNow(ctx.availableCashFlow);
-      setFixRequestedAt(Date.now());
     } else {
       onLog();
     }
