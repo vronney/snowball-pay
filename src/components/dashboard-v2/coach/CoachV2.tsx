@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Debt, Expense, Income } from "@/types";
 import type { Tab } from "@/components/dashboard/types";
-import { getErrorMessage, useDashboardInsights, useSaveIncome } from "@/lib/hooks";
+import { getErrorMessage, useDashboardInsights, useSaveIncome, useSubscription } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import { upgradeEvents } from "@/lib/upgradeEvents";
 import { PLANS } from "@/lib/stripe";
@@ -57,6 +57,7 @@ export default function CoachV2({
   debts, income, expenses, isLoading, pendingExtra, onConsumePendingExtra, onNavigate,
 }: CoachV2Props) {
   const { data: insights, isError, isPlaceholderData, refetch } = useDashboardInsights();
+  const { data: subscription } = useSubscription();
   const saveIncome = useSaveIncome();
   const [logSheet, setLogSheet] = useState<LogSheet>(null);
   const [pendingMove, setPendingMove] = useState<CoachMoveId | null>(null);
@@ -135,15 +136,23 @@ export default function CoachV2({
           <OpenMovesList rows={openRows} onAction={(row) => run(row.move, row.cta.action)} pendingId={pendingMove} error={error} />
         )}
         {watch}
-        <IntelligenceTab
-          debts={debts}
-          income={income}
-          expenses={expenses}
-          isLoading={isLoading}
-          pendingExtra={pendingExtra}
-          onConsumePendingExtra={onConsumePendingExtra}
-          aprOpenRequest={aprRequest}
-        />
+        {/* insights.tier.proEligible and useSubscription can skew transiently
+            (different queries, different cache lifetimes); IntelligenceTab
+            branches on its own useSubscription() and would otherwise render
+            the Free IntelligenceUpgradeTeaser here, which must never appear
+            under this flag. undefined (still loading) is fine — it shows its
+            own loading state. */}
+        {subscription?.proEligible !== false && (
+          <IntelligenceTab
+            debts={debts}
+            income={income}
+            expenses={expenses}
+            isLoading={isLoading}
+            pendingExtra={pendingExtra}
+            onConsumePendingExtra={onConsumePendingExtra}
+            aprOpenRequest={aprRequest}
+          />
+        )}
         {sheet}
       </div>
     );

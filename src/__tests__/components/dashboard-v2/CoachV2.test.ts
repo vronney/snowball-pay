@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { DashboardInsights } from '@/lib/dashboard/types';
-import { useDashboardInsights, useMarkPaid, useSaveIncome } from '@/lib/hooks';
+import {
+  useDashboardInsights, useMarkPaid, useSaveIncome, useSubscription,
+} from '@/lib/hooks';
 import { track, Events } from '@/lib/analytics';
 import { upgradeEvents } from '@/lib/upgradeEvents';
 import { PLANS } from '@/lib/stripe';
@@ -19,6 +21,7 @@ vi.mock('@/lib/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/hooks')>()),
   useDashboardInsights: vi.fn(),
   useSaveIncome: vi.fn(),
+  useSubscription: vi.fn(),
   useMarkPaid: vi.fn(),
 }));
 vi.mock('@/lib/analytics', async (importOriginal) => ({
@@ -66,11 +69,17 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
 
 const saveIncome = { mutate: vi.fn(), isPending: false };
 
-function renderTab({ data = insights(), placeholder = false }: { data?: DashboardInsights; placeholder?: boolean } = {}) {
+function renderTab({
+  data = insights(), placeholder = false, subscription,
+}: { data?: DashboardInsights; placeholder?: boolean; subscription?: { proEligible: boolean } } = {}) {
   vi.mocked(useDashboardInsights).mockReturnValue(
     { data, isPlaceholderData: placeholder } as unknown as ReturnType<typeof useDashboardInsights>,
   );
   vi.mocked(useSaveIncome).mockReturnValue(saveIncome as unknown as ReturnType<typeof useSaveIncome>);
+  // DebtsV2.test.ts's pattern: the subscription tier tracks the insights tier by default.
+  vi.mocked(useSubscription).mockReturnValue(
+    { data: subscription ?? { proEligible: data.tier.proEligible } } as unknown as ReturnType<typeof useSubscription>,
+  );
   vi.mocked(useMarkPaid).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useMarkPaid>);
   const onNavigate = vi.fn();
   render(createElement(CoachV2, { debts: DEBTS, income: INCOME, expenses: [], isLoading: false, onNavigate }));
@@ -167,5 +176,15 @@ describe('CoachV2 for Pro', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open the call script' }));
     expect(intel.last?.aprOpenRequest).toMatchObject({ debtId: 'citi' });
     expect(track).toHaveBeenCalledWith(Events.COACH_MOVE_CTA, { move: 'call_apr', gated: false });
+  });
+
+  it('never shows v1\'s Free teaser through IntelligenceTab on transient tier skew (insights Pro, subscription Free)', () => {
+    renderTab({
+      data: insights({ tier: PRO, coachMoves: [makeLogMissedMove('Sep', 1, true), makeSwitchMove('avalanche', 1030, true), makeCallAprMove('citi', 742.9, true)] }),
+      subscription: { proEligible: false },
+    });
+    expect(screen.getByRole('button', { name: 'Log it now' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Switch to Avalanche' })).toBeTruthy();
+    expect(document.querySelector('[data-stub="IntelligenceTab"]')).toBeNull();
   });
 });

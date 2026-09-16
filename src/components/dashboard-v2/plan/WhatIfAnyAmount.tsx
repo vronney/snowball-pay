@@ -70,7 +70,7 @@ export default function WhatIfAnyAmount({
       </div>
       {view && (
         <p role="status" className="mt-2 text-[12px] text-txt-muted">
-          {view.months} · {view.interest} · <span className="font-bold text-success-text">{view.caption}</span>
+          {view.months} · {view.interest} · <span className={view.canApply && view.improves ? "font-bold text-success-text" : "font-semibold text-txt-muted"}>{view.caption}</span>
         </p>
       )}
     </section>

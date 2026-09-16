@@ -59,7 +59,16 @@ describe('anyAmountView (Pro; WhatIfCard\'s ladder rules)', () => {
 
   it('is applicable within headroom and clamps the next acceleration like the ladder', () => {
     const view = anyAmountView({ delta: 100, current, withExtra: result(27, 13_900), availableCashFlow: 700, effectiveAcceleration: 500 });
-    expect(view).toEqual({ months: '2y 3m', interest: '$13,900 interest', caption: '4m sooner · saves $924', canApply: true, nextAcceleration: 600 });
+    expect(view).toEqual({
+      months: '2y 3m', interest: '$13,900 interest', caption: '4m sooner · saves $924', canApply: true, improves: true, nextAcceleration: 600,
+    });
+  });
+
+  it('is not a saving when the rung changes nothing, even though it is still applicable', () => {
+    const view = anyAmountView({ delta: 50, current, withExtra: current, availableCashFlow: 700, effectiveAcceleration: 500 });
+    expect(view).toEqual({
+      months: '2y 7m', interest: '$14,824 interest', caption: 'no change', canApply: true, improves: false, nextAcceleration: 550,
+    });
   });
 
   it('is inert beyond headroom and says what it would need', () => {

@@ -94,6 +94,8 @@ export interface AnyAmountView {
   interest: string;
   caption: string;
   canApply: boolean;
+  /** True only when the rung actually cuts months or interest — not merely applicable. */
+  improves: boolean;
   /** WhatIfCard.handleApply's clamp: never above the available cash flow. */
   nextAcceleration: number;
 }
@@ -117,6 +119,7 @@ export function anyAmountView(args: {
     interest: `${formatCurrencyWhole(withExtra.totalInterestPaid)} interest`,
     caption: rungCaption({ delta, savedMonths, savedInterest }, headroom, canApply),
     canApply,
+    improves: savedMonths > 0 || savedInterest > 0,
     nextAcceleration: Math.min(effectiveAcceleration + delta, availableCashFlow),
   };
 }

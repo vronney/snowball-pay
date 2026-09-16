@@ -147,6 +147,12 @@ describe('PlanV2 top (spec §8.5 My Plan)', () => {
     expect(document.getElementById('cash-flow-overview')).not.toBeNull();
   });
 
+  it('keeps the #cash-flow-overview anchor alive for v1\'s scroll target when the slider has no room to show', () => {
+    renderTab({ ctx: context({ availableCashFlow: 0, effectiveAcceleration: 0 }) });
+    expect(screen.queryByRole('slider')).toBeNull();
+    expect(document.getElementById('cash-flow-overview')).not.toBeNull();
+  });
+
   it('shows Free one real +$25 rung and two gated tiles', () => {
     const handler = vi.fn();
     const unsubscribe = upgradeEvents.subscribe(handler);
@@ -171,10 +177,17 @@ describe('PlanV2 top (spec §8.5 My Plan)', () => {
     const apply = screen.getByRole('button', { name: 'Apply' });
     expect(apply.hasAttribute('disabled')).toBe(true);
     fireEvent.change(screen.getByLabelText('Any amount extra per month'), { target: { value: '100' } });
-    expect(screen.getByRole('status').textContent).toMatch(/ interest · /);
+    const status = screen.getByRole('status');
+    expect(status.textContent).toMatch(/ interest · /);
+    expect(status.querySelector('span')?.className).toContain('text-success-text');
     fireEvent.click(apply);
     expect(ctx.setAccelerationAmount).toHaveBeenCalledWith(600);
     expect(track).toHaveBeenCalledWith(Events.WHAT_IF_APPLIED, expect.objectContaining({ delta: 100, next_acceleration: 600 }));
+
+    // Far beyond the 1660 headroom: honest, not a fake saving.
+    fireEvent.change(screen.getByLabelText('Any amount extra per month'), { target: { value: '100000' } });
+    expect(status.textContent).toContain('more room');
+    expect(status.querySelector('span')?.className).not.toContain('text-success-text');
   });
 
   it('hides the what-if row and holds Custom until the tier is known', () => {

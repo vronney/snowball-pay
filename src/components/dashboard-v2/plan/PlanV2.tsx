@@ -109,8 +109,12 @@ function PlanTop({ ctx, debts, proEligible }: { ctx: PlanTopContext; debts: Debt
         customOpen={proEligible === undefined ? undefined : proEligible === true}
         pair={pair}
       />
-      {accel && (
+      {accel ? (
         <AccelerationCard view={accel} value={ctx.effectiveAcceleration} onChange={ctx.setAccelerationAmount} saving={ctx.saveIsPending} />
+      ) : (
+        // v1's RollForwardAdvice "review my plan" button scrolls to this id
+        // regardless of whether the slider has room to show; keep the anchor alive.
+        <div id="cash-flow-overview" className="scroll-mt-24" aria-hidden="true" />
       )}
       {proEligible === true && (
         <>
@@ -139,7 +143,7 @@ function PlanTop({ ctx, debts, proEligible }: { ctx: PlanTopContext; debts: Debt
           />
         </>
       )}
-      {freeTile && <WhatIfTiles tile={freeTile} />}
+      {proEligible === false && <WhatIfTiles tile={freeTile} />}
     </div>
   );
 }

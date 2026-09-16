@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import type { Debt, Expense, Income } from "@/types";
 import type { Tab } from "@/components/dashboard/types";
 import { useAllSnapshots, useDashboardInsights, usePaymentRecords } from "@/lib/hooks";
@@ -34,6 +34,7 @@ type LogSheet = { rows: LogRow[]; year: number; month: number } | null;
  * formulas, extracted in PR 1.
  */
 export default function ProgressV2({ debts, income, expenses, isLoading, onNavigate }: ProgressV2Props) {
+  const streakHeadingId = useId();
   const { data: insights, isPlaceholderData } = useDashboardInsights();
   const { data: snapshotData } = useAllSnapshots();
   const today = new Date();
@@ -80,8 +81,8 @@ export default function ProgressV2({ debts, income, expenses, isLoading, onNavig
       )}
       {paid && <PaidOffCard view={paid} />}
       {progress && (
-        <section aria-label="Payment streak" className={`${CARD} p-4`}>
-          <h2 className={`${EYEBROW} text-txt-muted`}>Payment months</h2>
+        <section aria-labelledby={streakHeadingId} className={`${CARD} p-4`}>
+          <h2 id={streakHeadingId} className={`${EYEBROW} text-txt-muted`}>Payment streak</h2>
           <div className="mt-2">
             <StreakGrid cells={progress.grid} />
           </div>

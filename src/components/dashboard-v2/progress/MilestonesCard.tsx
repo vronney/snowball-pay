@@ -9,8 +9,8 @@ import { CARD, EYEBROW } from "../styles";
  */
 export default function MilestonesCard({ rows }: { rows: ReadonlyArray<MilestoneRowView> }) {
   return (
-    <section aria-label="Milestones" className={`${CARD} p-4`}>
-      <h2 className={`${EYEBROW} text-txt-muted`}>Milestones</h2>
+    <section aria-label="Payoff milestones" className={`${CARD} p-4`}>
+      <h2 className={`${EYEBROW} text-txt-muted`}>Payoff milestones</h2>
       <ul className="mt-2 flex flex-col gap-1.5">
         {rows.map((row) => (
           <li
