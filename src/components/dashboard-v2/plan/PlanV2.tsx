@@ -153,15 +153,24 @@ function PlanClosing({
   ctx, planGap, missedCount, onLog,
 }: { ctx: PlanTopContext; planGap: PlanGap | null; missedCount: number; onLog: () => void }) {
   const [fixRequestedAt, setFixRequestedAt] = useState<number | null>(null);
+  // The acceleration this fix requested, captured at the press — distinguishes
+  // this control's own save from a later save made by the slider (or a Pro
+  // what-if control), which also writes through PayoffTab's debounced path.
+  const [requestedAmount, setRequestedAmount] = useState<number | null>(null);
   // The acceleration to restore to if the save behind a fix request fails.
   const [restoreTo, setRestoreTo] = useState(0);
   const [errorShown, setErrorShown] = useState(false);
-  // The "Applied" note must reflect the save actually succeeding, not merely
-  // the click: PayoffTab's save is debounced 600ms and can fail. A save only
-  // counts when it was submitted at or after this fix request.
-  const saveAfterRequest = fixRequestedAt !== null && ctx.saveSubmittedAt >= fixRequestedAt;
-  const applied = saveAfterRequest && !ctx.saveIsPending && ctx.saveIsSuccess;
-  const saveFailed = saveAfterRequest && !ctx.saveIsPending && ctx.saveIsError;
+  // The "Applied" note must reflect THIS fix's own save actually succeeding,
+  // not merely the click, and not some other control's later save: PayoffTab's
+  // save is debounced 600ms, can fail, and is shared with the slider and Pro
+  // what-if controls. A save only counts as this fix's own when it was
+  // submitted at or after this fix request AND carried the exact acceleration
+  // this fix requested — another control's save (a different amount) neither
+  // confirms nor fails the fix.
+  const ownSave = fixRequestedAt !== null && requestedAmount !== null
+    && ctx.saveSubmittedAt >= fixRequestedAt && ctx.lastSavedAcceleration === requestedAmount;
+  const applied = ownSave && !ctx.saveIsPending && ctx.saveIsSuccess;
+  const saveFailed = ownSave && !ctx.saveIsPending && ctx.saveIsError;
   // Keeps the fix CTA mounted (rather than disappearing, or flipping to "Log
   // this month's payments") from the click until the debounced save settles.
   const fixInFlight = fixRequestedAt !== null && !applied && !saveFailed;
@@ -176,6 +185,7 @@ function PlanClosing({
     // debounced save (whose guard compares against its lastLoadedRef).
     ctx.setAccelerationAmount(restoreTo);
     setFixRequestedAt(null);
+    setRequestedAmount(null);
     setErrorShown(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saveFailed]);
@@ -185,6 +195,12 @@ function PlanClosing({
   const onCta = () => {
     if (!view.cta) return;
     if (view.cta.kind === "fix") {
+      // Another control's save (the slider, a Pro what-if) must settle before
+      // the fix's own write: firing while one is already pending would race
+      // two complete income payloads against each other. Bail before tracking
+      // or recording anything — the disabled CTA should already prevent this,
+      // this is the guard against a stale click landing after a save started.
+      if (ctx.saveIsPending) return;
       // README "Interactions": apply the unused cash flow. Saved immediately
       // (not PayoffTab's debounced path) so the fix survives a tab switch
       // before the debounce would have settled; the plan recalculates at once.
@@ -198,6 +214,7 @@ function PlanClosing({
       setRestoreTo(ctx.effectiveAcceleration);
       setErrorShown(false);
       setFixRequestedAt(requestedAt);
+      setRequestedAmount(ctx.availableCashFlow);
       ctx.saveAccelerationNow(ctx.availableCashFlow);
     } else {
       onLog();
@@ -212,7 +229,7 @@ function PlanClosing({
       onCta={view.cta ? onCta : undefined}
       note={applied ? fixAppliedNote(ctx.planResult.debtFreeDate) : undefined}
       error={errorShown ? "Couldn't save the new amount. Try again." : undefined}
-      ctaDisabled={fixInFlight}
+      ctaDisabled={fixInFlight || ctx.saveIsPending}
     >
       {view.text}
     </ClosingCard>

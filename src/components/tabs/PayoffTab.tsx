@@ -66,6 +66,8 @@ export interface PlanTopContext {
   saveIsError: boolean;
   /** useMutation's submittedAt: when the latest save was submitted (0 before any). */
   saveSubmittedAt: number;
+  /** The acceleration the latest save carried (useMutation's variables), so a caller can tell its own save from another control's. */
+  lastSavedAcceleration: number | null | undefined;
 }
 
 interface PayoffTabProps {
@@ -480,6 +482,7 @@ export default function PayoffTab({
     saveIsSuccess: saveIncome.isSuccess,
     saveIsError: saveIncome.isError,
     saveSubmittedAt: saveIncome.submittedAt,
+    lastSavedAcceleration: saveIncome.variables?.accelerationAmount,
   };
 
   return (

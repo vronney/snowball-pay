@@ -75,6 +75,7 @@ function context(overrides: Partial<PlanTopContext> = {}): PlanTopContext {
     saveIsSuccess: false,
     saveIsError: false,
     saveSubmittedAt: 0,
+    lastSavedAcceleration: undefined,
     ...overrides,
   };
 }
@@ -248,7 +249,7 @@ describe('PlanV2 closing card (spec §8.4 "Plan closing")', () => {
       const saveAccelerationNow = vi.fn(() => {
         capturedSubmittedAt = Date.now();
         slots.ctx = context({
-          effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsPending: true, saveSubmittedAt: capturedSubmittedAt, saveAccelerationNow,
+          effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsPending: true, saveSubmittedAt: capturedSubmittedAt, lastSavedAcceleration: 1_660, saveAccelerationNow,
         });
         // The beat of wall-clock time spent inside the real mutate() call,
         // after its own submittedAt has already been stamped.
@@ -282,7 +283,7 @@ describe('PlanV2 closing card (spec §8.4 "Plan closing")', () => {
       // The save completes: only now does the note appear, and the fix CTA
       // is gone. This is the assertion the ordering race broke.
       slots.ctx = context({
-        effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsSuccess: true, saveSubmittedAt: capturedSubmittedAt, saveAccelerationNow,
+        effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsSuccess: true, saveSubmittedAt: capturedSubmittedAt, lastSavedAcceleration: 1_660, saveAccelerationNow,
       });
       ctx.rerender();
       expect(screen.getByRole('status').textContent).toMatch(/^Applied — your plan now ends [A-Z][a-z]+ \d{4}\.$/);
@@ -290,6 +291,55 @@ describe('PlanV2 closing card (spec §8.4 "Plan closing")', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('ignores another control\'s save while the fix is in flight', () => {
+    const saveAccelerationNow = vi.fn();
+    const ctx = renderTab({
+      data: insights({ planGap: BEHIND }),
+      ctx: context({ saveAccelerationNow }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Fix it in one tap' }));
+    expect(saveAccelerationNow).toHaveBeenCalledWith(1_660);
+    const afterPress = Date.now();
+
+    // A slider save (900) succeeds while the fix (1_660) is still in flight —
+    // it must not be read as the fix's own success.
+    slots.ctx = context({
+      effectiveAcceleration: 900, accelerationAmount: 900, saveIsSuccess: true, saveSubmittedAt: afterPress, lastSavedAcceleration: 900, saveAccelerationNow,
+    });
+    ctx.rerender();
+    expect(screen.queryByRole('status')).toBeNull();
+    const fixButton = screen.getByRole('button', { name: 'Fix it in one tap' });
+    expect(fixButton).toBeTruthy();
+    expect(fixButton.hasAttribute('disabled')).toBe(true);
+
+    // The fix's own save (1_660) now succeeds — only now does the note appear.
+    slots.ctx = context({
+      effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsSuccess: true, saveSubmittedAt: afterPress, lastSavedAcceleration: 1_660, saveAccelerationNow,
+    });
+    ctx.rerender();
+    expect(screen.getByRole('status')).toBeTruthy();
+  });
+
+  it('disables the fix CTA while another save is already pending, and refuses a click', () => {
+    const saveAccelerationNow = vi.fn();
+    const ctx = renderTab({
+      data: insights({ planGap: BEHIND }),
+      ctx: context({ saveIsPending: true, saveSubmittedAt: Date.now() - 100, saveAccelerationNow }),
+    });
+    const fixButton = screen.getByRole('button', { name: 'Fix it in one tap' });
+    expect(fixButton.hasAttribute('disabled')).toBe(true);
+
+    fireEvent.click(fixButton);
+    expect(saveAccelerationNow).not.toHaveBeenCalled();
+    expect(track).not.toHaveBeenCalledWith(Events.PLAN_GAP_FIX_APPLIED);
+    expect(screen.queryByRole('status')).toBeNull();
+
+    // The other save settles: the fix CTA becomes pressable again.
+    slots.ctx = context({ saveAccelerationNow });
+    ctx.rerender();
+    expect(screen.getByRole('button', { name: 'Fix it in one tap' }).hasAttribute('disabled')).toBe(false);
   });
 
   it("restores the previous acceleration and offers a working retry when the debounced save behind the fix fails", () => {
@@ -307,8 +357,18 @@ describe('PlanV2 closing card (spec §8.4 "Plan closing")', () => {
     expect(saveAccelerationNow).toHaveBeenCalledWith(1_660);
     expect(setAccelerationAmount).not.toHaveBeenCalled();
 
+    // Another control's save fails with a DIFFERENT amount (e.g. the slider,
+    // at 900) while the fix is still in flight — it must not be mistaken for
+    // the fix's own failure: no restore, no error banner.
     slots.ctx = context({
-      setAccelerationAmount, saveAccelerationNow, effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsError: true, saveSubmittedAt: Date.now() + 1,
+      setAccelerationAmount, saveAccelerationNow, effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsError: true, saveSubmittedAt: Date.now() + 1, lastSavedAcceleration: 900,
+    });
+    ctx.rerender();
+    expect(setAccelerationAmount).not.toHaveBeenCalled();
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    slots.ctx = context({
+      setAccelerationAmount, saveAccelerationNow, effectiveAcceleration: 1_660, accelerationAmount: 1_660, saveIsError: true, saveSubmittedAt: Date.now() + 2, lastSavedAcceleration: 1_660,
     });
     ctx.rerender();
 
