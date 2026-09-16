@@ -1,0 +1,225 @@
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createElement } from 'react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import type { DashboardInsights } from '@/lib/dashboard/types';
+import { useDashboardInsights, useMarkPaid, useSubscription } from '@/lib/hooks';
+import { track, Events } from '@/lib/analytics';
+import { upgradeEvents } from '@/lib/upgradeEvents';
+import { calculatePlanMetrics, calculateResultForAcceleration } from '@/lib/payoffPlan';
+import type { PlanTopContext } from '@/components/tabs/PayoffTab';
+import PlanV2 from '@/components/dashboard-v2/plan/PlanV2';
+import { makeDebt, makeIncome } from '../../lib/dashboard/fixtures';
+
+const slots = vi.hoisted(() => ({ ctx: null as unknown }));
+
+vi.mock('@/lib/hooks', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/hooks')>()),
+  useDashboardInsights: vi.fn(),
+  useSubscription: vi.fn(),
+  useMarkPaid: vi.fn(),
+}));
+vi.mock('@/lib/analytics', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/analytics')>()),
+  track: vi.fn(),
+}));
+// PayoffTab itself is covered by PayoffTab.slots.test.ts; here it only feeds the slots a fixed context.
+vi.mock('@/components/tabs/PayoffTab', async () => {
+  const { createElement: h } = await import('react');
+  return {
+    default: (p: { renderTop?: (ctx: unknown) => unknown; renderFooter?: (ctx: unknown) => unknown }) =>
+      h('div', { 'data-stub': 'PayoffTab' }, p.renderTop?.(slots.ctx) as never, p.renderFooter?.(slots.ctx) as never),
+  };
+});
+vi.mock('@/components/payoff/WhatIfCard', async () => {
+  const { createElement: h } = await import('react');
+  return { default: () => h('div', { 'data-stub': 'WhatIfCard' }) };
+});
+
+const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
+const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } };
+const INCOME = makeIncome({ monthlyTakeHome: 4_000, essentialExpenses: 2_000, payoffMethod: 'snowball', accelerationAmount: 500 });
+const DEBTS = [
+  makeDebt({ id: 'visa', name: 'Visa', balance: 3_000, minimumPayment: 90, interestRate: 24 }),
+  makeDebt({ id: 'car', name: 'Car loan', balance: 9_000, minimumPayment: 250, interestRate: 7 }),
+];
+// PayoffTab's own numbers (PayoffTab.tsx:137-145, 265-278): surplus 4000 − 2000 − 340 = 1660, acceleration 500.
+const METRICS = calculatePlanMetrics(DEBTS, INCOME, [], { method: 'snowball', accelerationAmount: 500 })!;
+const ALTERNATIVE = calculateResultForAcceleration(DEBTS, INCOME, METRICS, METRICS.effectiveAcceleration, 'avalanche');
+
+function context(overrides: Partial<PlanTopContext> = {}): PlanTopContext {
+  return {
+    payoffMethod: 'snowball',
+    setPayoffMethod: vi.fn(),
+    accelerationAmount: 500,
+    setAccelerationAmount: vi.fn(),
+    income: INCOME,
+    expenses: [],
+    planResult: METRICS.result,
+    alternative: { method: 'avalanche', result: ALTERNATIVE },
+    availableCashFlow: METRICS.availableCashFlow,
+    effectiveAcceleration: METRICS.effectiveAcceleration,
+    adjustedExtra: METRICS.adjustedExtra,
+    recurringTotal: METRICS.recurringTotal,
+    saveIsPending: false,
+    ...overrides,
+  };
+}
+
+function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights {
+  return {
+    asOf: { year: 2026, month: 8, day: 15 },
+    tier: FREE,
+    readiness: { steps: [], completeCount: 0, percent: 0 },
+    interest: null, paymentGap: null, coachMoves: [], rateWatch: null, strategy: null, planGap: null, progress: null, plan: null, uncounted: null,
+    ...overrides,
+  };
+}
+
+type Options = {
+  ctx?: PlanTopContext;
+  data?: DashboardInsights | undefined;
+  subscription?: { proEligible: boolean } | undefined;
+  placeholder?: boolean;
+};
+
+function renderTab(options: Options = {}) {
+  const data = 'data' in options ? options.data : insights();
+  const subscription = 'subscription' in options ? options.subscription : { proEligible: data?.tier.proEligible ?? false };
+  const ctx = options.ctx ?? context();
+  slots.ctx = ctx;
+  vi.mocked(useDashboardInsights).mockReturnValue(
+    { data, isPlaceholderData: options.placeholder ?? false } as unknown as ReturnType<typeof useDashboardInsights>,
+  );
+  vi.mocked(useSubscription).mockReturnValue({ data: subscription } as unknown as ReturnType<typeof useSubscription>);
+  vi.mocked(useMarkPaid).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useMarkPaid>);
+  render(createElement(PlanV2, { debts: DEBTS, income: INCOME, expenses: [], isLoading: false, onNavigate: vi.fn() }));
+  return ctx;
+}
+
+afterEach(() => vi.clearAllMocks());
+
+describe('PlanV2 top (spec §8.5 My Plan)', () => {
+  it('renders the segmented control with the comparison pair, and switches through PayoffTab', () => {
+    const ctx = renderTab();
+    expect(screen.getByRole('button', { name: 'Snowball' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: 'Avalanche' }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByText('Yours · Snowball')).toBeTruthy();
+    // With this fixture, Visa is both the smaller balance and the higher rate,
+    // so snowball and avalanche land on the identical order — strategyVerdict's
+    // tied-on-both-axes branch (strategyVerdict.ts:41), not a "switch" verdict.
+    expect(
+      screen.getByText(/Switch above and the whole plan recalculates|You're on the cheaper of the two|Both methods finish on the same date/),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Avalanche' }));
+    expect(ctx.setPayoffMethod).toHaveBeenCalledWith('avalanche');
+  });
+
+  it('gates Custom for a Free account with the existing modal copy', () => {
+    const handler = vi.fn();
+    const unsubscribe = upgradeEvents.subscribe(handler);
+    renderTab();
+    fireEvent.click(screen.getByRole('button', { name: 'Custom — Pro' }));
+    expect(handler).toHaveBeenCalledWith('Custom priority order');
+    unsubscribe();
+  });
+
+  it('keeps Custom selectable for Pro', () => {
+    const ctx = renderTab({ data: insights({ tier: PRO }) });
+    const custom = screen.getByRole('button', { name: 'Custom' });
+    expect(custom.hasAttribute('disabled')).toBe(false);
+    fireEvent.click(custom);
+    expect(ctx.setPayoffMethod).toHaveBeenCalledWith('custom');
+  });
+
+  it("drives the acceleration slider through PayoffTab with v1's step and range", () => {
+    const ctx = renderTab();
+    const slider = screen.getByRole('slider', { name: 'Apply to Acceleration' }) as HTMLInputElement;
+    expect(slider.max).toBe('1660');
+    expect(slider.step).toBe('50');
+    expect(screen.getByText('$1,660.00 available')).toBeTruthy();
+    fireEvent.change(slider, { target: { value: '600' } });
+    expect(ctx.setAccelerationAmount).toHaveBeenCalledWith(600);
+    expect(document.getElementById('cash-flow-overview')).not.toBeNull();
+  });
+
+  it('shows Free one real +$25 rung and two gated tiles', () => {
+    const handler = vi.fn();
+    const unsubscribe = upgradeEvents.subscribe(handler);
+    renderTab();
+    // Scoped to the what-if card: the strategy caption can also say "sooner".
+    const whatIf = within(screen.getByRole('region', { name: 'What if' }));
+    expect(whatIf.getByText('+$25/mo')).toBeTruthy();
+    expect(whatIf.getByText(/saves \$|sooner/)).toBeTruthy();
+    expect(screen.getByText('One scenario is yours. Pro runs any amount, side by side.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '+$100 — Pro' }));
+    expect(handler).toHaveBeenCalledWith('What-if scenarios');
+    expect(screen.getByRole('button', { name: 'Any $ — Pro' })).toBeTruthy();
+    expect(screen.queryByLabelText('Any amount extra per month')).toBeNull();
+    expect(document.querySelector('[data-stub="WhatIfCard"]')).toBeNull();
+    unsubscribe();
+  });
+
+  it('gives Pro the ladder and an any-amount input whose Apply clamps like the ladder', () => {
+    const ctx = renderTab({ data: insights({ tier: PRO }) });
+    expect(document.querySelector('[data-stub="WhatIfCard"]')).not.toBeNull();
+    expect(screen.queryByText('+$25/mo')).toBeNull();
+    const apply = screen.getByRole('button', { name: 'Apply' });
+    expect(apply.hasAttribute('disabled')).toBe(true);
+    fireEvent.change(screen.getByLabelText('Any amount extra per month'), { target: { value: '100' } });
+    expect(screen.getByRole('status').textContent).toMatch(/ interest · /);
+    fireEvent.click(apply);
+    expect(ctx.setAccelerationAmount).toHaveBeenCalledWith(600);
+    expect(track).toHaveBeenCalledWith(Events.WHAT_IF_APPLIED, expect.objectContaining({ delta: 100, next_acceleration: 600 }));
+  });
+
+  it('hides the what-if row and holds Custom until the tier is known', () => {
+    renderTab({ data: undefined, subscription: undefined });
+    expect(screen.queryByText('+$25/mo')).toBeNull();
+    expect(screen.queryByLabelText('Any amount extra per month')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Custom' }).hasAttribute('disabled')).toBe(true);
+  });
+});
+
+describe('PlanV2 closing card (spec §8.4 "Plan closing")', () => {
+  const BEHIND = { amount: -2621.46, asOfMonth: 'Sep 2026' };
+
+  it('applies the unused cash flow in one tap and reports the new date', () => {
+    const ctx = renderTab({ data: insights({ planGap: BEHIND }) });
+    expect(screen.getByText('Plan vs actual')).toBeTruthy();
+    expect(screen.getByText('$2,621.46 behind')).toBeTruthy();
+    expect(screen.getByText('Balances are $2,621.46 above where the plan expected by Sep 2026.')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Fix it in one tap' }));
+    expect(ctx.setAccelerationAmount).toHaveBeenCalledWith(1_660);
+    expect(track).toHaveBeenCalledWith(Events.PLAN_GAP_FIX_APPLIED);
+    expect(screen.getByRole('status').textContent).toMatch(/^Applied — your plan now ends [A-Z][a-z]+ \d{4}\.$/);
+  });
+
+  it("offers to log this month's payments when the cash flow is already applied", () => {
+    const paymentGap = { expected: 2, logged: 0, missed: [{ debtId: 'visa', minimumPayment: 90 }], missedMinimums: 90, notYetDue: 1 };
+    renderTab({
+      ctx: context({ effectiveAcceleration: 1_660, accelerationAmount: 1_660 }),
+      data: insights({ planGap: BEHIND, paymentGap }),
+    });
+    expect(screen.queryByRole('button', { name: 'Fix it in one tap' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: "Log this month's payments" }));
+    expect(screen.getByRole('dialog', { name: 'Log Sep payments' })).toBeTruthy();
+    expect(screen.getByText('Visa')).toBeTruthy();
+  });
+
+  it('never opens the log sheet on placeholder-day data', () => {
+    const paymentGap = { expected: 2, logged: 0, missed: [{ debtId: 'visa', minimumPayment: 90 }], missedMinimums: 90, notYetDue: 1 };
+    renderTab({
+      ctx: context({ effectiveAcceleration: 1_660, accelerationAmount: 1_660 }),
+      data: insights({ planGap: BEHIND, paymentGap }),
+      placeholder: true,
+    });
+    fireEvent.click(screen.getByRole('button', { name: "Log this month's payments" }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('renders no closing card when ahead or without a gap', () => {
+    renderTab({ data: insights({ planGap: { amount: 300, asOfMonth: 'Sep 2026' } }) });
+    expect(screen.queryByText('Plan vs actual')).toBeNull();
+  });
+});

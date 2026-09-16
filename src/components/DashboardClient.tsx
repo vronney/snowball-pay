@@ -44,6 +44,7 @@ import { runLogoutClientCleanup } from "@/lib/logout-client";
 import V2Shell from "@/components/dashboard-v2/shell/V2Shell";
 import ThisMonthV2 from "@/components/dashboard-v2/this-month/ThisMonthV2";
 import DebtsV2 from "@/components/dashboard-v2/debts/DebtsV2";
+import PlanV2 from "@/components/dashboard-v2/plan/PlanV2";
 
 type UserInfo = {
   name?: string | null;
@@ -470,7 +471,15 @@ export default function DashboardClient({
             isLoading={incomeLoading || expensesLoading}
           />
         )}
-        {activeTab === "plan" && (
+        {activeTab === "plan" && (dashboardV2 ? (
+          <PlanV2
+            debts={debts}
+            income={income}
+            expenses={expenses}
+            isLoading={debtsLoading || incomeLoading}
+            onNavigate={(tab) => setActiveTab(tab)}
+          />
+        ) : (
           <PayoffTab
             debts={debts}
             income={income}
@@ -478,7 +487,7 @@ export default function DashboardClient({
             isLoading={debtsLoading || incomeLoading}
             onNavigate={(tab) => setActiveTab(tab)}
           />
-        )}
+        ))}
         {activeTab === "progress" && (
           <ProgressTab
             debts={debts}

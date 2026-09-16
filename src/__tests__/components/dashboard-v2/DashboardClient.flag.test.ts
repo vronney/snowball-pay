@@ -59,6 +59,7 @@ vi.mock('@/components/tabs/SettingsTab', stub('SettingsTab'));
 vi.mock('@/components/tabs/IntelligenceTab', stub('IntelligenceTab'));
 vi.mock('@/components/dashboard-v2/this-month/ThisMonthV2', stub('ThisMonthV2'));
 vi.mock('@/components/dashboard-v2/debts/DebtsV2', stub('DebtsV2'));
+vi.mock('@/components/dashboard-v2/plan/PlanV2', stub('PlanV2'));
 vi.mock('@/components/billing/UpgradeModal', stub('UpgradeModal'));
 vi.mock('@/components/dashboard/TrialCountdownBanner', stub('TrialCountdownBanner'));
 vi.mock('@/components/dashboard/LinkBankPrompt', stub('LinkBankPrompt'));
@@ -130,5 +131,19 @@ describe('DashboardClient flag wiring', () => {
     const html = renderToStaticMarkup(createElement(DashboardClient, { user: USER }));
     expect(html).toContain('data-stub="DebtTab"');
     expect(html).not.toContain('data-stub="DebtsV2"');
+  });
+
+  it('renders My Plan v2 on the plan tab when the flag is on', () => {
+    nav.params = new URLSearchParams('tab=plan');
+    const html = renderToStaticMarkup(createElement(DashboardClient, { user: USER, dashboardV2: true }));
+    expect(html).toContain('data-stub="PlanV2"');
+    expect(html).not.toContain('data-stub="PayoffTab"');
+  });
+
+  it('keeps v1 My Plan with the flag off', () => {
+    nav.params = new URLSearchParams('tab=plan');
+    const html = renderToStaticMarkup(createElement(DashboardClient, { user: USER }));
+    expect(html).toContain('data-stub="PayoffTab"');
+    expect(html).not.toContain('data-stub="PlanV2"');
   });
 });
