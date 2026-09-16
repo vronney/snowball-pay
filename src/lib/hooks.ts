@@ -78,7 +78,6 @@ export function useCreateDebt() {
         };
       });
       queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-insights'] });
     },
     onError: (error) => { handleUpgradeError(error); },
   });
@@ -96,7 +95,6 @@ export function useUpdateDebt() {
       queryClient.invalidateQueries({ queryKey: ['debt', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['snapshots'] });
       queryClient.invalidateQueries({ queryKey: ['accelerationStats'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-insights'] });
     },
   });
 }
@@ -109,7 +107,6 @@ export function useDeleteDebt() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['debts'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard-insights'] });
     },
   });
 }
@@ -537,7 +534,6 @@ export function useMarkPaid() {
         queryClient.invalidateQueries({ queryKey: ['snapshots'] }),
         queryClient.invalidateQueries({ queryKey: ['accelerationStats'] }),
         queryClient.invalidateQueries({ queryKey: ['recommendations'] }),
-        queryClient.invalidateQueries({ queryKey: ['dashboard-insights'] }),
       ]);
     },
   });
@@ -670,7 +666,6 @@ export function useUnmarkPaid() {
         queryClient.invalidateQueries({ queryKey: ['debts'] }),
         queryClient.invalidateQueries({ queryKey: ['snapshots'] }),
         queryClient.invalidateQueries({ queryKey: ['accelerationStats'] }),
-        queryClient.invalidateQueries({ queryKey: ['dashboard-insights'] }),
       ]);
     },
   });
