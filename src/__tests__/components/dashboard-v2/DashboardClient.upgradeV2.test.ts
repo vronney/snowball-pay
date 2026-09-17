@@ -128,4 +128,13 @@ describe('DashboardClient upgrade surfaces under the flag (spec §7; plan decisi
     expect(stubbed('UpgradeModal')).toBeNull();
     expect(stubbed('UpgradeHost')).toBeNull();
   });
+
+  it("carries moment B's APR script from This Month to Coach, then clears it (plan decision 11)", () => {
+    render(createElement(DashboardClient, { user: USER, dashboardV2: true }));
+    act(() => (captured.thisMonth!.onOpenAprScript as (debtId: string) => void)('citi'));
+    expect(stubbed('CoachV2')).not.toBeNull();
+    expect(captured.coach).toMatchObject({ pendingAprDebtId: 'citi' });
+    act(() => (captured.coach!.onConsumePendingApr as () => void)());
+    expect(captured.coach).toMatchObject({ pendingAprDebtId: null });
+  });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Debt, Expense, Income } from "@/types";
 import type { Tab } from "@/components/dashboard/types";
 import { getErrorMessage, useDashboardInsights, useSaveIncome } from "@/lib/hooks";
@@ -40,6 +40,9 @@ interface CoachV2Props {
   pendingExtra?: number | null;
   onConsumePendingExtra?: () => void;
   onNavigate: (tab: Tab) => void;
+  /** Moment B's "Script →" on This Month: the card whose APR script to open, once (plan decision 11). */
+  pendingAprDebtId?: string | null;
+  onConsumePendingApr?: () => void;
 }
 
 type LogSheet = { rows: LogRow[]; year: number; month: number } | null;
@@ -53,6 +56,7 @@ type MoveAction = FreeMoveAction | OpenMoveAction;
  */
 export default function CoachV2({
   debts, income, expenses, isLoading, pendingExtra, onConsumePendingExtra, onNavigate,
+  pendingAprDebtId, onConsumePendingApr,
 }: CoachV2Props) {
   const { data: insights, isError, isPlaceholderData, refetch } = useDashboardInsights();
   const saveIncome = useSaveIncome();
@@ -60,6 +64,14 @@ export default function CoachV2({
   const [pendingMove, setPendingMove] = useState<CoachMoveId | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aprRequest, setAprRequest] = useState<AprOpenRequest | null>(null);
+
+  // The script lives in the Pro content, so a request waits for a Pro tier.
+  const tierIsPro = insights?.tier.proEligible === true;
+  useEffect(() => {
+    if (!tierIsPro || !pendingAprDebtId) return;
+    setAprRequest({ debtId: pendingAprDebtId, nonce: Date.now() });
+    onConsumePendingApr?.();
+  }, [tierIsPro, pendingAprDebtId, onConsumePendingApr]);
 
   if (!insights) {
     return isError ? <LoadFailed onRetry={() => void refetch()} /> : <LoadingCards />;

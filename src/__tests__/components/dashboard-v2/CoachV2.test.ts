@@ -71,8 +71,8 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
 const saveIncome = { mutate: vi.fn(), isPending: false };
 
 function renderTab({
-  data = insights(), placeholder = false, subscription,
-}: { data?: DashboardInsights; placeholder?: boolean; subscription?: { proEligible: boolean } } = {}) {
+  data = insights(), placeholder = false, subscription, props = {},
+}: { data?: DashboardInsights; placeholder?: boolean; subscription?: { proEligible: boolean }; props?: Record<string, unknown> } = {}) {
   vi.mocked(useDashboardInsights).mockReturnValue(
     { data, isPlaceholderData: placeholder } as unknown as ReturnType<typeof useDashboardInsights>,
   );
@@ -83,7 +83,7 @@ function renderTab({
   );
   vi.mocked(useMarkPaid).mockReturnValue({ mutateAsync: vi.fn(), isPending: false } as unknown as ReturnType<typeof useMarkPaid>);
   const onNavigate = vi.fn();
-  render(createElement(CoachV2, { debts: DEBTS, income: INCOME, expenses: [], isLoading: false, onNavigate }));
+  render(createElement(CoachV2, { debts: DEBTS, income: INCOME, expenses: [], isLoading: false, onNavigate, ...props }));
   return { onNavigate };
 }
 
@@ -210,5 +210,20 @@ describe('CoachV2 for Pro', () => {
     expect(screen.getByRole('button', { name: 'Switch to Avalanche' })).toBeTruthy();
     expect(document.querySelector('[data-stub="IntelligenceTab"]')).not.toBeNull();
     expect(intel.last?.isPro).toBe(true);
+  });
+});
+
+describe("CoachV2 opening the APR script moment B asked for (plan decision 11)", () => {
+  it("opens that card's script once the tier is Pro, and consumes the request", () => {
+    const onConsumePendingApr = vi.fn();
+    renderTab({ data: insights({ tier: PRO }), props: { pendingAprDebtId: 'citi', onConsumePendingApr } });
+    expect(intel.last?.aprOpenRequest).toMatchObject({ debtId: 'citi' });
+    expect(onConsumePendingApr).toHaveBeenCalledTimes(1);
+  });
+
+  it('holds the request while the account reads Free', () => {
+    const onConsumePendingApr = vi.fn();
+    renderTab({ props: { pendingAprDebtId: 'citi', onConsumePendingApr } });
+    expect(onConsumePendingApr).not.toHaveBeenCalled();
   });
 });

@@ -32,17 +32,25 @@ interface CoachBriefCardProps {
   hasDebts: boolean;
   hasIncome: boolean;
   onApplyAction?: (targetExtra: number) => void;
+  /**
+   * The page's own resolved tier. Dashboard v2 passes it, so a stale
+   * subscription cache can't show the locked door while insights already say
+   * Pro (e.g. right after a trial starts). v1 omits it and reads the subscription.
+   */
+  isPro?: boolean;
 }
 
 export default function CoachBriefCard({
   hasDebts,
   hasIncome,
   onApplyAction,
+  isPro: isProProp,
 }: CoachBriefCardProps) {
   const { data: cache, isLoading: cacheLoading } = useCachedCoachBrief();
-  const { data: subscription, isLoading: subscriptionLoading } = useSubscription();
+  const { data: subscription, isLoading: subscriptionQueryLoading } = useSubscription();
   const generate = useGenerateCoachBrief();
-  const isPro = subscription?.proEligible === true;
+  const isPro = isProProp ?? subscription?.proEligible === true;
+  const subscriptionLoading = isProProp === undefined && subscriptionQueryLoading;
   const autoTriggered = useRef(false);
 
   const brief = generate.data?.brief ?? cache?.brief ?? null;

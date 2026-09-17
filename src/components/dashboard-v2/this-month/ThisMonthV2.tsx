@@ -8,6 +8,7 @@ import { getErrorMessage, useDashboardInsights, useSaveIncome } from "@/lib/hook
 import { track, Events } from "@/lib/analytics";
 import { upgradeEvents } from "@/lib/upgradeEvents";
 import { UPGRADE_FEATURE } from "@/lib/dashboard/upgradeFeatures";
+import type { ChecklistRowId } from "@/lib/dashboard/upgradeMoments";
 import { longMonthLabel, shortMonthLabel } from "@/lib/dashboard/format";
 import {
   activeDebtRows,
@@ -26,6 +27,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import CoachBriefCard from "@/components/payoff/CoachBriefCard";
 import BulkLogSheet from "../sheets/BulkLogSheet";
 import DueDatesSheet from "../sheets/DueDatesSheet";
+import TrialMomentCard from "../upgrade/TrialMomentCard";
 import { CARD } from "../styles";
 import DebtFreeHero from "./DebtFreeHero";
 import FreeMoveCard from "./FreeMoveCard";
@@ -41,6 +43,8 @@ interface ThisMonthV2Props {
   income: Income | null | undefined;
   onNavigate: (tab: Tab) => void;
   onSetPendingCoachExtra: (targetExtra: number) => void;
+  /** Moment B's "Script →": open this card's APR script on Coach (plan decision 11). */
+  onOpenAprScript: (debtId: string) => void;
 }
 
 /**
@@ -59,7 +63,7 @@ type OpenSheet =
  * desktop row. Every figure comes from the insights endpoint; a card
  * without a real figure doesn't render.
  */
-export default function ThisMonthV2({ debts, income, onNavigate, onSetPendingCoachExtra }: ThisMonthV2Props) {
+export default function ThisMonthV2({ debts, income, onNavigate, onSetPendingCoachExtra, onOpenAprScript }: ThisMonthV2Props) {
   const { data: insights, isError, isPlaceholderData, refetch } = useDashboardInsights();
   const saveIncome = useSaveIncome();
   const [sheet, setSheet] = useState<OpenSheet>(null);
@@ -107,6 +111,19 @@ export default function ThisMonthV2({ debts, income, onNavigate, onSetPendingCoa
     }
   };
 
+  // Moment B's checklist (plan decision 5): setup opens the first unfinished
+  // step's own flow, exactly as its chip does.
+  const onChecklist = (row: ChecklistRowId) => {
+    if (row === "what_if") {
+      onNavigate("plan");
+    } else if (row === "apr_script") {
+      if (insights.rateWatch) onOpenAprScript(insights.rateWatch.top.debtId);
+    } else {
+      const step = insights.readiness.steps.find((s) => !s.complete);
+      if (step) onStep(step.id, "chip");
+    }
+  };
+
   const onMoveAction = (action: FreeMoveAction) => {
     if (!freeMove) return;
     const { move } = freeMove;
@@ -139,6 +156,7 @@ export default function ThisMonthV2({ debts, income, onNavigate, onSetPendingCoa
 
   const coach = insights.tier.proEligible ? (
     <CoachBriefCard
+      isPro
       hasDebts={debts.length > 0}
       hasIncome={!!income}
       onApplyAction={(targetExtra) => {
@@ -160,6 +178,17 @@ export default function ThisMonthV2({ debts, income, onNavigate, onSetPendingCoa
 
   return (
     <div className="flex flex-col gap-2.5 min-[769px]:gap-4">
+      {insights.trialMoment && (
+        <TrialMomentCard
+          key={insights.trialMoment.state}
+          moment={insights.trialMoment}
+          trialEndsAt={insights.tier.trial.endsAt}
+          readiness={insights.readiness}
+          rateWatch={insights.rateWatch}
+          interest={insights.interest}
+          onChecklist={onChecklist}
+        />
+      )}
       {readiness && <ReadinessCard view={readiness} onStep={onStep} />}
       {(interest || hero || rateWatch) && (
         <div className="flex flex-col gap-2.5 min-[769px]:gap-4 min-[1024px]:flex-row">

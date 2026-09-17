@@ -88,6 +88,8 @@ export default function DashboardClient({
     return isValidTab(tab) ? tab : "this-month";
   });
   const [pendingCoachExtra, setPendingCoachExtra] = useState<number | null>(null);
+  // Moment B's "Script →" crosses from This Month to Coach (plan decision 11).
+  const [pendingAprDebtId, setPendingAprDebtId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openPaymentDebtId, setOpenPaymentDebtId] = useState<string | null>(null);
   const [fabAddDebtRequest, setFabAddDebtRequest] = useState(false);
@@ -438,6 +440,10 @@ export default function DashboardClient({
             income={income}
             onNavigate={(tab) => setActiveTab(tab)}
             onSetPendingCoachExtra={setPendingCoachExtra}
+            onOpenAprScript={(debtId) => {
+              setPendingAprDebtId(debtId);
+              setActiveTab("intelligence");
+            }}
           />
         ) : (
           <ThisMonthTab
@@ -519,6 +525,8 @@ export default function DashboardClient({
             pendingExtra={pendingCoachExtra}
             onConsumePendingExtra={() => setPendingCoachExtra(null)}
             onNavigate={(tab) => setActiveTab(tab)}
+            pendingAprDebtId={pendingAprDebtId}
+            onConsumePendingApr={() => setPendingAprDebtId(null)}
           />
         ) : (
           <IntelligenceTab
