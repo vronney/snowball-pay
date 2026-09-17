@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, serverError, tooManyRequests } from '@/lib/auth-server';
 import { isSelfServeTrialEligible, resolveBillingVerdict } from '@/lib/gates';
 import { isDashboardV2 } from '@/lib/flags';
+import { SIGNUP_TRIAL_DAYS } from '@/lib/billing';
 import { limits } from '@/lib/rateLimit';
 import { trialGrantKey } from '@/lib/trialGrantKey';
 import { moveOutsideDebtsIntoPlan } from '@/lib/debtCap';
@@ -21,11 +22,13 @@ const BodySchema = z.object({ today: z.string().optional() }).strict();
 
 const trialUsed = () => NextResponse.json({ error: 'trial_used' }, { status: 409 });
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 /**
  * POST /api/trial/start — a never-trialed Free account starts its own
- * 14-day Pro window (spec §6.4). The TrialGrant `create` is the atomic
- * once-per-email guard; the start, the baseline and the move of outside
- * debts into the plan commit with it or not at all.
+ * SIGNUP_TRIAL_DAYS-long Pro window (spec §6.4). The TrialGrant `create` is
+ * the atomic once-per-email guard; the start, the baseline and the move of
+ * outside debts into the plan commit with it or not at all.
  */
 export async function POST(request: NextRequest) {
   const auth = await verifyAuth(request);
@@ -90,12 +93,23 @@ export async function POST(request: NextRequest) {
       properties: { source: 'dashboard_v2' },
     }).catch(() => { /* analytics must never fail the start */ });
 
-    const fresh = await resolveBillingVerdict(userId);
-    return NextResponse.json({
-      proEligible: fresh.proEligible,
-      paidPro: fresh.paidPro,
-      signupTrialEndsAt: fresh.signupTrialEndsAt?.toISOString() ?? null,
-    });
+    try {
+      const fresh = await resolveBillingVerdict(userId);
+      return NextResponse.json({
+        proEligible: fresh.proEligible,
+        paidPro: fresh.paidPro,
+        signupTrialEndsAt: fresh.signupTrialEndsAt?.toISOString() ?? null,
+      });
+    } catch (error) {
+      // The trial already committed; a failure re-reading the verdict must
+      // not report a failed start (a retry would then hit 409).
+      console.error('[trial start] verdict re-read failed', error);
+      return NextResponse.json({
+        proEligible: true,
+        paidPro: verdict.paidPro,
+        signupTrialEndsAt: new Date(now.getTime() + SIGNUP_TRIAL_DAYS * DAY_MS).toISOString(),
+      });
+    }
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return trialUsed();
     console.error('Trial start error:', error);

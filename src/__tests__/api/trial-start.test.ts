@@ -187,4 +187,18 @@ describe('POST /api/trial/start (spec §6.4)', () => {
     expect(await res.json()).toEqual({ error: 'Failed to start trial' });
     quiet.mockRestore();
   });
+
+  it('still answers 200 with the started trial when the verdict re-read fails', async () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(resolveBillingVerdict).mockReset().mockResolvedValueOnce(FREE_VERDICT).mockRejectedValueOnce(new Error('db down'));
+    const res = await POST(req({ today: '2026-09-17' }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      proEligible: true,
+      paidPro: false,
+      signupTrialEndsAt: new Date(NOW.getTime() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    });
+    expect(mockPrisma.$transaction).toHaveBeenCalled();
+    quiet.mockRestore();
+  });
 });
