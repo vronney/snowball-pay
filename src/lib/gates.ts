@@ -52,37 +52,47 @@ function hasActiveSubscription(user: BillingUser): boolean {
   return user.paidTier === 'pro' && ACTIVE_STATUSES.includes(user.subscriptionStatus);
 }
 
+type GrantLookup = { grantedAt: Date } | null | 'failed';
+
+/** The email's TrialGrant, null when it has none, 'failed' when the read itself failed. */
+async function findTrialGrant(email: string): Promise<GrantLookup> {
+  try {
+    return await prisma.trialGrant.findUnique({
+      where: { emailHash: trialGrantKey(email) },
+      select: { grantedAt: true },
+    });
+  } catch (error) {
+    // trial_grants not deployed yet or a transient read failure. Callers
+    // decide the fallback; log it so a persistently failing lookup is visible.
+    console.error('[gates] TrialGrant lookup failed', error);
+    return 'failed';
+  }
+}
+
 /**
  * Resolves when the user's free signup window ends, or null when they have
  * none. Anchored to the TrialGrant tombstone (keyed by email, written at
  * first provisioning, survives account deletion) so deleting the account and
  * re-provisioning — which mints a fresh User.createdAt — cannot restart the
- * clock. Falls back to createdAt when no grant exists (accounts provisioned
- * before grants shipped, or the table not yet pushed).
+ * clock.
+ *
+ * - Post-launch accounts fall back to createdAt when no grant exists
+ *   (accounts provisioned before grants shipped) or the lookup fails.
+ * - Pre-launch accounts use a grant only if one exists (spec §6.4): a
+ *   self-serve trial they started, or a pre-launch-dated deletion tombstone
+ *   that signupTrialEndsAt resolves to no window. They never fall back to
+ *   createdAt, so no existing pre-launch account gains a window.
  */
 async function resolveSignupTrialEnd(user: BillingUser): Promise<Date | null> {
-  // Pre-launch accounts never have a window — skip the grant lookup. The
-  // instanceof guard also keeps partial rows (test doubles) on the safe path.
+  // The instanceof guard keeps partial rows (test doubles) on the safe path.
   if (!(user.createdAt instanceof Date)) return null;
-  if (user.createdAt.getTime() < SIGNUP_TRIAL_LAUNCH.getTime()) return null;
+  const preLaunch = user.createdAt.getTime() < SIGNUP_TRIAL_LAUNCH.getTime();
+  const fallback = preLaunch ? null : signupTrialEndsAt(user.createdAt);
 
-  let anchor = user.createdAt;
-  if (typeof user.email === 'string' && user.email) {
-    const emailHash = trialGrantKey(user.email);
-    try {
-      const grant = await prisma.trialGrant.findUnique({
-        where: { emailHash },
-        select: { grantedAt: true },
-      });
-      if (grant) anchor = grant.grantedAt;
-    } catch (error) {
-      // trial_grants not deployed yet (db push pending) or a transient read
-      // failure — fall back to createdAt, but say so: a persistently failing
-      // lookup silently weakens the delete-and-recreate protection.
-      console.error('[gates] TrialGrant lookup failed; falling back to createdAt', error);
-    }
-  }
-  return signupTrialEndsAt(anchor);
+  if (typeof user.email !== 'string' || !user.email) return fallback;
+  const grant = await findTrialGrant(user.email);
+  if (grant === null || grant === 'failed') return fallback;
+  return signupTrialEndsAt(grant.grantedAt);
 }
 
 /**
@@ -109,6 +119,23 @@ export async function resolveBillingVerdict(userId: string): Promise<BillingVerd
   const trialActive =
     signupTrialEndsAt !== null && signupTrialEndsAt.getTime() > Date.now();
   return { paidPro, proEligible: paidPro || trialActive, signupTrialEndsAt };
+}
+
+/**
+ * Whether this account may start the self-serve trial (spec §6.4): not Pro,
+ * never had a signup window, and no TrialGrant for its email. The window
+ * clause stops a post-launch account whose grant write failed (it falls back
+ * to its createdAt window) from getting a second trial. A failed grant read
+ * is not eligible: never offer a trial we can't prove is the first.
+ */
+export async function isSelfServeTrialEligible(
+  email: string | null | undefined,
+  verdict: BillingVerdict,
+): Promise<boolean> {
+  if (forceProInDev()) return false;
+  if (verdict.proEligible || verdict.signupTrialEndsAt !== null) return false;
+  if (typeof email !== 'string' || !email) return false;
+  return (await findTrialGrant(email)) === null;
 }
 
 /**
