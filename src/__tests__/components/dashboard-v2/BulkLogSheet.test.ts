@@ -231,6 +231,24 @@ describe('batchCelebration', () => {
     expect(one).toMatchObject({ debtId: 'first', totalDebtPaid: 910.5 });
   });
 
+  it("keeps the batch's first-payment milestone when a later payment wins", () => {
+    // Logging one payment refetches the payments query, so only the first
+    // payload can report isFirstPayment; the winner here is the second.
+    const one = batchCelebration([
+      payload({ debtId: 'first', amountPaid: 25, isFirstPayment: true }),
+      payload({ debtId: 'bigger', amountPaid: 900, isFirstPayment: false }),
+    ]);
+    expect(one).toMatchObject({ debtId: 'bigger', isFirstPayment: true });
+  });
+
+  it('does not invent a first payment for a batch that has none', () => {
+    const one = batchCelebration([
+      payload({ debtId: 'a', isFirstPayment: false }),
+      payload({ debtId: 'b', amountPaid: 900, isFirstPayment: false }),
+    ]);
+    expect(one).toMatchObject({ isFirstPayment: false });
+  });
+
   it('counts payments that saved without producing a payload', () => {
     // Two of three saved silently — already marked, or a debt missing from cache.
     expect(batchCelebration([payload()], 3)).toMatchObject({ alsoLoggedCount: 2 });

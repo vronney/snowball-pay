@@ -14,11 +14,19 @@ export function daysUntilCharge(dateStr: string, now = Date.now()): number {
   return Math.max(0, Math.ceil((end - now) / DAY_MS));
 }
 
-/** "Pro starts billing today" / "… tomorrow" / "… in {n} days". */
-export function chargeLabel(days: number): string {
-  if (days === 0) return "Pro starts billing today";
-  if (days === 1) return "Pro starts billing tomorrow";
-  return `Pro starts billing in ${days} days`;
+/**
+ * "Your Pro trial ends today" / "… tomorrow" / "… in {n} days".
+ *
+ * Says the trial ends, not that billing starts. A trial scheduled to cancel
+ * keeps `status: "trialing"` in Stripe, and the webhook stores `cancel_at` in
+ * the same `subscriptionEndsAt` column it uses for `trial_end`, so nothing we
+ * persist tells the two apart. This wording is true either way, and the
+ * sentence below carries the charge warning with its own "unless you cancel".
+ */
+export function trialEndLabel(days: number): string {
+  if (days === 0) return "Your Pro trial ends today";
+  if (days === 1) return "Your Pro trial ends tomorrow";
+  return `Your Pro trial ends in ${days} days`;
 }
 
 interface TrialChargeNoticeProps {
@@ -36,6 +44,10 @@ interface TrialChargeNoticeProps {
  *
  * The self-serve trial (spec §6.4) has no payment method and never charges, so
  * it never reaches this — `subscriptionStatus` is only set by Stripe.
+ *
+ * A trial already scheduled to cancel still shows this, because nothing we
+ * store distinguishes it (see trialEndLabel). The copy is true either way, but
+ * telling them apart needs a cancel flag on the subscription record.
  */
 export default function TrialChargeNotice({ sub }: TrialChargeNoticeProps) {
   if (sub?.subscriptionStatus !== "trialing" || !sub.subscriptionEndsAt) return null;
@@ -57,7 +69,7 @@ function ChargeNoticeBar({ days }: { days: number }) {
       className="flex flex-col gap-1.5 border-b border-focus-card-border bg-focus-card px-3.5 py-2.5 min-[769px]:flex-row min-[769px]:items-center min-[769px]:justify-between min-[769px]:gap-4 min-[769px]:px-[26px]"
     >
       <div className="min-w-0">
-        <p className="text-[13px] font-extrabold text-txt">{chargeLabel(days)}</p>
+        <p className="text-[13px] font-extrabold text-txt">{trialEndLabel(days)}</p>
         <p className="text-[12px] leading-snug text-txt-muted">{STRIPE_TRIAL_CHARGE_NOTICE}</p>
       </div>
       <button

@@ -70,6 +70,11 @@ export function batchCelebration(
   return {
     ...best,
     totalDebtPaid,
+    // Only the batch's first payload can carry this: logging one payment
+    // refetches the payments query, so every later payload sees a record and
+    // reports false. Taken from the winner alone, a first-ever payment logged
+    // through a bulk sheet would lose its milestone and its Journey entry.
+    isFirstPayment: payloads.some((p) => p.isFirstPayment),
     alsoLoggedCount: Math.max(0, savedCount - 1),
   };
 }
