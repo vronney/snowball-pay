@@ -51,15 +51,19 @@ export function parseAmount(raw: string): number | null {
  * the rest of the batch — and that figure reaches the user, as the progress
  * percentage in the prompt and the persisted DebtStory message.
  *
- * `savedCount` is how many payments actually saved, which can exceed the
- * payloads collected: a payment whose debt is missing from the cache saves
- * without producing one.
+ * Null, too, when `savedCount` exceeds the payloads collected. A payment whose
+ * debt is missing from the cache saves without producing one, and it is missing
+ * from both halves of the arithmetic below — its paid-to-date from the starting
+ * total, its amount from the batch sum. That understates the progress figure
+ * the message quotes and the DebtStory row keeps, so the batch says nothing
+ * rather than something short. The payments themselves are saved either way;
+ * the celebration has always been the optional part.
  */
 export function batchCelebration(
   payloads: readonly CelebrationPayload[],
   savedCount = payloads.length,
 ): CelebrationPayload | null {
-  if (payloads.length === 0) return null;
+  if (payloads.length === 0 || payloads.length !== savedCount) return null;
   const paidOff = payloads.filter((p) => p.debtBalance === 0);
   const pool = paidOff.length > 0 ? paidOff : payloads;
   const best = pool.reduce((a, b) => (b.amountPaid > a.amountPaid ? b : a));
@@ -79,7 +83,7 @@ export function batchCelebration(
     // reports false. Taken from the winner alone, a first-ever payment logged
     // through a bulk sheet would lose its milestone and its Journey entry.
     isFirstPayment: payloads.some((p) => p.isFirstPayment),
-    alsoLoggedCount: Math.max(0, savedCount - 1),
+    alsoLoggedCount: payloads.length - 1,
   };
 }
 

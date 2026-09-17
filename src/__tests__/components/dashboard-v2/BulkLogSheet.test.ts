@@ -200,6 +200,22 @@ describe('BulkLogSheet', () => {
     );
   });
 
+  it('skips the celebration when a saved payment yielded no payload', async () => {
+    // Second row saves but its debt is absent from the debts cache, so
+    // useMarkPaid returns no payload and the batch totals would be short.
+    const mutateAsync = vi.fn()
+      .mockResolvedValueOnce({ celebration: payload({ debtId: 'a' }) })
+      .mockResolvedValueOnce({});
+    const { onClose } = setup(mutateAsync);
+
+    fireEvent.click(logButton('Log 2 payments'));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+
+    // Both payments still saved and still counted.
+    expect(track).toHaveBeenCalledWith('bulk_log_submitted', { debt_count: 2 });
+    expect(fireCelebration).not.toHaveBeenCalled();
+  });
+
   it('celebrates nothing when no payment saved', async () => {
     const mutateAsync = vi.fn().mockRejectedValue(new Error('offline'));
     setup(mutateAsync);
@@ -268,10 +284,18 @@ describe('batchCelebration', () => {
     expect(one).toMatchObject({ isFirstPayment: false });
   });
 
-  it('counts payments that saved without producing a payload', () => {
-    // Two of three saved silently — already marked, or a debt missing from cache.
-    expect(batchCelebration([payload()], 3)).toMatchObject({ alsoLoggedCount: 2 });
-    expect(batchCelebration([payload()], 0)).toMatchObject({ alsoLoggedCount: 0 });
+  it('says nothing when a saved payment produced no payload', () => {
+    // A debt missing from the cache is absent from both the starting total and
+    // the batch sum, so every figure below it would be short.
+    expect(batchCelebration([payload()], 3)).toBeNull();
+    expect(batchCelebration([payload(), payload({ debtId: 'b' })], 3)).toBeNull();
+  });
+
+  it('celebrates when every saved payment produced a payload', () => {
+    expect(batchCelebration([payload()], 1)).toMatchObject({ alsoLoggedCount: 0 });
+    expect(batchCelebration([payload(), payload({ debtId: 'b' })], 2)).toMatchObject({
+      alsoLoggedCount: 1,
+    });
   });
 
   it('picks the largest among the paid-off debts, ties keeping log order', () => {
