@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 describe('useStartTrial', () => {
-  it("posts the client's day and refreshes only the subscription (insights refresh through the global cache)", async () => {
+  it("posts the client's day and refreshes subscription and debts (insights refresh through the global cache)", async () => {
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
     const invalidate = vi.spyOn(client, 'invalidateQueries');
     const wrapper = ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client }, children);
@@ -30,7 +30,9 @@ describe('useStartTrial', () => {
     });
 
     expect(post).toHaveBeenCalledWith(expect.stringMatching(/\/api\/trial\/start$/), { today: '2026-09-17' });
-    expect(invalidate).toHaveBeenCalledTimes(1);
+    expect(invalidate).toHaveBeenCalledTimes(2);
     expect(invalidate).toHaveBeenCalledWith({ queryKey: ['subscription'] });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['debts'] });
+    expect(invalidate).not.toHaveBeenCalledWith({ queryKey: ['dashboard-insights'] });
   });
 });

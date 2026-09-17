@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useDashboardInsights } from "@/lib/hooks";
 import TrialStartSheet from "./TrialStartSheet";
 import UpgradeFallbackSheet from "./UpgradeFallbackSheet";
@@ -27,19 +27,29 @@ interface UpgradeHostProps {
  */
 export default function UpgradeHost({ feature, interestAtStake, onClose }: UpgradeHostProps) {
   const { data: insights } = useDashboardInsights();
-  const trialShown = useRef(false);
+  const [trialShown, setTrialShown] = useState(false);
 
   const eligible = insights?.tier.trial.eligible === true;
   const proEligible = insights?.tier.proEligible === true;
-  if (eligible) trialShown.current = true;
 
-  const shouldClose = trialShown.current && proEligible;
+  // Latch the state in an effect rather than mutating a ref during render:
+  // an interrupted/discarded concurrent render could otherwise leave the ref
+  // set for a render that never committed. Reading `eligible` directly in
+  // `showTrial` below still shows the sheet on the very render that turns
+  // eligible true — the latch only needs to survive the later render where
+  // eligibility drops again.
+  useEffect(() => {
+    if (eligible) setTrialShown(true);
+  }, [eligible]);
+
+  const showTrial = eligible || trialShown;
+  const shouldClose = trialShown && proEligible;
 
   useEffect(() => {
     if (shouldClose) onClose();
   }, [shouldClose, onClose]);
 
   if (shouldClose) return null;
-  if (trialShown.current) return <TrialStartSheet onClose={onClose} />;
+  if (showTrial) return <TrialStartSheet onClose={onClose} />;
   return <UpgradeFallbackSheet feature={feature} interestAtStake={interestAtStake} onClose={onClose} />;
 }

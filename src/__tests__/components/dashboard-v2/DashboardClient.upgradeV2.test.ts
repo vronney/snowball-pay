@@ -6,13 +6,14 @@ import DashboardClient from '@/components/DashboardClient';
 import { useSubscription } from '@/lib/hooks';
 import { upgradeEvents } from '@/lib/upgradeEvents';
 
-const { stub, captured } = vi.hoisted(() => ({
+const { stub, captured, invalidateQueries } = vi.hoisted(() => ({
   stub: (name: string, named?: string) => async () => {
     const { createElement: h } = await import('react');
     const Stub = () => h('div', { 'data-stub': name });
     return named ? { [named]: Stub } : { default: Stub };
   },
   captured: { thisMonth: null as null | Record<string, unknown>, coach: null as null | Record<string, unknown> },
+  invalidateQueries: vi.fn(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -25,7 +26,7 @@ vi.mock('next/image', async () => {
 });
 vi.mock('@tanstack/react-query', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-query')>()),
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+  useQueryClient: () => ({ invalidateQueries }),
 }));
 vi.mock('@/lib/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/hooks')>()),
@@ -136,5 +137,30 @@ describe('DashboardClient upgrade surfaces under the flag (spec §7; plan decisi
     expect(captured.coach).toMatchObject({ pendingAprDebtId: 'citi' });
     act(() => (captured.coach!.onConsumePendingApr as () => void)());
     expect(captured.coach).toMatchObject({ pendingAprDebtId: null });
+  });
+
+  it('refreshes dashboard insights (and subscription) once a trial left open across its boundary expires', () => {
+    vi.useFakeTimers();
+    try {
+      const endsAt = new Date(Date.now() + 1000).toISOString();
+      vi.mocked(useSubscription).mockReturnValue({
+        data: {
+          paidTier: 'free', subscriptionStatus: 'inactive', subscriptionEndsAt: null, isCanceling: false, hasCustomer: false,
+          signupTrialActive: true, signupTrialEndsAt: endsAt,
+        },
+      } as unknown as ReturnType<typeof useSubscription>);
+
+      render(createElement(DashboardClient, { user: USER, dashboardV2: true }));
+      invalidateQueries.mockClear();
+
+      act(() => {
+        vi.advanceTimersByTime(31_000);
+      });
+
+      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['subscription'] });
+      expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['dashboard-insights'] });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

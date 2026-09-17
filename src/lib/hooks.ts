@@ -831,8 +831,13 @@ export interface StartTrialResult {
 
 /**
  * Starts the self-serve trial (spec §7 A). The global MutationCache
- * (providers.tsx) refreshes insights after it settles; the subscription query
- * has no global refresh, so it is invalidated here.
+ * (providers.tsx) refreshes insights after it settles, so dashboard-insights
+ * is deliberately not invalidated here (duplicating it was reverted in an
+ * earlier PR). Two queries have no global refresh and are invalidated here
+ * instead: subscription, for signupTrialActive/signupTrialEndsAt; and debts,
+ * because POST /api/trial/start flips every inPlan=false debt to true, and a
+ * mounted ['debts'] query would otherwise keep the stale flags (My Debts'
+ * "outside the plan" section, and client-side plan math that excludes them).
  */
 export function useStartTrial() {
   const queryClient = useQueryClient();
@@ -843,6 +848,7 @@ export function useStartTrial() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      void queryClient.invalidateQueries({ queryKey: ['debts'] });
     },
   });
 }

@@ -204,13 +204,17 @@ export default function DashboardClient({
   // doesn't schedule a refetch), so the banner and the expiry modal would lag
   // while the server has already reverted the account to Free. Refetch right
   // after the reported end time; the 14-day window fits comfortably inside
-  // setTimeout's 32-bit range.
+  // setTimeout's 32-bit range. Under the flag the v2 dashboard is driven by
+  // dashboard-insights (not subscription), so both queries are invalidated
+  // here — otherwise it would keep reporting an active trial (moment D never
+  // appears, Pro surfaces linger) until some other event refetches it.
   useEffect(() => {
     if (!subData?.signupTrialActive || !subData.signupTrialEndsAt) return;
     const msUntilEnd = new Date(subData.signupTrialEndsAt).getTime() - Date.now() + 30_000;
     if (msUntilEnd <= 0) return;
     const timer = setTimeout(() => {
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-insights"] });
     }, msUntilEnd);
     return () => clearTimeout(timer);
   }, [subData?.signupTrialActive, subData?.signupTrialEndsAt, queryClient]);
