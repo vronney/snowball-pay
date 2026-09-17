@@ -131,7 +131,7 @@ describe('ThisMonthV2', () => {
     const sheet = screen.getByRole('dialog', { name: 'Log Sep payments' });
     fireEvent.click(within(sheet).getByRole('button', { name: 'Log 1 payment' }));
     await waitFor(() =>
-      expect(markPaid.mutateAsync).toHaveBeenCalledWith({ debtId: 'b', amount: 310, dueYear: 2026, dueMonth: 8 }),
+      expect(markPaid.mutateAsync).toHaveBeenCalledWith({ debtId: 'b', amount: 310, dueYear: 2026, dueMonth: 8, celebrate: false }),
     );
   });
 

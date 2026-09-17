@@ -2,13 +2,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import BulkLogSheet, { parseAmount } from '@/components/dashboard-v2/sheets/BulkLogSheet';
-import { useMarkPaid } from '@/lib/hooks';
+import BulkLogSheet, { batchCelebration, parseAmount } from '@/components/dashboard-v2/sheets/BulkLogSheet';
+import { fireCelebration, useMarkPaid, type CelebrationPayload } from '@/lib/hooks';
 import { track } from '@/lib/analytics';
 
 vi.mock('@/lib/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/hooks')>()),
   useMarkPaid: vi.fn(),
+  fireCelebration: vi.fn(),
 }));
 vi.mock('@/lib/analytics', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/analytics')>()),
@@ -25,6 +26,21 @@ function setup(mutateAsync = vi.fn().mockResolvedValue({})) {
   const onClose = vi.fn();
   render(createElement(BulkLogSheet, { title: 'Log Sep payments', rows: ROWS, year: 2026, month: 8, onClose }));
   return { mutateAsync, onClose };
+}
+
+function payload(over: Partial<CelebrationPayload> = {}): CelebrationPayload {
+  return {
+    debtId: 'a',
+    debtName: 'Visa',
+    amountPaid: 25,
+    totalDebtPaid: 100,
+    totalDebtOriginal: 1000,
+    isFirstPayment: false,
+    debtBalance: 500,
+    debtOriginalBalance: 600,
+    debtCreatedAt: '2026-01-01T00:00:00.000Z',
+    ...over,
+  };
 }
 
 const amount = (name: string) => screen.getByLabelText(`Amount for ${name}`) as HTMLInputElement;
@@ -69,8 +85,8 @@ describe('BulkLogSheet', () => {
     fireEvent.click(logButton('Log 2 payments'));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(mutateAsync.mock.calls.map(([args]) => args)).toEqual([
-      { debtId: 'a', amount: 25, dueYear: 2026, dueMonth: 8 },
-      { debtId: 'b', amount: 400, dueYear: 2026, dueMonth: 8 },
+      { debtId: 'a', amount: 25, dueYear: 2026, dueMonth: 8, celebrate: false },
+      { debtId: 'b', amount: 400, dueYear: 2026, dueMonth: 8, celebrate: false },
     ]);
     expect(track).toHaveBeenCalledWith('bulk_log_submitted', { debt_count: 2 });
   });
@@ -115,5 +131,84 @@ describe('BulkLogSheet', () => {
     expect(logButton('Log 1 payment').disabled).toBe(false);
     expect(track).toHaveBeenCalledWith('bulk_log_submitted', { debt_count: 1 });
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('fires one celebration for the batch, not one per payment', async () => {
+    const mutateAsync = vi.fn()
+      .mockResolvedValueOnce({ celebration: payload({ debtId: 'a', amountPaid: 25, debtBalance: 500 }) })
+      .mockResolvedValueOnce({
+        celebration: payload({ debtId: 'b', debtName: 'Car loan', amountPaid: 310.5, debtBalance: 0 }),
+      });
+    const { onClose } = setup(mutateAsync);
+
+    fireEvent.click(logButton('Log 2 payments'));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+
+    expect(mutateAsync.mock.calls.every(([args]) => args.celebrate === false)).toBe(true);
+    expect(fireCelebration).toHaveBeenCalledTimes(1);
+    // Car loan was paid off, so it carries the batch.
+    expect(fireCelebration).toHaveBeenCalledWith(
+      expect.objectContaining({ debtId: 'b', alsoLoggedCount: 1 }),
+    );
+  });
+
+  it('still celebrates what saved when a later payment fails', async () => {
+    const mutateAsync = vi.fn()
+      .mockResolvedValueOnce({ celebration: payload({ debtId: 'a' }) })
+      .mockRejectedValueOnce(new Error('offline'));
+    setup(mutateAsync);
+
+    fireEvent.click(logButton('Log 2 payments'));
+    await screen.findByRole('alert');
+
+    expect(fireCelebration).toHaveBeenCalledTimes(1);
+    expect(fireCelebration).toHaveBeenCalledWith(
+      expect.objectContaining({ debtId: 'a', alsoLoggedCount: 0 }),
+    );
+  });
+
+  it('celebrates nothing when no payment saved', async () => {
+    const mutateAsync = vi.fn().mockRejectedValue(new Error('offline'));
+    setup(mutateAsync);
+
+    fireEvent.click(logButton('Log 2 payments'));
+    await screen.findByRole('alert');
+
+    expect(fireCelebration).not.toHaveBeenCalled();
+  });
+});
+
+describe('batchCelebration', () => {
+  it('has nothing to say about an empty batch', () => {
+    expect(batchCelebration([])).toBeNull();
+  });
+
+  it('counts no others for a lone payment', () => {
+    expect(batchCelebration([payload()])).toMatchObject({ debtId: 'a', alsoLoggedCount: 0 });
+  });
+
+  it('prefers a debt the batch paid off over a larger payment', () => {
+    const one = batchCelebration([
+      payload({ debtId: 'big', amountPaid: 500, debtBalance: 200 }),
+      payload({ debtId: 'cleared', amountPaid: 25, debtBalance: 0 }),
+    ]);
+    expect(one).toMatchObject({ debtId: 'cleared', alsoLoggedCount: 1 });
+  });
+
+  it('picks the largest payment when nothing was paid off', () => {
+    const one = batchCelebration([
+      payload({ debtId: 'small', amountPaid: 25, debtBalance: 100 }),
+      payload({ debtId: 'large', amountPaid: 310.5, debtBalance: 900 }),
+      payload({ debtId: 'middle', amountPaid: 90, debtBalance: 400 }),
+    ]);
+    expect(one).toMatchObject({ debtId: 'large', alsoLoggedCount: 2 });
+  });
+
+  it('picks the largest among the paid-off debts, ties keeping log order', () => {
+    const one = batchCelebration([
+      payload({ debtId: 'first', amountPaid: 100, debtBalance: 0 }),
+      payload({ debtId: 'second', amountPaid: 100, debtBalance: 0 }),
+    ]);
+    expect(one).toMatchObject({ debtId: 'first', alsoLoggedCount: 1 });
   });
 });

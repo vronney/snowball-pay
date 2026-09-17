@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { getErrorMessage, useMarkPaid } from "@/lib/hooks";
+import { fireCelebration, getErrorMessage, useMarkPaid, type CelebrationPayload } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import type { LogRow } from "@/lib/dashboard/thisMonth";
 import { CTA_BLUE, ERROR_LINE } from "../styles";
@@ -37,10 +37,31 @@ export function parseAmount(raw: string): number | null {
 }
 
 /**
+ * The one celebration a batch gets: a debt this batch paid off if there is one,
+ * otherwise the largest payment, carrying a count of the rest. Ties keep the
+ * order the rows were logged in. Null for an empty batch.
+ *
+ * One celebration per batch, not one per payment: celebrationState holds a
+ * single slot, so N payments used to mean N Claude calls and N DebtStory rows
+ * for one banner — and the daily rate limit is 3, so a batch of four also
+ * spent the user's whole budget.
+ */
+export function batchCelebration(
+  payloads: readonly CelebrationPayload[],
+): CelebrationPayload | null {
+  if (payloads.length === 0) return null;
+  const paidOff = payloads.filter((p) => p.debtBalance === 0);
+  const pool = paidOff.length > 0 ? paidOff : payloads;
+  const best = pool.reduce((a, b) => (b.amountPaid > a.amountPaid ? b : a));
+  return { ...best, alsoLoggedCount: payloads.length - 1 };
+}
+
+/**
  * "Log them now" / "Log your first payment" (spec §8.3): the payments
  * pre-filled at their minimums, each logged through the existing useMarkPaid,
- * one at a time, so balances, snapshots and celebrations behave exactly as a
- * single log does.
+ * one at a time, so balances and snapshots behave exactly as a single log does.
+ * Celebrations are the one exception — suppressed per payment and fired once
+ * for the batch (see batchCelebration).
  */
 export default function BulkLogSheet({ title, rows, year, month, onClose }: BulkLogSheetProps) {
   const baseId = useId();
@@ -69,23 +90,38 @@ export default function BulkLogSheet({ title, rows, year, month, onClose }: Bulk
     setSaving(true);
     setError(null);
     const logged = new Set(loggedIds);
+    const celebrations: CelebrationPayload[] = [];
     let count = 0;
+    // A failure part-way through still celebrates what did save.
+    const celebrate = () => {
+      const one = batchCelebration(celebrations);
+      if (one) fireCelebration(one);
+    };
     for (const row of selected) {
       const amount = parseAmount(amountText(row));
       if (amount === null) continue; // unreachable: `invalid` disables the button
       try {
-        await markPaid.mutateAsync({ debtId: row.debtId, amount, dueYear: year, dueMonth: month });
+        const result = await markPaid.mutateAsync({
+          debtId: row.debtId,
+          amount,
+          dueYear: year,
+          dueMonth: month,
+          celebrate: false,
+        });
+        if (result?.celebration) celebrations.push(result.celebration);
         logged.add(row.debtId);
         count += 1;
       } catch (err) {
         setLoggedIds(logged);
         if (count > 0) track(Events.BULK_LOG_SUBMITTED, { debt_count: count });
+        celebrate();
         setError(`${row.name} didn't save. ${getErrorMessage(err, "Please try again.")}`);
         setSaving(false);
         return;
       }
     }
     track(Events.BULK_LOG_SUBMITTED, { debt_count: count });
+    celebrate();
     setSaving(false);
     onClose();
   };

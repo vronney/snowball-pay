@@ -6,6 +6,7 @@ import { limits } from '@/lib/rateLimit';
 import { anthropic, parseClaudeJson, extractTextBlocks } from '@/lib/claude';
 import { detectMilestone, type MilestoneTier } from '@/lib/milestoneDetection';
 import { computeHighlightStat } from '@/lib/highlightStat';
+import { celebrationFallbackMessage } from '@/lib/celebrationCopy';
 
 export const maxDuration = 15;
 
@@ -22,6 +23,12 @@ const RequestSchema = z.object({
   debtOriginalBalance: z.number().positive(),
   debtCreatedAt:       z.string(),
   monthsSaved:         z.number().optional(),
+  /**
+   * How many further payments were logged in the same batch. The client logs a
+   * bulk submission one payment at a time but asks for a single celebration,
+   * naming the most significant debt and counting the rest.
+   */
+  alsoLoggedCount:     z.number().int().min(0).max(200).optional(),
 });
 
 type CelebrationRequest = z.infer<typeof RequestSchema>;
@@ -59,6 +66,7 @@ async function getStreakMonths(userId: string): Promise<number> {
 const SYSTEM_PROMPT = `You are a supportive debt-payoff coach. The user just logged a payment.
 Write one short, specific, encouraging message (max 30 words).
 - Reference the debt name and amount paid
+- If other payments were logged at the same time, acknowledge them too, briefly
 - Be direct and warm, not corporate or generic
 - Never use: "amazing", "awesome", "fantastic", "journey", "game-changer", "seamless", "elevate"
 - Return ONLY valid JSON: { "message": "..." }`;
@@ -75,6 +83,14 @@ function buildUserContext(body: CelebrationRequest, milestone: MilestoneTier): s
     `Total debt paid across all debts: $${body.totalDebtPaid.toFixed(0)} (${pctPaid}% of original)`,
     `Milestone: ${milestone ?? 'none — regular payment'}`,
   ];
+
+  if (body.alsoLoggedCount && body.alsoLoggedCount > 0) {
+    const others = body.alsoLoggedCount === 1 ? 'payment' : 'payments';
+    lines.push(
+      `Logged at the same time: ${body.alsoLoggedCount} other ${others} on other debts ` +
+        `(this is the most significant one)`,
+    );
+  }
 
   return lines.join('\n');
 }
@@ -150,7 +166,7 @@ export async function POST(request: NextRequest) {
 
     const message = validated.success
       ? validated.data.message
-      : `${body.debtName} — payment logged.`;
+      : celebrationFallbackMessage(body.debtName, body.alsoLoggedCount);
 
     // Persist the celebration so the weekly-digest cron has an audience and the
     // Journey timeline has history. Own try/catch inside — a DB blip must never
@@ -168,7 +184,7 @@ export async function POST(request: NextRequest) {
     });
   } catch {
     return NextResponse.json({
-      message: `${body.debtName} — payment logged.`,
+      message: celebrationFallbackMessage(body.debtName, body.alsoLoggedCount),
       milestoneLabel: milestone,
       highlightStat,
       ...buildPayoffExtras(body, milestone),

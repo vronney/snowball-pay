@@ -5,6 +5,7 @@ import axios, { AxiosError } from 'axios';
 import { upgradeEvents } from '@/lib/upgradeEvents';
 import { track, Events } from '@/lib/analytics';
 import { computeHighlightStat } from '@/lib/highlightStat';
+import { celebrationFallbackMessage } from '@/lib/celebrationCopy';
 import type { MilestoneTier } from '@/lib/milestoneDetection';
 import type { CancellationReason } from '@/lib/cancellation';
 import type { DashboardInsights } from '@/lib/dashboard/types';
@@ -516,6 +517,31 @@ interface MarkPaidArgs {
   dueMonth: number;
   /** 'mark' (default) is idempotent per month; 'log' adds to the month's total. */
   mode?: 'mark' | 'log';
+  /**
+   * false suppresses this payment's celebration and returns its payload on the
+   * result instead, so a caller logging several at once can fire exactly one for
+   * the batch. Defaults to true — a lone payment celebrates itself.
+   */
+  celebrate?: boolean;
+}
+
+/**
+ * Everything a celebration needs about one logged payment, captured from the
+ * cache before the mutation clears it. `alsoLoggedCount` is how many further
+ * payments went in alongside this one; 0 for a single log.
+ */
+export interface CelebrationPayload {
+  debtId: string;
+  debtName: string;
+  amountPaid: number;
+  totalDebtPaid: number;
+  totalDebtOriginal: number;
+  isFirstPayment: boolean;
+  debtBalance: number;
+  debtOriginalBalance: number;
+  debtCreatedAt: string;
+  monthsSaved?: number;
+  alsoLoggedCount?: number;
 }
 
 /** Marks a debt payment as paid for a given month. */
@@ -570,41 +596,40 @@ export function useMarkPaid() {
       }
     }
 
-    if (targetDebt) {
-      fireCelebration({
-        debtId: args.debtId,
-        debtName: targetDebt.name,
-        amountPaid: args.amount,
-        totalDebtPaid: totalDebtPaid + args.amount,
-        totalDebtOriginal,
-        isFirstPayment,
-        debtBalance: Math.max(0, targetDebt.balance - args.amount),
-        debtOriginalBalance: targetDebt.originalBalance ?? targetDebt.balance,
-        debtCreatedAt: targetDebt.createdAt instanceof Date
-          ? targetDebt.createdAt.toISOString()
-          : String(targetDebt.createdAt),
-        monthsSaved,
-      });
-    }
+    if (!targetDebt) return result;
 
+    const celebration: CelebrationPayload = {
+      debtId: args.debtId,
+      debtName: targetDebt.name,
+      amountPaid: args.amount,
+      totalDebtPaid: totalDebtPaid + args.amount,
+      totalDebtOriginal,
+      isFirstPayment,
+      debtBalance: Math.max(0, targetDebt.balance - args.amount),
+      debtOriginalBalance: targetDebt.originalBalance ?? targetDebt.balance,
+      debtCreatedAt: targetDebt.createdAt instanceof Date
+        ? targetDebt.createdAt.toISOString()
+        : String(targetDebt.createdAt),
+      monthsSaved,
+    };
+
+    // Handed back rather than fired when the caller is logging a batch: the
+    // payload has to be built here, from cache state that onSuccess has already
+    // invalidated by the time the batch finishes.
+    if (args.celebrate === false) return { ...result, celebration };
+
+    fireCelebration(celebration);
     return result;
   };
 
   return { ...mutation, mutateAsync };
 }
 
-function fireCelebration(payload: {
-  debtId: string;
-  debtName: string;
-  amountPaid: number;
-  totalDebtPaid: number;
-  totalDebtOriginal: number;
-  isFirstPayment: boolean;
-  debtBalance: number;
-  debtOriginalBalance: number;
-  debtCreatedAt: string;
-  monthsSaved?: number;
-}) {
+/**
+ * Asks for a celebration message and shows it. Exported so a batch caller can
+ * fire one for the whole batch after suppressing the per-payment ones.
+ */
+export function fireCelebration(payload: CelebrationPayload) {
   import('@/lib/celebrationState').then(({ triggerCelebration, triggerCelebrationLoading }) => {
     triggerCelebrationLoading();
     axios
@@ -642,7 +667,7 @@ function fireCelebration(payload: {
             debtName: payload.debtName,
           });
           triggerCelebration({
-            message: `${payload.debtName} — payment logged.`,
+            message: celebrationFallbackMessage(payload.debtName, payload.alsoLoggedCount),
             debtName: payload.debtName,
             milestoneLabel: null,
             highlightStat,
