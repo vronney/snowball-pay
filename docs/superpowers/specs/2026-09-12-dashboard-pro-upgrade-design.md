@@ -46,6 +46,7 @@
 | X9 | Streak with red current month | Amber current month (D10) | The existing streak already counts a month once any payment is logged. A red cell would contradict the count above it. |
 | X10 | Rate watch "recoverable by phone" | "est. if your cards drop to their target rates" | It is an estimate based on the APR-negotiation target (70% of APR, floor 9.99%). |
 | X11 | What-if caption "One scenario a month is yours. Pro runs any amount, any date, side by side." | "One scenario is yours. Pro runs any amount, side by side." | There is no monthly reset and no date feature. |
+| X12 | Trial C "Interest avoided · $6,361" | "Projected interest · $x less" | It is the difference between two projections that start up to a month apart, so not all of it is interest avoided. |
 
 ## 4. Numbers rules (apply everywhere)
 
@@ -101,7 +102,7 @@ export interface StrategyComparison {
 
 interface DashboardInsights {
   asOf: { year: number; month: number; day: number }; // month: 0-11
-  tier: { proEligible: boolean; paidPro: boolean; trial: { active: boolean; endsAt: string | null } };
+  tier: { proEligible: boolean; paidPro: boolean; trial: { active: boolean; endsAt: string | null; eligible: boolean } };
   readiness: PlanReadiness; // never null
   interest: { monthlyEstimate: number; avgMonthlySavedByPlan: number | null } | null;
   paymentGap: { expected: number; logged: number; missed: MissedPayment[]; missedMinimums: number; notYetDue: number } | null;
@@ -114,7 +115,10 @@ interface DashboardInsights {
 }
 ```
 
-`readiness` is always computable (it never returns null). PR 4 adds `uncounted: { count: number; balance: number; monthsImpact: number | null } | null`. PR 6 adds `trialMoment: TrialMoment | null` (§7).
+`readiness` is always computable (it never returns null). PR 4 adds `uncounted: { count: number; balance: number; monthsImpact: number | null } | null`. PR 6 added `trialMoment: TrialMoment | null` (§7) and `tier.trial.eligible` (§6.4). `TrialMoment` is one of:
+- `{ state: 'B'; day; daysLeft }`
+- `{ state: 'C'; daysLeft; elapsedDays; monthsSooner; interestLess; paymentsLogged }` (each row null unless positive)
+- `{ state: 'D'; endedAt }`
 
 - Web: `useDashboardInsights()` in `src/lib/hooks.ts` (React Query key `['dashboard-insights', today]`, where `today` is the client's local date and updates at local midnight via `onLocalDayChange`, so a tab left open overnight fetches the new day). Invalidation is one global React Query `MutationCache` (`src/app/providers.tsx`) that invalidates `['dashboard-insights']` after every settled mutation, not per-hook edits.
 - Expo: reads the same endpoint in its follow-up. In this effort Expo gets only the `inPlan` filter (§6.2).
@@ -143,6 +147,8 @@ model UserPreferences {
   trialBaselineInterest Float?
 }
 ```
+
+`trialBaselineAt` stores the client-local calendar day the baseline was taken, as that day's UTC midnight (PR 6).
 
 Every existing debt becomes `inPlan = true`, so plan math is unchanged, and the baseline must prove it. The schema is applied with the repo's existing process, `npm run db:push` (there is no `prisma/migrations` directory). Take a Neon snapshot before pushing (the free plan keeps 6 hours of history), and push before deploying the code that reads the new columns. `inPlan` is **not** added to the `PATCH /api/debts/[id]` schema, which stays `.strict()`, so users cannot flip it to bypass the cap.
 
@@ -182,6 +188,23 @@ Every existing debt becomes `inPlan = true`, so plan math is unchanged, and the 
 - `api/cron/trial-emails`: the candidate query also includes users whose `preferences.trialStartedAt` falls in the email window, so self-serve trials get the day-11 and day-14 emails.
 - Stripe checkout mid-trial already aligns `trial_end` to the grant. No change.
 
+**PR 6 decisions (2026-09-17)**
+- **Eligibility** is:
+  - not `proEligible`
+  - no signup window at all (`signupTrialEndsAt === null`)
+  - no `TrialGrant` for the email
+
+  A failed grant read, or `FORCE_PRO`, is not eligible.
+- **The gates rule:** a pre-launch account's window is `signupTrialEndsAt(grant.grantedAt)` when it has a grant. Otherwise, or when the lookup fails, it has none. Post-launch accounts are unchanged, including their `createdAt` fallback.
+- **`POST /api/trial/start`:**
+  - Access: accounts on `DASHBOARD_V2_USERS` only (403 `not_available` otherwise); 5 starts per 10 minutes per user.
+  - Body: an optional `{ today }`.
+  - An ineligible account, or a concurrent start that hits P2002 on the grant, gets 409 `trial_used`.
+  - It runs one interactive transaction, in order: grant `create`, `UserPreferences` upsert, then `moveOutsideDebtsIntoPlan` on the transaction client.
+  - The response is the fresh verdict.
+- **The baseline** is the plan over every debt (the trial counts them all), written only when it pays off. A signup trial, or a self-serve trial started without such a plan, gets its baseline from the insights endpoint the first time it computes one during the trial. That write is conditional, logged on failure, and never fails the response.
+- **Emails:** trial-emails candidates include accounts whose `preferences.trialStartedAt` falls in the candidate window.
+
 ## 7. Upgrade moments
 
 `trialMoment` from the insights endpoint picks at most one inline moment. Sheets are opened by gated controls.
@@ -197,6 +220,32 @@ Every existing debt becomes `inPlan = true`, so plan math is unchanged, and the 
 Free users whose trial is used up and who tap a gated control get the existing `UpgradeModal` (feature copy and interest anchor unchanged), restyled to the moment card style.
 
 Under the flag, the following are retired: `TrialCountdownBanner`, the one-time post-trial modal (`DashboardClient.tsx` ~L167-186), and the Free locked-door `CoachBriefCard`. `ProGate.tsx` stays unused.
+
+**PR 6 decisions (2026-09-17)**
+- **Routing.** Every v2 upgrade request already dispatches through `upgradeEvents`: gated tiles, the gated move list and row, the closing CTAs, the rail, and 403s. Under the flag, `DashboardClient` answers with `UpgradeHost`. That is moment A for an eligible account; otherwise, and while insights load, `UpgradeFallbackSheet`, which is `UpgradeModal`'s copy and anchor in the v2 sheet with `source: 'dashboard_v2_upgrade_sheet'`. v1 keeps `UpgradeModal`.
+- **The rail.** Its CTA reads "Try Pro free" for an eligible account.
+- **B:**
+  - Eyebrow "Pro is on · day {d}" and "{n} days left".
+  - Title "Three things worth doing while it's on." ("Two…" without a card to call).
+  - Rows:
+    - "Finish your plan setup": ✓ at 5 of 5, else it opens the first unfinished step's flow.
+    - "Run one what-if": goes to My Plan.
+    - "Call one card about its APR": opens rate watch's top card's script on Coach.
+  - Only setup ticks. Dismissible per trial.
+- **C:**
+  - Rows:
+    - "Debt-free date · {m} months sooner": debt-free months compared, so a month passing is not "sooner".
+    - "Projected interest · ${x} less" (X12).
+    - "Payments logged · {n}": records with `paidAt` since the trial start.
+  - Title "What the last {d} days actually moved." with the eyebrow "{n} days left of Pro". With no rows, the title is "{n} days left of Pro.".
+  - The price line ends "against ${x}/mo est. interest" (dropped under $1).
+  - "Keep Pro" → checkout. Not dismissible.
+- **D:**
+  - With a cached brief: the README card and the kept block "Kept — {Mon D}", the headline, the summary and the note.
+  - Without one: the title "Nothing was removed from your plan.".
+  - It renders nothing until the brief query settles. "Stay on Free for now" dismisses it per trial end.
+- **E.** For an eligible account the CTA is "Count all {n} — start 14 days free" and starts the trial from the sheet.
+- **Retired under the flag.** The countdown banner and the one-time post-trial modal. `CoachBriefCard` takes the page's `isPro`, so the locked door can't flash from a stale subscription cache.
 
 ## 8. UI
 
@@ -251,7 +300,7 @@ Currency figures use the mono stack with `tabular-nums`. Every paragraph and mul
     - Coach dot:
       - Its fingerprint is the move set's identity (month for `log_missed`, card for `call_apr`, alternative for `switch_strategy`), not its amounts.
       - It is stored under `sp_coach_seen`, which sign-out clears.
-- **Shared cards:** `ReadinessCard`, `InterestMeter` (full and compact), `DebtFreeHero`, `FreeMoveCard`, `MoreMovesList`, `RateWatchCard`, `ClosingCard` (ink and red variants), `ProChip`, `GatedTile` (`aria-disabled`, accessible name "{feature} — Pro", opens the upgrade sheet). `MoreMovesList` (the Coach tab's list with per-move values) ships in PR 5; This Month uses the gated `MoreMovesRow`. Until PR 6, `GatedTile` and the gated list header open the existing `UpgradeModal` through `upgradeEvents` (feature keys: "What-if scenarios", "Custom priority order", "Coach moves").
+- **Shared cards:** `ReadinessCard`, `InterestMeter` (full and compact), `DebtFreeHero`, `FreeMoveCard`, `MoreMovesList`, `RateWatchCard`, `ClosingCard` (ink and red variants), `ProChip`, `GatedTile` (`aria-disabled`, accessible name "{feature} — Pro", opens the upgrade sheet). `MoreMovesList` (the Coach tab's list with per-move values) ships in PR 5; This Month uses the gated `MoreMovesRow`. `GatedTile` and the gated list header dispatch through `upgradeEvents` with the `UPGRADE_FEATURE` keys ("What-if scenarios", "Custom priority order", "Coach moves"); under the flag `DashboardClient` answers with `UpgradeHost` (PR 6, §7).
 - **Sheets:** `DueDatesSheet` (a day picker per debt → existing `PATCH /api/debts/[id]`), `BulkLogSheet` (pre-filled missed payments at their minimums → the existing `useMarkPaid` per debt, sequentially, so balance updates, snapshots, and celebrations behave exactly as today), `UpgradeSheet` (states A and E, and the fallback modal).
 - **Tabs:**
   - `ThisMonthV2` (§8.5).
@@ -344,7 +393,9 @@ These go through the existing consent-gated `track()`:
 
 - `upgrade_moment_viewed {state}`
 - `upgrade_moment_cta {state, action}`
+  - actions: A `start_trial`; B `setup` / `what_if` / `apr_script` / `dismiss`; C `checkout`; D `checkout` / `dismiss`; E `checkout` / `start_trial`.
 - `trial_self_serve_started`
+  - captured server-side by `POST /api/trial/start`, consent-gated from the request cookie, `{source: 'dashboard_v2'}`.
 - `readiness_cta {step}`
 - `coach_move_cta {move, gated}`
   - the gated list and the Coach closing CTA send `{move: 'more_moves', gated: true}`; the any-amount Apply sends the existing `what_if_applied`.
@@ -352,6 +403,7 @@ These go through the existing consent-gated `track()`:
 - `bulk_log_submitted {debt_count}` (the analytics sanitiser redacts numbers outside its safe keys)
 - `debt_saved_outside_plan`
 - Moment E also sends the existing `checkout_started {source: 'upgrade_moment_e', billing: 'monthly'}`.
+- Moments C and D send `checkout_started {source: 'upgrade_moment_c' | 'upgrade_moment_d', billing: 'monthly'}`; the v2 upgrade sheet sends `checkout_started {source: 'upgrade_sheet', …}` with `UpgradeModal`'s other properties.
 
 Existing `DASHBOARD_TAB_VIEWED` continues to fire with the same tab ids.
 
