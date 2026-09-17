@@ -541,7 +541,22 @@ export interface CelebrationPayload {
   debtOriginalBalance: number;
   debtCreatedAt: string;
   monthsSaved?: number;
+  /**
+   * How many payments were saved alongside this one — counted from the batch's
+   * saved payments, not from the payloads collected, since a payment can save
+   * without producing one.
+   */
   alsoLoggedCount?: number;
+}
+
+export interface MarkPaidResult {
+  /** The month was already marked paid and the server changed nothing. */
+  alreadyMarked?: boolean;
+  /**
+   * Set only when `celebrate: false` held this payment's celebration back, so
+   * the caller can fire one for the whole batch.
+   */
+  celebration?: CelebrationPayload;
 }
 
 /** Marks a debt payment as paid for a given month. */
@@ -549,8 +564,11 @@ export function useMarkPaid() {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: async ({ debtId, amount, dueYear, dueMonth, mode }: MarkPaidArgs) => {
-      const { data } = await axios.post(`${API_URL}/api/payments`, { debtId, amount, dueYear, dueMonth, mode });
+    mutationFn: async ({ debtId, amount, dueYear, dueMonth, mode }: MarkPaidArgs): Promise<MarkPaidResult> => {
+      const { data } = await axios.post<MarkPaidResult>(
+        `${API_URL}/api/payments`,
+        { debtId, amount, dueYear, dueMonth, mode },
+      );
       return data;
     },
     onSuccess: async () => {

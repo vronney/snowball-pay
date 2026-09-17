@@ -301,6 +301,25 @@ describe('GET /api/cron/trial-emails', () => {
     ]);
   });
 
+  it('reports a truncated scan even when neither arm filled on its own', async () => {
+    // 300 + 300 disjoint accounts: neither arm hits the 500 cap, but the merged
+    // set is sliced back to 500 and 100 in-window accounts go unseen.
+    const arm = (prefix: string) =>
+      Array.from({ length: 300 }, (_, i) =>
+        candidate({ id: `${prefix}_${i}`, email: `${prefix}${i}@example.com` }),
+      );
+    mockPrisma.user.findMany
+      .mockResolvedValueOnce(arm('signup'))
+      .mockResolvedValueOnce(arm('selfserve'));
+    // Nothing is due, so the send cap cannot be what sets the flag.
+    mockGetSignupTrialEnd.mockResolvedValue(null);
+
+    const body = await (await GET(makeRequest())).json();
+
+    expect(body).toMatchObject({ candidates: 500, limited: true, ending: 0, ended: 0 });
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
   it('counts an account matched by both anchors once', async () => {
     const both = candidate({
       createdAt: new Date(Date.now() - 5 * DAY),

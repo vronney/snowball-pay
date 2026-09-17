@@ -194,9 +194,8 @@ export async function GET(request: NextRequest) {
   // the mail closest to its boundary.
   const byId = new Map<string, TrialCandidate>();
   for (const user of [...bySignup, ...byTrialStart]) byId.set(user.id, user);
-  const candidates = [...byId.values()]
-    .sort((a, b) => trialAnchor(a) - trialAnchor(b))
-    .slice(0, MAX_CANDIDATES_PER_RUN);
+  const matched = [...byId.values()].sort((a, b) => trialAnchor(a) - trialAnchor(b));
+  const candidates = matched.slice(0, MAX_CANDIDATES_PER_RUN);
 
   const results = {
     ok: true,
@@ -207,8 +206,13 @@ export async function GET(request: NextRequest) {
     skippedOutsideWindow: 0,
     skippedPaid: 0,
     skippedPreviouslySent: 0,
+    // True whenever the scan did not see every account it should have: either
+    // arm hit its own cap, or the merged set was sliced. Missing the second
+    // case would hand back a clean all-clear for a run that skipped accounts.
     limited:
-      bySignup.length >= MAX_CANDIDATES_PER_RUN || byTrialStart.length >= MAX_CANDIDATES_PER_RUN,
+      bySignup.length >= MAX_CANDIDATES_PER_RUN ||
+      byTrialStart.length >= MAX_CANDIDATES_PER_RUN ||
+      matched.length > MAX_CANDIDATES_PER_RUN,
     messageVersion: TRIAL_EMAIL_VERSION,
   };
 

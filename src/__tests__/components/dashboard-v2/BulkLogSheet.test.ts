@@ -167,6 +167,23 @@ describe('BulkLogSheet', () => {
     );
   });
 
+  it('celebrates once for the sheet even when a retry follows a failure', async () => {
+    const mutateAsync = vi.fn()
+      .mockResolvedValueOnce({ celebration: payload({ debtId: 'a' }) })
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({ celebration: payload({ debtId: 'b', debtName: 'Car loan' }) });
+    const { onClose } = setup(mutateAsync);
+
+    fireEvent.click(logButton('Log 2 payments'));
+    await screen.findByRole('alert');
+    expect(fireCelebration).toHaveBeenCalledTimes(1);
+
+    // Visa saved, so only Car loan is left to retry.
+    fireEvent.click(logButton('Log 1 payment'));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(fireCelebration).toHaveBeenCalledTimes(1);
+  });
+
   it('celebrates nothing when no payment saved', async () => {
     const mutateAsync = vi.fn().mockRejectedValue(new Error('offline'));
     setup(mutateAsync);
@@ -202,6 +219,22 @@ describe('batchCelebration', () => {
       payload({ debtId: 'middle', amountPaid: 90, debtBalance: 400 }),
     ]);
     expect(one).toMatchObject({ debtId: 'large', alsoLoggedCount: 2 });
+  });
+
+  it('re-derives the total paid across the whole batch', () => {
+    const one = batchCelebration([
+      payload({ debtId: 'first', amountPaid: 500, totalDebtPaid: 600, debtBalance: 0 }),
+      payload({ debtId: 'second', amountPaid: 310.5, totalDebtPaid: 1100, debtBalance: 40 }),
+    ]);
+    // 'first' wins on the payoff, but its own snapshot (600) was taken before
+    // the second payment. The batch started from 100 and moved 810.50.
+    expect(one).toMatchObject({ debtId: 'first', totalDebtPaid: 910.5 });
+  });
+
+  it('counts payments that saved without producing a payload', () => {
+    // Two of three saved silently — already marked, or a debt missing from cache.
+    expect(batchCelebration([payload()], 3)).toMatchObject({ alsoLoggedCount: 2 });
+    expect(batchCelebration([payload()], 0)).toMatchObject({ alsoLoggedCount: 0 });
   });
 
   it('picks the largest among the paid-off debts, ties keeping log order', () => {

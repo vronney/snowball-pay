@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { fireCelebration, getErrorMessage, useMarkPaid, type CelebrationPayload } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import type { LogRow } from "@/lib/dashboard/thisMonth";
@@ -45,15 +45,33 @@ export function parseAmount(raw: string): number | null {
  * single slot, so N payments used to mean N Claude calls and N DebtStory rows
  * for one banner — and the daily rate limit is 3, so a batch of four also
  * spent the user's whole budget.
+ *
+ * `totalDebtPaid` is re-derived across the batch. Each payload snapshots the
+ * cache as it stood before its own payment, so the winner's copy can predate
+ * the rest of the batch — and that figure reaches the user, as the progress
+ * percentage in the prompt and the persisted DebtStory message.
+ *
+ * `savedCount` is how many payments actually saved, which can exceed the
+ * payloads collected: a payment the server reports as already marked, or one
+ * whose debt is missing from the cache, saves without producing a payload.
  */
 export function batchCelebration(
   payloads: readonly CelebrationPayload[],
+  savedCount = payloads.length,
 ): CelebrationPayload | null {
   if (payloads.length === 0) return null;
   const paidOff = payloads.filter((p) => p.debtBalance === 0);
   const pool = paidOff.length > 0 ? paidOff : payloads;
   const best = pool.reduce((a, b) => (b.amountPaid > a.amountPaid ? b : a));
-  return { ...best, alsoLoggedCount: payloads.length - 1 };
+  // Every payload shares one starting total; recover it from the first and add
+  // back everything this batch paid.
+  const before = payloads[0].totalDebtPaid - payloads[0].amountPaid;
+  const totalDebtPaid = payloads.reduce((sum, p) => sum + p.amountPaid, before);
+  return {
+    ...best,
+    totalDebtPaid,
+    alsoLoggedCount: Math.max(0, savedCount - 1),
+  };
 }
 
 /**
@@ -71,6 +89,11 @@ export default function BulkLogSheet({ title, rows, year, month, onClose }: Bulk
   const [loggedIds, setLoggedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Kept across retries, so a batch that fails part-way and is resubmitted
+  // still yields exactly one celebration for the sheet.
+  const collected = useRef<CelebrationPayload[]>([]);
+  const savedCount = useRef(0);
+  const celebrated = useRef(false);
 
   const amountText = (row: LogRow) => amounts[row.debtId] ?? row.amount.toFixed(2);
   const pending = rows.filter((r) => !loggedIds.has(r.debtId));
@@ -90,12 +113,15 @@ export default function BulkLogSheet({ title, rows, year, month, onClose }: Bulk
     setSaving(true);
     setError(null);
     const logged = new Set(loggedIds);
-    const celebrations: CelebrationPayload[] = [];
     let count = 0;
-    // A failure part-way through still celebrates what did save.
+    // A failure part-way through still celebrates what did save, and a retry
+    // after it does not celebrate a second time.
     const celebrate = () => {
-      const one = batchCelebration(celebrations);
-      if (one) fireCelebration(one);
+      if (celebrated.current) return;
+      const one = batchCelebration(collected.current, savedCount.current);
+      if (!one) return;
+      celebrated.current = true;
+      fireCelebration(one);
     };
     for (const row of selected) {
       const amount = parseAmount(amountText(row));
@@ -108,8 +134,9 @@ export default function BulkLogSheet({ title, rows, year, month, onClose }: Bulk
           dueMonth: month,
           celebrate: false,
         });
-        if (result?.celebration) celebrations.push(result.celebration);
+        if (result?.celebration) collected.current.push(result.celebration);
         logged.add(row.debtId);
+        savedCount.current += 1;
         count += 1;
       } catch (err) {
         setLoggedIds(logged);
