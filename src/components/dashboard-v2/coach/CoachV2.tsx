@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Debt, Expense, Income } from "@/types";
 import type { Tab } from "@/components/dashboard/types";
 import { getErrorMessage, useDashboardInsights, useSaveIncome } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import { upgradeEvents } from "@/lib/upgradeEvents";
+import { UPGRADE_FEATURE } from "@/lib/dashboard/upgradeFeatures";
 import { PLANS } from "@/lib/stripe";
 import { incomeSavePayload } from "@/lib/dashboard/incomePayload";
 import { longMonthLabel, shortMonthLabel } from "@/lib/dashboard/format";
@@ -28,9 +29,6 @@ import { CARD } from "../styles";
 import MoreMovesList from "./MoreMovesList";
 import OpenMovesList from "./OpenMovesList";
 
-/** Opens UpgradeModal with its coach copy, like the sidebar rail and This Month's row. */
-const MOVES_UPGRADE_FEATURE = "Coach moves";
-
 const INLINE_BUTTON =
   "mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-action px-5 text-[13px] font-extrabold text-white outline-none hover:bg-action/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action";
 
@@ -42,6 +40,9 @@ interface CoachV2Props {
   pendingExtra?: number | null;
   onConsumePendingExtra?: () => void;
   onNavigate: (tab: Tab) => void;
+  /** Moment B's "Script →" on This Month: the card whose APR script to open, once (plan decision 11). */
+  pendingAprDebtId?: string | null;
+  onConsumePendingApr?: () => void;
 }
 
 type LogSheet = { rows: LogRow[]; year: number; month: number } | null;
@@ -55,6 +56,7 @@ type MoveAction = FreeMoveAction | OpenMoveAction;
  */
 export default function CoachV2({
   debts, income, expenses, isLoading, pendingExtra, onConsumePendingExtra, onNavigate,
+  pendingAprDebtId, onConsumePendingApr,
 }: CoachV2Props) {
   const { data: insights, isError, isPlaceholderData, refetch } = useDashboardInsights();
   const saveIncome = useSaveIncome();
@@ -62,6 +64,14 @@ export default function CoachV2({
   const [pendingMove, setPendingMove] = useState<CoachMoveId | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aprRequest, setAprRequest] = useState<AprOpenRequest | null>(null);
+
+  // The script lives in the Pro content, so a request waits for a Pro tier.
+  const tierIsPro = insights?.tier.proEligible === true;
+  useEffect(() => {
+    if (!tierIsPro || !pendingAprDebtId) return;
+    setAprRequest({ debtId: pendingAprDebtId, nonce: Date.now() });
+    onConsumePendingApr?.();
+  }, [tierIsPro, pendingAprDebtId, onConsumePendingApr]);
 
   if (!insights) {
     return isError ? <LoadFailed onRetry={() => void refetch()} /> : <LoadingCards />;
@@ -111,7 +121,7 @@ export default function CoachV2({
 
   const openGated = () => {
     track(Events.COACH_MOVE_CTA, { move: "more_moves", gated: true });
-    upgradeEvents.dispatch(MOVES_UPGRADE_FEATURE);
+    upgradeEvents.dispatch(UPGRADE_FEATURE.coachMoves);
   };
 
   const meter = interest && <InterestMeter view={interest} compact />;

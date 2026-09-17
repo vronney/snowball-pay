@@ -2,11 +2,9 @@
 
 import type { PayoffMethod } from "@/lib/snowball";
 import { methodLabel, type StrategyPairView } from "@/lib/dashboard/plan";
+import { UPGRADE_FEATURE } from "@/lib/dashboard/upgradeFeatures";
 import GatedTile from "../GatedTile";
 import { CARD, EYEBROW } from "../styles";
-
-/** StrategySelector.tsx's feature key: the same UpgradeModal copy. */
-const CUSTOM_FEATURE = "Custom priority order";
 
 interface StrategyControlProps {
   method: PayoffMethod;
@@ -55,7 +53,7 @@ export default function StrategyControl({ method, onChange, customOpen, pair, di
         {customGated ? (
           <GatedTile
             label="Custom"
-            feature={CUSTOM_FEATURE}
+            feature={UPGRADE_FEATURE.customPriority}
             className="flex-1 !items-center !justify-center !rounded-[9px] !py-0"
           />
         ) : (

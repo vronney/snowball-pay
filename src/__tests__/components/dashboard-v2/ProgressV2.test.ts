@@ -28,7 +28,7 @@ vi.mock('@/components/tabs/ProgressTab', async () => {
   };
 });
 
-const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
+const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
 const TODAY = new Date(2026, 8, 15, 12, 0);
 const INCOME = makeIncome({ monthlyTakeHome: 4_000, essentialExpenses: 2_000, accelerationAmount: 200 });
 const DEBTS = [
@@ -56,6 +56,7 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
     },
     plan: null,
     uncounted: null,
+    trialMoment: null,
     ...overrides,
   };
 }

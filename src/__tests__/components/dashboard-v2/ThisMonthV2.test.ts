@@ -34,8 +34,8 @@ vi.mock('@/components/payoff/CoachBriefCard', async () => {
   };
 });
 
-const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
-const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } };
+const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
+const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null, eligible: false } };
 const RATE_CARD = { debtId: 'c1', debtName: 'Citi', apr: 28, targetApr: 19.6, annualEstimate: 742.9 };
 
 const DEBTS = [
@@ -67,6 +67,7 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
     progress: null,
     plan: { method: 'snowball', months: 31, debtFreeDate: '2029-04-14', totalInterest: 5_000 },
     uncounted: null,
+    trialMoment: null,
     ...overrides,
   };
 }
@@ -91,18 +92,19 @@ function renderTab(
   vi.mocked(useUpdateDebt).mockReturnValue({ mutateAsync: vi.fn() } as unknown as ReturnType<typeof useUpdateDebt>);
   const onNavigate = vi.fn();
   const onSetPendingCoachExtra = vi.fn();
+  const onOpenAprScript = vi.fn();
   const debts = overrides.debts ?? DEBTS;
   // Distinguish "not passed" (default income) from an explicit `income: undefined`
   // override — a default-parameter destructure can't tell those apart.
   const income = 'income' in overrides ? overrides.income : makeIncome();
-  const props = { debts, income, onNavigate, onSetPendingCoachExtra };
+  const props = { debts, income, onNavigate, onSetPendingCoachExtra, onOpenAprScript };
   const view = render(createElement(ThisMonthV2, props));
   // New insights arriving while mounted, e.g. the next day's figures.
   const rerenderWith = (next: DashboardInsights, nextQuery: QueryState = {}) => {
     mockQuery(next, nextQuery);
     view.rerender(createElement(ThisMonthV2, props));
   };
-  return { onNavigate, onSetPendingCoachExtra, markPaid, rerenderWith };
+  return { onNavigate, onSetPendingCoachExtra, onOpenAprScript, markPaid, rerenderWith };
 }
 
 afterEach(() => {
@@ -274,5 +276,28 @@ describe('ThisMonthV2', () => {
     renderTab(undefined, { isError: true, refetch });
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     expect(refetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('puts the trial moment above readiness and sends its checklist to each flow (plan decisions 5 and 11)', () => {
+    const { onNavigate, onOpenAprScript } = renderTab(insights({
+      tier: { proEligible: true, paidPro: false, trial: { active: true, endsAt: '2026-09-26T12:00:00.000Z', eligible: false } },
+      trialMoment: { state: 'B', day: 2, daysLeft: 12 },
+    }));
+    const moment = screen.getByText('Pro is on · day 2');
+    const readinessTitle = screen.getByText('Your plan is 60% set up');
+    expect(moment.compareDocumentPosition(readinessTitle) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run one what-if' }));
+    expect(onNavigate).toHaveBeenCalledWith('plan');
+    fireEvent.click(screen.getByRole('button', { name: 'Call one card about its APR' }));
+    expect(onOpenAprScript).toHaveBeenCalledWith('c1');
+    // Setup opens the first unfinished step's own flow: here, the due-dates sheet.
+    fireEvent.click(screen.getByRole('button', { name: 'Finish your plan setup' }));
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+
+  it("gives the AI brief this page's resolved tier, so a stale subscription can't show the locked door (plan decision 10)", () => {
+    renderTab(insights({ tier: PRO }));
+    expect(coachBrief.props).toMatchObject({ isPro: true });
   });
 });

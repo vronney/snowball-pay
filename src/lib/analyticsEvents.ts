@@ -73,6 +73,9 @@ export const Events = {
   UPGRADE_MOMENT_CTA: 'upgrade_moment_cta',
   // Dashboard v2 My Plan (spec §9, PR 5). No properties.
   PLAN_GAP_FIX_APPLIED: 'plan_gap_fix_applied',
+  // Dashboard v2 self-serve trial (spec §9). Captured server-side by
+  // POST /api/trial/start, consent-gated from the request cookie.
+  TRIAL_SELF_SERVE_STARTED: 'trial_self_serve_started',
 } as const;
 
 export type AnalyticsEvent = (typeof Events)[keyof typeof Events];

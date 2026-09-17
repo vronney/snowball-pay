@@ -108,7 +108,8 @@ describe('DashboardClient flag wiring', () => {
     expect(html).toContain('aria-label="Dashboard"');
     expect(html).toContain('data-stub="ThisMonthV2"');
     expect(html).not.toContain('data-stub="ThisMonthTab"');
-    expect(html).toContain('data-stub="TrialCountdownBanner"');
+    // Retired under the flag in PR 6: moment D carries the post-trial decision.
+    expect(html).not.toContain('data-stub="TrialCountdownBanner"');
     expect(useDashboardInsights).toHaveBeenCalled();
   });
 

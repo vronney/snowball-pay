@@ -1,11 +1,9 @@
 "use client";
 
 import { GATED_WHAT_IF_DELTA, WHAT_IF_CAPTION, type WhatIfFreeTile } from "@/lib/dashboard/plan";
+import { UPGRADE_FEATURE } from "@/lib/dashboard/upgradeFeatures";
 import GatedTile from "../GatedTile";
 import { CARD, EYEBROW } from "../styles";
-
-/** WhatIfCard.tsx's feature key: the same UpgradeModal copy. */
-export const WHAT_IF_FEATURE = "What-if scenarios";
 
 /**
  * README §3c on Free: one real rung, two gated tiles. The free rung hides
@@ -24,8 +22,8 @@ export default function WhatIfTiles({ tile }: { tile: WhatIfFreeTile | null }) {
             <p className="mt-1 text-[10px] font-bold text-success-text">{tile.result}</p>
           </div>
         )}
-        <GatedTile label={`+$${GATED_WHAT_IF_DELTA}`} feature={WHAT_IF_FEATURE} />
-        <GatedTile label="Any $" feature={WHAT_IF_FEATURE} />
+        <GatedTile label={`+$${GATED_WHAT_IF_DELTA}`} feature={UPGRADE_FEATURE.whatIf} />
+        <GatedTile label="Any $" feature={UPGRADE_FEATURE.whatIf} />
       </div>
       <p className="mt-2 text-[11px] text-txt-muted [text-wrap:pretty]">{WHAT_IF_CAPTION}</p>
     </section>

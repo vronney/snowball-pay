@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-  countAllLabel, debtsClosingView, debtsSummaryView, focusCardView, orderByPlan,
+  countAllLabel, countAllTrialLabel, debtsClosingView, debtsSummaryView, focusCardView, orderByPlan,
   outsidePlanNotice, planMembership, upgradeSheetEView,
 } from '@/lib/dashboard/myDebts';
 import type { PlanSummary, TierInfo, Uncounted } from '@/lib/dashboard/types';
 import { makeDebt } from './fixtures';
 
-const FREE: TierInfo = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
-const PRO: TierInfo = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } };
+const FREE: TierInfo = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
+const PRO: TierInfo = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null, eligible: false } };
 const PLAN: PlanSummary = { method: 'snowball', months: 31, debtFreeDate: '2029-04-14', totalInterest: 5_000 };
 // Any price works: the copy takes it as an argument (the app passes PLANS.pro.price).
 const PRICE = 9;
@@ -72,7 +72,7 @@ describe('debtsClosingView (spec §8.4 "Debts closing")', () => {
 });
 
 describe('upgradeSheetEView (spec §7 E)', () => {
-  const args = { countedCount: 3, total: 5, uncounted: UNCOUNTED, date: 'April 2029', price: PRICE };
+  const args = { countedCount: 3, total: 5, uncounted: UNCOUNTED, date: 'April 2029', price: PRICE, trialEligible: false };
 
   it("fills moment E from the user's own counts", () => {
     expect(upgradeSheetEView(args)).toEqual({
@@ -128,5 +128,17 @@ describe('orderByPlan', () => {
 describe('countAllLabel', () => {
   it('prices from its argument', () => {
     expect(countAllLabel(10, PRICE)).toBe('Count all 10 — $9/mo');
+  });
+});
+
+describe("moment E for an account that can start the trial (plan decision 9)", () => {
+  const ELIGIBLE: TierInfo = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: true } };
+
+  it('names the trial on the closing card and in the sheet', () => {
+    expect(countAllTrialLabel(5)).toBe('Count all 5 — start 14 days free');
+    expect(debtsClosingView({ uncounted: UNCOUNTED, plan: PLAN, tier: ELIGIBLE, total: 5, price: PRICE })?.cta)
+      .toBe('Count all 5 — start 14 days free');
+    expect(upgradeSheetEView({ countedCount: 3, total: 5, uncounted: UNCOUNTED, date: 'April 2029', price: PRICE, trialEligible: true }).cta)
+      .toBe('Count all 5 — start 14 days free');
   });
 });

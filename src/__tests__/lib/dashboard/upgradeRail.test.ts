@@ -3,8 +3,8 @@ import type { TierInfo } from '@/lib/dashboard/types';
 import { computeUpgradeRail, upgradeRailCopy } from '@/lib/dashboard/upgradeRail';
 import { makeCallAprMove, makeLogMissedMove, makeSwitchMove, makeUnallocatedMove } from './fixtures';
 
-const FREE: TierInfo = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
-const PRO: TierInfo = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } };
+const FREE: TierInfo = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
+const PRO: TierInfo = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null, eligible: false } };
 
 describe('computeUpgradeRail', () => {
   it('is null before insights load', () => {
@@ -69,5 +69,16 @@ describe('upgradeRailCopy', () => {
       value: null,
       cta: 'Unlock the move',
     });
+  });
+});
+
+describe('upgradeRailCopy for an account that can start the trial (README §6; plan decision 8)', () => {
+  it('invites a trial instead of an unlock, keeping the count and the value', () => {
+    expect(upgradeRailCopy({ count: 3, perYear: 742 }, true)).toEqual({
+      title: '3 moves waiting',
+      value: '$742/yr est.',
+      cta: 'Try Pro free',
+    });
+    expect(upgradeRailCopy({ count: 3, perYear: 742 }).cta).toBe('Unlock all 3');
   });
 });

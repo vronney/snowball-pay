@@ -1,4 +1,8 @@
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+
+/** The global client or a transaction's: the trial start moves debts inside its transaction. */
+type DebtWriter = Pick<Prisma.TransactionClient, 'debt'>;
 
 // Prisma only, on purpose: the Stripe webhook imports this module, and its
 // tests mock '@/lib/stripe' without PLANS, so importing gates.ts here would
@@ -14,8 +18,8 @@ export function countCountedDebts(userId: string): Promise<number> {
  * plan back in. Idempotent, so a retried webhook is harmless. Returns how
  * many moved.
  */
-export async function moveOutsideDebtsIntoPlan(userId: string): Promise<number> {
-  const { count } = await prisma.debt.updateMany({
+export async function moveOutsideDebtsIntoPlan(userId: string, db: DebtWriter = prisma): Promise<number> {
+  const { count } = await db.debt.updateMany({
     where: { userId, inPlan: false },
     data: { inPlan: true },
   });

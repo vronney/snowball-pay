@@ -2,10 +2,10 @@ import { formatCurrencyWhole } from '@/lib/utils';
 import { coachMoveCopy, type CoachMoveCopy } from './coachMoveCopy';
 import { summarizeMoveValues } from './coachMoves';
 import { floorDollars, floorWhole } from './format';
+import { METHOD_LABEL } from './methodLabel';
 import { freeMoveView, type FreeMoveView } from './thisMonth';
 import type { CoachMove, CoachMoveId, DashboardInsights } from './types';
 
-const METHOD_LABEL = { snowball: 'Snowball', avalanche: 'Avalanche' } as const;
 /** A unit, not a price: the price itself is always PLANS.pro.price. */
 const MONTHS_PER_YEAR = 12;
 

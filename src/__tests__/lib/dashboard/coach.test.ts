@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { coachClosingView, coachFreeMoveView, moreMovesView, openMoveRows } from '@/lib/dashboard/coach';
 import { makeCallAprMove, makeLogMissedMove, makeSwitchMove, makeUnallocatedMove } from './fixtures';
 
-const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
-const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } };
+const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
+const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null, eligible: false } };
 const asOf = { year: 2026, month: 8, day: 15 };
 // A stand-in price so the ×12 is visible in the expectation; product code reads PLANS.pro.price.
 const PRICE = 10;

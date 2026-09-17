@@ -21,7 +21,7 @@ vi.mock('@/lib/logout-client', () => ({ LOGOUT_URL: '/auth/logout', runLogoutCli
 function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights {
   return {
     asOf: { year: 2026, month: 8, day: 14 },
-    tier: { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } },
+    tier: { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } },
     readiness: { steps: [], completeCount: 0, percent: 0 },
     interest: null,
     paymentGap: null,
@@ -32,6 +32,7 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
     progress: null,
     plan: null,
     uncounted: null,
+    trialMoment: null,
     ...overrides,
   };
 }
@@ -78,10 +79,22 @@ describe('V2Shell', () => {
     unsubscribe();
   });
 
+  it('invites an account that can start the trial to try Pro free, through the same upgrade path', () => {
+    const seen: string[] = [];
+    const unsubscribe = upgradeEvents.subscribe((feature) => seen.push(feature));
+    renderShell('this-month', insights({
+      coachMoves: MOVES,
+      tier: { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: true } },
+    }));
+    fireEvent.click(screen.getByRole('button', { name: 'Try Pro free' }));
+    expect(seen).toEqual(['Coach moves']);
+    unsubscribe();
+  });
+
   it('shows no rail to Pro users', () => {
     renderShell('this-month', insights({
       coachMoves: MOVES.map((m) => ({ ...m, isFree: true })),
-      tier: { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } },
+      tier: { proEligible: true, paidPro: true, trial: { active: false, endsAt: null, eligible: false } },
     }));
     expect(screen.queryByText(/waiting/)).toBeNull();
   });

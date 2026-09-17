@@ -78,6 +78,12 @@ model UserPreferences {
   notifyLowBuffer   Boolean  @default(true)
   emailOptOut       Boolean  @default(false)
 
+  // Self-serve trial (spec §6.1, §6.4). All nullable: existing rows are untouched.
+  trialStartedAt        DateTime? // when the account started its own trial
+  trialBaselineAt       DateTime? // the client-local calendar day of the trial baseline, stored as that day's UTC midnight
+  trialBaselineMonths   Int?      // the plan's months on that day
+  trialBaselineInterest Float?    // the plan's total interest on that day
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 

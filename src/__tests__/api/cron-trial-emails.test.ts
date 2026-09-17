@@ -248,11 +248,15 @@ describe('GET /api/cron/trial-emails', () => {
     expect(mockSendEmail).toHaveBeenCalledTimes(50);
   });
 
-  it('queries only opted-in accounts created since the trial launched', async () => {
+  it('queries opted-in accounts created since the trial launched, or whose own trial started recently (spec §6.4)', async () => {
     await GET(makeRequest());
 
     const args = mockPrisma.user.findMany.mock.calls[0][0];
-    expect(args.where.OR).toEqual([{ preferences: null }, { preferences: { emailOptOut: false } }]);
-    expect(args.where.createdAt.gte.getTime()).toBeGreaterThanOrEqual(SIGNUP_TRIAL_LAUNCH.getTime());
+    const [recent, optIn] = args.where.AND;
+    expect(optIn).toEqual({ OR: [{ preferences: null }, { preferences: { emailOptOut: false } }] });
+    expect(recent.OR[0].createdAt.gte.getTime()).toBeGreaterThanOrEqual(SIGNUP_TRIAL_LAUNCH.getTime());
+    // A self-serve trial on an older account stays a candidate while either email can be due.
+    const startedAfter = recent.OR[1].preferences.trialStartedAt.gte.getTime();
+    expect(Math.abs(Date.now() - startedAfter - (14 + 7) * DAY)).toBeLessThan(60_000);
   });
 });

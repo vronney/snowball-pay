@@ -6,8 +6,9 @@ const { mockPrisma } = vi.hoisted(() => ({
     debt: { findMany: vi.fn() },
     income: { findUnique: vi.fn() },
     expense: { findMany: vi.fn() },
-    paymentRecord: { findMany: vi.fn(), findFirst: vi.fn() },
+    paymentRecord: { findMany: vi.fn(), findFirst: vi.fn(), count: vi.fn() },
     balanceSnapshot: { findMany: vi.fn() },
+    userPreferences: { findUnique: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
   },
 }));
 
@@ -18,12 +19,12 @@ vi.mock('@/lib/auth-server', () => ({
   serverError: vi.fn((msg: string) => new Response(JSON.stringify({ error: msg }), { status: 500 })),
   tooManyRequests: vi.fn(() => new Response(JSON.stringify({ error: 'Too many requests' }), { status: 429 })),
 }));
-vi.mock('@/lib/gates', () => ({ resolveBillingVerdict: vi.fn() }));
+vi.mock('@/lib/gates', () => ({ resolveBillingVerdict: vi.fn(), isSelfServeTrialEligible: vi.fn() }));
 vi.mock('@/lib/rateLimit', () => ({ limits: { dashboardInsights: vi.fn() } }));
 
 import { GET } from '@/app/api/dashboard/insights/route';
 import { verifyAuth, tooManyRequests } from '@/lib/auth-server';
-import { resolveBillingVerdict } from '@/lib/gates';
+import { isSelfServeTrialEligible, resolveBillingVerdict } from '@/lib/gates';
 import { limits } from '@/lib/rateLimit';
 
 const AUTHED = { valid: true as const, user: { id: 'user-1', email: 'owner@example.com' } };
@@ -48,6 +49,11 @@ describe('GET /api/dashboard/insights', () => {
     mockPrisma.paymentRecord.findMany.mockResolvedValue([{ debtId: 'a', dueYear: 2026, dueMonth: 8 }]);
     mockPrisma.paymentRecord.findFirst.mockResolvedValue({ id: 'p1' });
     mockPrisma.balanceSnapshot.findMany.mockResolvedValue([{ debtId: 'a', balance: 800, recordedAt: new Date('2026-09-01T00:00:00Z') }]);
+    mockPrisma.userPreferences.findUnique.mockResolvedValue(null);
+    mockPrisma.userPreferences.updateMany.mockResolvedValue({ count: 1 });
+    mockPrisma.userPreferences.create.mockResolvedValue({});
+    mockPrisma.paymentRecord.count.mockResolvedValue(0);
+    vi.mocked(isSelfServeTrialEligible).mockResolvedValue(false);
   });
   afterEach(() => vi.useRealTimers());
 
@@ -71,7 +77,8 @@ describe('GET /api/dashboard/insights', () => {
     expect(body.asOf).toEqual({ year: 2026, month: 8, day: 12 });
     expect(body.paymentGap).toMatchObject({ expected: 2, logged: 1, missed: [{ debtId: 'b', minimumPayment: 60 }] });
     expect(body.coachMoves[0]).toMatchObject({ id: 'log_missed', isFree: true });
-    expect(body.tier).toEqual({ proEligible: false, paidPro: false, trial: { active: false, endsAt: null } });
+    expect(body.tier).toEqual({ proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } });
+    expect(body.trialMoment).toBeNull();
 
     // Same debt order as GET /api/debts, so engine tie-breaks match the app.
     expect(mockPrisma.debt.findMany).toHaveBeenCalledWith({ where: { userId: 'user-1' }, orderBy: { createdAt: 'desc' } });
@@ -93,7 +100,7 @@ describe('GET /api/dashboard/insights', () => {
   it('reports an active signup trial', async () => {
     vi.mocked(resolveBillingVerdict).mockResolvedValue({ paidPro: false, proEligible: true, signupTrialEndsAt: new Date(2026, 8, 20) });
     const body = await (await GET(req())).json();
-    expect(body.tier.trial).toEqual({ active: true, endsAt: new Date(2026, 8, 20).toISOString() });
+    expect(body.tier.trial).toEqual({ active: true, endsAt: new Date(2026, 8, 20).toISOString(), eligible: false });
     expect(body.coachMoves.every((m: { isFree: boolean }) => m.isFree)).toBe(true);
   });
 
@@ -121,5 +128,73 @@ describe('GET /api/dashboard/insights', () => {
     expect(plain.uncounted).toBeNull();
     expect(body.uncounted).toMatchObject({ count: 1, balance: 1200 });
     expect(body.plan).toEqual(plain.plan);
+  });
+
+  it('reports self-serve trial eligibility for the account, with no trial reads or writes outside a trial', async () => {
+    vi.mocked(isSelfServeTrialEligible).mockResolvedValue(true);
+    const body = await (await GET(req())).json();
+    expect(body.tier.trial.eligible).toBe(true);
+    expect(isSelfServeTrialEligible).toHaveBeenCalledWith('owner@example.com', { paidPro: false, proEligible: false, signupTrialEndsAt: null });
+    expect(mockPrisma.paymentRecord.count).not.toHaveBeenCalled();
+    expect(mockPrisma.userPreferences.create).not.toHaveBeenCalled();
+    expect(mockPrisma.userPreferences.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('writes the trial baseline once, the first time a trial account has a plan (spec §6.4)', async () => {
+    vi.mocked(resolveBillingVerdict).mockResolvedValue({ paidPro: false, proEligible: true, signupTrialEndsAt: new Date(2026, 8, 20) });
+    const body = await (await GET(req('?today=2026-09-12'))).json();
+    const fields = {
+      trialBaselineAt: new Date(Date.UTC(2026, 8, 12)),
+      trialBaselineMonths: body.plan.months,
+      trialBaselineInterest: body.plan.totalInterest,
+    };
+    expect(mockPrisma.userPreferences.findUnique).toHaveBeenCalledWith({
+      where: { userId: 'user-1' },
+      select: { trialBaselineAt: true, trialBaselineMonths: true, trialBaselineInterest: true },
+    });
+    expect(mockPrisma.userPreferences.create).toHaveBeenCalledWith({ data: { userId: 'user-1', ...fields } });
+
+    // A preferences row without a baseline gets a conditional update instead.
+    mockPrisma.userPreferences.findUnique.mockResolvedValue({ trialBaselineAt: null, trialBaselineMonths: null, trialBaselineInterest: null });
+    await GET(req('?today=2026-09-12'));
+    expect(mockPrisma.userPreferences.updateMany).toHaveBeenCalledWith({ where: { userId: 'user-1', trialBaselineAt: null }, data: fields });
+  });
+
+  it('still answers when the baseline write fails', async () => {
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.mocked(resolveBillingVerdict).mockResolvedValue({ paidPro: false, proEligible: true, signupTrialEndsAt: new Date(2026, 8, 20) });
+    mockPrisma.userPreferences.create.mockRejectedValue(new Error('unique'));
+    expect((await GET(req('?today=2026-09-12'))).status).toBe(200);
+    expect(mockPrisma.userPreferences.create).toHaveBeenCalled();
+    expect(quiet).toHaveBeenCalledWith('[insights] trial baseline write failed', expect.any(Error));
+    quiet.mockRestore();
+  });
+
+  it('reports moment C in the last 3 days, counting payments since the trial started and keeping the baseline', async () => {
+    // Now Sep 12 12:00; the trial ends Sep 14 12:00, so it started Aug 31 12:00.
+    const endsAt = new Date(2026, 8, 14, 12, 0);
+    vi.mocked(resolveBillingVerdict).mockResolvedValue({ paidPro: false, proEligible: true, signupTrialEndsAt: endsAt });
+    mockPrisma.userPreferences.findUnique.mockResolvedValue({
+      trialBaselineAt: new Date(Date.UTC(2026, 7, 31)),
+      trialBaselineMonths: 99,
+      trialBaselineInterest: 99_999,
+    });
+    mockPrisma.paymentRecord.count.mockResolvedValue(3);
+
+    const body = await (await GET(req('?today=2026-09-12'))).json();
+    expect(mockPrisma.paymentRecord.count).toHaveBeenCalledWith({
+      where: { userId: 'user-1', paidAt: { gte: new Date(2026, 7, 31, 12, 0) } },
+    });
+    // Aug 2026 + 99 months vs Sep 2026 + today's plan months.
+    expect(body.trialMoment).toEqual({
+      state: 'C',
+      daysLeft: 2,
+      elapsedDays: 12,
+      monthsSooner: 98 - body.plan.months,
+      interestLess: 99_999 - body.plan.totalInterest,
+      paymentsLogged: 3,
+    });
+    expect(mockPrisma.userPreferences.create).not.toHaveBeenCalled();
+    expect(mockPrisma.userPreferences.updateMany).not.toHaveBeenCalled();
   });
 });

@@ -133,6 +133,10 @@ export const limits = {
   dashboardInsights: (userId: string) =>
     check('dash-insights', `dash-insights:${userId}`, 120, '600 s', 10 * 60 * 1000),
 
+  /** 5 self-serve trial starts per 10 min per user. Only the first can succeed; this caps retries. */
+  trialStart: (userId: string) =>
+    check('trial-start', `trial-start:${userId}`, 5, '600 s', 10 * 60 * 1000),
+
   // ── Plaid (per user). Plaid bills per liabilitiesGet / item link, so these
   // cap the cost of a runaway or abusive client. ──────────────────────────────
 

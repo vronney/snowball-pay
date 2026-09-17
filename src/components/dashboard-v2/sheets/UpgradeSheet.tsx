@@ -2,10 +2,12 @@
 
 import { useEffect } from "react";
 import type { Debt } from "@/types";
-import { getErrorMessage, useStartCheckout } from "@/lib/hooks";
+import { getErrorMessage, useStartCheckout, useStartTrial } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import { formatCurrency } from "@/lib/utils";
 import type { UpgradeSheetEView } from "@/lib/dashboard/myDebts";
+import { MOMENT_A } from "@/lib/dashboard/upgradeMoments";
+import { trialStartError } from "../upgrade/trialStartError";
 import { CTA_BLUE, ERROR_LINE, EYEBROW } from "../styles";
 import Sheet from "./Sheet";
 
@@ -15,39 +17,53 @@ interface UpgradeSheetProps {
   view: UpgradeSheetEView;
   counted: ReadonlyArray<SheetDebt>;
   outside: ReadonlyArray<SheetDebt>;
+  /** The CTA starts the self-serve trial instead of checkout (plan decision 9). */
+  trialEligible: boolean;
   onClose: () => void;
 }
 
 /**
  * Upgrade moment E (spec §7): at the Free cap, opened from the My Debts
- * closing card. Its CTA is the existing checkout; states A–D arrive in PR 6.
+ * closing card. Its CTA starts the trial for an account that can start one,
+ * and the existing checkout otherwise; either way every debt then counts.
  */
-export default function UpgradeSheet({ view, counted, outside, onClose }: UpgradeSheetProps) {
+export default function UpgradeSheet({ view, counted, outside, trialEligible, onClose }: UpgradeSheetProps) {
   const checkout = useStartCheckout();
+  const startTrial = useStartTrial();
+  const busy = checkout.isPending || startTrial.isPending;
 
   useEffect(() => {
     track(Events.UPGRADE_MOMENT_VIEWED, { state: "E" });
   }, []);
 
-  const startCheckout = () => {
+  const onCta = () => {
+    if (busy) return;
+    if (trialEligible) {
+      track(Events.UPGRADE_MOMENT_CTA, { state: "E", action: "start_trial" });
+      startTrial.mutate(undefined, { onSuccess: onClose });
+      return;
+    }
     track(Events.UPGRADE_MOMENT_CTA, { state: "E", action: "checkout" });
     track(Events.CHECKOUT_STARTED, { source: "upgrade_moment_e", billing: "monthly" });
     checkout.mutate();
   };
 
-  const error = checkout.isError
-    ? getErrorMessage(checkout.error, "Could not start checkout. Please try again.")
-    : null;
+  let error: string | null = null;
+  if (trialEligible && startTrial.isError) error = trialStartError(startTrial.error);
+  if (!trialEligible && checkout.isError) {
+    error = getErrorMessage(checkout.error, "Could not start checkout. Please try again.");
+  }
+  const pendingLabel = trialEligible ? MOMENT_A.pending : "Redirecting…";
 
   return (
     <Sheet
       title={view.title}
-      busy={checkout.isPending}
+      busy={busy}
       onClose={onClose}
       footer={
         <>
-          <button type="button" onClick={startCheckout} disabled={checkout.isPending} className={CTA_BLUE}>
-            {checkout.isPending ? "Redirecting…" : view.cta}
+          <button type="button" onClick={onCta} disabled={busy} className={CTA_BLUE}>
+            {busy ? pendingLabel : view.cta}
           </button>
           {error && <p role="alert" className={`mt-2 ${ERROR_LINE}`}>{error}</p>}
         </>

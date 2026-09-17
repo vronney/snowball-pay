@@ -7,7 +7,7 @@ import { freeMoveView, type FreeMoveView } from '@/lib/dashboard/thisMonth';
 import FreeMoveCard from '@/components/dashboard-v2/this-month/FreeMoveCard';
 import { makeCallAprMove, makeLogMissedMove, makeSwitchMove } from '../../lib/dashboard/fixtures';
 
-const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
+const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
 
 function viewFor(moves: CoachMove[]): FreeMoveView {
   const view = freeMoveView({ tier: FREE, coachMoves: moves, asOf: { year: 2026, month: 8, day: 14 } });

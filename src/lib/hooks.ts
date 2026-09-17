@@ -823,6 +823,36 @@ export function useStartCheckout() {
   });
 }
 
+export interface StartTrialResult {
+  proEligible: boolean;
+  paidPro: boolean;
+  signupTrialEndsAt: string | null;
+}
+
+/**
+ * Starts the self-serve trial (spec §7 A). The global MutationCache
+ * (providers.tsx) refreshes insights after it settles, so dashboard-insights
+ * is deliberately not invalidated here (duplicating it was reverted in an
+ * earlier PR). Two queries have no global refresh and are invalidated here
+ * instead: subscription, for signupTrialActive/signupTrialEndsAt; and debts,
+ * because POST /api/trial/start flips every inPlan=false debt to true, and a
+ * mounted ['debts'] query would otherwise keep the stale flags (My Debts'
+ * "outside the plan" section, and client-side plan math that excludes them).
+ */
+export function useStartTrial() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<StartTrialResult> => {
+      const { data } = await axios.post(`${API_URL}/api/trial/start`, { today: localDateParam() });
+      return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['subscription'] });
+      void queryClient.invalidateQueries({ queryKey: ['debts'] });
+    },
+  });
+}
+
 export function useOpenBillingPortal() {
   return useMutation({
     mutationFn: async (cancellationReason?: CancellationReason) => {

@@ -13,7 +13,7 @@ const DEBTS = [
   makeDebt({ id: 'c', balance: 2000, minimumPayment: 40, interestRate: 18 }),
 ];
 const INCOME = makeIncome({ monthlyTakeHome: 3000, essentialExpenses: 2000, accelerationAmount: 100 });
-const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
+const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
 
 function input(overrides: Partial<InsightsInput> = {}): InsightsInput {
   return {
@@ -25,6 +25,7 @@ function input(overrides: Partial<InsightsInput> = {}): InsightsInput {
     snapshots: [makeSnapshot('a', '2026-08', 900), makeSnapshot('a', '2026-09', 800)],
     tier: FREE,
     today: TODAY,
+    trial: { now: new Date(2026, 8, 12, 12), baseline: null, paymentsSinceStart: null },
     ...overrides,
   };
 }
@@ -138,5 +139,30 @@ describe('buildDashboardInsights', () => {
       snapshots: [...input().snapshots, makeSnapshot('x', '2026-08', 3_200), makeSnapshot('x', '2026-09', 3_000)],
     }));
     expect(out.planGap).toEqual(plain.planGap);
+  });
+
+  it('has no trial moment outside a trial', () => {
+    expect(buildDashboardInsights(input()).trialMoment).toBeNull();
+  });
+
+  it("builds moment C from the plan it computed (spec §7 C)", () => {
+    const plain = calculatePlanMetrics(DEBTS, INCOME, [{ amount: 50 }])!;
+    // Now Sep 12 12:00; the trial ends Sep 14 12:00, so it started Aug 31 12:00.
+    const out = buildDashboardInsights(input({
+      tier: { proEligible: true, paidPro: false, trial: { active: true, endsAt: new Date(2026, 8, 14, 12).toISOString(), eligible: false } },
+      trial: {
+        now: new Date(2026, 8, 12, 12),
+        baseline: { at: new Date(Date.UTC(2026, 8, 1)), months: plain.result.months + 2, interest: plain.result.totalInterestPaid + 100 },
+        paymentsSinceStart: 3,
+      },
+    }));
+    expect(out.trialMoment).toEqual({
+      state: 'C',
+      daysLeft: 2,
+      elapsedDays: 12,
+      monthsSooner: 2,
+      interestLess: plain.result.totalInterestPaid + 100 - plain.result.totalInterestPaid,
+      paymentsLogged: 3,
+    });
   });
 });

@@ -23,10 +23,14 @@ export function computeUpgradeRail(
   return { count: gated.length, perYear: perYear >= 1 ? perYear : null };
 }
 
-export function upgradeRailCopy(rail: UpgradeRailSummary): { title: string; value: string | null; cta: string } {
+/** The rail's copy. An account that can start the trial is invited to try Pro (README §6 "Sidebar foot"). */
+export function upgradeRailCopy(
+  rail: UpgradeRailSummary,
+  trialEligible = false,
+): { title: string; value: string | null; cta: string } {
   return {
     title: rail.count === 1 ? '1 move waiting' : `${rail.count} moves waiting`,
     value: rail.perYear === null ? null : `${formatCurrencyWhole(rail.perYear)}/yr est.`,
-    cta: rail.count === 1 ? 'Unlock the move' : `Unlock all ${rail.count}`,
+    cta: trialEligible ? 'Try Pro free' : rail.count === 1 ? 'Unlock the move' : `Unlock all ${rail.count}`,
   };
 }

@@ -3,6 +3,7 @@ import { isActiveDebt } from '@/lib/monthlyFocusDebt';
 import { formatCurrencyWhole, formatMonths } from '@/lib/utils';
 import { coachMoveCopy, type CoachMoveCopy } from './coachMoveCopy';
 import { floorDollars, floorWhole, monthYearLabel, shortMonthLabel } from './format';
+import { METHOD_LABEL } from './methodLabel';
 import { computeThisMonthPaidProgress } from './progress';
 import { firstIncompleteStep } from './readiness';
 import type {
@@ -149,8 +150,6 @@ export interface FreeMoveView {
   /** Gated moves behind the free one. 0: no "more moves" row. */
   moreCount: number;
 }
-
-const METHOD_LABEL = { snowball: 'Snowball', avalanche: 'Avalanche' } as const;
 
 export function freeMoveCta(move: CoachMove): FreeMoveView['cta'] {
   switch (move.id) {

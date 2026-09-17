@@ -11,11 +11,13 @@ interface V2SidebarProps {
   onSelectTab: (tab: Tab) => void;
   coachDot: boolean;
   rail: UpgradeRailSummary | null;
+  /** The rail invites a trial for an account that can start one. */
+  trialEligible?: boolean;
   onUpgrade: () => void;
 }
 
 /** Desktop navigation: 200px, 6 items, the upgrade rail as its foot (DESIGN.md 2026-09-12). */
-export default function V2Sidebar({ activeTab, onSelectTab, coachDot, rail, onUpgrade }: V2SidebarProps) {
+export default function V2Sidebar({ activeTab, onSelectTab, coachDot, rail, trialEligible = false, onUpgrade }: V2SidebarProps) {
   return (
     <aside className="hidden w-[200px] shrink-0 flex-col border-r border-border bg-surface min-[769px]:flex">
       <div className="px-[18px] pb-4 pt-[22px]">
@@ -49,7 +51,7 @@ export default function V2Sidebar({ activeTab, onSelectTab, coachDot, rail, onUp
           })}
         </ul>
       </nav>
-      {rail && <UpgradeRail rail={rail} onUpgrade={onUpgrade} />}
+      {rail && <UpgradeRail rail={rail} trialEligible={trialEligible} onUpgrade={onUpgrade} />}
     </aside>
   );
 }
