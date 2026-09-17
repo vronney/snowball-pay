@@ -54,4 +54,11 @@ describe('FreeMoveCard', () => {
     expect((screen.getByRole('button', { name: 'Saving…' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByRole('alert').textContent).toBe("Couldn't switch. Try again.");
   });
+
+  it('drops the priority chip on Coach (showPriority false)', () => {
+    const view = viewFor([makeLogMissedMove('Sep', 2)]);
+    render(createElement(FreeMoveCard, { view, showPriority: false, onAction: vi.fn(), onMoreMoves: vi.fn() }));
+    expect(screen.queryByText('High')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Log the 2 missing payments for Sep.' })).toBeTruthy();
+  });
 });

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import { Debt, Income, Expense } from "@/types";
 import { type Tab } from "@/components/dashboard/types";
-import { type PayoffMethod } from "@/lib/snowball";
+import { type PayoffMethod, type PayoffResult } from "@/lib/snowball";
 import {
   calculateMinimumsOnlyResult,
   calculatePlanMetrics,
@@ -39,12 +39,50 @@ import ReferralPrompt from "@/components/payoff/ReferralPrompt";
 import WhatIfCard from "@/components/payoff/WhatIfCard";
 import { isActiveDebt, selectMonthlyFocusDebt } from "@/lib/monthlyFocusDebt";
 
+/** What the dashboard v2 top and closing card need from this tab (PR 5). */
+export interface PlanTopContext {
+  payoffMethod: PayoffMethod;
+  setPayoffMethod: (method: PayoffMethod) => void;
+  /** The saved request; null = use all available cash flow. */
+  accelerationAmount: number | null;
+  setAccelerationAmount: (amount: number) => void;
+  /**
+   * Saves an acceleration at once (no debounce), for one-tap actions that
+   * must not be lost if the tab unmounts. Syncs the auto-save guard so the
+   * debounced effect doesn't send the same value again.
+   */
+  saveAccelerationNow: (amount: number) => void;
+  income: Income;
+  expenses: Expense[];
+  planResult: PayoffResult;
+  /** The other ordering on the same basis (see alternativeResult below). Null for custom ordering. */
+  alternative: { method: PayoffMethod; result: PayoffResult } | null;
+  availableCashFlow: number;
+  effectiveAcceleration: number;
+  adjustedExtra: number;
+  recurringTotal: number;
+  saveIsPending: boolean;
+  saveIsSuccess: boolean;
+  saveIsError: boolean;
+  /** useMutation's submittedAt: when the latest save was submitted (0 before any). */
+  saveSubmittedAt: number;
+  /** The acceleration the latest save carried (useMutation's variables), so a caller can tell its own save from another control's. */
+  lastSavedAcceleration: number | null | undefined;
+}
+
 interface PayoffTabProps {
   debts: Debt[];
   income: Income | null | undefined;
   expenses: Expense[];
   isLoading: boolean;
   onNavigate: (tab: Tab) => void;
+  /**
+   * Dashboard v2 (PR 5): replaces the Strategy and Cash flow cards with the
+   * v2 top. Custom ordering's editor still renders under it. Omitted = v1.
+   */
+  renderTop?: (ctx: PlanTopContext) => ReactNode;
+  /** Dashboard v2: rendered after the share buttons (the closing card). Omitted = v1. */
+  renderFooter?: (ctx: PlanTopContext) => ReactNode;
 }
 
 export default function PayoffTab({
@@ -53,6 +91,8 @@ export default function PayoffTab({
   expenses,
   isLoading,
   onNavigate,
+  renderTop,
+  renderFooter,
 }: PayoffTabProps) {
   // Lazy initializers read from income when it's already cached (e.g. returning
   // to this tab). This prevents the auto-save effect from firing with stale
@@ -412,15 +452,70 @@ export default function PayoffTab({
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const saveAccelerationNow = (amount: number) => {
+    setAccelerationAmount(amount);
+    lastLoadedRef.current = { method: payoffMethod, accel: amount };
+    saveIncome.mutate({
+      monthlyTakeHome: income.monthlyTakeHome,
+      essentialExpenses: income.essentialExpenses,
+      extraPayment: income.extraPayment,
+      payoffMethod,
+      accelerationAmount: amount,
+    });
+  };
+
+  const slotContext: PlanTopContext = {
+    payoffMethod,
+    setPayoffMethod,
+    accelerationAmount,
+    setAccelerationAmount,
+    saveAccelerationNow,
+    income,
+    expenses,
+    planResult,
+    alternative: alternativeResult ? { method: alternativeMethod, result: alternativeResult } : null,
+    availableCashFlow,
+    effectiveAcceleration,
+    adjustedExtra,
+    recurringTotal,
+    saveIsPending: saveIncome.isPending,
+    saveIsSuccess: saveIncome.isSuccess,
+    saveIsError: saveIncome.isError,
+    saveSubmittedAt: saveIncome.submittedAt,
+    lastSavedAcceleration: saveIncome.variables?.accelerationAmount,
+  };
+
   return (
     // Grouped into four sections plus a footer. The grouping is additive only:
     // every card stays in the order it was already in, so this adds landmarks
     // to the stack without relocating anything a returning user has learned.
     <section id="section-plan" className="space-y-8">
-      <PlanSection
-        title="Strategy"
-        description="Which debt the plan attacks first, and what that ordering costs or saves."
-      >
+      {renderTop ? (
+        <>
+          {renderTop(slotContext)}
+          {payoffMethod === "custom" && (
+            <PlanSection title="Custom order">
+              <CustomPriorityEditor
+                debts={activeDebts}
+                priorityEditorDebts={priorityEditorDebts}
+                priorityOpen={priorityOpen}
+                hasAnyCustomPriority={hasAnyCustomPriority}
+                isPending={updateDebt.isPending}
+                onToggle={() => setPriorityOpen((v) => !v)}
+                onPriorityChange={(debtId, value) =>
+                  void handlePriorityChange(debtId, value)
+                }
+                onResetPriorities={() => void handleResetPriorities()}
+              />
+            </PlanSection>
+          )}
+        </>
+      ) : (
+        <>
+          <PlanSection
+            title="Strategy"
+            description="Which debt the plan attacks first, and what that ordering costs or saves."
+          >
       <StrategySelector
         payoffMethod={payoffMethod}
         onMethodChange={setPayoffMethod}
@@ -451,12 +546,12 @@ export default function PayoffTab({
           onResetPriorities={() => void handleResetPriorities()}
         />
       )}
-      </PlanSection>
+          </PlanSection>
 
-      <PlanSection
-        title="Cash flow"
-        description="What's available each month, and what more would buy you."
-      >
+          <PlanSection
+            title="Cash flow"
+            description="What's available each month, and what more would buy you."
+          >
       <CashFlowOverview
         income={income}
         recurringTotal={recurringTotal}
@@ -480,7 +575,9 @@ export default function PayoffTab({
         availableCashFlow={availableCashFlow}
         onAccelerationChange={setAccelerationAmount}
       />
-      </PlanSection>
+          </PlanSection>
+        </>
+      )}
 
       <PlanSection
         title="The projection"
@@ -627,6 +724,8 @@ export default function PayoffTab({
               : "Copy shareable link"}
         </button>
       </div>
+
+      {renderFooter?.(slotContext)}
 
       {shareCardOpen && (
         <ShareDebtFreeCard

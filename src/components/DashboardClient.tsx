@@ -44,6 +44,9 @@ import { runLogoutClientCleanup } from "@/lib/logout-client";
 import V2Shell from "@/components/dashboard-v2/shell/V2Shell";
 import ThisMonthV2 from "@/components/dashboard-v2/this-month/ThisMonthV2";
 import DebtsV2 from "@/components/dashboard-v2/debts/DebtsV2";
+import PlanV2 from "@/components/dashboard-v2/plan/PlanV2";
+import ProgressV2 from "@/components/dashboard-v2/progress/ProgressV2";
+import CoachV2 from "@/components/dashboard-v2/coach/CoachV2";
 
 type UserInfo = {
   name?: string | null;
@@ -420,7 +423,7 @@ export default function DashboardClient({
         !hasLinkedBankDebt && (
           <LinkBankPrompt manualDebtCount={unlinkedDebtCount} />
         )}
-      {activeTab === "progress" && debts.length > 0 && (
+      {activeTab === "progress" && !dashboardV2 && debts.length > 0 && (
         <div className="mb-4">
           <MilestoneWidget debts={debts} />
         </div>
@@ -470,7 +473,15 @@ export default function DashboardClient({
             isLoading={incomeLoading || expensesLoading}
           />
         )}
-        {activeTab === "plan" && (
+        {activeTab === "plan" && (dashboardV2 ? (
+          <PlanV2
+            debts={debts}
+            income={income}
+            expenses={expenses}
+            isLoading={debtsLoading || incomeLoading}
+            onNavigate={(tab) => setActiveTab(tab)}
+          />
+        ) : (
           <PayoffTab
             debts={debts}
             income={income}
@@ -478,8 +489,16 @@ export default function DashboardClient({
             isLoading={debtsLoading || incomeLoading}
             onNavigate={(tab) => setActiveTab(tab)}
           />
-        )}
-        {activeTab === "progress" && (
+        ))}
+        {activeTab === "progress" && (dashboardV2 ? (
+          <ProgressV2
+            debts={debts}
+            income={income}
+            expenses={expenses}
+            isLoading={debtsLoading || incomeLoading}
+            onNavigate={(tab) => setActiveTab(tab)}
+          />
+        ) : (
           <ProgressTab
             debts={debts}
             income={income}
@@ -487,8 +506,18 @@ export default function DashboardClient({
             isLoading={debtsLoading || incomeLoading}
             onNavigate={(tab) => setActiveTab(tab)}
           />
-        )}
-        {activeTab === "intelligence" && (
+        ))}
+        {activeTab === "intelligence" && (dashboardV2 ? (
+          <CoachV2
+            debts={debts}
+            income={income}
+            expenses={expenses}
+            isLoading={debtsLoading || incomeLoading}
+            pendingExtra={pendingCoachExtra}
+            onConsumePendingExtra={() => setPendingCoachExtra(null)}
+            onNavigate={(tab) => setActiveTab(tab)}
+          />
+        ) : (
           <IntelligenceTab
             debts={debts}
             income={income}
@@ -497,7 +526,7 @@ export default function DashboardClient({
             pendingExtra={pendingCoachExtra}
             onConsumePendingExtra={() => setPendingCoachExtra(null)}
           />
-        )}
+        ))}
         {activeTab === "settings" && <SettingsTab user={user} />}
       </div>
     </>

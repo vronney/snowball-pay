@@ -41,6 +41,8 @@ interface ProgressTabProps {
   expenses: Expense[];
   isLoading: boolean;
   onNavigate: (tab: Tab) => void;
+  /** Dashboard v2 (PR 5) passes false: its own top replaces the four stat cards. Omitted = v1. */
+  showStats?: boolean;
 }
 
 function StatCard({
@@ -214,6 +216,7 @@ export default function ProgressTab({
   expenses,
   isLoading,
   onNavigate,
+  showStats = true,
 }: ProgressTabProps) {
   const { data: snapshotData, isLoading: snapsLoading } = useAllSnapshots();
   const snapshots = useMemo(
@@ -308,11 +311,13 @@ export default function ProgressTab({
   if (isLoading || snapsLoading) {
     return (
       <section className="space-y-5">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {[0, 1, 2, 3].map((index) => (
-            <Skeleton key={index} className="h-20 rounded-xl" />
-          ))}
-        </div>
+        {showStats && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[0, 1, 2, 3].map((index) => (
+              <Skeleton key={index} className="h-20 rounded-xl" />
+            ))}
+          </div>
+        )}
         <Skeleton className="h-64 rounded-xl" />
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
           <Skeleton className="h-80 rounded-xl" />
@@ -366,40 +371,42 @@ export default function ProgressTab({
 
   return (
     <section className="space-y-5">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <StatCard
-          label="Total Paid"
-          value={formatCurrency(stats.totalPaid)}
-          sub="balance reduced"
-          color="#27AE60"
-          gaugePct={pctPaid}
-        />
-        <StatCard
-          label="Remaining"
-          value={formatCurrency(stats.currentTotal)}
-          color="#ef4444"
-        />
-        <StatCard
-          label="Debts Closed"
-          value={String(stats.paidOffCount)}
-          sub={`of ${debts.length} total`}
-          color="#2563eb"
-        />
-        <StatCard
-          label="Tracking Streak"
-          value={`${stats.streak} mo`}
-          sub={
-            stats.streak < 3
-              ? "Next reward at 3 months"
-              : stats.streak < 6
-                ? "Next reward at 6 months"
-                : stats.streak < 12
-                  ? "Next reward at 12 months"
-                  : "Consistent for a full year"
-          }
-          color="#7c3aed"
-        />
-      </div>
+      {showStats && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <StatCard
+            label="Total Paid"
+            value={formatCurrency(stats.totalPaid)}
+            sub="balance reduced"
+            color="#27AE60"
+            gaugePct={pctPaid}
+          />
+          <StatCard
+            label="Remaining"
+            value={formatCurrency(stats.currentTotal)}
+            color="#ef4444"
+          />
+          <StatCard
+            label="Debts Closed"
+            value={String(stats.paidOffCount)}
+            sub={`of ${debts.length} total`}
+            color="#2563eb"
+          />
+          <StatCard
+            label="Tracking Streak"
+            value={`${stats.streak} mo`}
+            sub={
+              stats.streak < 3
+                ? "Next reward at 3 months"
+                : stats.streak < 6
+                  ? "Next reward at 6 months"
+                  : stats.streak < 12
+                    ? "Next reward at 12 months"
+                    : "Consistent for a full year"
+            }
+            color="#7c3aed"
+          />
+        </div>
+      )}
 
       <div
         className="rounded-xl p-5"

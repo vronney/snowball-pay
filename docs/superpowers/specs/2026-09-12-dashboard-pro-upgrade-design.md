@@ -45,6 +45,7 @@
 | X8 | Trial C "Coach moves logged" | "Payments logged" | Acting on coach moves is not tracked. Payment records are. |
 | X9 | Streak with red current month | Amber current month (D10) | The existing streak already counts a month once any payment is logged. A red cell would contradict the count above it. |
 | X10 | Rate watch "recoverable by phone" | "est. if your cards drop to their target rates" | It is an estimate based on the APR-negotiation target (70% of APR, floor 9.99%). |
+| X11 | What-if caption "One scenario a month is yours. Pro runs any amount, any date, side by side." | "One scenario is yours. Pro runs any amount, side by side." | There is no monthly reset and no date feature. |
 
 ## 4. Numbers rules (apply everywhere)
 
@@ -250,7 +251,7 @@ Currency figures use the mono stack with `tabular-nums`. Every paragraph and mul
     - Coach dot:
       - Its fingerprint is the move set's identity (month for `log_missed`, card for `call_apr`, alternative for `switch_strategy`), not its amounts.
       - It is stored under `sp_coach_seen`, which sign-out clears.
-- **Shared cards:** `ReadinessCard`, `InterestMeter` (full and compact), `DebtFreeHero`, `FreeMoveCard`, `MoreMovesList`, `RateWatchCard`, `ClosingCard` (ink and red variants), `ProChip`, `GatedTile` (`aria-disabled`, accessible name "{feature} — Pro", opens the upgrade sheet). `MoreMovesList` (the Coach tab's list with per-move values) ships in PR 5; This Month uses the gated `MoreMovesRow`.
+- **Shared cards:** `ReadinessCard`, `InterestMeter` (full and compact), `DebtFreeHero`, `FreeMoveCard`, `MoreMovesList`, `RateWatchCard`, `ClosingCard` (ink and red variants), `ProChip`, `GatedTile` (`aria-disabled`, accessible name "{feature} — Pro", opens the upgrade sheet). `MoreMovesList` (the Coach tab's list with per-move values) ships in PR 5; This Month uses the gated `MoreMovesRow`. Until PR 6, `GatedTile` and the gated list header open the existing `UpgradeModal` through `upgradeEvents` (feature keys: "What-if scenarios", "Custom priority order", "Coach moves").
 - **Sheets:** `DueDatesSheet` (a day picker per debt → existing `PATCH /api/debts/[id]`), `BulkLogSheet` (pre-filled missed payments at their minimums → the existing `useMarkPaid` per debt, sequentially, so balance updates, snapshots, and celebrations behave exactly as today), `UpgradeSheet` (states A and E, and the fallback modal).
 - **Tabs:**
   - `ThisMonthV2` (§8.5).
@@ -314,10 +315,28 @@ Placeholders `{…}` are filled only from insights values. Everything else is th
   - The acceleration slider, $0 → available.
   - What-if: +$25 is free (the engine's "saves $x"). +$100 and "Any $" are Pro tiles. Pro keeps today's ladder plus an any-amount input.
   - The existing sections follow, and the red closing card comes last when behind.
+  - **PR 5 decisions (2026-09-16):**
+    - `PlanV2` is v1's `PayoffTab` with two render slots: the v2 top replaces the Strategy and Cash flow cards; `CustomPriorityEditor` stays under it while the method is Custom; everything from "The projection" down is unchanged.
+    - The comparison pair uses `PayoffTab`'s alternative result; the caption is `strategyVerdict`'s sentence.
+    - Custom is gated only once the tier is known to be Free and the saved method is not already Custom.
+    - Free what-if: `+$25` is real (hidden when it changes nothing); `+$100` and `Any $` are gated tiles. Pro: the existing ladder plus an any-amount input whose Apply clamps to available cash flow.
+    - The red closing card: "${gap} behind" in cents (a balance difference), 19px figure; "Fix it in one tap" sets the acceleration to the available cash flow through `PayoffTab`'s save and then shows "Applied — your plan now ends {Month YYYY}."; otherwise "Log this month's payments" (missed > 0) opens `BulkLogSheet`; otherwise no CTA.
 - **Progress:** streak pill → paid-off bar → 12-cell grid + CTA → milestones ("{debt} paid off · {Mon YYYY}", from the month its balance reached 0, or no date if unknown; "Next payoff · {debt} · in {formatMonths}") → the existing content. The catch-up card is hidden (D6).
+  - **PR 5 decisions (2026-09-16):**
+    - `ProgressV2` = the new top, then `ProgressTab` with `showStats={false}` (its four stat cards duplicate the top). `MilestoneWidget` above the tab stays.
+    - The streak pill sits in the tab's toolbar row (header chips are deferred, §12).
+    - "Keep the streak — log {n}" pre-fills every unlogged active debt this month at its minimum.
+    - Milestones: "{debt} paid off · {Mon YYYY}" from the first $0 snapshot (undated without one); "Next payoff · {debt} · in {months}" from the plan's schedule. The "next" card is solid and muted (dashed = outside the plan).
+    - The catch-up card is not built (D6).
 - **Coach:**
   - **Free:** compact interest → free move → rate watch → more moves → ink closing card.
   - **Pro:** the same top with all moves open (each links to its action: APR script, Plan, or apply), then the existing Pro content.
+  - **PR 5 decisions (2026-09-16):**
+    - Free: compact interest meter → the free move (no priority chip; the in-card "more moves" row is replaced by the list) → rate watch (every width) → `MoreMovesList` (every gated move's title and value visible) → the ink closing card. `IntelligenceUpgradeTeaser` is not rendered under the flag.
+    - Pro and trial: compact interest meter → every move open with its action (log → `BulkLogSheet`; apply; switch; "Open the call script" → `AprNegotiationCard` selects that card, expands and scrolls) → rate watch → the existing Pro content.
+    - `use_unallocated` is one tap on Coach ("Apply ${x}/mo" saves `accelerationAmount = availableCashFlow` with the Plan tab's payload). This Month keeps "Open My Plan".
+    - The APR call script stays Pro: a Free `call_apr` move has no button on either tab.
+    - Closing copy: clauses only when ≥ $1 or ≥ 1 month; the first present clause leads; months-only reads "Those {n} finish your plan {m} months sooner."; no clause hides the card. Singular: "That move is worth …" / "Unlock the move".
 
 ## 9. Analytics
 
@@ -328,6 +347,8 @@ These go through the existing consent-gated `track()`:
 - `trial_self_serve_started`
 - `readiness_cta {step}`
 - `coach_move_cta {move, gated}`
+  - the gated list and the Coach closing CTA send `{move: 'more_moves', gated: true}`; the any-amount Apply sends the existing `what_if_applied`.
+- `plan_gap_fix_applied` (no properties)
 - `bulk_log_submitted {debt_count}` (the analytics sanitiser redacts numbers outside its safe keys)
 - `debt_saved_outside_plan`
 - Moment E also sends the existing `checkout_started {source: 'upgrade_moment_e', billing: 'monthly'}`.

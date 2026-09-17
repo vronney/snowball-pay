@@ -110,7 +110,13 @@ function CopyButton({
 /** Anchor id used by the payoff coach to deep-link into this panel. */
 export const APR_NEGOTIATION_ANCHOR = "apr-negotiation";
 
-export function AprNegotiationCard() {
+export interface AprOpenRequest {
+  debtId: string;
+  /** A new value per request, so asking for the same card twice re-opens it. */
+  nonce: number;
+}
+
+export function AprNegotiationCard({ openRequest = null }: { openRequest?: AprOpenRequest | null } = {}) {
   const n = useAprNegotiation();
   const [activeScript, setActiveScript] = useState(0);
   // Collapsed by default: the Intelligence tab already stacks a full
@@ -143,6 +149,23 @@ export function AprNegotiationCard() {
     });
     return () => window.cancelAnimationFrame(id);
   }, [n.isLoading]);
+
+  // Dashboard v2 Coach (PR 5): a move's "Open the call script" selects that
+  // card, expands the workspace and scrolls here. Without a request (v1, and
+  // Coach before any press) this does nothing.
+  useEffect(() => {
+    if (!openRequest || n.isLoading) return;
+    n.selectCard(openRequest.debtId);
+    setExpanded(true);
+    const el = rootRef.current;
+    if (!el) return;
+    const id = window.requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(id);
+    // n.selectCard is a state setter (stable); the request's identity is the trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openRequest, n.isLoading]);
 
   if (n.isLoading) {
     return (

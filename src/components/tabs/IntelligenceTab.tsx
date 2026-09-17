@@ -12,7 +12,7 @@ import { useActualBalanceMap } from "@/lib/hooks/useActualBalanceMap";
 import { planScopedBalanceTotal, planScopedSnapshots } from "@/lib/actualBalance";
 import PlannerIntelligence from "@/components/payoff/PlannerIntelligence";
 import IntelligenceUpgradeTeaser from "@/components/billing/IntelligenceUpgradeTeaser";
-import { AprNegotiationCard } from "@/components/AprNegotiationCard";
+import { AprNegotiationCard, type AprOpenRequest } from "@/components/AprNegotiationCard";
 import { useSubscription } from "@/lib/hooks";
 import { type ChartEntry } from "@/components/payoff/BalanceOverTimeChart";
 import { buildBalanceChartData } from "@/lib/dashboard/planGap";
@@ -24,6 +24,14 @@ interface IntelligenceTabProps {
   isLoading: boolean;
   pendingExtra?: number | null;
   onConsumePendingExtra?: () => void;
+  /** Dashboard v2 Coach (PR 5): a move's request to open the APR script for one card. */
+  aprOpenRequest?: AprOpenRequest | null;
+  /**
+   * Dashboard v2 passes its one resolved tier verdict so a stale
+   * subscription cache can't unmount the Pro content the Coach actions
+   * target (PR 5). Omitted = v1: the subscription query decides.
+   */
+  isPro?: boolean;
 }
 
 export default function IntelligenceTab({
@@ -33,9 +41,11 @@ export default function IntelligenceTab({
   isLoading,
   pendingExtra,
   onConsumePendingExtra,
+  aprOpenRequest,
+  isPro: isProProp,
 }: IntelligenceTabProps) {
   const { data: subData, isLoading: subLoading, refetch: refetchSubscription } = useSubscription();
-  const isPro = subData?.proEligible === true;
+  const isPro = isProProp ?? subData?.proEligible === true;
   const { data: snapshotsData } = useAllSnapshots();
 
   const payoffMethod =
@@ -125,7 +135,7 @@ export default function IntelligenceTab({
             pendingExtra={pendingExtra}
             onConsumePendingExtra={onConsumePendingExtra}
           />
-          <AprNegotiationCard />
+          <AprNegotiationCard openRequest={aprOpenRequest} />
         </>
       ) : subLoading ? (
         // Subscription not resolved yet — don't flash upsell content to a user
