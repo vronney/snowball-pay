@@ -6,8 +6,8 @@ import {
 import type { PlanSummary, TierInfo, Uncounted } from '@/lib/dashboard/types';
 import { makeDebt } from './fixtures';
 
-const FREE: TierInfo = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
-const PRO: TierInfo = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } };
+const FREE: TierInfo = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
+const PRO: TierInfo = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null, eligible: false } };
 const PLAN: PlanSummary = { method: 'snowball', months: 31, debtFreeDate: '2029-04-14', totalInterest: 5_000 };
 // Any price works: the copy takes it as an argument (the app passes PLANS.pro.price).
 const PRICE = 9;

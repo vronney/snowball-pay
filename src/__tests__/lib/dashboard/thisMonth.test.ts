@@ -144,7 +144,7 @@ describe('rateWatchView', () => {
 });
 
 describe('freeMoveView', () => {
-  const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
+  const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
   const insights = (coachMoves: DashboardInsights['coachMoves'], tier = FREE) =>
     ({ tier, coachMoves, asOf: { year: 2026, month: 8, day: 14 } });
 

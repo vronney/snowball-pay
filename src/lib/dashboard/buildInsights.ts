@@ -13,6 +13,7 @@ import { computeStreakGrid, snapshotMonthSet } from './streakGrid';
 import { localDateParam } from './today';
 import { isPayoffComplete } from './payoffCompletion';
 import { computeUncounted } from './uncounted';
+import { computeTrialMoment, type TrialBaseline } from './trialMoment';
 import type { DashboardInsights, ProgressSummary, TierInfo } from './types';
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -28,6 +29,8 @@ export interface InsightsInput {
   tier: TierInfo;
   /** The client's local date (validated by the route). */
   today: Date;
+  /** What the route read for the trial moment (spec §7): the server clock, the stored baseline, payments since the trial started. */
+  trial: { now: Date; baseline: TrialBaseline | null; paymentsSinceStart: number | null };
 }
 
 /**
@@ -88,6 +91,17 @@ export function buildDashboardInsights(input: InsightsInput): DashboardInsights 
     };
   }
 
+  const trialMoment = computeTrialMoment({
+    tier,
+    now: input.trial.now,
+    today,
+    plan: completedPlan
+      ? { months: completedPlan.result.months, totalInterest: completedPlan.result.totalInterestPaid }
+      : null,
+    baseline: input.trial.baseline,
+    paymentsSinceStart: input.trial.paymentsSinceStart,
+  });
+
   return {
     asOf: { year: today.getFullYear(), month: today.getMonth(), day: today.getDate() },
     tier,
@@ -117,5 +131,6 @@ export function buildDashboardInsights(input: InsightsInput): DashboardInsights 
         }
       : null,
     uncounted: computeUncounted(debts, income, expenses),
+    trialMoment,
   };
 }

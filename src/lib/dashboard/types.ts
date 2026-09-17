@@ -82,7 +82,29 @@ export interface Uncounted {
   monthsImpact: number | null;
 }
 
-export interface TierInfo { proEligible: boolean; paidPro: boolean; trial: { active: boolean; endsAt: string | null } }
+export interface TierInfo {
+  proEligible: boolean;
+  paidPro: boolean;
+  /** eligible: may start the self-serve trial (spec §6.4, isSelfServeTrialEligible). */
+  trial: { active: boolean; endsAt: string | null; eligible: boolean };
+}
+
+/**
+ * The one inline upgrade moment (spec §7): B on trial days 1–3, C in the last
+ * 3 days, D for 7 days after it ends. C's rows are null when not positive.
+ * interestLess is unrounded (views floor it); endedAt is ISO.
+ */
+export type TrialMoment =
+  | { state: 'B'; day: number; daysLeft: number }
+  | {
+      state: 'C';
+      daysLeft: number;
+      elapsedDays: number;
+      monthsSooner: number | null;
+      interestLess: number | null;
+      paymentsLogged: number | null;
+    }
+  | { state: 'D'; endedAt: string };
 
 interface MoveBase { isFree: boolean }
 export type CoachMove =
@@ -95,7 +117,7 @@ export type CoachMove =
   | (MoveBase & { id: 'call_apr'; priority: 'medium'; value: { kind: 'perYear'; amount: number }; facts: RateOpportunity });
 export type CoachMoveId = CoachMove['id'];
 
-/** PR 4 adds `uncounted`; PR 6 adds `trialMoment` and trial eligibility on `tier`. */
+/** PR 4 added `uncounted`; PR 6 added `trialMoment` and `tier.trial.eligible`. */
 export interface DashboardInsights {
   /** month: 0-11 (JS Date semantics). */
   asOf: { year: number; month: number; day: number };
@@ -110,4 +132,5 @@ export interface DashboardInsights {
   progress: ProgressSummary | null;
   plan: PlanSummary | null;
   uncounted: Uncounted | null;
+  trialMoment: TrialMoment | null;
 }

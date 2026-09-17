@@ -34,8 +34,8 @@ vi.mock('@/components/payoff/CoachBriefCard', async () => {
   };
 });
 
-const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
-const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } };
+const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
+const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null, eligible: false } };
 const RATE_CARD = { debtId: 'c1', debtName: 'Citi', apr: 28, targetApr: 19.6, annualEstimate: 742.9 };
 
 const DEBTS = [
@@ -67,6 +67,7 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
     progress: null,
     plan: { method: 'snowball', months: 31, debtFreeDate: '2029-04-14', totalInterest: 5_000 },
     uncounted: null,
+    trialMoment: null,
     ...overrides,
   };
 }

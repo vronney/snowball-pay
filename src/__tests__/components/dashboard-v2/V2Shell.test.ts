@@ -21,7 +21,7 @@ vi.mock('@/lib/logout-client', () => ({ LOGOUT_URL: '/auth/logout', runLogoutCli
 function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights {
   return {
     asOf: { year: 2026, month: 8, day: 14 },
-    tier: { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } },
+    tier: { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } },
     readiness: { steps: [], completeCount: 0, percent: 0 },
     interest: null,
     paymentGap: null,
@@ -32,6 +32,7 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
     progress: null,
     plan: null,
     uncounted: null,
+    trialMoment: null,
     ...overrides,
   };
 }
@@ -81,7 +82,7 @@ describe('V2Shell', () => {
   it('shows no rail to Pro users', () => {
     renderShell('this-month', insights({
       coachMoves: MOVES.map((m) => ({ ...m, isFree: true })),
-      tier: { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } },
+      tier: { proEligible: true, paidPro: true, trial: { active: false, endsAt: null, eligible: false } },
     }));
     expect(screen.queryByText(/waiting/)).toBeNull();
   });

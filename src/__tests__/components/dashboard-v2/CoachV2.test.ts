@@ -39,8 +39,8 @@ vi.mock('@/components/tabs/IntelligenceTab', async () => {
   };
 });
 
-const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
-const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } };
+const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
+const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null, eligible: false } };
 const INCOME = makeIncome({ monthlyTakeHome: 4_000, essentialExpenses: 2_000, payoffMethod: 'snowball', accelerationAmount: 200 });
 const DEBTS = [
   makeDebt({ id: 'visa', name: 'Visa', balance: 900, minimumPayment: 25, dueDate: 5 }),
@@ -63,6 +63,7 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
     progress: null,
     plan: null,
     uncounted: null,
+    trialMoment: null,
     ...overrides,
   };
 }

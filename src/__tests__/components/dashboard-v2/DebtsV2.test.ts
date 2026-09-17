@@ -46,8 +46,8 @@ vi.mock('@/components/DebtForm', async () => {
   };
 });
 
-const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
-const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } };
+const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
+const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null, eligible: false } };
 // Surplus 4000 − 2000 − 325 = 1675, so the 200 acceleration is used in full.
 const INCOME = makeIncome({ monthlyTakeHome: 4_000, essentialExpenses: 2_000, accelerationAmount: 200 });
 const COUNTED = [
@@ -71,6 +71,7 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
     progress: null,
     plan: { method: 'snowball', months: 31, debtFreeDate: '2029-04-14', totalInterest: 5_000 },
     uncounted: null,
+    trialMoment: null,
     ...overrides,
   };
 }

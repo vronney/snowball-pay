@@ -42,8 +42,8 @@ vi.mock('@/components/payoff/WhatIfCard', async () => {
   };
 });
 
-const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
-const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } };
+const FREE = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
+const PRO = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null, eligible: false } };
 const INCOME = makeIncome({ monthlyTakeHome: 4_000, essentialExpenses: 2_000, payoffMethod: 'snowball', accelerationAmount: 500 });
 // Visa is snowball's target (smallest balance); the car loan is avalanche's
 // (highest rate) — the two methods must diverge so the comparison pair and
@@ -85,7 +85,7 @@ function insights(overrides: Partial<DashboardInsights> = {}): DashboardInsights
     asOf: { year: 2026, month: 8, day: 15 },
     tier: FREE,
     readiness: { steps: [], completeCount: 0, percent: 0 },
-    interest: null, paymentGap: null, coachMoves: [], rateWatch: null, strategy: null, planGap: null, progress: null, plan: null, uncounted: null,
+    interest: null, paymentGap: null, coachMoves: [], rateWatch: null, strategy: null, planGap: null, progress: null, plan: null, uncounted: null, trialMoment: null,
     ...overrides,
   };
 }

@@ -3,8 +3,8 @@ import type { TierInfo } from '@/lib/dashboard/types';
 import { computeUpgradeRail, upgradeRailCopy } from '@/lib/dashboard/upgradeRail';
 import { makeCallAprMove, makeLogMissedMove, makeSwitchMove, makeUnallocatedMove } from './fixtures';
 
-const FREE: TierInfo = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null } };
-const PRO: TierInfo = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null } };
+const FREE: TierInfo = { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: false } };
+const PRO: TierInfo = { proEligible: true, paidPro: true, trial: { active: false, endsAt: null, eligible: false } };
 
 describe('computeUpgradeRail', () => {
   it('is null before insights load', () => {
