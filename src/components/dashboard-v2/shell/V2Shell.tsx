@@ -12,7 +12,11 @@ import V2Header, { type V2HeaderProps } from "./V2Header";
 import V2Sidebar from "./V2Sidebar";
 
 export interface V2ShellProps extends V2HeaderProps {
-  /** Above the tab content, inside the scroll area. (DashboardClient stopped passing the trial banner in PR 6.) */
+  /**
+   * Above the tab content, inside the scroll area. PR 6 retired the v1 trial
+   * countdown here; it now carries TrialChargeNotice, the auto-charge warning
+   * for a card-backed Stripe trial.
+   */
   banner?: ReactNode;
   /** Fixed layers (toasts) that read --v2-tabbar-offset to clear the bottom bar. */
   overlays?: ReactNode;
