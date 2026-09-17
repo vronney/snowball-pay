@@ -15,12 +15,15 @@ vi.mock('@/components/dashboard-v2/upgrade/UpgradeFallbackSheet', () => ({
   default: (props: Record<string, unknown>) => { seen.fallback = props; return null; },
 }));
 
-function renderHost(eligible: boolean | undefined) {
-  const data = eligible === undefined ? undefined : { tier: { trial: { eligible } } };
-  vi.mocked(useDashboardInsights).mockReturnValue({ data } as unknown as ReturnType<typeof useDashboardInsights>);
+function insightsFor(eligible: boolean | undefined, proEligible = false) {
+  return eligible === undefined ? undefined : { tier: { proEligible, trial: { eligible } } };
+}
+
+function renderHost(eligible: boolean | undefined, proEligible = false) {
+  vi.mocked(useDashboardInsights).mockReturnValue({ data: insightsFor(eligible, proEligible) } as unknown as ReturnType<typeof useDashboardInsights>);
   const onClose = vi.fn();
-  render(createElement(UpgradeHost, { feature: 'Coach moves', interestAtStake: 500, onClose }));
-  return { onClose };
+  const view = render(createElement(UpgradeHost, { feature: 'Coach moves', interestAtStake: 500, onClose }));
+  return { onClose, view };
 }
 
 afterEach(() => {
@@ -46,5 +49,29 @@ describe('UpgradeHost (spec §7; plan decision 8)', () => {
     renderHost(undefined);
     expect(seen.fallback).not.toBeNull();
     expect(seen.trial).toBeNull();
+  });
+
+  it('closes instead of offering checkout once a trial it offered is on', () => {
+    const { onClose, view } = renderHost(true, false);
+    expect(seen.trial).toEqual({ onClose });
+
+    vi.mocked(useDashboardInsights).mockReturnValue({ data: insightsFor(false, true) } as unknown as ReturnType<typeof useDashboardInsights>);
+    view.rerender(createElement(UpgradeHost, { feature: 'Coach moves', interestAtStake: 500, onClose }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(seen.fallback).toBeNull();
+  });
+
+  it('keeps the trial sheet (and its error) when eligibility drops without Pro', () => {
+    const { onClose, view } = renderHost(true, false);
+    expect(seen.trial).not.toBeNull();
+    seen.trial = null;
+
+    vi.mocked(useDashboardInsights).mockReturnValue({ data: insightsFor(false, false) } as unknown as ReturnType<typeof useDashboardInsights>);
+    view.rerender(createElement(UpgradeHost, { feature: 'Coach moves', interestAtStake: 500, onClose }));
+
+    expect(seen.trial).toEqual({ onClose });
+    expect(seen.fallback).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
