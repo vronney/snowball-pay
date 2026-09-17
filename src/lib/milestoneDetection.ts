@@ -18,6 +18,14 @@ export interface MilestoneInput {
   debtBalance: number;
   debtOriginalBalance: number;
   debtCreatedAt: string;
+  /**
+   * Everything paid in one batch, when this payment arrived with others and
+   * `totalDebtPaid` already counts them all. Without it the prior percentage is
+   * reconstructed from this debt's payment alone, which hides a threshold the
+   * batch crossed together — 20% to 36% via 6% and 10% would look like a step
+   * from 26%, and the quarter mark would go unnoticed. Defaults to `amountPaid`.
+   */
+  batchAmountPaid?: number;
 }
 
 export function detectMilestone(body: MilestoneInput, streakMonths: number): MilestoneTier {
@@ -25,8 +33,9 @@ export function detectMilestone(body: MilestoneInput, streakMonths: number): Mil
 
   if (body.debtBalance <= 0) return 'debt_paid_off';
 
+  const paidNow = body.batchAmountPaid ?? body.amountPaid;
   const pctPaid = body.totalDebtPaid / body.totalDebtOriginal;
-  const prevPctPaid = (body.totalDebtPaid - body.amountPaid) / body.totalDebtOriginal;
+  const prevPctPaid = (body.totalDebtPaid - paidNow) / body.totalDebtOriginal;
 
   if (pctPaid >= 0.75 && prevPctPaid < 0.75) return 'three_quarter';
   if (pctPaid >= 0.5  && prevPctPaid < 0.5)  return 'half_paid';

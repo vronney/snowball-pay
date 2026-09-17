@@ -245,6 +245,9 @@ describe('batchCelebration', () => {
     // 'first' wins on the payoff, but its own snapshot (600) was taken before
     // the second payment. The batch started from 100 and moved 810.50.
     expect(one).toMatchObject({ debtId: 'first', totalDebtPaid: 910.5 });
+    // Milestone detection subtracts this to recover the prior total, so it has
+    // to be everything the batch paid, not just the winner's 500.
+    expect(one).toMatchObject({ batchAmountPaid: 810.5 });
   });
 
   it("keeps the batch's first-payment milestone when a later payment wins", () => {

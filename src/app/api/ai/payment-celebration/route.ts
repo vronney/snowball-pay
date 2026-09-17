@@ -29,6 +29,12 @@ const RequestSchema = z.object({
    * naming the most significant debt and counting the rest.
    */
   alsoLoggedCount:     z.number().int().min(0).max(200).optional(),
+  /**
+   * Everything the batch paid, when `totalDebtPaid` counts more than
+   * `amountPaid`. Milestone detection subtracts it to recover the prior
+   * percentage, so a threshold the batch crossed together is still caught.
+   */
+  batchAmountPaid:     z.number().positive().optional(),
 });
 
 type CelebrationRequest = z.infer<typeof RequestSchema>;

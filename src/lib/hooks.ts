@@ -547,6 +547,11 @@ export interface CelebrationPayload {
    * without producing one.
    */
   alsoLoggedCount?: number;
+  /**
+   * Everything the batch paid, when `totalDebtPaid` counts more than this one
+   * payment. Milestone detection needs it to reconstruct the prior percentage.
+   */
+  batchAmountPaid?: number;
 }
 
 export interface MarkPaidResult {

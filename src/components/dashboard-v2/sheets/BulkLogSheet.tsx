@@ -66,10 +66,14 @@ export function batchCelebration(
   // Every payload shares one starting total; recover it from the first and add
   // back everything this batch paid.
   const before = payloads[0].totalDebtPaid - payloads[0].amountPaid;
-  const totalDebtPaid = payloads.reduce((sum, p) => sum + p.amountPaid, before);
+  const batchAmountPaid = payloads.reduce((sum, p) => sum + p.amountPaid, 0);
   return {
     ...best,
-    totalDebtPaid,
+    totalDebtPaid: before + batchAmountPaid,
+    // Milestone detection reconstructs the prior percentage by subtracting what
+    // was just paid. Left as the winner's amount alone, a threshold the batch
+    // crossed together would look like it had already been passed.
+    batchAmountPaid,
     // Only the batch's first payload can carry this: logging one payment
     // refetches the payments query, so every later payload sees a record and
     // reports false. Taken from the winner alone, a first-ever payment logged
