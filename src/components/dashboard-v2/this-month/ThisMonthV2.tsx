@@ -7,6 +7,7 @@ import type { ReadinessStepId } from "@/lib/dashboard/types";
 import { getErrorMessage, useDashboardInsights, useSaveIncome } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import { upgradeEvents } from "@/lib/upgradeEvents";
+import { UPGRADE_FEATURE } from "@/lib/dashboard/upgradeFeatures";
 import { longMonthLabel, shortMonthLabel } from "@/lib/dashboard/format";
 import {
   activeDebtRows,
@@ -31,9 +32,6 @@ import FreeMoveCard from "./FreeMoveCard";
 import InterestMeter from "./InterestMeter";
 import RateWatchCard from "./RateWatchCard";
 import ReadinessCard from "./ReadinessCard";
-
-/** Opens UpgradeModal with its coach copy, like the sidebar rail (V2Shell). */
-const MOVES_UPGRADE_FEATURE = "Coach moves";
 
 const INLINE_BUTTON =
   "mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-action px-5 text-[13px] font-extrabold text-white outline-none hover:bg-action/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action";
@@ -152,7 +150,7 @@ export default function ThisMonthV2({ debts, income, onNavigate, onSetPendingCoa
     <FreeMoveCard
       view={freeMove}
       onAction={onMoveAction}
-      onMoreMoves={() => upgradeEvents.dispatch(MOVES_UPGRADE_FEATURE)}
+      onMoreMoves={() => upgradeEvents.dispatch(UPGRADE_FEATURE.coachMoves)}
       pending={saveIncome.isPending}
       error={switchError}
     />

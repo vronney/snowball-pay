@@ -823,6 +823,30 @@ export function useStartCheckout() {
   });
 }
 
+export interface StartTrialResult {
+  proEligible: boolean;
+  paidPro: boolean;
+  signupTrialEndsAt: string | null;
+}
+
+/**
+ * Starts the self-serve trial (spec §7 A). The global MutationCache
+ * (providers.tsx) refreshes insights after it settles; the subscription query
+ * has no global refresh, so it is invalidated here.
+ */
+export function useStartTrial() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (): Promise<StartTrialResult> => {
+      const { data } = await axios.post(`${API_URL}/api/trial/start`, { today: localDateParam() });
+      return data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['subscription'] });
+    },
+  });
+}
+
 export function useOpenBillingPortal() {
   return useMutation({
     mutationFn: async (cancellationReason?: CancellationReason) => {

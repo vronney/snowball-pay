@@ -2,11 +2,10 @@ import type { PayoffMethod, PayoffResult } from '@/lib/snowball';
 import { formatCurrency, formatCurrencyWhole, formatMonths } from '@/lib/utils';
 import { strategyVerdict } from '@/components/payoff/strategyVerdict';
 import { isRungApplicable, ladderHeadroom, rungCaption } from '@/components/payoff/whatIfLadder';
+import { METHOD_LABEL } from './methodLabel';
 import type { PlanGap } from './types';
 
 type ResultTotals = Pick<PayoffResult, 'months' | 'totalInterestPaid'>;
-
-const METHOD_LABEL: Record<PayoffMethod, string> = { snowball: 'Snowball', avalanche: 'Avalanche', custom: 'Custom' };
 
 export function methodLabel(method: PayoffMethod): string {
   return METHOD_LABEL[method];

@@ -6,6 +6,7 @@ import type { Tab } from "@/components/dashboard/types";
 import { getErrorMessage, useDashboardInsights, useSaveIncome } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import { upgradeEvents } from "@/lib/upgradeEvents";
+import { UPGRADE_FEATURE } from "@/lib/dashboard/upgradeFeatures";
 import { PLANS } from "@/lib/stripe";
 import { incomeSavePayload } from "@/lib/dashboard/incomePayload";
 import { longMonthLabel, shortMonthLabel } from "@/lib/dashboard/format";
@@ -27,9 +28,6 @@ import RateWatchCard from "../this-month/RateWatchCard";
 import { CARD } from "../styles";
 import MoreMovesList from "./MoreMovesList";
 import OpenMovesList from "./OpenMovesList";
-
-/** Opens UpgradeModal with its coach copy, like the sidebar rail and This Month's row. */
-const MOVES_UPGRADE_FEATURE = "Coach moves";
 
 const INLINE_BUTTON =
   "mt-3 inline-flex min-h-11 items-center justify-center rounded-lg bg-action px-5 text-[13px] font-extrabold text-white outline-none hover:bg-action/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-action";
@@ -111,7 +109,7 @@ export default function CoachV2({
 
   const openGated = () => {
     track(Events.COACH_MOVE_CTA, { move: "more_moves", gated: true });
-    upgradeEvents.dispatch(MOVES_UPGRADE_FEATURE);
+    upgradeEvents.dispatch(UPGRADE_FEATURE.coachMoves);
   };
 
   const meter = interest && <InterestMeter view={interest} compact />;

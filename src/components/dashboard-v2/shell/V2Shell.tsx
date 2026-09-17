@@ -3,15 +3,13 @@
 import { useEffect, useRef, type ReactNode } from "react";
 import { useDashboardInsights } from "@/lib/hooks";
 import { computeUpgradeRail } from "@/lib/dashboard/upgradeRail";
+import { UPGRADE_FEATURE } from "@/lib/dashboard/upgradeFeatures";
 import { upgradeEvents } from "@/lib/upgradeEvents";
 import BottomTabBar from "./BottomTabBar";
 import { COACH_TAB } from "./navItems";
 import { useCoachDot } from "./useCoachDot";
 import V2Header, { type V2HeaderProps } from "./V2Header";
 import V2Sidebar from "./V2Sidebar";
-
-/** Opens UpgradeModal with its coach copy (upgradeMessaging.ts). PR 6 swaps in the trial sheet. */
-const RAIL_UPGRADE_FEATURE = "Coach moves";
 
 export interface V2ShellProps extends V2HeaderProps {
   /** Above the tab content, inside the scroll area (the trial banner until PR 6). */
@@ -46,7 +44,7 @@ export default function V2Shell({ banner, overlays, children, ...header }: V2She
         onSelectTab={onSelectTab}
         coachDot={coachDot}
         rail={rail}
-        onUpgrade={() => upgradeEvents.dispatch(RAIL_UPGRADE_FEATURE)}
+        onUpgrade={() => upgradeEvents.dispatch(UPGRADE_FEATURE.coachMoves)}
       />
       <div className="flex min-w-0 flex-1 flex-col">
         <V2Header {...header} />

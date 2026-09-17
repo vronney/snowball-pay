@@ -1,6 +1,7 @@
 import { formatCurrency, formatMonths } from '@/lib/utils';
 import { formatRate } from '@/lib/apr-negotiation/apr-negotiation-adapter';
 import { floorWhole } from './format';
+import { METHOD_LABEL } from './methodLabel';
 import type { CoachMove } from './types';
 
 export interface CoachMoveCopy {
@@ -9,7 +10,6 @@ export interface CoachMoveCopy {
   valueLabel: string | null;
 }
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
-const METHOD_LABEL = { snowball: 'Snowball', avalanche: 'Avalanche' } as const;
 
 /** One source of move copy for web and Expo. Every sentence states computed facts only. */
 export function coachMoveCopy(move: CoachMove): CoachMoveCopy {
