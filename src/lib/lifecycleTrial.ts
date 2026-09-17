@@ -52,9 +52,10 @@ export function hasReceivedTrialEmail(actionChecks: unknown, kind: TrialEmailKin
 }
 
 /**
- * Oldest account creation that can still be due for either email. The trial
- * anchor (TrialGrant) is never later than createdAt, so any account older
- * than the far edge of the "ended" window is past both windows.
+ * Oldest account creation, or self-serve trial start, that can still be due
+ * for either email. A window never starts before its account was created or
+ * its own trial started, so anything older than the far edge of the "ended"
+ * window is past both windows.
  */
 export function trialCandidateCreatedAfter(now = new Date()): Date {
   const trialDays = 14;

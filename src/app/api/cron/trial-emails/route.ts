@@ -9,7 +9,8 @@
  * only to users who open the app; this reaches the ones who don't.
  *
  * Entry: account created on or after the trial launch and recent enough to
- * still be inside a window, email allowed. Skipped: paid Pro subscribers
+ * still be inside a window, or an older account whose self-serve trial
+ * started that recently (spec §6.4); email allowed. Skipped: paid Pro subscribers
  * (no trial to lose), accounts with no signup window, previously sent.
  * Delivery is recorded on the TrialGrant (survives account deletion) and,
  * as a fallback for accounts without a grant, in UserPreferences.
@@ -119,14 +120,24 @@ export async function GET(request: NextRequest) {
   if (!process.env.RESEND_API_KEY) return handleMissingResendConfig();
 
   const now = new Date();
+  const recentWindowStart = trialCandidateCreatedAfter(now);
   const createdAfter = new Date(
-    Math.max(SIGNUP_TRIAL_LAUNCH.getTime(), trialCandidateCreatedAfter(now).getTime()),
+    Math.max(SIGNUP_TRIAL_LAUNCH.getTime(), recentWindowStart.getTime()),
   );
 
   const candidates = await prisma.user.findMany({
     where: {
-      createdAt: { gte: createdAfter },
-      OR: [{ preferences: null }, { preferences: { emailOptOut: false } }],
+      AND: [
+        {
+          OR: [
+            { createdAt: { gte: createdAfter } },
+            // Self-serve trials: an older account whose own trial started
+            // recently enough to still be inside a window.
+            { preferences: { trialStartedAt: { gte: recentWindowStart } } },
+          ],
+        },
+        { OR: [{ preferences: null }, { preferences: { emailOptOut: false } }] },
+      ],
     },
     orderBy: { createdAt: 'asc' },
     take: MAX_CANDIDATES_PER_RUN,
