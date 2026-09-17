@@ -169,11 +169,22 @@ export async function GET(request: NextRequest) {
       where: {
         AND: [
           { createdAt: { gte: createdAfter } },
-          { OR: [{ preferences: null }, { preferences: { emailOptOut: false } }] },
+          // `trialStartedAt: null` keeps the two arms disjoint, so each cap
+          // covers its own population. An account can only hold a self-serve
+          // start after it exists, so anything this excludes is inside the
+          // other arm's window by construction and is picked up there.
+          {
+            OR: [
+              { preferences: null },
+              { preferences: { emailOptOut: false, trialStartedAt: null } },
+            ],
+          },
         ],
       },
       orderBy: { createdAt: 'asc' },
-      take: MAX_CANDIDATES_PER_RUN,
+      // One past the cap: a run returning exactly the cap omitted nothing, and
+      // the sentinel is what tells that apart from a truncated one.
+      take: MAX_CANDIDATES_PER_RUN + 1,
       select: CANDIDATE_SELECT,
     }),
     // An older account whose own trial started recently enough to still be
@@ -184,7 +195,7 @@ export async function GET(request: NextRequest) {
         preferences: { trialStartedAt: { gte: recentWindowStart }, emailOptOut: false },
       },
       orderBy: { preferences: { trialStartedAt: 'asc' } },
-      take: MAX_CANDIDATES_PER_RUN,
+      take: MAX_CANDIDATES_PER_RUN + 1,
       select: CANDIDATE_SELECT,
     }),
   ]);
@@ -210,8 +221,8 @@ export async function GET(request: NextRequest) {
     // arm hit its own cap, or the merged set was sliced. Missing the second
     // case would hand back a clean all-clear for a run that skipped accounts.
     limited:
-      bySignup.length >= MAX_CANDIDATES_PER_RUN ||
-      byTrialStart.length >= MAX_CANDIDATES_PER_RUN ||
+      bySignup.length > MAX_CANDIDATES_PER_RUN ||
+      byTrialStart.length > MAX_CANDIDATES_PER_RUN ||
       matched.length > MAX_CANDIDATES_PER_RUN,
     messageVersion: TRIAL_EMAIL_VERSION,
   };

@@ -254,9 +254,13 @@ describe('GET /api/cron/trial-emails', () => {
 
     const [signupArm, trialArm] = mockPrisma.user.findMany.mock.calls.map(([args]) => args);
 
-    // Signups since launch, opted in.
+    // Signups since launch, opted in, and without a self-serve anchor — the
+    // arms stay disjoint so neither cap covers the other's population.
     expect(signupArm.where.AND[1]).toEqual({
-      OR: [{ preferences: null }, { preferences: { emailOptOut: false } }],
+      OR: [
+        { preferences: null },
+        { preferences: { emailOptOut: false, trialStartedAt: null } },
+      ],
     });
     expect(signupArm.where.AND[0].createdAt.gte.getTime()).toBeGreaterThanOrEqual(
       SIGNUP_TRIAL_LAUNCH.getTime(),
@@ -299,6 +303,33 @@ describe('GET /api/cron/trial-emails', () => {
       'signup@example.com',
       'selfserve@example.com',
     ]);
+  });
+
+  it('does not cry truncation when an arm returns exactly the cap', async () => {
+    // Each arm fetches one past the cap; coming back with exactly the cap means
+    // nothing was omitted.
+    const exactly = Array.from({ length: 500 }, (_, i) =>
+      candidate({ id: `user_${i}`, email: `person${i}@example.com` }),
+    );
+    mockPrisma.user.findMany.mockResolvedValueOnce(exactly).mockResolvedValueOnce([]);
+    mockGetSignupTrialEnd.mockResolvedValue(null);
+
+    const body = await (await GET(makeRequest())).json();
+
+    expect(mockPrisma.user.findMany.mock.calls[0][0].take).toBe(501);
+    expect(body).toMatchObject({ candidates: 500, limited: false });
+  });
+
+  it('reports truncation when an arm returns the sentinel row', async () => {
+    const overflowing = Array.from({ length: 501 }, (_, i) =>
+      candidate({ id: `user_${i}`, email: `person${i}@example.com` }),
+    );
+    mockPrisma.user.findMany.mockResolvedValueOnce(overflowing).mockResolvedValueOnce([]);
+    mockGetSignupTrialEnd.mockResolvedValue(null);
+
+    const body = await (await GET(makeRequest())).json();
+
+    expect(body).toMatchObject({ candidates: 500, limited: true });
   });
 
   it('reports a truncated scan even when neither arm filled on its own', async () => {

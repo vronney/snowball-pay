@@ -52,8 +52,8 @@ export function parseAmount(raw: string): number | null {
  * percentage in the prompt and the persisted DebtStory message.
  *
  * `savedCount` is how many payments actually saved, which can exceed the
- * payloads collected: a payment the server reports as already marked, or one
- * whose debt is missing from the cache, saves without producing a payload.
+ * payloads collected: a payment whose debt is missing from the cache saves
+ * without producing one.
  */
 export function batchCelebration(
   payloads: readonly CelebrationPayload[],
@@ -141,8 +141,13 @@ export default function BulkLogSheet({ title, rows, year, month, onClose }: Bulk
         });
         if (result?.celebration) collected.current.push(result.celebration);
         logged.add(row.debtId);
-        savedCount.current += 1;
-        count += 1;
+        // A month already marked paid changed nothing on the server, so it is
+        // not a payment logged — counting it would claim one that never
+        // happened, both in the celebration and in the analytics event.
+        if (!result?.alreadyMarked) {
+          savedCount.current += 1;
+          count += 1;
+        }
       } catch (err) {
         setLoggedIds(logged);
         if (count > 0) track(Events.BULK_LOG_SUBMITTED, { debt_count: count });

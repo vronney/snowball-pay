@@ -184,6 +184,22 @@ describe('BulkLogSheet', () => {
     expect(fireCelebration).toHaveBeenCalledTimes(1);
   });
 
+  it('does not count a month that was already marked paid', async () => {
+    const mutateAsync = vi.fn()
+      .mockResolvedValueOnce({ celebration: payload({ debtId: 'a' }) })
+      .mockResolvedValueOnce({ alreadyMarked: true });
+    const { onClose } = setup(mutateAsync);
+
+    fireEvent.click(logButton('Log 2 payments'));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+
+    // One real payment, one server-side no-op: the batch logged one.
+    expect(track).toHaveBeenCalledWith('bulk_log_submitted', { debt_count: 1 });
+    expect(fireCelebration).toHaveBeenCalledWith(
+      expect.objectContaining({ debtId: 'a', alsoLoggedCount: 0 }),
+    );
+  });
+
   it('celebrates nothing when no payment saved', async () => {
     const mutateAsync = vi.fn().mockRejectedValue(new Error('offline'));
     setup(mutateAsync);
