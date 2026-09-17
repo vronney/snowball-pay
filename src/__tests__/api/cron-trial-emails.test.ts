@@ -59,7 +59,8 @@ function candidate(overrides: Record<string, unknown> = {}) {
     id: 'user_1',
     email: 'person@example.com',
     name: 'Jordan Lee',
-    preferences: { actionChecks: {} },
+    createdAt: new Date(),
+    preferences: { actionChecks: {}, trialStartedAt: null },
     debts: [
       { id: 'd1', balance: 5000, originalBalance: 6000, interestRate: 24.99, minimumPayment: 150, name: 'Visa', category: 'credit_card', creditLimit: null, createdAt: new Date(), updatedAt: new Date(), userId: 'user_1', dueDate: null },
       { id: 'd2', balance: 3000, originalBalance: 3000, interestRate: 7.5, minimumPayment: 90, name: 'Car', category: 'auto_loan', creditLimit: null, createdAt: new Date(), updatedAt: new Date(), userId: 'user_1', dueDate: null },
@@ -248,15 +249,119 @@ describe('GET /api/cron/trial-emails', () => {
     expect(mockSendEmail).toHaveBeenCalledTimes(50);
   });
 
-  it('queries opted-in accounts created since the trial launched, or whose own trial started recently (spec §6.4)', async () => {
+  it('queries each trial anchor on its own so one cannot crowd out the other (spec §6.4)', async () => {
     await GET(makeRequest());
 
-    const args = mockPrisma.user.findMany.mock.calls[0][0];
-    const [recent, optIn] = args.where.AND;
-    expect(optIn).toEqual({ OR: [{ preferences: null }, { preferences: { emailOptOut: false } }] });
-    expect(recent.OR[0].createdAt.gte.getTime()).toBeGreaterThanOrEqual(SIGNUP_TRIAL_LAUNCH.getTime());
-    // A self-serve trial on an older account stays a candidate while either email can be due.
-    const startedAfter = recent.OR[1].preferences.trialStartedAt.gte.getTime();
+    const [signupArm, trialArm] = mockPrisma.user.findMany.mock.calls.map(([args]) => args);
+
+    // Signups since launch, opted in, and without a self-serve anchor — the
+    // arms stay disjoint so neither cap covers the other's population.
+    expect(signupArm.where.AND[1]).toEqual({
+      OR: [
+        { preferences: null },
+        { preferences: { emailOptOut: false, trialStartedAt: null } },
+      ],
+    });
+    expect(signupArm.where.AND[0].createdAt.gte.getTime()).toBeGreaterThanOrEqual(
+      SIGNUP_TRIAL_LAUNCH.getTime(),
+    );
+    expect(signupArm.orderBy).toEqual({ createdAt: 'asc' });
+
+    // A self-serve trial on an older account stays a candidate while either
+    // email can be due. Its preferences row exists, so the opt-out collapses in.
+    expect(trialArm.where.preferences.emailOptOut).toBe(false);
+    const startedAfter = trialArm.where.preferences.trialStartedAt.gte.getTime();
     expect(Math.abs(Date.now() - startedAfter - (14 + 7) * DAY)).toBeLessThan(60_000);
+    expect(trialArm.orderBy).toEqual({ preferences: { trialStartedAt: 'asc' } });
+
+    // Each arm carries the full cap; neither is rationed against the other.
+    expect(signupArm.take).toBe(trialArm.take);
+  });
+
+  it('orders the scan by whichever timestamp anchors each trial', async () => {
+    // Ordering by createdAt alone would put the 200-day-old account first,
+    // although its trial started a day later than the other account signed up.
+    const selfServe = candidate({
+      id: 'user_selfserve',
+      email: 'selfserve@example.com',
+      createdAt: new Date(Date.now() - 200 * DAY),
+      preferences: { actionChecks: {}, trialStartedAt: new Date(Date.now() - 12 * DAY) },
+    });
+    const signup = candidate({
+      id: 'user_signup',
+      email: 'signup@example.com',
+      createdAt: new Date(Date.now() - 13 * DAY),
+    });
+    mockPrisma.user.findMany
+      .mockResolvedValueOnce([signup])
+      .mockResolvedValueOnce([selfServe]);
+    mockGetSignupTrialEnd.mockResolvedValue(inDays(3));
+
+    await GET(makeRequest());
+
+    expect(mockSendEmail.mock.calls.map(([to]) => to)).toEqual([
+      'signup@example.com',
+      'selfserve@example.com',
+    ]);
+  });
+
+  it('does not cry truncation when an arm returns exactly the cap', async () => {
+    // Each arm fetches one past the cap; coming back with exactly the cap means
+    // nothing was omitted.
+    const exactly = Array.from({ length: 500 }, (_, i) =>
+      candidate({ id: `user_${i}`, email: `person${i}@example.com` }),
+    );
+    mockPrisma.user.findMany.mockResolvedValueOnce(exactly).mockResolvedValueOnce([]);
+    mockGetSignupTrialEnd.mockResolvedValue(null);
+
+    const body = await (await GET(makeRequest())).json();
+
+    expect(mockPrisma.user.findMany.mock.calls[0][0].take).toBe(501);
+    expect(body).toMatchObject({ candidates: 500, limited: false });
+  });
+
+  it('reports truncation when an arm returns the sentinel row', async () => {
+    const overflowing = Array.from({ length: 501 }, (_, i) =>
+      candidate({ id: `user_${i}`, email: `person${i}@example.com` }),
+    );
+    mockPrisma.user.findMany.mockResolvedValueOnce(overflowing).mockResolvedValueOnce([]);
+    mockGetSignupTrialEnd.mockResolvedValue(null);
+
+    const body = await (await GET(makeRequest())).json();
+
+    expect(body).toMatchObject({ candidates: 500, limited: true });
+  });
+
+  it('reports a truncated scan even when neither arm filled on its own', async () => {
+    // 300 + 300 disjoint accounts: neither arm hits the 500 cap, but the merged
+    // set is sliced back to 500 and 100 in-window accounts go unseen.
+    const arm = (prefix: string) =>
+      Array.from({ length: 300 }, (_, i) =>
+        candidate({ id: `${prefix}_${i}`, email: `${prefix}${i}@example.com` }),
+      );
+    mockPrisma.user.findMany
+      .mockResolvedValueOnce(arm('signup'))
+      .mockResolvedValueOnce(arm('selfserve'));
+    // Nothing is due, so the send cap cannot be what sets the flag.
+    mockGetSignupTrialEnd.mockResolvedValue(null);
+
+    const body = await (await GET(makeRequest())).json();
+
+    expect(body).toMatchObject({ candidates: 500, limited: true, ending: 0, ended: 0 });
+    expect(mockSendEmail).not.toHaveBeenCalled();
+  });
+
+  it('counts an account matched by both anchors once', async () => {
+    const both = candidate({
+      createdAt: new Date(Date.now() - 5 * DAY),
+      preferences: { actionChecks: {}, trialStartedAt: new Date(Date.now() - 2 * DAY) },
+    });
+    mockPrisma.user.findMany.mockResolvedValueOnce([both]).mockResolvedValueOnce([both]);
+    mockGetSignupTrialEnd.mockResolvedValue(inDays(3));
+
+    const body = await (await GET(makeRequest())).json();
+
+    expect(body).toMatchObject({ candidates: 1, ending: 1 });
+    expect(mockSendEmail).toHaveBeenCalledTimes(1);
   });
 });

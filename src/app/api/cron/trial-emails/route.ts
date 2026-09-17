@@ -48,6 +48,7 @@ import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
 import TrialEndingSoonEmail from '@/emails/TrialEndingSoonEmail';
 import TrialEndedEmail from '@/emails/TrialEndedEmail';
 import type { Debt } from '@/types';
+import type { Prisma } from '@prisma/client';
 
 const MAX_SENDS_PER_RUN = 50;
 // Bounds the scan, not just the sends: every candidate costs a trial-end and
@@ -55,6 +56,40 @@ const MAX_SENDS_PER_RUN = 50;
 // headroom, not a limit anyone should hit; `limited` in the response says
 // when it was.
 const MAX_CANDIDATES_PER_RUN = 500;
+
+/**
+ * Shared by both scan arms. `createdAt` and `preferences.trialStartedAt` are
+ * both selected because the scan is ordered by whichever one anchors the
+ * account's trial, not by signup date alone.
+ */
+const CANDIDATE_SELECT = {
+  id: true,
+  email: true,
+  name: true,
+  createdAt: true,
+  preferences: { select: { actionChecks: true, trialStartedAt: true } },
+  debts: {
+    where: { balance: { gt: 0 } },
+    select: {
+      id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true,
+      name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true,
+      inPlan: true,
+    },
+  },
+  income: true,
+  expenses: { select: { amount: true } },
+} satisfies Prisma.UserSelect;
+
+type TrialCandidate = Prisma.UserGetPayload<{ select: typeof CANDIDATE_SELECT }>;
+
+/**
+ * When this account's trial window opened: its own self-serve start if it has
+ * one, otherwise the signup date. Prisma cannot ORDER BY a COALESCE of a scalar
+ * and a relation field, so the two arms are queried apart and coalesced here.
+ */
+function trialAnchor(user: TrialCandidate): number {
+  return (user.preferences?.trialStartedAt ?? user.createdAt).getTime();
+}
 
 function buildKeepProUrl(kind: TrialEmailKind): string {
   // ?checkout=pro is the same deep link the pricing page uses; DashboardClient
@@ -125,39 +160,53 @@ export async function GET(request: NextRequest) {
     Math.max(SIGNUP_TRIAL_LAUNCH.getTime(), recentWindowStart.getTime()),
   );
 
-  const candidates = await prisma.user.findMany({
-    where: {
-      AND: [
-        {
-          OR: [
-            { createdAt: { gte: createdAfter } },
-            // Self-serve trials: an older account whose own trial started
-            // recently enough to still be inside a window.
-            { preferences: { trialStartedAt: { gte: recentWindowStart } } },
-          ],
-        },
-        { OR: [{ preferences: null }, { preferences: { emailOptOut: false } }] },
-      ],
-    },
-    orderBy: { createdAt: 'asc' },
-    take: MAX_CANDIDATES_PER_RUN,
-    select: {
-      id: true,
-      email: true,
-      name: true,
-      preferences: { select: { actionChecks: true } },
-      debts: {
-        where: { balance: { gt: 0 } },
-        select: {
-          id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true,
-          name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true,
-          inPlan: true,
-        },
+  // Two arms rather than one OR: a single findMany can only order by one of the
+  // two anchors, so a burst of signups could push every self-serve trial past
+  // the cap (and vice versa). Each arm gets the full cap and is ordered by its
+  // own anchor, so neither can starve the other.
+  const [bySignup, byTrialStart] = await Promise.all([
+    prisma.user.findMany({
+      where: {
+        AND: [
+          { createdAt: { gte: createdAfter } },
+          // `trialStartedAt: null` keeps the two arms disjoint, so each cap
+          // covers its own population. An account can only hold a self-serve
+          // start after it exists, so anything this excludes is inside the
+          // other arm's window by construction and is picked up there.
+          {
+            OR: [
+              { preferences: null },
+              { preferences: { emailOptOut: false, trialStartedAt: null } },
+            ],
+          },
+        ],
       },
-      income: true,
-      expenses: { select: { amount: true } },
-    },
-  });
+      orderBy: { createdAt: 'asc' },
+      // One past the cap: a run returning exactly the cap omitted nothing, and
+      // the sentinel is what tells that apart from a truncated one.
+      take: MAX_CANDIDATES_PER_RUN + 1,
+      select: CANDIDATE_SELECT,
+    }),
+    // An older account whose own trial started recently enough to still be
+    // inside a window. Its preferences row exists by definition, so the opt-out
+    // check collapses into the same filter.
+    prisma.user.findMany({
+      where: {
+        preferences: { trialStartedAt: { gte: recentWindowStart }, emailOptOut: false },
+      },
+      orderBy: { preferences: { trialStartedAt: 'asc' } },
+      take: MAX_CANDIDATES_PER_RUN + 1,
+      select: CANDIDATE_SELECT,
+    }),
+  ]);
+
+  // An account created since launch that also started its own trial matches
+  // both arms; keep it once. Oldest anchor first, so a capped run still sends
+  // the mail closest to its boundary.
+  const byId = new Map<string, TrialCandidate>();
+  for (const user of [...bySignup, ...byTrialStart]) byId.set(user.id, user);
+  const matched = [...byId.values()].sort((a, b) => trialAnchor(a) - trialAnchor(b));
+  const candidates = matched.slice(0, MAX_CANDIDATES_PER_RUN);
 
   const results = {
     ok: true,
@@ -168,7 +217,13 @@ export async function GET(request: NextRequest) {
     skippedOutsideWindow: 0,
     skippedPaid: 0,
     skippedPreviouslySent: 0,
-    limited: candidates.length >= MAX_CANDIDATES_PER_RUN,
+    // True whenever the scan did not see every account it should have: either
+    // arm hit its own cap, or the merged set was sliced. Missing the second
+    // case would hand back a clean all-clear for a run that skipped accounts.
+    limited:
+      bySignup.length > MAX_CANDIDATES_PER_RUN ||
+      byTrialStart.length > MAX_CANDIDATES_PER_RUN ||
+      matched.length > MAX_CANDIDATES_PER_RUN,
     messageVersion: TRIAL_EMAIL_VERSION,
   };
 

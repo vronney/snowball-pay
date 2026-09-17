@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Sparkles, ExternalLink, Zap } from 'lucide-react';
 import ManageBillingModal from '@/components/billing/ManageBillingModal';
 import { useSubscription } from '@/lib/hooks';
+import { STRIPE_TRIAL_CHARGE_NOTICE } from '@/lib/upgradeMessaging';
 
 interface BillingSectionProps {
   onUpgradeClick: () => void;
@@ -138,7 +139,8 @@ export function BillingSection({ onUpgradeClick }: BillingSectionProps) {
                         ? `$${sub.monthlyPrice.toFixed(2)}/mo`
                         : "Pro monthly"}{" "}
                       - Free trial ends{" "}
-                      {new Date(sub.subscriptionEndsAt).toLocaleDateString()}.
+                      {new Date(sub.subscriptionEndsAt).toLocaleDateString()}.{" "}
+                      {STRIPE_TRIAL_CHARGE_NOTICE}
                     </>
                   )}
                   {sub?.subscriptionEndsAt && sub.subscriptionStatus !== "trialing" && (

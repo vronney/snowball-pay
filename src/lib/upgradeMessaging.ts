@@ -158,3 +158,16 @@ export function getUpgradeMessage(feature?: string): UpgradeMessage {
 export function shouldShowLateTrialNotice(daysRemaining: number): boolean {
   return daysRemaining >= 0 && daysRemaining <= LATE_TRIAL_NOTICE_DAYS;
 }
+
+/**
+ * The auto-charge warning for a card-backed Stripe trial — the only kind that
+ * can charge anyone. The self-serve trial (spec §6.4) takes no payment method
+ * and simply ends, so this never applies to it.
+ *
+ * Shared, not copied: the v1 countdown banner shows it for the last
+ * LATE_TRIAL_NOTICE_DAYS days, and billing settings shows it for the whole
+ * trial. Settings is the only place the v2 dashboard carries it, since v2
+ * retires the banner (spec §7), so the two must not drift.
+ */
+export const STRIPE_TRIAL_CHARGE_NOTICE =
+  'Stripe will charge the payment method selected at checkout when the trial ends unless you cancel.';

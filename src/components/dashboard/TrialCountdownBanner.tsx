@@ -10,7 +10,7 @@ import {
 } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import { formatCurrencyWhole } from "@/lib/utils";
-import { shouldShowLateTrialNotice } from "@/lib/upgradeMessaging";
+import { shouldShowLateTrialNotice, STRIPE_TRIAL_CHARGE_NOTICE } from "@/lib/upgradeMessaging";
 import { isInPostTrialPromptWindow } from "@/lib/billing";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -121,7 +121,7 @@ export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }:
         urgent={days <= 3}
         label={label}
         detail={
-          "Stripe will charge the payment method selected at checkout when the trial ends unless you cancel. " +
+          `${STRIPE_TRIAL_CHARGE_NOTICE} ` +
           (hasLinkedBankDebt
             ? "If the trial ends, coach notes, what-if scenarios, and bank sync pause."
             : "If the trial ends, coach notes and what-if scenarios pause.")

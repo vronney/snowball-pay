@@ -32,6 +32,7 @@ import { SKIPPED_DEBTS_FLAG } from "@/lib/calculatorDraft";
 import { calculateMinimumsOnlyResult, calculatePlanMetrics } from "@/lib/payoffPlan";
 import { shouldStartOnboarding } from "@/lib/onboardingGate";
 import TrialCountdownBanner from "@/components/dashboard/TrialCountdownBanner";
+import TrialChargeNotice from "@/components/dashboard-v2/shell/TrialChargeNotice";
 import LinkBankPrompt from "@/components/dashboard/LinkBankPrompt";
 import { isDebtBankLinked } from "@/lib/debtHelpers";
 import { useSubscription } from "@/lib/hooks";
@@ -617,6 +618,7 @@ export default function DashboardClient({
           user={user}
           initials={initials}
           plaidEnabled={plaidEnabled}
+          banner={<TrialChargeNotice sub={subData} />}
           overlays={<ToastNotifications debts={debts} bottom="calc(24px + var(--v2-tabbar-offset, 0px))" />}
         >
           {mainContent}

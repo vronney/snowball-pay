@@ -1,7 +1,7 @@
 "use client";
 
-import { useId, useState } from "react";
-import { getErrorMessage, useMarkPaid } from "@/lib/hooks";
+import { useId, useRef, useState } from "react";
+import { fireCelebration, getErrorMessage, useMarkPaid, type CelebrationPayload } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import type { LogRow } from "@/lib/dashboard/thisMonth";
 import { CTA_BLUE, ERROR_LINE } from "../styles";
@@ -37,10 +37,62 @@ export function parseAmount(raw: string): number | null {
 }
 
 /**
+ * The one celebration a batch gets: a debt this batch paid off if there is one,
+ * otherwise the largest payment, carrying a count of the rest. Ties keep the
+ * order the rows were logged in. Null for an empty batch.
+ *
+ * One celebration per batch, not one per payment: celebrationState holds a
+ * single slot, so N payments used to mean N Claude calls and N DebtStory rows
+ * for one banner — and the daily rate limit is 3, so a batch of four also
+ * spent the user's whole budget.
+ *
+ * `totalDebtPaid` is re-derived across the batch. Each payload snapshots the
+ * cache as it stood before its own payment, so the winner's copy can predate
+ * the rest of the batch — and that figure reaches the user, as the progress
+ * percentage in the prompt and the persisted DebtStory message.
+ *
+ * Null, too, when `savedCount` exceeds the payloads collected. A payment whose
+ * debt is missing from the cache saves without producing one, and it is missing
+ * from both halves of the arithmetic below — its paid-to-date from the starting
+ * total, its amount from the batch sum. That understates the progress figure
+ * the message quotes and the DebtStory row keeps, so the batch says nothing
+ * rather than something short. The payments themselves are saved either way;
+ * the celebration has always been the optional part.
+ */
+export function batchCelebration(
+  payloads: readonly CelebrationPayload[],
+  savedCount = payloads.length,
+): CelebrationPayload | null {
+  if (payloads.length === 0 || payloads.length !== savedCount) return null;
+  const paidOff = payloads.filter((p) => p.debtBalance === 0);
+  const pool = paidOff.length > 0 ? paidOff : payloads;
+  const best = pool.reduce((a, b) => (b.amountPaid > a.amountPaid ? b : a));
+  // Every payload shares one starting total; recover it from the first and add
+  // back everything this batch paid.
+  const before = payloads[0].totalDebtPaid - payloads[0].amountPaid;
+  const batchAmountPaid = payloads.reduce((sum, p) => sum + p.amountPaid, 0);
+  return {
+    ...best,
+    totalDebtPaid: before + batchAmountPaid,
+    // Milestone detection reconstructs the prior percentage by subtracting what
+    // was just paid. Left as the winner's amount alone, a threshold the batch
+    // crossed together would look like it had already been passed.
+    batchAmountPaid,
+    // Only the batch's first payload can carry this: logging one payment
+    // refetches the payments query, so every later payload sees a record and
+    // reports false. Taken from the winner alone, a first-ever payment logged
+    // through a bulk sheet would lose its milestone and its Journey entry.
+    isFirstPayment: payloads.some((p) => p.isFirstPayment),
+    alsoLoggedCount: payloads.length - 1,
+  };
+}
+
+/**
  * "Log them now" / "Log your first payment" (spec §8.3): the payments
  * pre-filled at their minimums, each logged through the existing useMarkPaid,
- * one at a time, so balances, snapshots and celebrations behave exactly as a
- * single log does.
+ * one at a time, so balances and snapshots behave exactly as a single log does.
+ * Celebrations are the one exception — suppressed per payment and fired once
+ * for the batch (see batchCelebration).
  */
 export default function BulkLogSheet({ title, rows, year, month, onClose }: BulkLogSheetProps) {
   const baseId = useId();
@@ -50,6 +102,11 @@ export default function BulkLogSheet({ title, rows, year, month, onClose }: Bulk
   const [loggedIds, setLoggedIds] = useState<ReadonlySet<string>>(() => new Set());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Kept across retries, so a batch that fails part-way and is resubmitted
+  // still yields exactly one celebration for the sheet.
+  const collected = useRef<CelebrationPayload[]>([]);
+  const savedCount = useRef(0);
+  const celebrated = useRef(false);
 
   const amountText = (row: LogRow) => amounts[row.debtId] ?? row.amount.toFixed(2);
   const pending = rows.filter((r) => !loggedIds.has(r.debtId));
@@ -70,22 +127,46 @@ export default function BulkLogSheet({ title, rows, year, month, onClose }: Bulk
     setError(null);
     const logged = new Set(loggedIds);
     let count = 0;
+    // A failure part-way through still celebrates what did save, and a retry
+    // after it does not celebrate a second time.
+    const celebrate = () => {
+      if (celebrated.current) return;
+      const one = batchCelebration(collected.current, savedCount.current);
+      if (!one) return;
+      celebrated.current = true;
+      fireCelebration(one);
+    };
     for (const row of selected) {
       const amount = parseAmount(amountText(row));
       if (amount === null) continue; // unreachable: `invalid` disables the button
       try {
-        await markPaid.mutateAsync({ debtId: row.debtId, amount, dueYear: year, dueMonth: month });
+        const result = await markPaid.mutateAsync({
+          debtId: row.debtId,
+          amount,
+          dueYear: year,
+          dueMonth: month,
+          celebrate: false,
+        });
+        if (result?.celebration) collected.current.push(result.celebration);
         logged.add(row.debtId);
-        count += 1;
+        // A month already marked paid changed nothing on the server, so it is
+        // not a payment logged — counting it would claim one that never
+        // happened, both in the celebration and in the analytics event.
+        if (!result?.alreadyMarked) {
+          savedCount.current += 1;
+          count += 1;
+        }
       } catch (err) {
         setLoggedIds(logged);
         if (count > 0) track(Events.BULK_LOG_SUBMITTED, { debt_count: count });
+        celebrate();
         setError(`${row.name} didn't save. ${getErrorMessage(err, "Please try again.")}`);
         setSaving(false);
         return;
       }
     }
     track(Events.BULK_LOG_SUBMITTED, { debt_count: count });
+    celebrate();
     setSaving(false);
     onClose();
   };

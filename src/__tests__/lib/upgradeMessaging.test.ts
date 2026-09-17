@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   LATE_TRIAL_NOTICE_DAYS,
+  STRIPE_TRIAL_CHARGE_NOTICE,
   UPGRADE_MESSAGE_VERSION,
   getUpgradeMessage,
   shouldShowLateTrialNotice,
@@ -53,5 +54,14 @@ describe('upgrade messaging', () => {
     expect(shouldShowLateTrialNotice(7)).toBe(true);
     expect(shouldShowLateTrialNotice(0)).toBe(true);
     expect(shouldShowLateTrialNotice(-1)).toBe(false);
+  });
+
+  // The v2 dashboard retires the countdown banner, so billing settings is the
+  // only surface left carrying this. It must keep saying who charges, when, and
+  // how to stop it — weakening any of the three is the failure this guards.
+  it('states the auto-charge, its trigger and the way out', () => {
+    expect(STRIPE_TRIAL_CHARGE_NOTICE).toBe(
+      'Stripe will charge the payment method selected at checkout when the trial ends unless you cancel.',
+    );
   });
 });
