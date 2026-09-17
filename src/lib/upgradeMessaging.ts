@@ -171,3 +171,11 @@ export function shouldShowLateTrialNotice(daysRemaining: number): boolean {
  */
 export const STRIPE_TRIAL_CHARGE_NOTICE =
   'Stripe will charge the payment method selected at checkout when the trial ends unless you cancel.';
+
+/**
+ * The same moment for a trial already scheduled to cancel. Only tellable apart
+ * from the above by `User.cancelAt`: a cancelling trial keeps Stripe's
+ * `trialing` status, and `subscriptionEndsAt` holds `cancel_at` OR `trial_end`.
+ */
+export const TRIAL_CANCELED_NOTICE =
+  'You cancelled, so Stripe will not charge you. Pro features stop when the trial ends.';

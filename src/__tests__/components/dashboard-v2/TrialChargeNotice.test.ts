@@ -7,7 +7,7 @@ import TrialChargeNotice, {
   trialEndLabel,
 } from '@/components/dashboard-v2/shell/TrialChargeNotice';
 import { useOpenBillingPortal, type SubscriptionInfo } from '@/lib/hooks';
-import { STRIPE_TRIAL_CHARGE_NOTICE } from '@/lib/upgradeMessaging';
+import { STRIPE_TRIAL_CHARGE_NOTICE, TRIAL_CANCELED_NOTICE } from '@/lib/upgradeMessaging';
 
 vi.mock('@/lib/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/hooks')>()),
@@ -56,16 +56,17 @@ describe('daysUntilCharge', () => {
 
 describe('trialEndLabel', () => {
   it('names the day without a bare number for today and tomorrow', () => {
-    expect(trialEndLabel(0)).toBe('Your Pro trial ends today');
-    expect(trialEndLabel(1)).toBe('Your Pro trial ends tomorrow');
-    expect(trialEndLabel(5)).toBe('Your Pro trial ends in 5 days');
+    expect(trialEndLabel(0)).toBe('Pro starts billing today');
+    expect(trialEndLabel(1)).toBe('Pro starts billing tomorrow');
+    expect(trialEndLabel(5)).toBe('Pro starts billing in 5 days');
   });
 
-  // A trial scheduled to cancel keeps status "trialing" and stores cancel_at in
-  // the same column as trial_end, so the heading must not assert a charge.
-  it('does not claim billing will start', () => {
+  // cancelAt now proves whether a charge is coming, so the heading can say so —
+  // and must not, for a trial that was already cancelled.
+  it('never claims billing will start for a cancelled trial', () => {
     for (const days of [0, 1, 5]) {
-      expect(trialEndLabel(days)).not.toMatch(/bill|charge/i);
+      expect(trialEndLabel(days, true)).not.toMatch(/bill|charge/i);
+      expect(trialEndLabel(days, true)).toContain('Your Pro trial ends');
     }
   });
 });
@@ -73,8 +74,18 @@ describe('trialEndLabel', () => {
 describe('TrialChargeNotice', () => {
   it('warns a card-backed trial inside the final week', () => {
     setup(trialing(3));
-    expect(screen.getByText('Your Pro trial ends in 3 days')).toBeTruthy();
+    expect(screen.getByText('Pro starts billing in 3 days')).toBeTruthy();
     expect(screen.getByText(STRIPE_TRIAL_CHARGE_NOTICE)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Review billing/ })).toBeTruthy();
+  });
+
+  it('reassures a trial already scheduled to cancel', () => {
+    setup({ ...trialing(3), isCanceling: true });
+    expect(screen.getByText('Your Pro trial ends in 3 days')).toBeTruthy();
+    expect(screen.getByText(TRIAL_CANCELED_NOTICE)).toBeTruthy();
+    // The charge warning would be false for this account.
+    expect(screen.queryByText(STRIPE_TRIAL_CHARGE_NOTICE)).toBeNull();
+    // Still reachable, so they can undo the cancellation.
     expect(screen.getByRole('button', { name: /Review billing/ })).toBeTruthy();
   });
 

@@ -183,6 +183,50 @@ describe('POST /api/webhooks/stripe', () => {
       data: expect.objectContaining({
         paidTier: 'pro',
         subscriptionEndsAt: new Date(cancelAt * 1000),
+        cancelAt: new Date(cancelAt * 1000),
+      }),
+    });
+  });
+
+  it('records cancelAt for a trial scheduled to cancel, apart from its trial_end', async () => {
+    // The pair that subscriptionEndsAt alone cannot distinguish: both keep
+    // status "trialing" and both carry an end date.
+    const trialEnd = Math.floor(Date.now() / 1000) + 5 * 24 * 60 * 60;
+    const canceling = makeSub({ status: 'trialing', trial_end: trialEnd, cancel_at: trialEnd });
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('customer.subscription.updated', canceling),
+    );
+    mockStripe.subscriptions.retrieve.mockResolvedValue(canceling);
+    mockPrisma.user.update.mockResolvedValue({});
+
+    await POST(makeRequest('{}'));
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: expect.objectContaining({
+        subscriptionStatus: 'trialing',
+        subscriptionEndsAt: new Date(trialEnd * 1000),
+        cancelAt: new Date(trialEnd * 1000),
+      }),
+    });
+  });
+
+  it('leaves cancelAt null for a trial that will be charged', async () => {
+    const trialEnd = Math.floor(Date.now() / 1000) + 5 * 24 * 60 * 60;
+    const charging = makeSub({ status: 'trialing', trial_end: trialEnd, cancel_at: null });
+    mockStripe.webhooks.constructEvent.mockReturnValue(
+      makeEvent('customer.subscription.updated', charging),
+    );
+    mockStripe.subscriptions.retrieve.mockResolvedValue(charging);
+    mockPrisma.user.update.mockResolvedValue({});
+
+    await POST(makeRequest('{}'));
+
+    expect(mockPrisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: expect.objectContaining({
+        subscriptionEndsAt: new Date(trialEnd * 1000),
+        cancelAt: null,
       }),
     });
   });

@@ -10,7 +10,11 @@ import {
 } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import { formatCurrencyWhole } from "@/lib/utils";
-import { shouldShowLateTrialNotice, STRIPE_TRIAL_CHARGE_NOTICE } from "@/lib/upgradeMessaging";
+import {
+  shouldShowLateTrialNotice,
+  STRIPE_TRIAL_CHARGE_NOTICE,
+  TRIAL_CANCELED_NOTICE,
+} from "@/lib/upgradeMessaging";
 import { isInPostTrialPromptWindow } from "@/lib/billing";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -116,15 +120,20 @@ export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }:
         ? "1 day left in your trial"
         : `${days} days left in your Pro trial`;
 
+    // A trial scheduled to cancel keeps status "trialing", so without
+    // isCanceling this warned about a charge that was never coming.
+    const paused = hasLinkedBankDebt
+      ? "If the trial ends, coach notes, what-if scenarios, and bank sync pause."
+      : "If the trial ends, coach notes and what-if scenarios pause.";
+
     return (
       <BannerShell
-        urgent={days <= 3}
+        urgent={!sub.isCanceling && days <= 3}
         label={label}
         detail={
-          `${STRIPE_TRIAL_CHARGE_NOTICE} ` +
-          (hasLinkedBankDebt
-            ? "If the trial ends, coach notes, what-if scenarios, and bank sync pause."
-            : "If the trial ends, coach notes and what-if scenarios pause.")
+          sub.isCanceling
+            ? `${TRIAL_CANCELED_NOTICE} ${paused}`
+            : `${STRIPE_TRIAL_CHARGE_NOTICE} ${paused}`
         }
         error={portal.isError ? getErrorMessage(portal.error, "Could not open billing. Please try again.") : null}
         onDismiss={() => setDismissed(true)}

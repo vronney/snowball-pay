@@ -40,6 +40,7 @@ function resolveSubscriptionFields(sub: Stripe.Subscription): {
   subscriptionStatus: string;
   paidTier: string;
   subscriptionEndsAt: Date | null;
+  cancelAt: Date | null;
 } {
   const activeStatuses = ['active', 'trialing'];
   // Use cancel_at if set (scheduled cancellation), or trial_end if trialing
@@ -48,6 +49,11 @@ function resolveSubscriptionFields(sub: Stripe.Subscription): {
     subscriptionStatus: sub.status,
     paidTier: activeStatuses.includes(sub.status) ? 'pro' : 'free',
     subscriptionEndsAt: endTimestamp ? new Date(endTimestamp * 1000) : null,
+    // Kept apart from subscriptionEndsAt, which collapses cancel_at and
+    // trial_end into one column: a trial set to cancel keeps status
+    // "trialing" and an end date, and without this is indistinguishable
+    // from one that is about to be charged.
+    cancelAt: sub.cancel_at ? new Date(sub.cancel_at * 1000) : null,
   };
 }
 
@@ -123,6 +129,7 @@ export async function POST(request: NextRequest) {
             subscriptionStatus: 'canceled',
             paidTier: 'free',
             subscriptionEndsAt: endAt ? new Date(endAt * 1000) : null,
+            cancelAt: sub.cancel_at ? new Date(sub.cancel_at * 1000) : null,
           },
         });
         // Revoke the ex-subscriber's Plaid items so dormant links stop
@@ -149,6 +156,7 @@ export async function POST(request: NextRequest) {
           subscriptionStatus: 'active',
           paidTier: 'pro',
           subscriptionEndsAt: null as Date | null,
+          cancelAt: null as Date | null,
         };
         if (subscriptionId) {
           const sub = await getStripe().subscriptions.retrieve(subscriptionId);
