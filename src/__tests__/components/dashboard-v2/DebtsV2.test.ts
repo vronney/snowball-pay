@@ -5,7 +5,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import type { DashboardInsights } from '@/lib/dashboard/types';
 import {
   useAllSnapshots, useCreateDebt, useDashboardInsights, useDeleteDebt, useMarkPaid,
-  usePaymentRecords, useStartCheckout, useSubscription,
+  usePaymentRecords, useStartCheckout, useStartTrial, useSubscription,
 } from '@/lib/hooks';
 import { PLANS } from '@/lib/stripe';
 import DebtsV2 from '@/components/dashboard-v2/debts/DebtsV2';
@@ -21,6 +21,7 @@ vi.mock('@/lib/hooks', async (importOriginal) => ({
   useMarkPaid: vi.fn(),
   useCreateDebt: vi.fn(),
   useStartCheckout: vi.fn(),
+  useStartTrial: vi.fn(),
 }));
 vi.mock('@/lib/analytics', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/analytics')>()),
@@ -90,6 +91,9 @@ function renderTab({ debts = COUNTED, data = insights(), openPaymentDebtId = nul
   vi.mocked(useStartCheckout).mockReturnValue(
     { mutate: vi.fn(), isPending: false, isError: false, error: null } as unknown as ReturnType<typeof useStartCheckout>,
   );
+  vi.mocked(useStartTrial).mockReturnValue(
+    { mutate: vi.fn(), isPending: false, isError: false, error: null } as unknown as ReturnType<typeof useStartTrial>,
+  );
   render(createElement(DebtsV2, { debts, income: INCOME, expenses: [], openPaymentDebtId }));
   return { markPaid };
 }
@@ -129,6 +133,16 @@ describe('DebtsV2 (spec §8.5 My Debts)', () => {
     fireEvent.click(screen.getByRole('button', { name: `Count all 3 — $${PLANS.pro.price}/mo` }));
     const dialog = screen.getByRole('dialog', { name: 'Your date is built from 2 of your 3 debts.' });
     expect(within(dialog).getByText('Debt 3 of 3 · saved, not counted')).toBeTruthy();
+  });
+
+  it('offers the trial on the closing card and in moment E to an account that can start one (plan decision 9)', () => {
+    renderTab({
+      debts: [...COUNTED, OUTSIDE],
+      data: insights({ uncounted: UNCOUNTED, tier: { ...FREE, trial: { ...FREE.trial, eligible: true } } }),
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Count all 3 — start 14 days free' }));
+    const dialog = screen.getByRole('dialog', { name: 'Your date is built from 2 of your 3 debts.' });
+    expect(within(dialog).getByRole('button', { name: 'Count all 3 — start 14 days free' })).toBeTruthy();
   });
 
   it('shows Pro and trial accounts their outside debts, with no upgrade card', () => {

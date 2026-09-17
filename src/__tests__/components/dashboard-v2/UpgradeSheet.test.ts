@@ -2,13 +2,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createElement } from 'react';
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { useStartCheckout } from '@/lib/hooks';
+import { AxiosError, type AxiosResponse } from 'axios';
+import { useStartCheckout, useStartTrial } from '@/lib/hooks';
+import { MOMENT_A } from '@/lib/dashboard/upgradeMoments';
 import { track, Events } from '@/lib/analytics';
 import UpgradeSheet from '@/components/dashboard-v2/sheets/UpgradeSheet';
 
 vi.mock('@/lib/hooks', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/hooks')>()),
   useStartCheckout: vi.fn(),
+  useStartTrial: vi.fn(),
 }));
 vi.mock('@/lib/analytics', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/lib/analytics')>()),
@@ -24,14 +27,21 @@ const VIEW = {
 const COUNTED = [{ id: 'a', name: 'Visa', balance: 1_000.5 }, { id: 'b', name: 'Car', balance: 9_000 }];
 const OUTSIDE = [{ id: 'x', name: 'Store card', balance: 1_200 }];
 
-function renderSheet(checkout: Record<string, unknown> = {}) {
+function renderSheet(
+  checkout: Record<string, unknown> = {},
+  { trialEligible = false, trial = {} as Record<string, unknown> } = {},
+) {
   const mutate = vi.fn();
+  const startTrial = vi.fn();
   vi.mocked(useStartCheckout).mockReturnValue(
     { mutate, isPending: false, isError: false, error: null, ...checkout } as unknown as ReturnType<typeof useStartCheckout>,
   );
+  vi.mocked(useStartTrial).mockReturnValue(
+    { mutate: startTrial, isPending: false, isError: false, error: null, ...trial } as unknown as ReturnType<typeof useStartTrial>,
+  );
   const onClose = vi.fn();
-  render(createElement(UpgradeSheet, { view: VIEW, counted: COUNTED, outside: OUTSIDE, onClose }));
-  return { mutate, onClose };
+  render(createElement(UpgradeSheet, { view: VIEW, counted: COUNTED, outside: OUTSIDE, trialEligible, onClose }));
+  return { mutate, startTrial, onClose };
 }
 
 afterEach(() => vi.clearAllMocks());
@@ -66,5 +76,30 @@ describe('UpgradeSheet — moment E (spec §7)', () => {
   it('says so when checkout fails', () => {
     renderSheet({ isError: true, error: new Error('Network down') });
     expect(screen.getByRole('alert')).toBeTruthy();
+  });
+
+  it('starts the trial instead of checkout for an account that can (plan decision 9)', () => {
+    const { mutate, startTrial, onClose } = renderSheet({}, { trialEligible: true });
+    fireEvent.click(screen.getByRole('button', { name: VIEW.cta }));
+    expect(track).toHaveBeenCalledWith(Events.UPGRADE_MOMENT_CTA, { state: 'E', action: 'start_trial' });
+    expect(track).not.toHaveBeenCalledWith(Events.CHECKOUT_STARTED, expect.anything());
+    expect(mutate).not.toHaveBeenCalled();
+    const [, options] = startTrial.mock.calls[0] as [unknown, { onSuccess: () => void }];
+    options.onSuccess();
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('holds the sheet while the trial starts', () => {
+    renderSheet({}, { trialEligible: true, trial: { isPending: true } });
+    expect((screen.getByRole('button', { name: MOMENT_A.pending }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Close' }) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('names a refused trial start', () => {
+    const refused = new AxiosError('Request failed', 'ERR_BAD_REQUEST', undefined, undefined, {
+      status: 409, data: { error: 'trial_used' },
+    } as unknown as AxiosResponse);
+    renderSheet({}, { trialEligible: true, trial: { isError: true, error: refused } });
+    expect(screen.getByRole('alert').textContent).toBe('This email has already used its free trial.');
   });
 });

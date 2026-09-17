@@ -289,9 +289,11 @@ export default function DebtsV2({ debts, income, expenses, openPaymentDebtId, on
             uncounted: insights.uncounted,
             date: closing.date,
             price: PLANS.pro.price,
+            trialEligible: insights.tier.trial.eligible,
           })}
           counted={membership.counted}
           outside={membership.outside}
+          trialEligible={insights.tier.trial.eligible}
           onClose={() => setSheet(null)}
         />
       )}

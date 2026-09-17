@@ -1,5 +1,6 @@
 import type { Debt } from '@/types';
 import type { DebtPayoffSchedule } from '@/lib/snowball';
+import { SIGNUP_TRIAL_DAYS } from '@/lib/billing';
 import { isActiveDebt, isInPlan } from '@/lib/monthlyFocusDebt';
 import { formatCurrency, formatCurrencyWhole, formatMonths } from '@/lib/utils';
 import { monthYearLabel } from './format';
@@ -55,6 +56,11 @@ export function countAllLabel(total: number, price: number): string {
   return `Count all ${total} — ${formatCurrencyWhole(price)}/mo`;
 }
 
+/** Moment E's CTA for an account that can start the self-serve trial (plan decision 9). */
+export function countAllTrialLabel(total: number): string {
+  return `Count all ${total} — start ${SIGNUP_TRIAL_DAYS} days free`;
+}
+
 export interface DebtsClosingView { date: string; text: string; cta: string }
 
 /**
@@ -77,7 +83,7 @@ export function debtsClosingView(args: {
   return {
     date,
     text: `${date} ignores ${formatCurrency(uncounted.balance)}${tail}.`,
-    cta: countAllLabel(total, price),
+    cta: tier.trial.eligible ? countAllTrialLabel(total) : countAllLabel(total, price),
   };
 }
 
@@ -90,8 +96,9 @@ export function upgradeSheetEView(args: {
   uncounted: Uncounted;
   date: string;
   price: number;
+  trialEligible: boolean;
 }): UpgradeSheetEView {
-  const { countedCount, total, uncounted, date, price } = args;
+  const { countedCount, total, uncounted, date, price, trialEligible } = args;
   const balance = formatCurrency(uncounted.balance);
   const lead = uncounted.count === 1
     ? `The uncounted balance adds ${balance}`
@@ -102,7 +109,7 @@ export function upgradeSheetEView(args: {
     eyebrow: `Debt ${countedCount + 1} of ${total} · saved, not counted`,
     title: `Your date is built from ${countedCount} of your ${total} debts.`,
     body: `${lead}${middle} that ${date} doesn't include.`,
-    cta: countAllLabel(total, price),
+    cta: trialEligible ? countAllTrialLabel(total) : countAllLabel(total, price),
   };
 }
 
