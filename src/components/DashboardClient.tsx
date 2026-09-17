@@ -47,6 +47,7 @@ import DebtsV2 from "@/components/dashboard-v2/debts/DebtsV2";
 import PlanV2 from "@/components/dashboard-v2/plan/PlanV2";
 import ProgressV2 from "@/components/dashboard-v2/progress/ProgressV2";
 import CoachV2 from "@/components/dashboard-v2/coach/CoachV2";
+import UpgradeHost from "@/components/dashboard-v2/upgrade/UpgradeHost";
 
 type UserInfo = {
   name?: string | null;
@@ -176,6 +177,8 @@ export default function DashboardClient({
   const { data: subData } = useSubscription();
   const trialPromptShownRef = useRef<string | null>(null);
   useEffect(() => {
+    // Dashboard v2 retires this prompt: moment D on This Month carries the decision (spec §7).
+    if (dashboardV2) return;
     if (!subData) return;
     if (subData.paidTier === "pro" || subData.subscriptionStatus === "trialing") return;
     if (subData.signupTrialActive || !subData.signupTrialEndsAt) return;
@@ -192,7 +195,7 @@ export default function DashboardClient({
       // Storage unavailable — the ref above bounds repeats to one per session.
     }
     setUpgradeModal({ open: true, feature: "Trial ended" });
-  }, [subData]);
+  }, [subData, dashboardV2]);
 
   // A dashboard left open across the trial boundary would otherwise keep the
   // cached "trial active" state forever (staleTime only marks data stale — it
@@ -532,13 +535,13 @@ export default function DashboardClient({
     </>
   );
 
-  const upgradeModalNode = upgradeModal.open && (
-    <UpgradeModal
-      feature={upgradeModal.feature}
-      interestAtStake={interestAtStake}
-      onClose={() => setUpgradeModal({ open: false })}
-    />
-  );
+  const closeUpgrade = () => setUpgradeModal({ open: false });
+  // v2 routes every upgrade request to moment A or the upgrade sheet (spec §7); v1 keeps its modal.
+  const upgradeModalNode = upgradeModal.open && (dashboardV2 ? (
+    <UpgradeHost feature={upgradeModal.feature} interestAtStake={interestAtStake} onClose={closeUpgrade} />
+  ) : (
+    <UpgradeModal feature={upgradeModal.feature} interestAtStake={interestAtStake} onClose={closeUpgrade} />
+  ));
 
   const idleDialog = warning && (
     <div
@@ -602,7 +605,6 @@ export default function DashboardClient({
           user={user}
           initials={initials}
           plaidEnabled={plaidEnabled}
-          banner={<TrialCountdownBanner sub={subData} hasLinkedBankDebt={hasLinkedBankDebt} />}
           overlays={<ToastNotifications debts={debts} bottom="calc(24px + var(--v2-tabbar-offset, 0px))" />}
         >
           {mainContent}

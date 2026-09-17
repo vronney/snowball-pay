@@ -79,6 +79,18 @@ describe('V2Shell', () => {
     unsubscribe();
   });
 
+  it('invites an account that can start the trial to try Pro free, through the same upgrade path', () => {
+    const seen: string[] = [];
+    const unsubscribe = upgradeEvents.subscribe((feature) => seen.push(feature));
+    renderShell('this-month', insights({
+      coachMoves: MOVES,
+      tier: { proEligible: false, paidPro: false, trial: { active: false, endsAt: null, eligible: true } },
+    }));
+    fireEvent.click(screen.getByRole('button', { name: 'Try Pro free' }));
+    expect(seen).toEqual(['Coach moves']);
+    unsubscribe();
+  });
+
   it('shows no rail to Pro users', () => {
     renderShell('this-month', insights({
       coachMoves: MOVES.map((m) => ({ ...m, isFree: true })),

@@ -71,3 +71,14 @@ describe('upgradeRailCopy', () => {
     });
   });
 });
+
+describe('upgradeRailCopy for an account that can start the trial (README §6; plan decision 8)', () => {
+  it('invites a trial instead of an unlock, keeping the count and the value', () => {
+    expect(upgradeRailCopy({ count: 3, perYear: 742 }, true)).toEqual({
+      title: '3 moves waiting',
+      value: '$742/yr est.',
+      cta: 'Try Pro free',
+    });
+    expect(upgradeRailCopy({ count: 3, perYear: 742 }).cta).toBe('Unlock all 3');
+  });
+});

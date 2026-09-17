@@ -12,7 +12,7 @@ import V2Header, { type V2HeaderProps } from "./V2Header";
 import V2Sidebar from "./V2Sidebar";
 
 export interface V2ShellProps extends V2HeaderProps {
-  /** Above the tab content, inside the scroll area (the trial banner until PR 6). */
+  /** Above the tab content, inside the scroll area. (DashboardClient stopped passing the trial banner in PR 6.) */
   banner?: ReactNode;
   /** Fixed layers (toasts) that read --v2-tabbar-offset to clear the bottom bar. */
   overlays?: ReactNode;
@@ -29,6 +29,7 @@ export default function V2Shell({ banner, overlays, children, ...header }: V2She
   const { data: insights } = useDashboardInsights();
   const coachDot = useCoachDot(insights?.coachMoves, activeTab === COACH_TAB);
   const rail = computeUpgradeRail(insights);
+  const trialEligible = insights?.tier.trial.eligible === true;
   const mainRef = useRef<HTMLElement>(null);
 
   // Tab switches are state, not navigations, and the scroll area (not the
@@ -44,6 +45,7 @@ export default function V2Shell({ banner, overlays, children, ...header }: V2She
         onSelectTab={onSelectTab}
         coachDot={coachDot}
         rail={rail}
+        trialEligible={trialEligible}
         onUpgrade={() => upgradeEvents.dispatch(UPGRADE_FEATURE.coachMoves)}
       />
       <div className="flex min-w-0 flex-1 flex-col">

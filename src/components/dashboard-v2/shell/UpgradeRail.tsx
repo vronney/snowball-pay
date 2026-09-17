@@ -4,6 +4,8 @@ import { upgradeRailCopy, type UpgradeRailSummary } from "@/lib/dashboard/upgrad
 
 interface UpgradeRailProps {
   rail: UpgradeRailSummary;
+  /** "Try Pro free" for an account that can start the trial. */
+  trialEligible?: boolean;
   onUpgrade: () => void;
 }
 
@@ -11,8 +13,8 @@ interface UpgradeRailProps {
  * Sidebar foot for Free users with gated coach moves (README "Sidebar foot"):
  * persistent and quiet, not a dismissible banner. Ink per DESIGN.md 2026-09-12.
  */
-export default function UpgradeRail({ rail, onUpgrade }: UpgradeRailProps) {
-  const copy = upgradeRailCopy(rail);
+export default function UpgradeRail({ rail, trialEligible = false, onUpgrade }: UpgradeRailProps) {
+  const copy = upgradeRailCopy(rail, trialEligible);
   return (
     <div className="m-3.5 rounded-xl bg-ink p-[13px]">
       <p className="text-pretty text-xs font-bold leading-snug text-white">
