@@ -165,6 +165,8 @@ describe('GET /api/dashboard/insights', () => {
     vi.mocked(resolveBillingVerdict).mockResolvedValue({ paidPro: false, proEligible: true, signupTrialEndsAt: new Date(2026, 8, 20) });
     mockPrisma.userPreferences.create.mockRejectedValue(new Error('unique'));
     expect((await GET(req('?today=2026-09-12'))).status).toBe(200);
+    expect(mockPrisma.userPreferences.create).toHaveBeenCalled();
+    expect(quiet).toHaveBeenCalledWith('[insights] trial baseline write failed', expect.any(Error));
     quiet.mockRestore();
   });
 

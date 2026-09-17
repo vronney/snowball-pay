@@ -215,7 +215,10 @@ describe('isSelfServeTrialEligible (spec §6.4; plan decision 1)', () => {
 
   it('is false for FORCE_PRO development accounts', async () => {
     process.env.FORCE_PRO = 'true';
-    expect(await isSelfServeTrialEligible('person@example.com', NEVER_TRIALED)).toBe(false);
-    delete process.env.FORCE_PRO;
+    try {
+      expect(await isSelfServeTrialEligible('person@example.com', NEVER_TRIALED)).toBe(false);
+    } finally {
+      delete process.env.FORCE_PRO;
+    }
   });
 });

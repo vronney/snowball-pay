@@ -1,4 +1,4 @@
-import { POST_TRIAL_PROMPT_DAYS } from '@/lib/billing';
+import { POST_TRIAL_PROMPT_DAYS, SIGNUP_TRIAL_DAYS } from '@/lib/billing';
 
 /**
  * Trial-boundary lifecycle emails. The dashboard's countdown banner and
@@ -58,8 +58,7 @@ export function hasReceivedTrialEmail(actionChecks: unknown, kind: TrialEmailKin
  * window is past both windows.
  */
 export function trialCandidateCreatedAfter(now = new Date()): Date {
-  const trialDays = 14;
-  return new Date(now.getTime() - (trialDays + POST_TRIAL_PROMPT_DAYS) * DAY_MS);
+  return new Date(now.getTime() - (SIGNUP_TRIAL_DAYS + POST_TRIAL_PROMPT_DAYS) * DAY_MS);
 }
 
 /** Whole days since the trial ended (0 on the day it ended, or before). */
