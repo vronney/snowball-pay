@@ -8,15 +8,21 @@
  * Mirrors the cron's own rules for the `stopped` kind, with a different
  * window: by default only trials the cron can no longer reach (ended 7+
  * days ago, --min-days) up to --max-days (default 90). Lowering --min-days
- * below 7 overlaps the cron and can put "stopped" ahead of "ended"; the
- * script refuses to go below 3.
+ * below 7 overlaps the cron; inside that overlap an account must already
+ * have received "ended" (the cron's ordering), and the script refuses to
+ * go below 3.
  *   - account has a signup window (post-launch signup or self-serve trial)
  *   - email allowed (not opted out)
  *   - not a paid Pro subscriber
  *   - not already sent (actionChecks flag OR the durable TrialGrant stamp)
  *   - no plan edit (debt / income / expense / payment / delete stamp)
  *     since the boundary — "stopped" must be true
- * Sends are capped at 50 per run, like the cron.
+ * Paid and still-active accounts are marked as consumed on --send, exactly
+ * as the cron does, so a later state change does not make them eligible.
+ * Sends are capped at 50 per run, like the cron. A grant lookup failure
+ * skips the row (fail closed; re-run later) rather than falling back to
+ * the preferences flag as the cron does: a manual run can be repeated, a
+ * duplicate email cannot be recalled.
  *
  * Runs against the database in .env (use `npm run db:use:prod` first).
  * Dry run by default: prints the recipient table and sends nothing.
@@ -105,7 +111,9 @@ function emailSet(flag: string): Set<string> {
 const ONLY = emailSet('--only');
 const SKIP = emailSet('--skip');
 
-type Verdict = 'ELIGIBLE' | 'no window' | 'too recent' | 'too old' | 'paid pro' | 'already sent' | 'active since end' | 'lookup failed' | 'filtered' | 'send cap';
+type Verdict =
+  | 'ELIGIBLE' | 'no window' | 'too recent' | 'too old' | 'paid pro' | 'already sent'
+  | 'active since end' | 'ended not sent yet' | 'lookup failed' | 'filtered' | 'send cap';
 
 interface Row {
   id: string;
@@ -119,21 +127,32 @@ interface Row {
   verdict: Verdict;
 }
 
+interface GrantSent {
+  ended: Date | null;
+  stopped: Date | null;
+}
+
 /**
  * Durable delivery record; survives delete-and-recreate. Fails closed: a
  * lookup error is 'failed', never "not sent", so the recipient is skipped.
  */
-async function grantStoppedSentAt(email: string): Promise<{ sentAt: Date | null } | 'failed'> {
+async function grantSent(email: string): Promise<GrantSent | 'failed'> {
   try {
     const grant = await prisma.trialGrant.findUnique({
       where: { emailHash: trialGrantKey(email) },
-      select: { stoppedEmailSentAt: true },
+      select: { endedEmailSentAt: true, stoppedEmailSentAt: true },
     });
-    return { sentAt: grant?.stoppedEmailSentAt ?? null };
+    return { ended: grant?.endedEmailSentAt ?? null, stopped: grant?.stoppedEmailSentAt ?? null };
   } catch (error) {
     console.error('TrialGrant read failed', error instanceof Error ? error.message : String(error));
     return 'failed';
   }
+}
+
+/** Mark the stopped kind consumed, as the cron does for paid/active rows. Send mode only. */
+async function consumeStopped(userId: string): Promise<void> {
+  if (!SEND) return;
+  await markEmailSent(userId, trialCheckKey(KIND));
 }
 
 async function main() {
@@ -200,15 +219,27 @@ async function main() {
     if (daysSince > MAX_DAYS) { push('too old'); continue; }
     if ((ONLY.size > 0 && !ONLY.has(email)) || SKIP.has(email)) { push('filtered'); continue; }
     if (hasReceivedTrialEmail(user.preferences?.actionChecks, KIND)) { push('already sent'); continue; }
-    const grant = await grantStoppedSentAt(user.email);
+    const grant = await grantSent(user.email);
     if (grant === 'failed') { push('lookup failed'); continue; }
-    if (grant.sentAt !== null) { push('already sent'); continue; }
-    if (await hasPaidPro(user.id)) { push('paid pro'); continue; }
+    if (grant.stopped !== null) { push('already sent'); continue; }
+    // Inside the cron's own window, "ended" must have gone out first: the
+    // cron would otherwise send it after this, reversing the sequence.
+    // Past that window the cron never sends "ended", so no ordering exists.
+    if (
+      daysSince < POST_TRIAL_PROMPT_DAYS &&
+      !hasReceivedTrialEmail(user.preferences?.actionChecks, 'ended') &&
+      grant.ended === null
+    ) { push('ended not sent yet'); continue; }
+    if (await hasPaidPro(user.id)) { await consumeStopped(user.id); push('paid pro'); continue; }
 
     const lookup = await readPlanEditedAt(user.id);
     if (!lookup.ok && lookup.reason === 'failed') { push('lookup failed'); continue; }
     const editedAt = getLatestPlanEditAt({ ...user, planEditedAt: lookup.ok ? lookup.planEditedAt : null });
-    if (editedAt !== null && editedAt.getTime() >= trialEndsAt.getTime()) { push('active since end'); continue; }
+    if (editedAt !== null && editedAt.getTime() >= trialEndsAt.getTime()) {
+      await consumeStopped(user.id);
+      push('active since end');
+      continue;
+    }
 
     push(rows.filter((r) => r.verdict === 'ELIGIBLE').length >= MAX_SENDS_PER_RUN ? 'send cap' : 'ELIGIBLE');
   }
@@ -222,6 +253,21 @@ ${eligible.length} eligible of ${rows.length} scanned (window ${MIN_DAYS}-${MAX_
   let sent = 0;
   let failed = 0;
   for (const r of eligible) {
+    try {
+      await sendOne(r);
+      sent++;
+    } catch (error) {
+      // A render or record failure for one account must not stop the rest.
+      failed++;
+      console.error(`FAILED user ${r.id}:`, error instanceof Error ? error.message : String(error));
+    }
+  }
+  console.log(`\nDone: ${sent} sent, ${failed} failed.`);
+}
+
+/** Render, send, and record one recipient. Throws on any failure. */
+async function sendOne(r: Row): Promise<void> {
+  {
     const unsubscribeUrl = `${APP_BASE_URL}/api/email/unsubscribe?userId=${r.id}&token=${generateUnsubscribeToken(r.id)}`;
     const html = await render(
       React.createElement(TrialStoppedEmail, {
@@ -234,11 +280,7 @@ ${eligible.length} eligible of ${rows.length} scanned (window ${MIN_DAYS}-${MAX_
       idempotencyKey: `trial-${KIND}-${TRIAL_EMAIL_VERSION}-${r.id}`,
       replyTo: SUPPORT_EMAIL,
     });
-    if (!result.success) {
-      failed++;
-      console.error(`FAILED ${r.email}: ${result.error}`);
-      continue;
-    }
+    if (!result.success) throw new Error(result.error ?? 'send failed');
     await markEmailSent(r.id, trialCheckKey(KIND));
     // Upsert: an account provisioned before grants existed has no row, and
     // the durable dedupe needs one. Anchor it to the account's own trial
@@ -260,10 +302,8 @@ ${eligible.length} eligible of ${rows.length} scanned (window ${MIN_DAYS}-${MAX_
         error instanceof Error ? error.message : String(error),
       );
     }
-    sent++;
     console.log(`sent ${r.email} (${result.id})`);
   }
-  console.log(`\nDone: ${sent} sent, ${failed} failed.`);
 }
 
 main()
