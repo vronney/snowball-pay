@@ -4,6 +4,7 @@ import { ExternalLink } from "lucide-react";
 import { getErrorMessage, useOpenBillingPortal, type SubscriptionInfo } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
 import {
+  proBillingStartsLabel,
   shouldShowLateTrialNotice,
   STRIPE_TRIAL_CHARGE_NOTICE,
   TRIAL_CANCELED_NOTICE,
@@ -18,13 +19,6 @@ export function daysUntilCharge(dateStr: string, now = Date.now()): number {
   return Math.max(0, Math.ceil((end - now) / DAY_MS));
 }
 
-/** When the day matters more than the number: today / tomorrow / in N days. */
-function whenSuffix(days: number): string {
-  if (days === 0) return "today";
-  if (days === 1) return "tomorrow";
-  return `in ${days} days`;
-}
-
 /**
  * The heading, which now names the charge because `cancelAt` proves one is
  * coming. A trial scheduled to cancel keeps `status: "trialing"`, and
@@ -32,9 +26,10 @@ function whenSuffix(days: number): string {
  * existed this had to hedge for both.
  */
 export function trialEndLabel(days: number, isCanceling = false): string {
-  return isCanceling
-    ? `Your Pro trial ends ${whenSuffix(days)}`
-    : `Pro starts billing ${whenSuffix(days)}`;
+  if (!isCanceling) return proBillingStartsLabel(days);
+  if (days === 0) return "Your Pro trial ends today";
+  if (days === 1) return "Your Pro trial ends tomorrow";
+  return `Your Pro trial ends in ${days} days`;
 }
 
 

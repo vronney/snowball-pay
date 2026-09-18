@@ -11,6 +11,7 @@ import {
 import { track, Events } from "@/lib/analytics";
 import { formatCurrencyWhole } from "@/lib/utils";
 import {
+  proBillingStartsLabel,
   shouldShowLateTrialNotice,
   STRIPE_TRIAL_CHARGE_NOTICE,
   TRIAL_CANCELED_NOTICE,
@@ -114,11 +115,16 @@ export default function TrialCountdownBanner({ sub, hasLinkedBankDebt = false }:
     const days = daysUntil(sub.subscriptionEndsAt);
     if (!shouldShowLateTrialNotice(days)) return null;
 
-    const label = days === 0
-      ? "Your trial ends today"
-      : days === 1
-        ? "1 day left in your trial"
-        : `${days} days left in your Pro trial`;
+    // A chargeable trial gets the billing date in the headline, the same
+    // expectation v2 sets. A cancelled one keeps the plain countdown, since
+    // nothing is going to be charged.
+    const label = sub.isCanceling
+      ? days === 0
+        ? "Your trial ends today"
+        : days === 1
+          ? "1 day left in your trial"
+          : `${days} days left in your Pro trial`
+      : proBillingStartsLabel(days);
 
     // A trial scheduled to cancel keeps status "trialing", so without
     // isCanceling this warned about a charge that was never coming.
