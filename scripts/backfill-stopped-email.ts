@@ -153,10 +153,21 @@ async function grantSent(email: string): Promise<GrantSent | 'failed'> {
   }
 }
 
-/** Mark the stopped kind consumed, as the cron does for paid/active rows. Send mode only. */
+/** Consumption writes that failed (paid/active rows we could not mark). Reported at exit. */
+let consumeFailures = 0;
+
+/**
+ * Mark the stopped kind consumed, as the cron does for paid/active rows.
+ * Send mode only. A failure is logged and counted; the scan continues.
+ */
 async function consumeStopped(userId: string): Promise<void> {
   if (!SEND) return;
-  await markEmailSent(userId, trialCheckKey(KIND));
+  try {
+    await markEmailSent(userId, trialCheckKey(KIND));
+  } catch (error) {
+    consumeFailures++;
+    console.error(`  consumption NOT recorded for user ${userId}:`, error instanceof Error ? error.message : String(error));
+  }
 }
 
 async function main() {
@@ -273,11 +284,16 @@ ${eligible.length} eligible of ${rows.length} scanned (window ${MIN_DAYS}-${MAX_
     // (the row would look eligible again) and must be reported as such.
     if (!(await recordSent(r))) unrecorded++;
   }
-  console.log(`\nDone: ${sent} sent, ${failed} failed, ${unrecorded} sent but not fully recorded.`);
+  console.log(
+    `\nDone: ${sent} sent, ${failed} failed, ${unrecorded} sent but not fully recorded, ` +
+      `${consumeFailures} paid/active rows not marked.`,
+  );
+  // Any failure is a non-zero exit: automation must not read a partial run
+  // as success, and an unrecorded send would be re-sent by the next run.
   if (unrecorded > 0) {
     console.error('Fix the recording failures above before re-running, or those accounts will be re-sent.');
-    process.exitCode = 1;
   }
+  if (failed > 0 || unrecorded > 0 || consumeFailures > 0) process.exitCode = 1;
 }
 
 /**
