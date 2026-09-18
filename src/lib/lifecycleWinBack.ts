@@ -11,6 +11,8 @@ interface PlanActivity {
   paymentRecords: Array<{ paidAt: Date }>;
   /** Optional: a recurring-expense edit is a plan edit too, when the caller selects it. */
   expenses?: Array<{ updatedAt: Date }>;
+  /** Optional: stamped by the delete routes, since a deleted row has no timestamp. */
+  planEditedAt?: Date | null;
 }
 
 /**
@@ -26,6 +28,7 @@ export function getLatestPlanEditAt(activity: Omit<PlanActivity, 'createdAt'>): 
     ...(activity.income ? [activity.income.updatedAt.getTime()] : []),
     ...activity.paymentRecords.map((payment) => payment.paidAt.getTime()),
     ...(activity.expenses ?? []).map((expense) => expense.updatedAt.getTime()),
+    ...(activity.planEditedAt ? [activity.planEditedAt.getTime()] : []),
   ].filter(Number.isFinite);
 
   return timestamps.length > 0 ? new Date(Math.max(...timestamps)) : null;

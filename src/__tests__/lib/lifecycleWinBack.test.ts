@@ -41,6 +41,17 @@ describe('lifecycle win-back targeting', () => {
     expect(getLatestPlanActivityAt({ createdAt: created, ...untouched }).toISOString()).toBe(created.toISOString());
   });
 
+  it('counts a delete stamp as a plan edit when the caller selects it', () => {
+    const edited = getLatestPlanEditAt({
+      debts: [{ updatedAt: new Date('2026-04-01T00:00:00.000Z') }],
+      income: null,
+      paymentRecords: [],
+      planEditedAt: new Date('2026-08-01T00:00:00.000Z'),
+    });
+    expect(edited?.toISOString()).toBe('2026-08-01T00:00:00.000Z');
+    expect(getLatestPlanEditAt({ debts: [], income: null, paymentRecords: [], planEditedAt: null })).toBeNull();
+  });
+
   it('counts a recurring-expense edit as activity when the caller selects expenses', () => {
     const base = {
       createdAt: new Date('2026-01-01T00:00:00.000Z'),

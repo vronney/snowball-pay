@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError, isValidId } from '@/lib/auth-server';
+import { markPlanEdited } from '@/lib/planEdits';
 
 export async function DELETE(
   request: NextRequest,
@@ -21,9 +22,12 @@ export async function DELETE(
       return badRequest('Expense not found');
     }
 
-    await prisma.expense.delete({
-      where: { id: params.id },
-    });
+    // The delete leaves no row timestamp behind, so stamp the user in the
+    // same transaction: lifecycle emails read it as plan activity.
+    await prisma.$transaction([
+      prisma.expense.delete({ where: { id: params.id } }),
+      markPlanEdited(auth.user.id),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

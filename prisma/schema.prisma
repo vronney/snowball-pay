@@ -18,6 +18,10 @@ model User {
   auth0Id   String     @unique
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+  // Stamped when a plan row is deleted (debt, expense). Creates and updates
+  // leave their own timestamps; deletes leave nothing, and lifecycle emails
+  // need to see them as "still using the plan". See lib/planEdits.ts.
+  planEditedAt DateTime?
 
   // Stripe billing
   stripeCustomerId     String?  @unique

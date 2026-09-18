@@ -73,6 +73,8 @@ const CANDIDATE_SELECT = {
   email: true,
   name: true,
   createdAt: true,
+  // Stamped by the debt/expense delete routes; a delete is a plan edit too.
+  planEditedAt: true,
   preferences: { select: { actionChecks: true, trialStartedAt: true } },
   // Unfiltered: a debt paid down to zero is still a plan edit, and the
   // "stopped" activity check must see it. Plan math uses openDebts().
@@ -180,10 +182,10 @@ async function nextTrialEmail(
 
 /**
  * "What made you stop?" is only honest for an account that did stop: any
- * balance, income, or expense edit, or a logged payment since the boundary
- * means they are still using the plan on Free. Account creation is not an
- * edit: a delete-and-recreate mints a fresh createdAt after the grant-
- * anchored boundary without anyone touching the plan.
+ * balance, income, or expense edit or delete, or a logged payment since the
+ * boundary means they are still using the plan on Free. Account creation is
+ * not an edit: a delete-and-recreate mints a fresh createdAt after the
+ * grant-anchored boundary without anyone touching the plan.
  */
 function usedPlanSince(user: TrialCandidate, since: Date): boolean {
   const editedAt = getLatestPlanEditAt(user);

@@ -72,6 +72,7 @@ function candidate(overrides: Record<string, unknown> = {}) {
     expenses: [],
     paymentRecords: [],
     _count: { paymentRecords: 0 },
+    planEditedAt: null,
     ...overrides,
   };
 }
@@ -499,6 +500,19 @@ describe('GET /api/cron/trial-emails', () => {
 
       expect(body).toMatchObject({ stopped: 1, skippedActive: 0, errors: 0 });
       expect(mockRender.mock.calls[0][0].props.paymentsLogged).toBe(0);
+    });
+
+    it('treats a debt or expense deleted after the boundary as activity too', async () => {
+      // Deletes leave no row behind; the delete routes stamp the user instead.
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({ debts: [], planEditedAt: inDays(-1) }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 0, skippedActive: 1 });
+      expect(mockSendEmail).not.toHaveBeenCalled();
     });
 
     it('treats a balance edit after the boundary as activity too', async () => {
