@@ -82,8 +82,28 @@ if (MAX_DAYS < MIN_DAYS) {
   console.error(`--max-days (${MAX_DAYS}) is below --min-days (${MIN_DAYS})`);
   process.exit(1);
 }
-const ONLY = new Set((arg('--only') ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
-const SKIP = new Set((arg('--skip') ?? '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean));
+/**
+ * Comma-separated email list. Empty only when the flag is absent: a flag
+ * with no value (last token, or followed by another flag) is an error, so
+ * a typo can never widen a --send to everyone.
+ */
+function emailSet(flag: string): Set<string> {
+  const index = process.argv.indexOf(flag);
+  if (index < 0) return new Set();
+  const raw = process.argv[index + 1];
+  if (raw === undefined || raw.startsWith('-')) {
+    console.error(`${flag} requires a comma-separated email list`);
+    process.exit(1);
+  }
+  const values = raw.split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
+  if (values.length === 0) {
+    console.error(`${flag} requires a comma-separated email list`);
+    process.exit(1);
+  }
+  return new Set(values);
+}
+const ONLY = emailSet('--only');
+const SKIP = emailSet('--skip');
 
 type Verdict = 'ELIGIBLE' | 'no window' | 'too recent' | 'too old' | 'paid pro' | 'already sent' | 'active since end' | 'lookup failed' | 'filtered' | 'send cap';
 
@@ -91,6 +111,8 @@ interface Row {
   id: string;
   email: string;
   name: string | null;
+  /** Trial anchor for a grant row that has to be created: never "now". */
+  trialAnchor: Date;
   trialEnd: string;
   daysSince: number;
   paymentsLogged: number;
@@ -144,7 +166,8 @@ async function main() {
       id: true,
       email: true,
       name: true,
-      preferences: { select: { actionChecks: true } },
+      createdAt: true,
+      preferences: { select: { actionChecks: true, trialStartedAt: true } },
       debts: { select: { updatedAt: true } },
       income: { select: { updatedAt: true } },
       expenses: { select: { updatedAt: true } },
@@ -156,7 +179,14 @@ async function main() {
   const rows: Row[] = [];
   for (const user of users) {
     const email = user.email.toLowerCase();
-    const base = { id: user.id, email: user.email, name: user.name, paymentsLogged: user._count.paymentRecords };
+    const base = {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      // Same anchor resolveSignupTrialEnd falls back to when no grant exists.
+      trialAnchor: user.preferences?.trialStartedAt ?? user.createdAt,
+      paymentsLogged: user._count.paymentRecords,
+    };
     const trialEndsAt = await getSignupTrialEnd(user.id);
     if (!trialEndsAt) {
       rows.push({ ...base, trialEnd: '-', daysSince: 0, verdict: 'no window' });
@@ -210,13 +240,25 @@ ${eligible.length} eligible of ${rows.length} scanned (window ${MIN_DAYS}-${MAX_
       continue;
     }
     await markEmailSent(r.id, trialCheckKey(KIND));
+    // Upsert: an account provisioned before grants existed has no row, and
+    // the durable dedupe needs one. Anchor it to the account's own trial
+    // start, never the default now(), which would reopen a Pro window.
+    const sentAt = new Date();
     try {
-      await prisma.trialGrant.update({
+      await prisma.trialGrant.upsert({
         where: { emailHash: trialGrantKey(r.email) },
-        data: { [trialGrantSentField(KIND)]: new Date() },
+        update: { [trialGrantSentField(KIND)]: sentAt },
+        create: {
+          emailHash: trialGrantKey(r.email),
+          grantedAt: r.trialAnchor,
+          [trialGrantSentField(KIND)]: sentAt,
+        },
       });
-    } catch {
-      console.warn(`  (grant sent-at not recorded for ${r.email}; actionChecks flag is set, cron will not resend)`);
+    } catch (error) {
+      console.warn(
+        `  (grant sent-at not recorded for user ${r.id}; actionChecks flag is set, cron will not resend)`,
+        error instanceof Error ? error.message : String(error),
+      );
     }
     sent++;
     console.log(`sent ${r.email} (${result.id})`);
