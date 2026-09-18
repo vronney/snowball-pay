@@ -62,8 +62,9 @@ model TrialGrant {
   grantedAt DateTime @default(now())
   // Trial-boundary email delivery, recorded here (not on UserPreferences)
   // so a delete-and-recreate inside the window cannot re-trigger a send.
-  endingEmailSentAt DateTime?
-  endedEmailSentAt  DateTime?
+  endingEmailSentAt  DateTime?
+  endedEmailSentAt   DateTime?
+  stoppedEmailSentAt DateTime?
 
   @@map("trial_grants")
 }
