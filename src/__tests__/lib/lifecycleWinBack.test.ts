@@ -24,6 +24,21 @@ describe('lifecycle win-back targeting', () => {
     expect(latest.toISOString()).toBe('2026-06-20T00:00:00.000Z');
   });
 
+  it('counts a recurring-expense edit as activity when the caller selects expenses', () => {
+    const base = {
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      debts: [{ updatedAt: new Date('2026-04-01T00:00:00.000Z') }],
+      income: null,
+      paymentRecords: [],
+    };
+    const withExpense = getLatestPlanActivityAt({
+      ...base,
+      expenses: [{ updatedAt: new Date('2026-07-01T00:00:00.000Z') }],
+    });
+    expect(withExpense.toISOString()).toBe('2026-07-01T00:00:00.000Z');
+    expect(getLatestPlanActivityAt(base).toISOString()).toBe('2026-04-01T00:00:00.000Z');
+  });
+
   it('becomes eligible at 30 complete inactive days', () => {
     const twentyNineDaysAgo = new Date(now.getTime() - 29 * 24 * 60 * 60 * 1000);
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);

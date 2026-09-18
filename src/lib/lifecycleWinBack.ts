@@ -9,6 +9,8 @@ interface PlanActivity {
   debts: Array<{ updatedAt: Date }>;
   income: { updatedAt: Date } | null;
   paymentRecords: Array<{ paidAt: Date }>;
+  /** Optional: a recurring-expense edit is a plan edit too, when the caller selects it. */
+  expenses?: Array<{ updatedAt: Date }>;
 }
 
 /**
@@ -21,6 +23,7 @@ export function getLatestPlanActivityAt(activity: PlanActivity): Date {
     ...activity.debts.map((debt) => debt.updatedAt.getTime()),
     ...(activity.income ? [activity.income.updatedAt.getTime()] : []),
     ...activity.paymentRecords.map((payment) => payment.paidAt.getTime()),
+    ...(activity.expenses ?? []).map((expense) => expense.updatedAt.getTime()),
   ].filter(Number.isFinite);
 
   return new Date(Math.max(...timestamps));

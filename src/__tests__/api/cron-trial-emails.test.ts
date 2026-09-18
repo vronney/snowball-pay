@@ -443,6 +443,43 @@ describe('GET /api/cron/trial-emails', () => {
       expect(mockMarkEmailSent).toHaveBeenCalledWith('user_1', TRIAL_STOPPED_CHECK_KEY);
     });
 
+    it('treats a recurring-expense edit after the boundary as activity too', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({ expenses: [{ amount: 120, updatedAt: inDays(-1) }] }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 0, skippedActive: 1 });
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it('reads only the requested kind\'s grant column, so an unpushed stopped column cannot break ended dedupe', async () => {
+      // The grant already records the "ended" send, but the stopped column
+      // does not exist yet: the ended read must still succeed on its own.
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({ preferences: { actionChecks: {}, trialStartedAt: null } }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+      mockPrisma.trialGrant.findUnique.mockImplementation(async ({ select }: { select: Record<string, boolean> }) => {
+        if (select.stoppedEmailSentAt) throw new Error('column "stoppedEmailSentAt" does not exist');
+        return { endedEmailSentAt: new Date() };
+      });
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(mockPrisma.trialGrant.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ select: { endedEmailSentAt: true } }),
+      );
+      expect(mockPrisma.trialGrant.findUnique).not.toHaveBeenCalledWith(
+        expect.objectContaining({ select: expect.objectContaining({ endingEmailSentAt: true, stoppedEmailSentAt: true }) }),
+      );
+      // ended is deduped by the grant; stopped then goes out (its failed
+      // grant read falls back to the preferences flag, which is unset).
+      expect(body).toMatchObject({ ended: 0, stopped: 1, errors: 0 });
+    });
+
     it('treats a balance edit after the boundary as activity too', async () => {
       mockPrisma.user.findMany.mockResolvedValue([
         stoppedCandidate({

@@ -44,6 +44,7 @@ import {
   trialCheckKey,
   trialGrantSentField,
   type TrialEmailKind,
+  type TrialGrantSentField,
 } from '@/lib/lifecycleTrial';
 import { trialGrantKey } from '@/lib/trialGrantKey';
 import { getLatestPlanActivityAt } from '@/lib/lifecycleWinBack';
@@ -83,7 +84,8 @@ const CANDIDATE_SELECT = {
     },
   },
   income: true,
-  expenses: { select: { amount: true } },
+  // updatedAt: a recurring-expense edit is post-trial activity for "stopped".
+  expenses: { select: { amount: true, updatedAt: true } },
   // Latest payment is the activity signal for "stopped"; the count is its copy.
   paymentRecords: { orderBy: { paidAt: 'desc' }, take: 1, select: { paidAt: true } },
   _count: { select: { paymentRecords: true } },
@@ -133,15 +135,18 @@ function formatTrialEndDate(date: Date): string {
  * deletes and recreates inside the window keeps the same "already sent"
  * state; UserPreferences.actionChecks is the fallback when no grant exists.
  * A missing grant table/column (db push pending) reads as "not sent" and
- * logs, rather than blocking the run.
+ * logs, rather than blocking the run. Only the requested kind's column is
+ * selected, so a column not yet pushed (stoppedEmailSentAt) cannot take the
+ * older kinds' dedupe down with it.
  */
 async function grantSentAt(email: string, kind: TrialEmailKind): Promise<Date | null> {
+  const field = trialGrantSentField(kind);
   try {
-    const grant = await prisma.trialGrant.findUnique({
+    const grant = (await prisma.trialGrant.findUnique({
       where: { emailHash: trialGrantKey(email) },
-      select: { endingEmailSentAt: true, endedEmailSentAt: true, stoppedEmailSentAt: true },
-    });
-    return grant?.[trialGrantSentField(kind)] ?? null;
+      select: { [field]: true },
+    })) as Partial<Record<TrialGrantSentField, Date | null>> | null;
+    return grant?.[field] ?? null;
   } catch (error) {
     console.error('[cron trial-emails] TrialGrant read failed', error);
     return null;
