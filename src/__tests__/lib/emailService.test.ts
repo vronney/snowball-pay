@@ -42,6 +42,31 @@ describe('email service delivery', () => {
     );
   });
 
+  it('forwards a reply-to address so "hit reply" lands somewhere read', async () => {
+    mockSend.mockResolvedValue({ data: { id: 'email_124' }, error: null });
+
+    await sendEmail(
+      'person@example.com',
+      'SnowballPay <noreply@example.com>',
+      'What made you stop?',
+      '<p>Hello</p>',
+      { idempotencyKey: 'trial-stopped-v1-user_1', replyTo: 'support@example.com' },
+    );
+
+    expect(mockSend).toHaveBeenCalledWith(
+      expect.objectContaining({ replyTo: 'support@example.com' }),
+      { idempotencyKey: 'trial-stopped-v1-user_1' },
+    );
+  });
+
+  it('omits reply-to when none is given', async () => {
+    mockSend.mockResolvedValue({ data: { id: 'email_125' }, error: null });
+
+    await sendEmail('person@example.com', 'from@example.com', 'Subject', '<p>Hello</p>');
+
+    expect(mockSend.mock.calls[0][0]).not.toHaveProperty('replyTo');
+  });
+
   it('treats a resolved provider error as a failed send', async () => {
     mockSend.mockResolvedValue({ data: null, error: { message: 'domain not verified' } });
 

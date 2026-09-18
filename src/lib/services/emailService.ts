@@ -44,7 +44,7 @@ export async function sendEmail(
   from: string,
   subject: string,
   html: string,
-  options: { idempotencyKey?: string } = {},
+  options: { idempotencyKey?: string; replyTo?: string } = {},
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   const resend = getResendClient();
   if (!resend) {
@@ -53,7 +53,7 @@ export async function sendEmail(
 
   try {
     const response = await resend.emails.send(
-      { from, to, subject, html },
+      { from, to, subject, html, ...(options.replyTo ? { replyTo: options.replyTo } : {}) },
       options.idempotencyKey ? { idempotencyKey: options.idempotencyKey } : undefined,
     );
     if (response.error) {
