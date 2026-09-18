@@ -27,11 +27,11 @@
  * Runs against the database in .env (use `npm run db:use:prod` first).
  * Dry run by default: prints the recipient table and sends nothing.
  *
- *   npx tsx scripts/backfill-stopped-email.ts                  # dry run
- *   npx tsx scripts/backfill-stopped-email.ts --send            # send to all eligible
- *   npx tsx scripts/backfill-stopped-email.ts --send --only a@x.com,b@y.com
- *   npx tsx scripts/backfill-stopped-email.ts --send --skip test@me.com
- *   npx tsx scripts/backfill-stopped-email.ts --min-days 3 --max-days 45
+ *   npm run backfill:stopped-email                          # dry run
+ *   npm run backfill:stopped-email -- --send                # send to all eligible
+ *   npm run backfill:stopped-email -- --send --only a@x.com,b@y.com
+ *   npm run backfill:stopped-email -- --send --skip test@me.com
+ *   npm run backfill:stopped-email -- --min-days 3 --max-days 45
  *
  * Delivery is recorded on UserPreferences.actionChecks exactly like the cron,
  * so the cron will never resend, and on the durable TrialGrant row so a
