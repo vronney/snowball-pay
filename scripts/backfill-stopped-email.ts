@@ -119,7 +119,11 @@ interface Row {
   id: string;
   email: string;
   name: string | null;
-  /** Trial anchor for a grant row that has to be created: never "now". */
+  /**
+   * Trial anchor for a grant row that has to be created (accounts provisioned
+   * before grants existed have none): the account's own trial start, never
+   * the default now(), which would reopen a Pro window.
+   */
   trialAnchor: Date;
   trialEnd: string;
   daysSince: number;
@@ -252,21 +256,64 @@ ${eligible.length} eligible of ${rows.length} scanned (window ${MIN_DAYS}-${MAX_
 
   let sent = 0;
   let failed = 0;
+  let unrecorded = 0;
   for (const r of eligible) {
+    let deliveryId: string;
     try {
-      await sendOne(r);
-      sent++;
+      deliveryId = await sendOne(r);
     } catch (error) {
-      // A render or record failure for one account must not stop the rest.
+      // A render or send failure for one account must not stop the rest.
       failed++;
       console.error(`FAILED user ${r.id}:`, error instanceof Error ? error.message : String(error));
+      continue;
     }
+    sent++;
+    console.log(`sent ${r.email} (${deliveryId})`);
+    // The email is out either way; a failed record is its own problem
+    // (the row would look eligible again) and must be reported as such.
+    if (!(await recordSent(r))) unrecorded++;
   }
-  console.log(`\nDone: ${sent} sent, ${failed} failed.`);
+  console.log(`\nDone: ${sent} sent, ${failed} failed, ${unrecorded} sent but not fully recorded.`);
+  if (unrecorded > 0) {
+    console.error('Fix the recording failures above before re-running, or those accounts will be re-sent.');
+    process.exitCode = 1;
+  }
 }
 
-/** Render, send, and record one recipient. Throws on any failure. */
-async function sendOne(r: Row): Promise<void> {
+/**
+ * Record delivery: the durable grant stamp first (survives delete-and-
+ * recreate), then the preferences flag the cron checks first. Each write
+ * is independent; a failure is logged and reported, never thrown.
+ * Returns true only when both landed.
+ */
+async function recordSent(r: Row): Promise<boolean> {
+  let ok = true;
+  const sentAt = new Date();
+  try {
+    await prisma.trialGrant.upsert({
+      where: { emailHash: trialGrantKey(r.email) },
+      update: { [trialGrantSentField(KIND)]: sentAt },
+      create: {
+        emailHash: trialGrantKey(r.email),
+        grantedAt: r.trialAnchor,
+        [trialGrantSentField(KIND)]: sentAt,
+      },
+    });
+  } catch (error) {
+    ok = false;
+    console.error(`  grant sent-at NOT recorded for user ${r.id}:`, error instanceof Error ? error.message : String(error));
+  }
+  try {
+    await markEmailSent(r.id, trialCheckKey(KIND));
+  } catch (error) {
+    ok = false;
+    console.error(`  preferences flag NOT recorded for user ${r.id}:`, error instanceof Error ? error.message : String(error));
+  }
+  return ok;
+}
+
+/** Render and send one recipient. Returns the provider delivery id; throws on any failure. */
+async function sendOne(r: Row): Promise<string> {
   {
     const unsubscribeUrl = `${APP_BASE_URL}/api/email/unsubscribe?userId=${r.id}&token=${generateUnsubscribeToken(r.id)}`;
     const html = await render(
@@ -281,28 +328,7 @@ async function sendOne(r: Row): Promise<void> {
       replyTo: SUPPORT_EMAIL,
     });
     if (!result.success) throw new Error(result.error ?? 'send failed');
-    await markEmailSent(r.id, trialCheckKey(KIND));
-    // Upsert: an account provisioned before grants existed has no row, and
-    // the durable dedupe needs one. Anchor it to the account's own trial
-    // start, never the default now(), which would reopen a Pro window.
-    const sentAt = new Date();
-    try {
-      await prisma.trialGrant.upsert({
-        where: { emailHash: trialGrantKey(r.email) },
-        update: { [trialGrantSentField(KIND)]: sentAt },
-        create: {
-          emailHash: trialGrantKey(r.email),
-          grantedAt: r.trialAnchor,
-          [trialGrantSentField(KIND)]: sentAt,
-        },
-      });
-    } catch (error) {
-      console.warn(
-        `  (grant sent-at not recorded for user ${r.id}; actionChecks flag is set, cron will not resend)`,
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-    console.log(`sent ${r.email} (${result.id})`);
+    return result.id ?? 'no-id';
   }
 }
 
