@@ -480,6 +480,27 @@ describe('GET /api/cron/trial-emails', () => {
       expect(body).toMatchObject({ ended: 0, stopped: 1, errors: 0 });
     });
 
+    it('still asks after a delete-and-recreate with no plan edits (creation is not activity)', async () => {
+      // The grant anchors the trial to the original signup; the recreated
+      // row's createdAt lands after that boundary without any plan change.
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({
+          createdAt: inDays(-1),
+          debts: [],
+          income: null,
+          expenses: [],
+          paymentRecords: [],
+          _count: { paymentRecords: 0 },
+        }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 1, skippedActive: 0, errors: 0 });
+      expect(mockRender.mock.calls[0][0].props.paymentsLogged).toBe(0);
+    });
+
     it('treats a balance edit after the boundary as activity too', async () => {
       mockPrisma.user.findMany.mockResolvedValue([
         stoppedCandidate({

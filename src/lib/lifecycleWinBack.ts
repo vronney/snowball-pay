@@ -14,19 +14,32 @@ interface PlanActivity {
 }
 
 /**
- * The database does not track passive page views. Use the latest durable plan
- * change or payment as the honest activity signal for lifecycle targeting.
+ * The latest durable plan edit: a debt, income, or expense change, or a
+ * logged payment. Null when the plan has never been touched. Account
+ * creation is deliberately not an edit: after a delete-and-recreate the new
+ * row's createdAt can postdate a grant-anchored trial end, and that must not
+ * read as "still using the plan".
  */
-export function getLatestPlanActivityAt(activity: PlanActivity): Date {
+export function getLatestPlanEditAt(activity: Omit<PlanActivity, 'createdAt'>): Date | null {
   const timestamps = [
-    activity.createdAt.getTime(),
     ...activity.debts.map((debt) => debt.updatedAt.getTime()),
     ...(activity.income ? [activity.income.updatedAt.getTime()] : []),
     ...activity.paymentRecords.map((payment) => payment.paidAt.getTime()),
     ...(activity.expenses ?? []).map((expense) => expense.updatedAt.getTime()),
   ].filter(Number.isFinite);
 
-  return new Date(Math.max(...timestamps));
+  return timestamps.length > 0 ? new Date(Math.max(...timestamps)) : null;
+}
+
+/**
+ * The database does not track passive page views. Use the latest durable plan
+ * change or payment as the honest activity signal for lifecycle targeting,
+ * with account creation as the floor (win-back measures idle time from it).
+ */
+export function getLatestPlanActivityAt(activity: PlanActivity): Date {
+  const edit = getLatestPlanEditAt(activity);
+  const created = activity.createdAt.getTime();
+  return edit && edit.getTime() > created ? edit : new Date(created);
 }
 
 export function getInactiveDays(activityAt: Date, now = new Date()): number {

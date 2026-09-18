@@ -47,7 +47,7 @@ import {
   type TrialGrantSentField,
 } from '@/lib/lifecycleTrial';
 import { trialGrantKey } from '@/lib/trialGrantKey';
-import { getLatestPlanActivityAt } from '@/lib/lifecycleWinBack';
+import { getLatestPlanEditAt } from '@/lib/lifecycleWinBack';
 import { calculatePlanMetrics, calculateMinimumsOnlyResult } from '@/lib/payoffPlan';
 import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
 import TrialEndingSoonEmail from '@/emails/TrialEndingSoonEmail';
@@ -180,11 +180,14 @@ async function nextTrialEmail(
 
 /**
  * "What made you stop?" is only honest for an account that did stop: any
- * balance edit, income change, or logged payment since the boundary means
- * they are still using the plan on Free.
+ * balance, income, or expense edit, or a logged payment since the boundary
+ * means they are still using the plan on Free. Account creation is not an
+ * edit: a delete-and-recreate mints a fresh createdAt after the grant-
+ * anchored boundary without anyone touching the plan.
  */
 function usedPlanSince(user: TrialCandidate, since: Date): boolean {
-  return getLatestPlanActivityAt(user).getTime() > since.getTime();
+  const editedAt = getLatestPlanEditAt(user);
+  return editedAt !== null && editedAt.getTime() > since.getTime();
 }
 
 interface TrialMessage {
