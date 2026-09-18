@@ -22,6 +22,7 @@ export async function GET(request: NextRequest) {
         paidTier: true,
         subscriptionStatus: true,
         subscriptionEndsAt: true,
+        cancelAt: true,
         stripeCustomerId: true,
         stripeSubscriptionId: true,
       },
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest) {
 
     let { paidTier = 'free', subscriptionStatus: status = 'inactive' } = user ?? {};
     let endsAt = user?.subscriptionEndsAt ?? null;
+    let cancelAt = user?.cancelAt ?? null;
 
     // When the DB shows a stale trialing row (trial_end elapsed, grace window
     // closed) but we have a subscription ID, fetch live status from Stripe and
@@ -41,18 +43,25 @@ export async function GET(request: NextRequest) {
           subscriptionStatus: sub.status,
           paidTier: ACTIVE_STATUSES.includes(sub.status) ? 'pro' : 'free',
           subscriptionEndsAt: endTs ? new Date(endTs * 1000) : null,
+          cancelAt: sub.cancel_at ? new Date(sub.cancel_at * 1000) : null,
         };
         await prisma.user.update({ where: { id: auth.user.id }, data: patch });
         status = patch.subscriptionStatus;
         paidTier = patch.paidTier;
         endsAt = patch.subscriptionEndsAt;
+        cancelAt = patch.cancelAt;
       } catch {
         // Stripe fetch failed — fall through; isStale() will return free below.
       }
     }
 
     const expired = isStale(endsAt);
-    const isCanceling = !expired && status === 'active' && endsAt !== null;
+    // cancelAt is the direct answer and covers a trialing subscription, which
+    // keeps its status while scheduled to cancel. The status === 'active' arm
+    // stays as a fallback for rows written before cancelAt existed, where an
+    // end date on an active subscription could only have come from cancel_at.
+    const isCanceling =
+      !expired && (cancelAt !== null || (status === 'active' && endsAt !== null));
 
     // One read pair for every gate verdict (this endpoint is hot: checkout
     // polling + several client consumers). resolveBillingVerdict re-reads the

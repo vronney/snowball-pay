@@ -25,6 +25,10 @@ model User {
   subscriptionStatus   String   @default("inactive") // active | trialing | past_due | canceled | inactive
   paidTier             String   @default("free")      // free | pro
   subscriptionEndsAt   DateTime?
+  // Stripe's cancel_at: when a scheduled cancellation takes effect, else null.
+  // subscriptionEndsAt cannot answer this on its own — it holds cancel_at OR
+  // trial_end, so a trial set to cancel looks exactly like one about to charge.
+  cancelAt             DateTime?
   emailDigest          Boolean   @default(true)
 
   debts                   Debt[]

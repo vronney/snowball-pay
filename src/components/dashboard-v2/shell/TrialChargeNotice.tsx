@@ -3,7 +3,12 @@
 import { ExternalLink } from "lucide-react";
 import { getErrorMessage, useOpenBillingPortal, type SubscriptionInfo } from "@/lib/hooks";
 import { track, Events } from "@/lib/analytics";
-import { shouldShowLateTrialNotice, STRIPE_TRIAL_CHARGE_NOTICE } from "@/lib/upgradeMessaging";
+import {
+  proBillingStartsLabel,
+  shouldShowLateTrialNotice,
+  STRIPE_TRIAL_CHARGE_NOTICE,
+  TRIAL_CANCELED_NOTICE,
+} from "@/lib/upgradeMessaging";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -15,19 +20,18 @@ export function daysUntilCharge(dateStr: string, now = Date.now()): number {
 }
 
 /**
- * "Your Pro trial ends today" / "… tomorrow" / "… in {n} days".
- *
- * Says the trial ends, not that billing starts. A trial scheduled to cancel
- * keeps `status: "trialing"` in Stripe, and the webhook stores `cancel_at` in
- * the same `subscriptionEndsAt` column it uses for `trial_end`, so nothing we
- * persist tells the two apart. This wording is true either way, and the
- * sentence below carries the charge warning with its own "unless you cancel".
+ * The heading, which now names the charge because `cancelAt` proves one is
+ * coming. A trial scheduled to cancel keeps `status: "trialing"`, and
+ * `subscriptionEndsAt` holds `cancel_at` OR `trial_end`, so before `cancelAt`
+ * existed this had to hedge for both.
  */
-export function trialEndLabel(days: number): string {
+export function trialEndLabel(days: number, isCanceling = false): string {
+  if (!isCanceling) return proBillingStartsLabel(days);
   if (days === 0) return "Your Pro trial ends today";
   if (days === 1) return "Your Pro trial ends tomorrow";
   return `Your Pro trial ends in ${days} days`;
 }
+
 
 interface TrialChargeNoticeProps {
   sub: SubscriptionInfo | undefined;
@@ -45,32 +49,36 @@ interface TrialChargeNoticeProps {
  * The self-serve trial (spec §6.4) has no payment method and never charges, so
  * it never reaches this — `subscriptionStatus` is only set by Stripe.
  *
- * A trial already scheduled to cancel still shows this, because nothing we
- * store distinguishes it (see trialEndLabel). The copy is true either way, but
- * telling them apart needs a cancel flag on the subscription record.
+ * A trial already scheduled to cancel gets the reassuring variant instead: it
+ * still ends, but nobody is charged. `isCanceling` can say so now that the
+ * subscription record carries Stripe's `cancel_at` separately.
  */
 export default function TrialChargeNotice({ sub }: TrialChargeNoticeProps) {
   if (sub?.subscriptionStatus !== "trialing" || !sub.subscriptionEndsAt) return null;
   const days = daysUntilCharge(sub.subscriptionEndsAt);
   if (!shouldShowLateTrialNotice(days)) return null;
-  return <ChargeNoticeBar days={days} />;
+  return <ChargeNoticeBar days={days} isCanceling={sub.isCanceling === true} />;
 }
 
 /**
  * Split from the gate above so the shell does not mount a billing mutation for
  * the overwhelming majority of accounts, which have no Stripe trial at all.
  */
-function ChargeNoticeBar({ days }: { days: number }) {
+function ChargeNoticeBar({ days, isCanceling }: { days: number; isCanceling: boolean }) {
   const openPortal = useOpenBillingPortal();
 
   return (
     <div
       role="status"
-      className="flex flex-col gap-1.5 border-b border-focus-card-border bg-focus-card px-3.5 py-2.5 min-[769px]:flex-row min-[769px]:items-center min-[769px]:justify-between min-[769px]:gap-4 min-[769px]:px-[26px]"
+      className={`flex flex-col gap-1.5 border-b px-3.5 py-2.5 min-[769px]:flex-row min-[769px]:items-center min-[769px]:justify-between min-[769px]:gap-4 min-[769px]:px-[26px] ${
+        isCanceling ? "border-border bg-surface-2" : "border-focus-card-border bg-focus-card"
+      }`}
     >
       <div className="min-w-0">
-        <p className="text-[13px] font-extrabold text-txt">{trialEndLabel(days)}</p>
-        <p className="text-[12px] leading-snug text-txt-muted">{STRIPE_TRIAL_CHARGE_NOTICE}</p>
+        <p className="text-[13px] font-extrabold text-txt">{trialEndLabel(days, isCanceling)}</p>
+        <p className="text-[12px] leading-snug text-txt-muted">
+          {isCanceling ? TRIAL_CANCELED_NOTICE : STRIPE_TRIAL_CHARGE_NOTICE}
+        </p>
       </div>
       <button
         type="button"

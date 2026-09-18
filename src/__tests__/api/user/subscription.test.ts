@@ -78,6 +78,29 @@ describe('GET /api/user/subscription', () => {
     expect(body.annualAvailable).toBeUndefined();
   });
 
+  it('marks a trialing subscription as canceling once cancelAt is set', async () => {
+    // Stripe keeps status "trialing" for a trial scheduled to cancel, and
+    // subscriptionEndsAt holds cancel_at OR trial_end — cancelAt is the only
+    // thing that separates "about to be charged" from "already cancelled".
+    const endsAt = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+    vi.mocked(verifyAuth).mockResolvedValue(AUTHED);
+    mockPrisma.user.findUnique.mockResolvedValue({
+      paidTier: 'pro',
+      subscriptionStatus: 'trialing',
+      subscriptionEndsAt: endsAt,
+      cancelAt: endsAt,
+      stripeCustomerId: 'cus_123',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+    });
+
+    const res = await GET(makeRequest());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.subscriptionStatus).toBe('trialing');
+    expect(body.isCanceling).toBe(true);
+  });
+
   it('marks active subscriptions with an end date as canceling', async () => {
     const cancelAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
     vi.mocked(verifyAuth).mockResolvedValue(AUTHED);

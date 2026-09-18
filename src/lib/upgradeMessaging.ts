@@ -171,3 +171,23 @@ export function shouldShowLateTrialNotice(daysRemaining: number): boolean {
  */
 export const STRIPE_TRIAL_CHARGE_NOTICE =
   'Stripe will charge the payment method selected at checkout when the trial ends unless you cancel.';
+
+/**
+ * The same moment for a trial already scheduled to cancel. Only tellable apart
+ * from the above by `User.cancelAt`: a cancelling trial keeps Stripe's
+ * `trialing` status, and `subscriptionEndsAt` holds `cancel_at` OR `trial_end`.
+ */
+export const TRIAL_CANCELED_NOTICE =
+  'You cancelled, so Stripe will not charge you. Pro features stop when the trial ends.';
+
+/**
+ * The headline for a card-backed trial that WILL be charged: names the billing
+ * date rather than only the trial's end. Shared so the v1 banner and the v2
+ * notice give the same expectation — only say this when `isCanceling` is false,
+ * since a cancelled trial ends without any charge.
+ */
+export function proBillingStartsLabel(days: number): string {
+  if (days === 0) return 'Pro starts billing today';
+  if (days === 1) return 'Pro starts billing tomorrow';
+  return `Pro starts billing in ${days} days`;
+}

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   LATE_TRIAL_NOTICE_DAYS,
   STRIPE_TRIAL_CHARGE_NOTICE,
+  TRIAL_CANCELED_NOTICE,
   UPGRADE_MESSAGE_VERSION,
   getUpgradeMessage,
+  proBillingStartsLabel,
   shouldShowLateTrialNotice,
 } from '@/lib/upgradeMessaging';
 
@@ -63,5 +65,17 @@ describe('upgrade messaging', () => {
     expect(STRIPE_TRIAL_CHARGE_NOTICE).toBe(
       'Stripe will charge the payment method selected at checkout when the trial ends unless you cancel.',
     );
+  });
+
+  it('tells a cancelled trial it will not be charged', () => {
+    expect(TRIAL_CANCELED_NOTICE).toMatch(/not charge you/i);
+    // Must not leave them expecting Pro to continue.
+    expect(TRIAL_CANCELED_NOTICE).toMatch(/stop when the trial ends/i);
+  });
+
+  it('names the billing day for a chargeable trial, in both dashboards', () => {
+    expect(proBillingStartsLabel(0)).toBe('Pro starts billing today');
+    expect(proBillingStartsLabel(1)).toBe('Pro starts billing tomorrow');
+    expect(proBillingStartsLabel(6)).toBe('Pro starts billing in 6 days');
   });
 });
