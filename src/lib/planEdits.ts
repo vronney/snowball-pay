@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 
 /**
@@ -23,19 +24,36 @@ export async function markPlanEdited(userId: string): Promise<void> {
   }
 }
 
+/** Prisma P2022: the column does not exist in the current database. */
+const MISSING_COLUMN_CODE = 'P2022';
+
+function isMissingColumn(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === MISSING_COLUMN_CODE;
+}
+
 /**
- * When the user last deleted a plan row, or null: never, or the column is
- * not deployed yet (logged, not thrown, so a lifecycle scan keeps running).
+ * Outcome of reading the delete stamp. Only the expected rollout state
+ * (column not pushed yet) collapses to "no stamp"; any other failure is
+ * unknown, and a caller deciding whether to email must not read unknown
+ * as "inactive".
  */
-export async function readPlanEditedAt(userId: string): Promise<Date | null> {
+export type PlanEditedAtLookup =
+  | { ok: true; planEditedAt: Date | null }
+  | { ok: false; reason: 'column_missing' | 'failed' };
+
+export async function readPlanEditedAt(userId: string): Promise<PlanEditedAtLookup> {
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { planEditedAt: true },
     });
-    return user?.planEditedAt ?? null;
+    return { ok: true, planEditedAt: user?.planEditedAt ?? null };
   } catch (error) {
+    if (isMissingColumn(error)) {
+      console.warn('[planEdits] planEditedAt column not deployed yet; treating as no delete stamp');
+      return { ok: false, reason: 'column_missing' };
+    }
     console.error('[planEdits] planEditedAt read failed', userId, error);
-    return null;
+    return { ok: false, reason: 'failed' };
   }
 }

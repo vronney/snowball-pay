@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import { Prisma } from '@prisma/client';
 
 const {
   mockPrisma, mockSendEmail, mockMarkEmailSent, mockRender, mockGetSignupTrialEnd, mockHasPaidPro,
@@ -521,14 +522,33 @@ describe('GET /api/cron/trial-emails', () => {
       // The scan select never names the column; only this per-candidate read
       // does, and it degrades to "no delete stamp" instead of failing the run.
       mockPrisma.user.findMany.mockResolvedValue([stoppedCandidate({ debts: [] })]);
-      mockPrisma.user.findUnique.mockRejectedValue(new Error('column "planEditedAt" does not exist'));
+      mockPrisma.user.findUnique.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('column does not exist', { code: 'P2022', clientVersion: 'test' }),
+      );
       mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const body = await (await GET(makeRequest())).json();
 
       expect(body).toMatchObject({ ok: true, stopped: 1, errors: 0 });
       expect(mockPrisma.user.findMany.mock.calls[0][0].select).not.toHaveProperty('planEditedAt');
+      warnSpy.mockRestore();
+    });
+
+    it('defers, without sending or recording, when the delete-stamp read fails for any other reason', async () => {
+      // A transient read failure could be hiding a post-trial delete: unknown
+      // is not "inactive". The row is retried next run.
+      mockPrisma.user.findMany.mockResolvedValue([stoppedCandidate({ debts: [] })]);
+      mockPrisma.user.findUnique.mockRejectedValue(new Error('connection reset'));
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 0, skippedActive: 0, errors: 1 });
+      expect(mockSendEmail).not.toHaveBeenCalled();
+      expect(mockMarkEmailSent).not.toHaveBeenCalled();
+      expect(mockPrisma.trialGrant.update).not.toHaveBeenCalled();
       errorSpy.mockRestore();
     });
 

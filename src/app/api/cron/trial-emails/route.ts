@@ -189,8 +189,15 @@ async function nextTrialEmail(
 async function usedPlanSince(user: TrialCandidate, since: Date): Promise<boolean> {
   // Read per candidate rather than in the scan select: until the column is
   // pushed, a select there would fail the whole scan and take the older
-  // emails down with it. This read degrades to "no delete stamp" instead.
-  const planEditedAt = await readPlanEditedAt(user.id);
+  // emails down with it. Only that rollout state reads as "no delete
+  // stamp"; any other failure is unknown, and unknown must not become
+  // "inactive" and trigger a send. Throwing lands in the per-user catch:
+  // nothing sent, nothing recorded, retried next run.
+  const lookup = await readPlanEditedAt(user.id);
+  if (!lookup.ok && lookup.reason === 'failed') {
+    throw new Error('planEditedAt lookup failed; deferring the stopped check to the next run');
+  }
+  const planEditedAt = lookup.ok ? lookup.planEditedAt : null;
   const editedAt = getLatestPlanEditAt({ ...user, planEditedAt });
   // Inclusive: an edit at the boundary instant is activity since the close.
   return editedAt !== null && editedAt.getTime() >= since.getTime();
