@@ -5,7 +5,7 @@ const {
   mockPrisma, mockSendEmail, mockMarkEmailSent, mockRender, mockGetSignupTrialEnd, mockHasPaidPro,
 } = vi.hoisted(() => ({
   mockPrisma: {
-    user: { findMany: vi.fn() },
+    user: { findMany: vi.fn(), findUnique: vi.fn() },
     trialGrant: { findUnique: vi.fn(), update: vi.fn() },
   },
   mockSendEmail: vi.fn(),
@@ -72,7 +72,6 @@ function candidate(overrides: Record<string, unknown> = {}) {
     expenses: [],
     paymentRecords: [],
     _count: { paymentRecords: 0 },
-    planEditedAt: null,
     ...overrides,
   };
 }
@@ -82,6 +81,7 @@ describe('GET /api/cron/trial-emails', () => {
     vi.clearAllMocks();
     process.env.RESEND_API_KEY = 'test-key';
     mockPrisma.user.findMany.mockResolvedValue([]);
+    mockPrisma.user.findUnique.mockResolvedValue({ planEditedAt: null });
     mockSendEmail.mockResolvedValue({ success: true, id: 'email_1' });
     mockMarkEmailSent.mockResolvedValue(undefined);
     mockHasPaidPro.mockResolvedValue(false);
@@ -504,22 +504,38 @@ describe('GET /api/cron/trial-emails', () => {
 
     it('treats a debt or expense deleted after the boundary as activity too', async () => {
       // Deletes leave no row behind; the delete routes stamp the user instead.
-      mockPrisma.user.findMany.mockResolvedValue([
-        stoppedCandidate({ debts: [], planEditedAt: inDays(-1) }),
-      ]);
+      mockPrisma.user.findMany.mockResolvedValue([stoppedCandidate({ debts: [] })]);
+      mockPrisma.user.findUnique.mockResolvedValue({ planEditedAt: inDays(-1) });
       mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
 
       const body = await (await GET(makeRequest())).json();
 
       expect(body).toMatchObject({ stopped: 0, skippedActive: 1 });
       expect(mockSendEmail).not.toHaveBeenCalled();
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'user_1' }, select: { planEditedAt: true } }),
+      );
+    });
+
+    it('keeps running when the planEditedAt column is not deployed yet', async () => {
+      // The scan select never names the column; only this per-candidate read
+      // does, and it degrades to "no delete stamp" instead of failing the run.
+      mockPrisma.user.findMany.mockResolvedValue([stoppedCandidate({ debts: [] })]);
+      mockPrisma.user.findUnique.mockRejectedValue(new Error('column "planEditedAt" does not exist'));
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ ok: true, stopped: 1, errors: 0 });
+      expect(mockPrisma.user.findMany.mock.calls[0][0].select).not.toHaveProperty('planEditedAt');
+      errorSpy.mockRestore();
     });
 
     it('treats an edit at the exact trial-end instant as activity (inclusive boundary)', async () => {
       const trialEndsAt = inDays(DAYS_AFTER);
-      mockPrisma.user.findMany.mockResolvedValue([
-        stoppedCandidate({ debts: [], planEditedAt: trialEndsAt }),
-      ]);
+      mockPrisma.user.findMany.mockResolvedValue([stoppedCandidate({ debts: [] })]);
+      mockPrisma.user.findUnique.mockResolvedValue({ planEditedAt: trialEndsAt });
       mockGetSignupTrialEnd.mockResolvedValue(trialEndsAt);
 
       const body = await (await GET(makeRequest())).json();

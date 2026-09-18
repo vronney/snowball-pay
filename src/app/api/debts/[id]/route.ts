@@ -119,12 +119,10 @@ export async function DELETE(
       return badRequest('Debt not found');
     }
 
-    // The delete leaves no row timestamp behind, so stamp the user in the
-    // same transaction: lifecycle emails read it as plan activity.
-    await prisma.$transaction([
-      prisma.debt.delete({ where: { id: params.id } }),
-      markPlanEdited(auth.user.id),
-    ]);
+    await prisma.debt.delete({ where: { id: params.id } });
+    // The delete leaves no row timestamp behind; stamp the user so lifecycle
+    // emails read it as plan activity. Best-effort, never fails the delete.
+    await markPlanEdited(auth.user.id);
 
     // If this was the last debt on a linked Plaid item, the disconnect UI
     // (which lives on debt cards) is gone too — revoke the token with Plaid

@@ -48,6 +48,7 @@ import {
 } from '@/lib/lifecycleTrial';
 import { trialGrantKey } from '@/lib/trialGrantKey';
 import { getLatestPlanEditAt } from '@/lib/lifecycleWinBack';
+import { readPlanEditedAt } from '@/lib/planEdits';
 import { calculatePlanMetrics, calculateMinimumsOnlyResult } from '@/lib/payoffPlan';
 import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
 import TrialEndingSoonEmail from '@/emails/TrialEndingSoonEmail';
@@ -73,8 +74,6 @@ const CANDIDATE_SELECT = {
   email: true,
   name: true,
   createdAt: true,
-  // Stamped by the debt/expense delete routes; a delete is a plan edit too.
-  planEditedAt: true,
   preferences: { select: { actionChecks: true, trialStartedAt: true } },
   // Unfiltered: a debt paid down to zero is still a plan edit, and the
   // "stopped" activity check must see it. Plan math uses openDebts().
@@ -187,8 +186,12 @@ async function nextTrialEmail(
  * not an edit: a delete-and-recreate mints a fresh createdAt after the
  * grant-anchored boundary without anyone touching the plan.
  */
-function usedPlanSince(user: TrialCandidate, since: Date): boolean {
-  const editedAt = getLatestPlanEditAt(user);
+async function usedPlanSince(user: TrialCandidate, since: Date): Promise<boolean> {
+  // Read per candidate rather than in the scan select: until the column is
+  // pushed, a select there would fail the whole scan and take the older
+  // emails down with it. This read degrades to "no delete stamp" instead.
+  const planEditedAt = await readPlanEditedAt(user.id);
+  const editedAt = getLatestPlanEditAt({ ...user, planEditedAt });
   // Inclusive: an edit at the boundary instant is activity since the close.
   return editedAt !== null && editedAt.getTime() >= since.getTime();
 }
@@ -378,7 +381,7 @@ export async function GET(request: NextRequest) {
       }
       // Still using the plan on Free: they did not stop, so do not ask. Mark
       // so the row is not re-evaluated; the 30-day win-back owns later idling.
-      if (kind === 'stopped' && usedPlanSince(user, trialEndsAt)) {
+      if (kind === 'stopped' && (await usedPlanSince(user, trialEndsAt))) {
         await recordSent(user.id, user.email, kind);
         results.skippedActive++;
         continue;

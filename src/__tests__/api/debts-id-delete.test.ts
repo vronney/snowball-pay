@@ -6,7 +6,6 @@ const { mockPrisma } = vi.hoisted(() => ({
     debt: { findUnique: vi.fn(), delete: vi.fn(), count: vi.fn() },
     user: { update: vi.fn() },
     plaidItem: { findUnique: vi.fn(), delete: vi.fn() },
-    $transaction: vi.fn(),
   },
 }));
 
@@ -30,22 +29,33 @@ describe('DELETE /api/debts/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(verifyAuth).mockResolvedValue({ valid: true as const, user: { id: 'user_1', email: 'owner@example.com' } });
-    mockPrisma.debt.delete.mockReturnValue('DELETE_OP');
-    mockPrisma.user.update.mockReturnValue('TOUCH_OP');
-    mockPrisma.$transaction.mockResolvedValue([]);
+    mockPrisma.debt.delete.mockResolvedValue({});
+    mockPrisma.user.update.mockResolvedValue({ id: 'user_1' });
   });
 
-  it('deletes the debt and stamps the user as having edited the plan, atomically', async () => {
+  it('deletes the debt, then stamps the user as having edited the plan', async () => {
     mockPrisma.debt.findUnique.mockResolvedValue({ id: 'debt_1', userId: 'user_1', plaidItemId: null });
 
     const res = await DELETE(new NextRequest('http://localhost/api/debts/debt_1', { method: 'DELETE' }), { params });
 
     expect(res.status).toBe(200);
-    expect(mockPrisma.$transaction).toHaveBeenCalledWith(['DELETE_OP', 'TOUCH_OP']);
     expect(mockPrisma.debt.delete).toHaveBeenCalledWith({ where: { id: 'debt_1' } });
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 'user_1' }, data: { planEditedAt: expect.any(Date) } }),
     );
+  });
+
+  it('still deletes when the stamp fails (column not deployed yet), and logs it', async () => {
+    mockPrisma.debt.findUnique.mockResolvedValue({ id: 'debt_1', userId: 'user_1', plaidItemId: null });
+    mockPrisma.user.update.mockRejectedValue(new Error('column "planEditedAt" does not exist'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const res = await DELETE(new NextRequest('http://localhost/api/debts/debt_1', { method: 'DELETE' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockPrisma.debt.delete).toHaveBeenCalledTimes(1);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('planEditedAt'), 'user_1', expect.any(Error));
+    errorSpy.mockRestore();
   });
 
   it('refuses another user\'s debt without touching anything', async () => {
@@ -54,7 +64,7 @@ describe('DELETE /api/debts/[id]', () => {
     const res = await DELETE(new NextRequest('http://localhost/api/debts/debt_1', { method: 'DELETE' }), { params });
 
     expect(res.status).toBe(400);
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.debt.delete).not.toHaveBeenCalled();
     expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 });

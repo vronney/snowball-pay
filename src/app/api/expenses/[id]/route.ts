@@ -22,12 +22,10 @@ export async function DELETE(
       return badRequest('Expense not found');
     }
 
-    // The delete leaves no row timestamp behind, so stamp the user in the
-    // same transaction: lifecycle emails read it as plan activity.
-    await prisma.$transaction([
-      prisma.expense.delete({ where: { id: params.id } }),
-      markPlanEdited(auth.user.id),
-    ]);
+    await prisma.expense.delete({ where: { id: params.id } });
+    // The delete leaves no row timestamp behind; stamp the user so lifecycle
+    // emails read it as plan activity. Best-effort, never fails the delete.
+    await markPlanEdited(auth.user.id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

@@ -5,7 +5,6 @@ const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     expense: { findUnique: vi.fn(), delete: vi.fn() },
     user: { update: vi.fn() },
-    $transaction: vi.fn(),
   },
 }));
 
@@ -27,18 +26,16 @@ describe('DELETE /api/expenses/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(verifyAuth).mockResolvedValue({ valid: true as const, user: { id: 'user_1', email: 'owner@example.com' } });
-    mockPrisma.expense.delete.mockReturnValue('DELETE_OP');
-    mockPrisma.user.update.mockReturnValue('TOUCH_OP');
-    mockPrisma.$transaction.mockResolvedValue([]);
+    mockPrisma.expense.delete.mockResolvedValue({});
+    mockPrisma.user.update.mockResolvedValue({ id: 'user_1' });
   });
 
-  it('deletes the expense and stamps the user as having edited the plan, atomically', async () => {
+  it('deletes the expense, then stamps the user as having edited the plan', async () => {
     mockPrisma.expense.findUnique.mockResolvedValue({ id: 'exp_1', userId: 'user_1' });
 
     const res = await DELETE(new NextRequest('http://localhost/api/expenses/exp_1', { method: 'DELETE' }), { params });
 
     expect(res.status).toBe(200);
-    expect(mockPrisma.$transaction).toHaveBeenCalledWith(['DELETE_OP', 'TOUCH_OP']);
     expect(mockPrisma.expense.delete).toHaveBeenCalledWith({ where: { id: 'exp_1' } });
     expect(mockPrisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 'user_1' }, data: { planEditedAt: expect.any(Date) } }),
@@ -51,6 +48,7 @@ describe('DELETE /api/expenses/[id]', () => {
     const res = await DELETE(new NextRequest('http://localhost/api/expenses/exp_1', { method: 'DELETE' }), { params });
 
     expect(res.status).toBe(400);
-    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(mockPrisma.expense.delete).not.toHaveBeenCalled();
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
   });
 });
