@@ -189,7 +189,8 @@ async function nextTrialEmail(
  */
 function usedPlanSince(user: TrialCandidate, since: Date): boolean {
   const editedAt = getLatestPlanEditAt(user);
-  return editedAt !== null && editedAt.getTime() > since.getTime();
+  // Inclusive: an edit at the boundary instant is activity since the close.
+  return editedAt !== null && editedAt.getTime() >= since.getTime();
 }
 
 interface TrialMessage {

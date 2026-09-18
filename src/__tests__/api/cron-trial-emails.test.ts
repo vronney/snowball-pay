@@ -515,6 +515,18 @@ describe('GET /api/cron/trial-emails', () => {
       expect(mockSendEmail).not.toHaveBeenCalled();
     });
 
+    it('treats an edit at the exact trial-end instant as activity (inclusive boundary)', async () => {
+      const trialEndsAt = inDays(DAYS_AFTER);
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({ debts: [], planEditedAt: trialEndsAt }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValue(trialEndsAt);
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 0, skippedActive: 1 });
+    });
+
     it('treats a balance edit after the boundary as activity too', async () => {
       mockPrisma.user.findMany.mockResolvedValue([
         stoppedCandidate({
