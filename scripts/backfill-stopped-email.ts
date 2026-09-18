@@ -28,8 +28,11 @@
  *   npx tsx scripts/backfill-stopped-email.ts --min-days 3 --max-days 45
  *
  * Delivery is recorded on UserPreferences.actionChecks exactly like the cron,
- * so the cron will never resend. The TrialGrant sent-at column is written
- * best-effort; it needs TRIAL_GRANT_SECRET to match production to land.
+ * so the cron will never resend, and on the durable TrialGrant row so a
+ * delete-and-recreate cannot be re-sent. That row is keyed with
+ * TRIAL_GRANT_SECRET, so --send requires it (dry runs only warn); a grant
+ * lookup that fails for any reason skips the recipient rather than
+ * treating them as unsent.
  */
 import 'dotenv/config';
 import './neon-ws';
@@ -94,24 +97,37 @@ interface Row {
   verdict: Verdict;
 }
 
-/** Durable delivery record; survives delete-and-recreate. Null on any failure (logged). */
-async function grantStoppedSentAt(email: string): Promise<Date | null> {
+/**
+ * Durable delivery record; survives delete-and-recreate. Fails closed: a
+ * lookup error is 'failed', never "not sent", so the recipient is skipped.
+ */
+async function grantStoppedSentAt(email: string): Promise<{ sentAt: Date | null } | 'failed'> {
   try {
     const grant = await prisma.trialGrant.findUnique({
       where: { emailHash: trialGrantKey(email) },
       select: { stoppedEmailSentAt: true },
     });
-    return grant?.stoppedEmailSentAt ?? null;
+    return { sentAt: grant?.stoppedEmailSentAt ?? null };
   } catch (error) {
     console.error('TrialGrant read failed', error instanceof Error ? error.message : String(error));
-    return null;
+    return 'failed';
   }
 }
 
 async function main() {
-  if (!process.env.RESEND_API_KEY && SEND) {
+  if (SEND && !process.env.RESEND_API_KEY) {
     console.error('RESEND_API_KEY is not set; refusing to --send.');
     process.exit(1);
+  }
+  // Without the production secret, grant hashes cannot match production
+  // rows: the durable dedupe would silently pass and the sent-at write
+  // would miss. Dry runs may proceed (the grant column just reads as unset).
+  if (!process.env.TRIAL_GRANT_SECRET) {
+    if (SEND) {
+      console.error('TRIAL_GRANT_SECRET is not set; refusing to --send (durable dedupe would not match production).');
+      process.exit(1);
+    }
+    console.warn('TRIAL_GRANT_SECRET is not set: the TrialGrant dedupe column is not checked in this dry run.');
   }
   const now = new Date();
 
@@ -153,10 +169,10 @@ async function main() {
     if (trialEndsAt.getTime() > now.getTime() || daysSince < MIN_DAYS) { push('too recent'); continue; }
     if (daysSince > MAX_DAYS) { push('too old'); continue; }
     if ((ONLY.size > 0 && !ONLY.has(email)) || SKIP.has(email)) { push('filtered'); continue; }
-    if (hasReceivedTrialEmail(user.preferences?.actionChecks, KIND) || (await grantStoppedSentAt(user.email)) !== null) {
-      push('already sent');
-      continue;
-    }
+    if (hasReceivedTrialEmail(user.preferences?.actionChecks, KIND)) { push('already sent'); continue; }
+    const grant = await grantStoppedSentAt(user.email);
+    if (grant === 'failed') { push('lookup failed'); continue; }
+    if (grant.sentAt !== null) { push('already sent'); continue; }
     if (await hasPaidPro(user.id)) { push('paid pro'); continue; }
 
     const lookup = await readPlanEditedAt(user.id);
