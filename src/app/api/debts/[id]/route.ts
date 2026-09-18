@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { verifyAuth, unauthorized, badRequest, serverError, isValidId } from '@/lib/auth-server';
 import { plaidClient, logPlaidError } from '@/lib/plaid';
 import { decryptToken } from '@/lib/plaidCrypto';
+import { markPlanEdited } from '@/lib/planEdits';
 import { z } from 'zod';
 
 const UpdateDebtSchema = z.object({
@@ -118,9 +119,10 @@ export async function DELETE(
       return badRequest('Debt not found');
     }
 
-    await prisma.debt.delete({
-      where: { id: params.id },
-    });
+    await prisma.debt.delete({ where: { id: params.id } });
+    // The delete leaves no row timestamp behind; stamp the user so lifecycle
+    // emails read it as plan activity. Best-effort, never fails the delete.
+    await markPlanEdited(auth.user.id);
 
     // If this was the last debt on a linked Plaid item, the disconnect UI
     // (which lives on debt cards) is gone too — revoke the token with Plaid

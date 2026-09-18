@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getLatestPlanEditAt,
   WIN_BACK_CHECK_KEY,
   getInactiveDays,
   getLatestPlanActivityAt,
@@ -22,6 +23,48 @@ describe('lifecycle win-back targeting', () => {
     });
 
     expect(latest.toISOString()).toBe('2026-06-20T00:00:00.000Z');
+  });
+
+  it('reports the latest plan edit without account creation, null when untouched', () => {
+    const untouched = { debts: [], income: null, paymentRecords: [] };
+    expect(getLatestPlanEditAt(untouched)).toBeNull();
+
+    const edited = getLatestPlanEditAt({
+      debts: [{ updatedAt: new Date('2026-04-01T00:00:00.000Z') }],
+      income: { updatedAt: new Date('2026-05-15T00:00:00.000Z') },
+      paymentRecords: [],
+    });
+    expect(edited?.toISOString()).toBe('2026-05-15T00:00:00.000Z');
+
+    // Activity still floors at creation for win-back's idle-time math.
+    const created = new Date('2026-06-01T00:00:00.000Z');
+    expect(getLatestPlanActivityAt({ createdAt: created, ...untouched }).toISOString()).toBe(created.toISOString());
+  });
+
+  it('counts a delete stamp as a plan edit when the caller selects it', () => {
+    const edited = getLatestPlanEditAt({
+      debts: [{ updatedAt: new Date('2026-04-01T00:00:00.000Z') }],
+      income: null,
+      paymentRecords: [],
+      planEditedAt: new Date('2026-08-01T00:00:00.000Z'),
+    });
+    expect(edited?.toISOString()).toBe('2026-08-01T00:00:00.000Z');
+    expect(getLatestPlanEditAt({ debts: [], income: null, paymentRecords: [], planEditedAt: null })).toBeNull();
+  });
+
+  it('counts a recurring-expense edit as activity when the caller selects expenses', () => {
+    const base = {
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      debts: [{ updatedAt: new Date('2026-04-01T00:00:00.000Z') }],
+      income: null,
+      paymentRecords: [],
+    };
+    const withExpense = getLatestPlanActivityAt({
+      ...base,
+      expenses: [{ updatedAt: new Date('2026-07-01T00:00:00.000Z') }],
+    });
+    expect(withExpense.toISOString()).toBe('2026-07-01T00:00:00.000Z');
+    expect(getLatestPlanActivityAt(base).toISOString()).toBe('2026-04-01T00:00:00.000Z');
   });
 
   it('becomes eligible at 30 complete inactive days', () => {

@@ -1,9 +1,12 @@
 /**
  * GET /api/cron/trial-emails
  *
- * Daily. Announces the free-trial boundary by email, once per boundary:
- *   ending — 2 to 4 days before the free Pro window closes
- *   ended  — inside the 7-day post-trial prompt window after it closes
+ * Daily. Announces the free-trial boundary by email, once per boundary, at
+ * most one email per account per run:
+ *   ending  — 2 to 4 days before the free Pro window closes
+ *   ended   — inside the 7-day post-trial prompt window after it closes
+ *   stopped — from day 3 of that window, to accounts with no plan activity
+ *             since the close: a one-question "what made you stop?" ask
  *
  * The dashboard already shows a countdown banner and a post-trial modal, but
  * only to users who open the app; this reaches the ones who don't.
@@ -21,7 +24,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { render } from '@react-email/render';
 import * as React from 'react';
 import { prisma } from '@/lib/prisma';
-import { EMAIL_FROM, APP_BASE_URL } from '@/lib/constants/app';
+import { EMAIL_FROM, APP_BASE_URL, SUPPORT_EMAIL } from '@/lib/constants/app';
 import {
   handleMissingResendConfig,
   markEmailSent,
@@ -35,18 +38,22 @@ import {
   TRIAL_EMAIL_VERSION,
   daysSinceTrialEnd,
   daysUntilTrialEnd,
+  dueTrialEmails,
   hasReceivedTrialEmail,
-  pickTrialEmail,
   trialCandidateCreatedAfter,
   trialCheckKey,
   trialGrantSentField,
   type TrialEmailKind,
+  type TrialGrantSentField,
 } from '@/lib/lifecycleTrial';
 import { trialGrantKey } from '@/lib/trialGrantKey';
+import { getLatestPlanEditAt } from '@/lib/lifecycleWinBack';
+import { readPlanEditedAt } from '@/lib/planEdits';
 import { calculatePlanMetrics, calculateMinimumsOnlyResult } from '@/lib/payoffPlan';
 import { generateUnsubscribeToken } from '@/lib/unsubscribeToken';
 import TrialEndingSoonEmail from '@/emails/TrialEndingSoonEmail';
 import TrialEndedEmail from '@/emails/TrialEndedEmail';
+import TrialStoppedEmail from '@/emails/TrialStoppedEmail';
 import type { Debt } from '@/types';
 import type { Prisma } from '@prisma/client';
 
@@ -68,8 +75,9 @@ const CANDIDATE_SELECT = {
   name: true,
   createdAt: true,
   preferences: { select: { actionChecks: true, trialStartedAt: true } },
+  // Unfiltered: a debt paid down to zero is still a plan edit, and the
+  // "stopped" activity check must see it. Plan math uses openDebts().
   debts: {
-    where: { balance: { gt: 0 } },
     select: {
       id: true, balance: true, originalBalance: true, interestRate: true, minimumPayment: true,
       name: true, category: true, creditLimit: true, createdAt: true, updatedAt: true, userId: true, dueDate: true,
@@ -77,7 +85,11 @@ const CANDIDATE_SELECT = {
     },
   },
   income: true,
-  expenses: { select: { amount: true } },
+  // updatedAt: a recurring-expense edit is post-trial activity for "stopped".
+  expenses: { select: { amount: true, updatedAt: true } },
+  // Latest payment is the activity signal for "stopped"; the count is its copy.
+  paymentRecords: { orderBy: { paidAt: 'desc' }, take: 1, select: { paidAt: true } },
+  _count: { select: { paymentRecords: true } },
 } satisfies Prisma.UserSelect;
 
 type TrialCandidate = Prisma.UserGetPayload<{ select: typeof CANDIDATE_SELECT }>;
@@ -89,6 +101,11 @@ type TrialCandidate = Prisma.UserGetPayload<{ select: typeof CANDIDATE_SELECT }>
  */
 function trialAnchor(user: TrialCandidate): number {
   return (user.preferences?.trialStartedAt ?? user.createdAt).getTime();
+}
+
+/** Debts with a balance left: what the plan math and the debt count mean. */
+function openDebts(user: TrialCandidate): Debt[] {
+  return user.debts.filter((debt) => debt.balance > 0) as Debt[];
 }
 
 function buildKeepProUrl(kind: TrialEmailKind): string {
@@ -119,19 +136,128 @@ function formatTrialEndDate(date: Date): string {
  * deletes and recreates inside the window keeps the same "already sent"
  * state; UserPreferences.actionChecks is the fallback when no grant exists.
  * A missing grant table/column (db push pending) reads as "not sent" and
- * logs, rather than blocking the run.
+ * logs, rather than blocking the run. Only the requested kind's column is
+ * selected, so a column not yet pushed (stoppedEmailSentAt) cannot take the
+ * older kinds' dedupe down with it.
  */
 async function grantSentAt(email: string, kind: TrialEmailKind): Promise<Date | null> {
+  const field = trialGrantSentField(kind);
   try {
-    const grant = await prisma.trialGrant.findUnique({
+    const grant = (await prisma.trialGrant.findUnique({
       where: { emailHash: trialGrantKey(email) },
-      select: { endingEmailSentAt: true, endedEmailSentAt: true },
-    });
-    return grant?.[trialGrantSentField(kind)] ?? null;
+      select: { [field]: true },
+    })) as Partial<Record<TrialGrantSentField, Date | null>> | null;
+    return grant?.[field] ?? null;
   } catch (error) {
     console.error('[cron trial-emails] TrialGrant read failed', error);
     return null;
   }
+}
+
+async function alreadySent(user: TrialCandidate, kind: TrialEmailKind): Promise<boolean> {
+  return (
+    hasReceivedTrialEmail(user.preferences?.actionChecks, kind) ||
+    (await grantSentAt(user.email, kind)) !== null
+  );
+}
+
+/**
+ * The first due email this account has not received. `undefined` when
+ * nothing is due; `null` when everything due has already gone out. Taking
+ * only the first keeps "ended" ahead of "stopped" and a run apart from it.
+ */
+async function nextTrialEmail(
+  user: TrialCandidate,
+  trialEndsAt: Date,
+  now: Date,
+): Promise<TrialEmailKind | null | undefined> {
+  const due = dueTrialEmails(trialEndsAt, now);
+  if (due.length === 0) return undefined;
+  for (const kind of due) {
+    if (!(await alreadySent(user, kind))) return kind;
+  }
+  return null;
+}
+
+/**
+ * "What made you stop?" is only honest for an account that did stop: any
+ * balance, income, or expense edit or delete, or a logged payment since the
+ * boundary means they are still using the plan on Free. Account creation is
+ * not an edit: a delete-and-recreate mints a fresh createdAt after the
+ * grant-anchored boundary without anyone touching the plan.
+ */
+async function usedPlanSince(user: TrialCandidate, since: Date): Promise<boolean> {
+  // Read per candidate rather than in the scan select: until the column is
+  // pushed, a select there would fail the whole scan and take the older
+  // emails down with it. Only that rollout state reads as "no delete
+  // stamp"; any other failure is unknown, and unknown must not become
+  // "inactive" and trigger a send. Throwing lands in the per-user catch:
+  // nothing sent, nothing recorded, retried next run.
+  const lookup = await readPlanEditedAt(user.id);
+  if (!lookup.ok && lookup.reason === 'failed') {
+    throw new Error('planEditedAt lookup failed; deferring the stopped check to the next run');
+  }
+  const planEditedAt = lookup.ok ? lookup.planEditedAt : null;
+  const editedAt = getLatestPlanEditAt({ ...user, planEditedAt });
+  // Inclusive: an edit at the boundary instant is activity since the close.
+  return editedAt !== null && editedAt.getTime() >= since.getTime();
+}
+
+interface TrialMessage {
+  subject: string;
+  element: React.ReactElement;
+}
+
+function buildTrialMessage(
+  kind: TrialEmailKind,
+  user: TrialCandidate,
+  trialEndsAt: Date,
+  now: Date,
+  unsubscribeUrl: string,
+): TrialMessage {
+  const userName = user.name?.split(' ')[0] || undefined;
+
+  if (kind === 'stopped') {
+    return {
+      subject: 'What made you stop?',
+      element: React.createElement(TrialStoppedEmail, {
+        userName,
+        paymentsLogged: user._count.paymentRecords,
+        unsubscribeUrl,
+      }),
+    };
+  }
+
+  const debts = openDebts(user);
+  const common = {
+    userName,
+    debtCount: debts.length,
+    monthlyPrice: PLANS.pro.price,
+    keepProUrl: buildKeepProUrl(kind),
+    unsubscribeUrl,
+  };
+
+  if (kind === 'ending') {
+    const daysLeft = daysUntilTrialEnd(trialEndsAt, now);
+    return {
+      subject: `${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} of free Pro left`,
+      element: React.createElement(TrialEndingSoonEmail, {
+        ...common,
+        daysLeft,
+        trialEndDate: formatTrialEndDate(trialEndsAt),
+        interestAvoided: interestAvoidedFor(debts, user.income, user.expenses),
+      }),
+    };
+  }
+
+  // A send can trail the boundary by a day (cron cadence) or more
+  // (retries), so only the boundary's own day says "today".
+  const endedOn =
+    daysSinceTrialEnd(trialEndsAt, now) === 0 ? 'today' : `on ${formatTrialEndDate(trialEndsAt)}`;
+  return {
+    subject: `Your free Pro ended ${endedOn}. Your plan did not.`,
+    element: React.createElement(TrialEndedEmail, { ...common, endedOn }),
+  };
 }
 
 async function recordSent(userId: string, email: string, kind: TrialEmailKind): Promise<void> {
@@ -213,10 +339,13 @@ export async function GET(request: NextRequest) {
     candidates: candidates.length,
     ending: 0,
     ended: 0,
+    stopped: 0,
     errors: 0,
     skippedOutsideWindow: 0,
     skippedPaid: 0,
     skippedPreviouslySent: 0,
+    // Due for "stopped" but still using the plan on Free, so not asked.
+    skippedActive: 0,
     // True whenever the scan did not see every account it should have: either
     // arm hit its own cap, or the merged set was sliced. Missing the second
     // case would hand back a clean all-clear for a run that skipped accounts.
@@ -228,7 +357,7 @@ export async function GET(request: NextRequest) {
   };
 
   for (const user of candidates) {
-    if (results.ending + results.ended >= MAX_SENDS_PER_RUN) {
+    if (results.ending + results.ended + results.stopped >= MAX_SENDS_PER_RUN) {
       results.limited = true;
       break;
     }
@@ -237,15 +366,16 @@ export async function GET(request: NextRequest) {
       // Grant-anchored (survives delete-and-recreate), same source of truth
       // the dashboard banner and checkout use.
       const trialEndsAt = await getSignupTrialEnd(user.id);
-      const kind = trialEndsAt ? pickTrialEmail(trialEndsAt, now) : null;
-      if (!trialEndsAt || !kind) {
+      if (!trialEndsAt) {
         results.skippedOutsideWindow++;
         continue;
       }
-      if (
-        hasReceivedTrialEmail(user.preferences?.actionChecks, kind) ||
-        (await grantSentAt(user.email, kind)) !== null
-      ) {
+      const kind = await nextTrialEmail(user, trialEndsAt, now);
+      if (kind === undefined) {
+        results.skippedOutsideWindow++;
+        continue;
+      }
+      if (kind === null) {
         results.skippedPreviouslySent++;
         continue;
       }
@@ -256,44 +386,24 @@ export async function GET(request: NextRequest) {
         results.skippedPaid++;
         continue;
       }
-
-      const unsubscribeUrl = `${APP_BASE_URL}/api/email/unsubscribe?userId=${user.id}&token=${generateUnsubscribeToken(user.id)}`;
-      const common = {
-        userName: user.name?.split(' ')[0] || undefined,
-        debtCount: user.debts.length,
-        monthlyPrice: PLANS.pro.price,
-        keepProUrl: buildKeepProUrl(kind),
-        unsubscribeUrl,
-      };
-
-      let subject: string;
-      let element: React.ReactElement;
-      if (kind === 'ending') {
-        const daysLeft = daysUntilTrialEnd(trialEndsAt, now);
-        subject = `${daysLeft} ${daysLeft === 1 ? 'day' : 'days'} of free Pro left`;
-        element = React.createElement(TrialEndingSoonEmail, {
-          ...common,
-          daysLeft,
-          trialEndDate: formatTrialEndDate(trialEndsAt),
-          interestAvoided: interestAvoidedFor(user.debts as Debt[], user.income, user.expenses),
-        });
-      } else {
-        // A send can trail the boundary by a day (cron cadence) or more
-        // (retries), so only the boundary's own day says "today".
-        const endedOn =
-          daysSinceTrialEnd(trialEndsAt, now) === 0
-            ? 'today'
-            : `on ${formatTrialEndDate(trialEndsAt)}`;
-        subject = `Your free Pro ended ${endedOn}. Your plan did not.`;
-        element = React.createElement(TrialEndedEmail, { ...common, endedOn });
+      // Still using the plan on Free: they did not stop, so do not ask. Mark
+      // so the row is not re-evaluated; the 30-day win-back owns later idling.
+      if (kind === 'stopped' && (await usedPlanSince(user, trialEndsAt))) {
+        await recordSent(user.id, user.email, kind);
+        results.skippedActive++;
+        continue;
       }
 
+      const unsubscribeUrl = `${APP_BASE_URL}/api/email/unsubscribe?userId=${user.id}&token=${generateUnsubscribeToken(user.id)}`;
+      const { subject, element } = buildTrialMessage(kind, user, trialEndsAt, now, unsubscribeUrl);
+
+      // Every trial email asks for a reply; the from address is a no-reply box.
       const result = await sendEmail(
         user.email,
         EMAIL_FROM,
         subject,
         await render(element),
-        { idempotencyKey: `trial-${kind}-${TRIAL_EMAIL_VERSION}-${user.id}` },
+        { idempotencyKey: `trial-${kind}-${TRIAL_EMAIL_VERSION}-${user.id}`, replyTo: SUPPORT_EMAIL },
       );
       if (!result.success) throw new Error(result.error);
 

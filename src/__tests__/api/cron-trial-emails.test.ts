@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
+import { Prisma } from '@prisma/client';
 
 const {
   mockPrisma, mockSendEmail, mockMarkEmailSent, mockRender, mockGetSignupTrialEnd, mockHasPaidPro,
 } = vi.hoisted(() => ({
   mockPrisma: {
-    user: { findMany: vi.fn() },
+    user: { findMany: vi.fn(), findUnique: vi.fn() },
     trialGrant: { findUnique: vi.fn(), update: vi.fn() },
   },
   mockSendEmail: vi.fn(),
@@ -35,13 +36,16 @@ vi.mock('@/lib/trialGrantKey', () => ({
 }));
 vi.mock('@/emails/TrialEndingSoonEmail', () => ({ default: function TrialEndingSoonEmail() { return null; } }));
 vi.mock('@/emails/TrialEndedEmail', () => ({ default: function TrialEndedEmail() { return null; } }));
+vi.mock('@/emails/TrialStoppedEmail', () => ({ default: function TrialStoppedEmail() { return null; } }));
 
 import { GET } from '@/app/api/cron/trial-emails/route';
 import {
   TRIAL_EMAIL_VERSION,
   TRIAL_ENDED_CHECK_KEY,
   TRIAL_ENDING_CHECK_KEY,
+  TRIAL_STOPPED_CHECK_KEY,
 } from '@/lib/lifecycleTrial';
+import { SUPPORT_EMAIL } from '@/lib/constants/app';
 import { SIGNUP_TRIAL_LAUNCH } from '@/lib/billing';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -65,8 +69,10 @@ function candidate(overrides: Record<string, unknown> = {}) {
       { id: 'd1', balance: 5000, originalBalance: 6000, interestRate: 24.99, minimumPayment: 150, name: 'Visa', category: 'credit_card', creditLimit: null, createdAt: new Date(), updatedAt: new Date(), userId: 'user_1', dueDate: null },
       { id: 'd2', balance: 3000, originalBalance: 3000, interestRate: 7.5, minimumPayment: 90, name: 'Car', category: 'auto_loan', creditLimit: null, createdAt: new Date(), updatedAt: new Date(), userId: 'user_1', dueDate: null },
     ],
-    income: { monthlyTakeHome: 4000, essentialExpenses: 2000, extraPayment: 0, payoffMethod: 'snowball' },
+    income: { monthlyTakeHome: 4000, essentialExpenses: 2000, extraPayment: 0, payoffMethod: 'snowball', updatedAt: inDays(-20) },
     expenses: [],
+    paymentRecords: [],
+    _count: { paymentRecords: 0 },
     ...overrides,
   };
 }
@@ -76,15 +82,18 @@ describe('GET /api/cron/trial-emails', () => {
     vi.clearAllMocks();
     process.env.RESEND_API_KEY = 'test-key';
     mockPrisma.user.findMany.mockResolvedValue([]);
+    mockPrisma.user.findUnique.mockResolvedValue({ planEditedAt: null });
     mockSendEmail.mockResolvedValue({ success: true, id: 'email_1' });
     mockMarkEmailSent.mockResolvedValue(undefined);
     mockHasPaidPro.mockResolvedValue(false);
-    mockPrisma.trialGrant.findUnique.mockResolvedValue({ endingEmailSentAt: null, endedEmailSentAt: null });
+    mockPrisma.trialGrant.findUnique.mockResolvedValue({ endingEmailSentAt: null, endedEmailSentAt: null, stoppedEmailSentAt: null });
     mockPrisma.trialGrant.update.mockResolvedValue({});
   });
 
   it('sends the "ending" email 3 days out with real plan numbers and a Keep Pro deep link', async () => {
-    mockPrisma.user.findMany.mockResolvedValue([candidate()]);
+    const paidOff = { id: 'd0', balance: 0, originalBalance: 900, interestRate: 19.99, minimumPayment: 25, name: 'Store card', category: 'credit_card', creditLimit: null, createdAt: new Date(), updatedAt: new Date(), userId: 'user_1', dueDate: null };
+    const base = candidate();
+    mockPrisma.user.findMany.mockResolvedValue([{ ...base, debts: [paidOff, ...base.debts] }]);
     mockGetSignupTrialEnd.mockResolvedValue(inDays(3));
 
     const body = await (await GET(makeRequest())).json();
@@ -95,7 +104,7 @@ describe('GET /api/cron/trial-emails', () => {
       expect.any(String),
       '3 days of free Pro left',
       '<html>email</html>',
-      { idempotencyKey: `trial-ending-${TRIAL_EMAIL_VERSION}-user_1` },
+      { idempotencyKey: `trial-ending-${TRIAL_EMAIL_VERSION}-user_1`, replyTo: SUPPORT_EMAIL },
     );
     expect(mockMarkEmailSent).toHaveBeenCalledWith('user_1', TRIAL_ENDING_CHECK_KEY);
     expect(mockPrisma.trialGrant.update).toHaveBeenCalledWith({
@@ -126,7 +135,7 @@ describe('GET /api/cron/trial-emails', () => {
       expect.any(String),
       'Your free Pro ended today. Your plan did not.',
       '<html>email</html>',
-      { idempotencyKey: `trial-ended-${TRIAL_EMAIL_VERSION}-user_1` },
+      { idempotencyKey: `trial-ended-${TRIAL_EMAIL_VERSION}-user_1`, replyTo: SUPPORT_EMAIL },
     );
     expect(mockMarkEmailSent).toHaveBeenCalledWith('user_1', TRIAL_ENDED_CHECK_KEY);
     expect(mockPrisma.trialGrant.update).toHaveBeenCalledWith({
@@ -155,6 +164,7 @@ describe('GET /api/cron/trial-emails', () => {
     mockPrisma.trialGrant.findUnique.mockResolvedValue({
       endingEmailSentAt: new Date(),
       endedEmailSentAt: null,
+      stoppedEmailSentAt: null,
     });
 
     const body = await (await GET(makeRequest())).json();
@@ -363,5 +373,253 @@ describe('GET /api/cron/trial-emails', () => {
 
     expect(body).toMatchObject({ candidates: 1, ending: 1 });
     expect(mockSendEmail).toHaveBeenCalledTimes(1);
+  });
+
+  describe('the "stopped" ask, three days after the boundary', () => {
+    const DAYS_AFTER = -3.5;
+    const endedAlreadySent = { [TRIAL_ENDED_CHECK_KEY]: true };
+    // A realistic expired trial: signed up 14 days before the boundary, last
+    // touched the plan while the trial was still running.
+    const stoppedCandidate = (overrides: Record<string, unknown> = {}) =>
+      candidate({
+        createdAt: inDays(DAYS_AFTER - 14),
+        preferences: { actionChecks: endedAlreadySent, trialStartedAt: null },
+        debts: [
+          { id: 'd1', balance: 5000, originalBalance: 6000, interestRate: 24.99, minimumPayment: 150, name: 'Visa', category: 'credit_card', creditLimit: null, createdAt: inDays(-17), updatedAt: inDays(-10), userId: 'user_1', dueDate: null },
+        ],
+        ...overrides,
+      });
+
+    it('asks what made them stop once "ended" has gone out, with replies routed to support', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({ paymentRecords: [{ paidAt: inDays(-10) }], _count: { paymentRecords: 4 } }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ ending: 0, ended: 0, stopped: 1, errors: 0 });
+      expect(mockSendEmail).toHaveBeenCalledWith(
+        'person@example.com',
+        expect.any(String),
+        'What made you stop?',
+        '<html>email</html>',
+        { idempotencyKey: `trial-stopped-${TRIAL_EMAIL_VERSION}-user_1`, replyTo: SUPPORT_EMAIL },
+      );
+      expect(mockMarkEmailSent).toHaveBeenCalledWith('user_1', TRIAL_STOPPED_CHECK_KEY);
+      expect(mockPrisma.trialGrant.update).toHaveBeenCalledWith({
+        where: { emailHash: 'hash:person@example.com' },
+        data: { stoppedEmailSentAt: expect.any(Date) },
+      });
+      const props = mockRender.mock.calls[0][0].props;
+      expect(props.userName).toBe('Jordan');
+      expect(props.paymentsLogged).toBe(4);
+      expect(props.unsubscribeUrl).toContain('token=test-token');
+      expect(props.keepProUrl).toBeUndefined();
+    });
+
+    it('sends "ended" first when both are due, never two emails in one run', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({ preferences: { actionChecks: {}, trialStartedAt: null } }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ ended: 1, stopped: 0 });
+      expect(mockSendEmail).toHaveBeenCalledTimes(1);
+      expect(mockSendEmail.mock.calls[0][2]).toMatch(/^Your free Pro ended/);
+    });
+
+    it('does not ask someone who kept using their plan after the trial ended', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({ paymentRecords: [{ paidAt: inDays(-1) }], _count: { paymentRecords: 6 } }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 0, skippedActive: 1 });
+      expect(mockSendEmail).not.toHaveBeenCalled();
+      // Recorded so the row is not re-evaluated tomorrow; win-back owns later inactivity.
+      expect(mockMarkEmailSent).toHaveBeenCalledWith('user_1', TRIAL_STOPPED_CHECK_KEY);
+    });
+
+    it('treats a recurring-expense edit after the boundary as activity too', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({ expenses: [{ amount: 120, updatedAt: inDays(-1) }] }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 0, skippedActive: 1 });
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it('reads only the requested kind\'s grant column, so an unpushed stopped column cannot break ended dedupe', async () => {
+      // The grant already records the "ended" send, but the stopped column
+      // does not exist yet: the ended read must still succeed on its own.
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({ preferences: { actionChecks: {}, trialStartedAt: null } }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+      mockPrisma.trialGrant.findUnique.mockImplementation(async ({ select }: { select: Record<string, boolean> }) => {
+        if (select.stoppedEmailSentAt) throw new Error('column "stoppedEmailSentAt" does not exist');
+        return { endedEmailSentAt: new Date() };
+      });
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(mockPrisma.trialGrant.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ select: { endedEmailSentAt: true } }),
+      );
+      expect(mockPrisma.trialGrant.findUnique).not.toHaveBeenCalledWith(
+        expect.objectContaining({ select: expect.objectContaining({ endingEmailSentAt: true, stoppedEmailSentAt: true }) }),
+      );
+      // ended is deduped by the grant; stopped then goes out (its failed
+      // grant read falls back to the preferences flag, which is unset).
+      expect(body).toMatchObject({ ended: 0, stopped: 1, errors: 0 });
+    });
+
+    it('still asks after a delete-and-recreate with no plan edits (creation is not activity)', async () => {
+      // The grant anchors the trial to the original signup; the recreated
+      // row's createdAt lands after that boundary without any plan change.
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({
+          createdAt: inDays(-1),
+          debts: [],
+          income: null,
+          expenses: [],
+          paymentRecords: [],
+          _count: { paymentRecords: 0 },
+        }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 1, skippedActive: 0, errors: 0 });
+      expect(mockRender.mock.calls[0][0].props.paymentsLogged).toBe(0);
+    });
+
+    it('treats a debt or expense deleted after the boundary as activity too', async () => {
+      // Deletes leave no row behind; the delete routes stamp the user instead.
+      mockPrisma.user.findMany.mockResolvedValue([stoppedCandidate({ debts: [] })]);
+      mockPrisma.user.findUnique.mockResolvedValue({ planEditedAt: inDays(-1) });
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 0, skippedActive: 1 });
+      expect(mockSendEmail).not.toHaveBeenCalled();
+      expect(mockPrisma.user.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'user_1' }, select: { planEditedAt: true } }),
+      );
+    });
+
+    it('keeps running when the planEditedAt column is not deployed yet', async () => {
+      // The scan select never names the column; only this per-candidate read
+      // does, and it degrades to "no delete stamp" instead of failing the run.
+      mockPrisma.user.findMany.mockResolvedValue([stoppedCandidate({ debts: [] })]);
+      mockPrisma.user.findUnique.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('column does not exist', { code: 'P2022', clientVersion: 'test' }),
+      );
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ ok: true, stopped: 1, errors: 0 });
+      expect(mockPrisma.user.findMany.mock.calls[0][0].select).not.toHaveProperty('planEditedAt');
+      warnSpy.mockRestore();
+    });
+
+    it('defers, without sending or recording, when the delete-stamp read fails for any other reason', async () => {
+      // A transient read failure could be hiding a post-trial delete: unknown
+      // is not "inactive". The row is retried next run.
+      mockPrisma.user.findMany.mockResolvedValue([stoppedCandidate({ debts: [] })]);
+      mockPrisma.user.findUnique.mockRejectedValue(new Error('connection reset'));
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 0, skippedActive: 0, errors: 1 });
+      expect(mockSendEmail).not.toHaveBeenCalled();
+      expect(mockMarkEmailSent).not.toHaveBeenCalled();
+      expect(mockPrisma.trialGrant.update).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
+    });
+
+    it('treats an edit at the exact trial-end instant as activity (inclusive boundary)', async () => {
+      const trialEndsAt = inDays(DAYS_AFTER);
+      mockPrisma.user.findMany.mockResolvedValue([stoppedCandidate({ debts: [] })]);
+      mockPrisma.user.findUnique.mockResolvedValue({ planEditedAt: trialEndsAt });
+      mockGetSignupTrialEnd.mockResolvedValue(trialEndsAt);
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 0, skippedActive: 1 });
+    });
+
+    it('treats a balance edit after the boundary as activity too', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({
+          debts: [
+            { id: 'd1', balance: 5000, originalBalance: 6000, interestRate: 24.99, minimumPayment: 150, name: 'Visa', category: 'credit_card', creditLimit: null, createdAt: inDays(-17), updatedAt: inDays(-2), userId: 'user_1', dueDate: null },
+          ],
+        }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 0, skippedActive: 1 });
+    });
+
+    it('counts a debt paid down to zero after the boundary as activity', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({
+          debts: [
+            { id: 'd1', balance: 0, originalBalance: 6000, interestRate: 24.99, minimumPayment: 150, name: 'Visa', category: 'credit_card', creditLimit: null, createdAt: inDays(-17), updatedAt: inDays(-1), userId: 'user_1', dueDate: null },
+          ],
+        }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 0, skippedActive: 1 });
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it('is a one-time send, tracked on the grant like the others', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([stoppedCandidate()]);
+      mockGetSignupTrialEnd.mockResolvedValue(inDays(DAYS_AFTER));
+      mockPrisma.trialGrant.findUnique.mockResolvedValue({
+        endingEmailSentAt: null,
+        endedEmailSentAt: new Date(),
+        stoppedEmailSentAt: new Date(),
+      });
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body.skippedPreviouslySent).toBe(1);
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
+
+    it('is not due before day 3 or after the prompt window', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([
+        stoppedCandidate({ id: 'early' }),
+        stoppedCandidate({ id: 'late' }),
+      ]);
+      mockGetSignupTrialEnd.mockResolvedValueOnce(inDays(-1.5)).mockResolvedValueOnce(inDays(-8));
+
+      const body = await (await GET(makeRequest())).json();
+
+      expect(body).toMatchObject({ stopped: 0, skippedPreviouslySent: 1, skippedOutsideWindow: 1 });
+      expect(mockSendEmail).not.toHaveBeenCalled();
+    });
   });
 });
