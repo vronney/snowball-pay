@@ -17,8 +17,13 @@ import { applyGoogleAdsConsent } from "@/lib/googleAds";
  */
 export const CONSENT_BANNER_OFFSET_VAR = "--consent-banner-offset";
 
-/** Page events that count as the visitor engaging with the page. */
-export const ENGAGEMENT_EVENTS = ["scroll", "pointerdown", "keydown"] as const;
+/**
+ * Page events that count as the visitor engaging with the page. `click`
+ * rather than `pointerdown`: the banner must not mount in the middle of the
+ * tap that summoned it, or it can be hit-tested in place of the control the
+ * visitor was pressing and swallow that first click.
+ */
+export const ENGAGEMENT_EVENTS = ["scroll", "click", "keydown"] as const;
 
 /** How long a visitor who only reads gets before the prompt appears anyway. */
 export const CONSENT_REVEAL_FALLBACK_MS = 8000;
@@ -33,7 +38,7 @@ interface EngagementTarget {
 }
 
 /**
- * Calls `onEngaged` once: on the visitor's first scroll, pointer, or key
+ * Calls `onEngaged` once: on the visitor's first scroll, click, or key
  * input on `target`, or after `fallbackMs` if none comes. Returns a cleanup
  * that removes the listeners and cancels the timer. Deferring the prompt
  * this way keeps it off the hero and its CTA on a cold load; nothing

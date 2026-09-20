@@ -30,8 +30,12 @@ describe('subscribeToEngagement', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it('waits for scroll, pointer, and key input so the prompt never covers the hero on a cold load', () => {
-    expect([...ENGAGEMENT_EVENTS]).toEqual(['scroll', 'pointerdown', 'keydown']);
+  it('waits for scroll, click, and key input so the prompt never covers the hero on a cold load', () => {
+    expect([...ENGAGEMENT_EVENTS]).toEqual(['scroll', 'click', 'keydown']);
+  });
+
+  it('does not listen for pointerdown, so a tap in its footprint completes before it mounts', () => {
+    expect([...ENGAGEMENT_EVENTS]).not.toContain('pointerdown');
   });
 
   it.each([...ENGAGEMENT_EVENTS])('reveals once on the first %s and then stops listening', (event) => {
@@ -68,7 +72,7 @@ describe('subscribeToEngagement', () => {
     const cleanup = subscribeToEngagement(target, onEngaged);
 
     cleanup();
-    target.fire('pointerdown');
+    target.fire('click');
     vi.advanceTimersByTime(CONSENT_REVEAL_FALLBACK_MS * 2);
 
     expect(onEngaged).not.toHaveBeenCalled();
