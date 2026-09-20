@@ -843,7 +843,7 @@ export default function PublicCalculator({
                 fontWeight: 800,
                 letterSpacing: "0.13em",
                 textTransform: "uppercase",
-                color: "#94a3b8",
+                color: "#64748b",
                 marginBottom: "8px",
               }}
             >
@@ -971,7 +971,7 @@ export default function PublicCalculator({
                 fontWeight: 800,
                 letterSpacing: "0.13em",
                 textTransform: "uppercase",
-                color: "#94a3b8",
+                color: "#64748b",
                 marginBottom: "8px",
               }}
             >
@@ -1007,7 +1007,7 @@ export default function PublicCalculator({
                 fontWeight: 800,
                 letterSpacing: "0.13em",
                 textTransform: "uppercase",
-                color: "#94a3b8",
+                color: "#64748b",
                 marginBottom: "8px",
               }}
             >
@@ -1051,7 +1051,7 @@ export default function PublicCalculator({
                   >
                     {calc.title}
                   </span>
-                  <span style={{ fontSize: "14px", color: "#94a3b8" }}>→</span>
+                  <span style={{ fontSize: "14px", color: "#64748b" }}>→</span>
                 </Link>
               ))}
             </div>
@@ -1082,7 +1082,7 @@ export default function PublicCalculator({
               <Link
                 key={link.href}
                 href={link.href}
-                style={{ color: "#94a3b8", textDecoration: "none" }}
+                style={{ color: "#64748b", textDecoration: "none" }}
               >
                 {link.label}
               </Link>

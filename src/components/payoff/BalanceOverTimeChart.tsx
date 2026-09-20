@@ -41,8 +41,8 @@ type ChartValueKey =
   | 'avalancheBalance';
 
 const PLAN_COLOR = '#2563eb';
-const ACTUAL_COLOR = '#059669';
-const MINIMUMS_COLOR = '#d97706';
+const ACTUAL_COLOR = '#15803d';
+const MINIMUMS_COLOR = '#b45309';
 const COMPARISON_COLOR = '#0891b2';
 
 const lineMeta: Record<
@@ -205,7 +205,7 @@ function MetricPill({
         {value}
       </p>
       {helper && (
-        <p className="text-xs mt-1" style={{ color: '#94a3b8' }}>
+        <p className="text-xs mt-1" style={{ color: '#64748b' }}>
           {helper}
         </p>
       )}
@@ -362,7 +362,7 @@ function DebtChartTooltip({
           className="mt-2 pt-2 text-xs font-semibold"
           style={{
             borderTop: '1px solid rgba(15,23,42,0.08)',
-            color: Math.abs(diff) < 50 ? '#65a30d' : diff > 0 ? '#059669' : '#dc2626',
+            color: Math.abs(diff) < 50 ? '#4d7c0f' : diff > 0 ? '#15803d' : '#dc2626',
           }}
         >
           {comparisonText(diff)} vs plan
@@ -534,9 +534,9 @@ export default function BalanceOverTimeChart({
               border: '1px solid rgba(15,23,42,0.08)',
               color:
                 Math.abs(latestDiff) < 50
-                  ? '#65a30d'
+                  ? '#4d7c0f'
                   : latestDiff > 0
-                    ? '#059669'
+                    ? '#15803d'
                     : '#dc2626',
             }}
           >
@@ -718,15 +718,15 @@ export default function BalanceOverTimeChart({
             style={{
               color:
                 latestDiff == null || Math.abs(latestDiff) < 50
-                  ? '#65a30d'
+                  ? '#4d7c0f'
                   : latestDiff > 0
-                    ? '#059669'
+                    ? '#15803d'
                     : '#dc2626',
             }}
           >
             {comparisonText(latestDiff)}
           </span>
-          <span style={{ color: '#94a3b8' }}>({latestActual.date})</span>
+          <span style={{ color: '#64748b' }}>({latestActual.date})</span>
         </div>
       )}
     </div>

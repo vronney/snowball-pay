@@ -189,7 +189,7 @@ export default function CaseStudies() {
                     <div
                       style={{
                         fontSize: "9px",
-                        color: "#94a3b8",
+                        color: "#64748b",
                         fontWeight: 700,
                         letterSpacing: "0.06em",
                         textTransform: "uppercase",

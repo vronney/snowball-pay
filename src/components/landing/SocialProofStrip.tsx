@@ -27,7 +27,7 @@ export default function SocialProofStrip() {
           <div style={{ overflow: 'hidden', flex: 1 }}>
             <div className="lp-ticker">
               {BRANDS.map((b, i) => (
-                <span key={i} style={{ fontSize: '12px', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.05em' }}>{b}</span>
+                <span key={i} style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', letterSpacing: '0.05em' }}>{b}</span>
               ))}
             </div>
           </div>
@@ -44,7 +44,7 @@ export default function SocialProofStrip() {
                   {s.value}
                 </div>
                 <div style={{ fontSize: '12px', color: '#475569', letterSpacing: '0.02em', fontWeight: 600, marginBottom: '3px' }}>{s.label}</div>
-                <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 500 }}>{s.sub}</div>
+                <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 500 }}>{s.sub}</div>
               </div>
               {i < stats.length - 1 && (
                 <div className="lp-stat-divider" style={{ width: '1px', height: '60px', background: 'linear-gradient(to bottom, transparent, rgba(15,23,42,0.1), transparent)', flexShrink: 0 }} />

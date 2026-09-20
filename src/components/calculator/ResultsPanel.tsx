@@ -88,21 +88,19 @@ export default function ResultsPanel({
         }}
       >
         {sampleMode && (
-          <div className="flex justify-center mb-4">
-            <span
-              style={{
-                fontSize: "11px",
-                fontWeight: 600,
-                color: "#475569",
-                background: "#f1f5f9",
-                border: "1px solid rgba(15,23,42,0.08)",
-                borderRadius: "6px",
-                padding: "4px 10px",
-              }}
-            >
-              Sample scenario — edit the debts to see <em>your</em> date
-            </span>
-          </div>
+          <p
+            className="text-center text-xs mb-4"
+            style={{ color: "#475569", lineHeight: 1.5 }}
+          >
+            <span className="font-semibold" style={{ color: "#0f172a" }}>
+              Your projected result
+            </span>{" "}
+            — based on the {planResult.payoffSchedule.length}{" "}
+            {planResult.payoffSchedule.length === 1 ? "debt" : "debts"} in this
+            plan.
+            <br />
+            Change any number and it updates instantly.
+          </p>
         )}
         <div
           className="text-center mb-5 pb-5"
@@ -134,7 +132,7 @@ export default function ResultsPanel({
             <div className="text-xs mb-1" style={{ color: "#64748b" }}>
               Total Interest
             </div>
-            <div className="font-semibold text-sm" style={{ color: "#f59e0b" }}>
+            <div className="font-semibold text-sm" style={{ color: "#b45309" }}>
               {formatCurrency(planResult.totalInterestPaid)}
             </div>
           </div>
@@ -148,7 +146,7 @@ export default function ResultsPanel({
             <div className="text-xs mb-1" style={{ color: "#64748b" }}>
               vs Minimums
             </div>
-            <div className="font-semibold text-sm" style={{ color: "#22c55e" }}>
+            <div className="font-semibold text-sm" style={{ color: "#15803d" }}>
               {interestSaved > 0 ? `−${formatCurrency(interestSaved)}` : "—"}
             </div>
           </div>
@@ -189,7 +187,7 @@ export default function ResultsPanel({
           {savePlanLabel}
           <ArrowRight size={14} />
         </button>
-        <p className="text-xs text-center mt-1.5" style={{ color: "#94a3b8" }}>
+        <p className="text-xs text-center mt-1.5" style={{ color: "#64748b" }}>
           {savePlanHelperText}
         </p>
       </div>

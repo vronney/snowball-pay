@@ -123,7 +123,7 @@ export default function LandingFooter() {
             gap: "12px",
           }}
         >
-          <p style={{ fontSize: "13px", color: "#94a3b8" }}>
+          <p style={{ fontSize: "13px", color: "#64748b" }}>
             (c) {new Date().getFullYear()} SnowballPay. All rights reserved.
           </p>
           <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
