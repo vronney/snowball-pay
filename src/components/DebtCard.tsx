@@ -20,6 +20,7 @@ import { useRefreshDebtFromPlaid } from "@/lib/hooks/useRefreshDebtFromPlaid";
 import { useDisconnectPlaidItem } from "@/lib/hooks/useDisconnectPlaidItem";
 import { PlaidReauthBanner } from "@/components/plaid/PlaidReauthBanner";
 import DebtForm from "@/components/DebtForm";
+import { changedDebtFields, type DebtEditPayload } from "@/lib/debtEditDiff";
 import {
   DebtCardPaymentPanel,
   DebtCardBalancePanel,
@@ -136,7 +137,15 @@ export default function DebtCard({
   const refreshDebt = useRefreshDebtFromPlaid();
   const disconnectItem = useDisconnectPlaidItem();
 
-  const togglePanel = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
+  // The debt the edit form was seeded from. Saving diffs against this, not the
+  // live prop, so a value that changed underneath the open form (a payment
+  // deducting the balance) is never overwritten by the form's stale copy.
+  const [editBaseline, setEditBaseline] = useState<Debt | null>(null);
+
+  const togglePanel = (p: Panel) => {
+    if (p === "edit" && panel !== "edit") setEditBaseline(debt);
+    setPanel((cur) => (cur === p ? null : p));
+  };
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,8 +194,11 @@ export default function DebtCard({
     setPanel(null);
   };
 
-  const handleEditSubmit = async (formData: any) => {
-    await updateDebt.mutateAsync({ id: debt.id, updates: formData });
+  const handleEditSubmit = async (formData: DebtEditPayload) => {
+    const updates = changedDebtFields(editBaseline ?? debt, formData);
+    if (Object.keys(updates).length > 0) {
+      await updateDebt.mutateAsync({ id: debt.id, updates });
+    }
     setPanel(null);
   };
 
@@ -745,7 +757,7 @@ export default function DebtCard({
             }}
           >
             <DebtForm
-              initialData={debt}
+              initialData={editBaseline ?? debt}
               submitLabel="Save Changes"
               onSubmit={(data) => void handleEditSubmit(data)}
               onCancel={() => setPanel(null)}

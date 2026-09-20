@@ -57,3 +57,35 @@ describe('DebtForm (add mode)', () => {
     });
   });
 });
+
+describe('DebtForm (edit mode) → changedDebtFields', () => {
+  it('an edit that only adds a due date never re-sends the seeded balance', async () => {
+    const { changedDebtFields } = await import('@/lib/debtEditDiff');
+    const seeded = {
+      id: 'd1',
+      userId: 'u1',
+      name: 'Discover',
+      category: 'Credit Card' as const,
+      balance: 10691.17,
+      originalBalance: 10691.17,
+      interestRate: 26.49,
+      minimumPayment: 250,
+      creditLimit: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    render(createElement(DebtForm, { onSubmit, onCancel: vi.fn(), isLoading: false, initialData: seeded, submitLabel: 'Save Changes' }));
+
+    fireEvent.change(screen.getByPlaceholderText('15'), { target: { value: '20' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save Changes/ }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+
+    // The form still emits every field — that contract is unchanged…
+    const payload = onSubmit.mock.calls[0][0];
+    expect(payload.balance).toBe(10691.17);
+
+    // …but the diff DebtCard sends to PATCH carries only what the user changed.
+    expect(changedDebtFields(seeded, payload)).toEqual({ dueDate: 20 });
+  });
+});

@@ -40,6 +40,8 @@ const API_URL = '';
 // ===== DEBTS =====
 /** `allowOutsidePlan`: dashboard v2 only — past the Free cap, save outside the plan (spec §6.3). */
 export type CreateDebtInput = Partial<Debt> & { allowOutsidePlan?: boolean };
+/** PATCH payload for a debt; `dueDate: null` clears the due day. */
+export type DebtUpdates = Partial<Omit<Debt, 'dueDate'>> & { dueDate?: number | null };
 
 export function useDebts() {
   return useQuery<{ debts: Debt[] }>({
@@ -87,7 +89,8 @@ export function useCreateDebt() {
 export function useUpdateDebt() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, updates }: { id: string; updates: Partial<Debt> }) => {
+    // dueDate accepts null: PATCH /api/debts/[id] clears the day that way.
+    mutationFn: async ({ id, updates }: { id: string; updates: DebtUpdates }) => {
       const { data } = await axios.patch(`${API_URL}/api/debts/${id}`, updates);
       return data;
     },
