@@ -17,6 +17,55 @@ import { applyGoogleAdsConsent } from "@/lib/googleAds";
  */
 export const CONSENT_BANNER_OFFSET_VAR = "--consent-banner-offset";
 
+/** Page events that count as the visitor engaging with the page. */
+export const ENGAGEMENT_EVENTS = ["scroll", "pointerdown", "keydown"] as const;
+
+/** How long a visitor who only reads gets before the prompt appears anyway. */
+export const CONSENT_REVEAL_FALLBACK_MS = 8000;
+
+interface EngagementTarget {
+  addEventListener(
+    type: string,
+    listener: () => void,
+    options?: AddEventListenerOptions,
+  ): void;
+  removeEventListener(type: string, listener: () => void): void;
+}
+
+/**
+ * Calls `onEngaged` once: on the visitor's first scroll, pointer, or key
+ * input on `target`, or after `fallbackMs` if none comes. Returns a cleanup
+ * that removes the listeners and cancels the timer. Deferring the prompt
+ * this way keeps it off the hero and its CTA on a cold load; nothing
+ * non-essential runs before a choice, so waiting costs no consent coverage.
+ */
+export function subscribeToEngagement(
+  target: EngagementTarget,
+  onEngaged: () => void,
+  fallbackMs = CONSENT_REVEAL_FALLBACK_MS,
+): () => void {
+  let done = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const stop = () => {
+    for (const type of ENGAGEMENT_EVENTS) target.removeEventListener(type, engage);
+    clearTimeout(timer);
+  };
+  const engage = () => {
+    if (done) return;
+    done = true;
+    stop();
+    onEngaged();
+  };
+  for (const type of ENGAGEMENT_EVENTS) {
+    target.addEventListener(type, engage, { passive: true });
+  }
+  timer = setTimeout(engage, fallbackMs);
+  return () => {
+    done = true;
+    stop();
+  };
+}
+
 /** Persist the visitor's choice and apply it to Google Ads consent mode. */
 function updateConsent(choice: AnalyticsConsent) {
   setAnalyticsConsent(choice);
@@ -166,11 +215,15 @@ function usePublishBannerOffset(panelRef: React.RefObject<HTMLElement>) {
  * Shows the consent prompt until the visitor has made a choice. Renders
  * nothing on the server and before hydration, so a saved choice never
  * flashes the prompt, and stays in sync with choices made elsewhere in the
- * tab (the privacy page settings) through the consent change event.
+ * tab (the privacy page settings) through the consent change event. While
+ * no choice is saved it also waits for the visitor's first scroll, tap, or
+ * keypress (or the fallback delay) so the first thing they meet is the page,
+ * not a cookie decision.
  */
 export default function AnalyticsConsentBanner() {
   const [hydrated, setHydrated] = useState(false);
   const [choice, setChoice] = useState<AnalyticsConsent | null>(null);
+  const [engaged, setEngaged] = useState(false);
   const panelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -184,7 +237,12 @@ export default function AnalyticsConsentBanner() {
     return () => window.removeEventListener(ANALYTICS_CONSENT_EVENT, syncChoice);
   }, []);
 
-  if (!hydrated || choice !== null) return null;
+  useEffect(() => {
+    if (!hydrated || choice !== null || engaged) return;
+    return subscribeToEngagement(window, () => setEngaged(true));
+  }, [hydrated, choice, engaged]);
+
+  if (!hydrated || !engaged || choice !== null) return null;
 
   const choose = (nextChoice: AnalyticsConsent) => {
     setChoice(nextChoice);

@@ -208,7 +208,7 @@ export default function SavePlanModal({
               <>
                 {" "}
                 and save{" "}
-                <strong style={{ color: "#059669" }}>
+                <strong style={{ color: "#15803d" }}>
                   ${interestSaved.toLocaleString()}
                 </strong>{" "}
                 in interest
@@ -322,7 +322,7 @@ export default function SavePlanModal({
             style={{
               textAlign: "center",
               fontSize: "11px",
-              color: "#94a3b8",
+              color: "#64748b",
               marginTop: "12px",
             }}
           >
@@ -344,7 +344,7 @@ export default function SavePlanModal({
               border: "none",
               padding: 0,
               fontSize: "12px",
-              color: "#94a3b8",
+              color: "#64748b",
               textDecoration: "underline",
               cursor: "pointer",
             }}

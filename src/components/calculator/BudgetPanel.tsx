@@ -97,7 +97,7 @@ export default function BudgetPanel({
           )}
         </div>
         <div>
-          <label className="text-xs mb-2 block" style={{ color: '#64748b' }}>
+          <label htmlFor="budget-extra" className="text-xs mb-2 block" style={{ color: '#64748b' }}>
             Extra Monthly Payment Toward Debt
           </label>
 
@@ -112,15 +112,15 @@ export default function BudgetPanel({
               </div>
               <div className="flex justify-between" style={{ color: '#64748b' }}>
                 <span>− Essentials</span>
-                <span style={{ color: '#f87171' }}>−{formatCurrency(essentialNum)}</span>
+                <span style={{ color: '#b91c1c' }}>−{formatCurrency(essentialNum)}</span>
               </div>
               <div className="flex justify-between" style={{ color: '#64748b' }}>
                 <span>− Minimum payments</span>
-                <span style={{ color: '#f87171' }}>−{formatCurrency(totalMinPayments)}</span>
+                <span style={{ color: '#b91c1c' }}>−{formatCurrency(totalMinPayments)}</span>
               </div>
               <div
                 className="flex justify-between font-semibold pt-1"
-                style={{ borderTop: '1px solid rgba(15,23,42,0.08)', color: availableForDebt > 0 ? '#34d399' : '#f87171' }}
+                style={{ borderTop: '1px solid rgba(15,23,42,0.08)', color: availableForDebt > 0 ? '#15803d' : '#b91c1c' }}
               >
                 <span>Available for extra</span>
                 <span>{formatCurrency(availableForDebt)}</span>
@@ -132,12 +132,14 @@ export default function BudgetPanel({
               handle covers the number on touch screens. */}
           <div
             className="text-right text-sm font-semibold mb-1"
-            style={{ color: extraNum > 0 ? '#2563eb' : '#94a3b8' }}
+            style={{ color: extraNum > 0 ? '#2563eb' : '#64748b' }}
           >
             {formatCurrency(extraNum)} / mo extra
           </div>
           <input
             type="range"
+            id="budget-extra"
+            aria-valuetext={`${formatCurrency(extraNum)} per month`}
             min={0}
             max={availableForDebt || 1}
             step={10}
@@ -147,7 +149,7 @@ export default function BudgetPanel({
             className="w-full"
             style={{ accentColor: '#2563eb', cursor: availableForDebt > 0 ? 'pointer' : 'not-allowed' }}
           />
-          <div className="flex justify-between text-xs mt-1" style={{ color: '#94a3b8' }}>
+          <div className="flex justify-between text-xs mt-1" style={{ color: '#64748b' }}>
             <span>$0</span>
             <span>{formatCurrency(availableForDebt)}</span>
           </div>
