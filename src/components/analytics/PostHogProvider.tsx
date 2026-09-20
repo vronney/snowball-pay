@@ -11,7 +11,12 @@ import {
   type AnalyticsConsent,
 } from '@/lib/analyticsConsent';
 
-export default function PostHogProvider({ children }: { children: React.ReactNode }) {
+/**
+ * Pageview + consent tracker. Renders nothing and provides no context, so it
+ * must be mounted as a sibling of the page tree — never as its ancestor (see
+ * app/providers.tsx for why).
+ */
+export default function PostHogProvider() {
   const pathname     = usePathname();
   const searchParams = useSearchParams();
   // undefined = consent not yet read from storage; null = visitor made no choice
@@ -46,5 +51,5 @@ export default function PostHogProvider({ children }: { children: React.ReactNod
     });
   }, [consent, pathname, searchParams]);
 
-  return <>{children}</>;
+  return null;
 }
