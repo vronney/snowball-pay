@@ -78,12 +78,17 @@ const queryClient: QueryClient = new QueryClient({
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Suspense required because PostHogProvider uses useSearchParams */}
+      {/*
+        PostHogProvider calls useSearchParams(), which on statically prerendered
+        routes suspends and defers everything inside the nearest <Suspense> to
+        client-side rendering. Keep that boundary around the tracker alone:
+        wrapping {children} in it shipped empty server HTML for every static
+        public page (/calculator, /privacy, /terms, …).
+      */}
       <Suspense fallback={null}>
-        <PostHogProvider>
-          {children}
-        </PostHogProvider>
+        <PostHogProvider />
       </Suspense>
+      {children}
       <AnalyticsConsentBanner />
     </QueryClientProvider>
   );
